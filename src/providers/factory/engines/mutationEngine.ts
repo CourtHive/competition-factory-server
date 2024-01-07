@@ -5,7 +5,7 @@ globalState.setStateProvider(asyncGlobalState);
 const engineAsync = asyncEngine(true);
 
 const methods = {
-  ...governors.competitionsGovernor,
+  ...governors.competitionGovernor,
   ...governors.participantGovernor,
   ...governors.generationGovernor,
   ...governors.publishingGovernor,
