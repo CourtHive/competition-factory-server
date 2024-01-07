@@ -2,7 +2,7 @@ import { governors, askEngine } from 'tods-competition-factory';
 
 const methods = {
   ...governors.reportGovernor,
-  ...governors.queryGovernor,
+  ...governors.queryGovernor
 };
 
 askEngine.importMethods(methods);
