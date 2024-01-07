@@ -15,7 +15,7 @@ const methods = {
   ...governors.reportGovernor,
   ...governors.eventGovernor,
   ...governors.scoreGovernor,
-  ...governors.venueGovernor,
+  ...governors.venueGovernor
 };
 
 engineAsync.importMethods(methods);

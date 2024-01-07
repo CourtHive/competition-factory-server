@@ -10,7 +10,7 @@ describe('AppService', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [AppModule]
     }).compile();
 
     app = moduleRef.createNestApplication();
@@ -22,9 +22,7 @@ describe('AppService', () => {
   });
 
   it('/GET /factory/version', async () => {
-    return await request(app.getHttpServer())
-      .get('/factory/version')
-      .expect(200);
+    return await request(app.getHttpServer()).get('/factory/version').expect(200);
   });
 
   it('/POST executionQueue no auth', async () => {
@@ -58,12 +56,12 @@ describe('AppService', () => {
             params: {
               startDate: '2024-01-01',
               endDate: '2024-01-02',
-              tournamentId: TEST,
+              tournamentId: TEST
             },
-            method: 'setTournamentDates',
-          },
+            method: 'setTournamentDates'
+          }
         ],
-        tournamentId: TEST,
+        tournamentId: TEST
       })
       .expect(200);
 
@@ -73,7 +71,7 @@ describe('AppService', () => {
       .send({
         params: { tournamentId: TEST },
         method: 'getTournamentInfo',
-        tournamentId: TEST,
+        tournamentId: TEST
       })
       .expect(200);
   });
