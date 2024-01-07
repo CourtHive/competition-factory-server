@@ -1,13 +1,6 @@
 import { plainToClass } from '@nestjs/class-transformer';
 import { Environment } from '../common/constants/app';
-import {
-  IsDefined,
-  IsString,
-  IsNumber,
-  validateSync,
-  MinLength,
-  IsEnum,
-} from '@nestjs/class-validator';
+import { IsDefined, IsString, IsNumber, validateSync, MinLength, IsEnum } from '@nestjs/class-validator';
 
 class EnvironmentVariables {
   @IsDefined()
@@ -32,7 +25,7 @@ class EnvironmentVariables {
 
 export function validateConfig(configuration: Record<string, unknown>) {
   const finalConfig = plainToClass(EnvironmentVariables, configuration, {
-    enableImplicitConversion: true,
+    enableImplicitConversion: true
   });
 
   const errors = validateSync(finalConfig, { skipMissingProperties: false });
