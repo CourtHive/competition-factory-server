@@ -1,12 +1,11 @@
+import { TournamentRecords } from 'tods-competition-factory';
 import { SUCCESS, UTF8 } from '../../common/constants/app';
 
 import * as fs from 'fs-extra';
 
 export async function saveTournamentRecords({
   tournamentRecords,
-}: {
-  [key: string]: any;
-}) {
+}: TournamentRecords) {
   fs.ensureDirSync(`./src/data/fileSystem/storage`);
 
   // TODO: ensure valid tournamentRecords
