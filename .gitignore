@@ -20,6 +20,9 @@ storage/
 coverage/
 storage/
 
+# eslint
+.eslintcache
+
 # General
 .DS_Store
 .AppleDouble
