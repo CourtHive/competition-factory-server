@@ -20,7 +20,14 @@ describe('executionQueue', () => {
     // THIRD: execute a directive on the tournamentRecord
     result = await executionQueue({
       executionQueue: [
-        { method: 'getTournamentInfo', params: { tournamentId: TEST } },
+        {
+          params: {
+            startDate: '2024-01-01',
+            endDate: '2024-01-02',
+            tournamentId: TEST,
+          },
+          method: 'setTournamentDates',
+        },
       ],
       tournamentIds: [TEST, 'test2'],
     });
@@ -29,7 +36,7 @@ describe('executionQueue', () => {
     // FOURTH: attempt to execute a directive on a tournamentRecord that does not exist
     result = await executionQueue({
       executionQueue: [
-        { method: 'getTournamentInfo', params: { tournamentId: TEST } },
+        { method: 'setTournamentDates', params: { tournamentId: TEST } },
       ],
       tournamentIds: ['doesNotExist'],
     });
