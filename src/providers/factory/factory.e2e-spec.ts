@@ -49,11 +49,30 @@ describe('AppService', () => {
       .send({ tournamentAttributes: { tournamentId: TEST } })
       .expect(200);
 
-    return await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/factory')
       .set('Authorization', 'Bearer ' + token)
       .send({
-        executionQueue: [{ method: 'getTournamentInfo', params: {} }],
+        executionQueue: [
+          {
+            params: {
+              startDate: '2024-01-01',
+              endDate: '2024-01-02',
+              tournamentId: TEST,
+            },
+            method: 'setTournamentDates',
+          },
+        ],
+        tournamentId: TEST,
+      })
+      .expect(200);
+
+    return await request(app.getHttpServer())
+      .post('/factory/query')
+      .set('Authorization', 'Bearer ' + token)
+      .send({
+        params: { tournamentId: TEST },
+        method: 'getTournamentInfo',
         tournamentId: TEST,
       })
       .expect(200);

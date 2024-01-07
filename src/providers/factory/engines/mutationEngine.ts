@@ -14,12 +14,11 @@ const methods = {
   ...governors.policyGovernor,
   ...governors.reportGovernor,
   ...governors.eventGovernor,
-  ...governors.queryGovernor,
   ...governors.scoreGovernor,
   ...governors.venueGovernor,
 };
 
 engineAsync.importMethods(methods);
 
-export const competitionEngine = engineAsync;
+export const mutationEngine = engineAsync;
 export default engineAsync;

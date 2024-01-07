@@ -1,4 +1,6 @@
 import { RemoveTournamentRecordsDto } from './dto/removeTournamentRecords.dto';
+import { QueryTournamentRecordsDto } from './dto/queryTournamentRecords.dto';
+import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
 import { ExecutionQueueDto } from './dto/executionQueue.dto';
 
 import { Public } from '../../auth/decorators/public.decorator';
@@ -39,11 +41,11 @@ export class FactoryController {
     return this.factoryService.executionQueue(eqd);
   }
 
-  @Post('remove')
+  @Post('fetch')
   @Roles(['client'])
   @HttpCode(HttpStatus.OK)
-  removeTournamentRecords(@Body() rtd: RemoveTournamentRecordsDto) {
-    return this.factoryService.removeTournamentRecords(rtd);
+  fetchTournamentRecords(@Body() gtd: any) {
+    return this.factoryService.fetchTournamentRecords(gtd);
   }
 
   @Post('generate')
@@ -51,5 +53,26 @@ export class FactoryController {
   @HttpCode(HttpStatus.OK)
   generateTournamentRecord(@Body() gtd: any) {
     return this.factoryService.generateTournamentRecord(gtd);
+  }
+
+  @Post('query')
+  @Roles(['client'])
+  @HttpCode(HttpStatus.OK)
+  queryTournamentRecords(@Body() qtd: QueryTournamentRecordsDto) {
+    return this.factoryService.queryTournamentRecords(qtd);
+  }
+
+  @Post('remove')
+  @Roles(['client'])
+  @HttpCode(HttpStatus.OK)
+  removeTournamentRecords(@Body() rtd: RemoveTournamentRecordsDto) {
+    return this.factoryService.removeTournamentRecords(rtd);
+  }
+
+  @Post('save')
+  @Roles(['client'])
+  @HttpCode(HttpStatus.OK)
+  saveTournamentRecords(@Body() std: SaveTournamentRecordsDto) {
+    return this.factoryService.saveTournamentRecords(std);
   }
 }

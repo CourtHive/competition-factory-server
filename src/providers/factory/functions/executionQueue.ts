@@ -1,9 +1,9 @@
-import { competitionEngine } from './competitionEngine';
 import { recordStorage } from '../../../data/fileSystem';
+import { mutationEngine } from '../engines/mutationEngine';
 import { Logger } from '@nestjs/common';
 
 export async function executionQueue(payload: any) {
-  const { executionQueue = [] } = payload ?? {}; // TODO: types
+  const { executionQueue = [] } = payload ?? {};
   const tournamentIds =
     payload?.tournamentIds ||
     (payload?.tournamentId && [payload.tournamentId]) ||
@@ -17,12 +17,12 @@ export async function executionQueue(payload: any) {
   const tournamentRecords = await recordStorage.fetchTournamentRecords(
     tournamentIds,
   );
-  competitionEngine.setState(tournamentRecords);
-  const mutationResult = await competitionEngine.executionQueue(executionQueue);
+  mutationEngine.setState(tournamentRecords);
+  const mutationResult = await mutationEngine.executionQueue(executionQueue);
 
-  if (!mutationResult.success) {
+  if (mutationResult.success) {
     const mutatedTournamentRecords: any[] =
-      competitionEngine.getState().tournamentRecords;
+      mutationEngine.getState().tournamentRecords;
     const updateResult = await recordStorage.saveTournamentRecords({
       tournamentRecords: mutatedTournamentRecords,
     });
