@@ -1,14 +1,6 @@
 import { executionAsyncId, createHook } from 'async_hooks';
-/*
-import {
-  GetNoticesArgs,
-  HandleCaughtErrorArgs,
-  ImplemtationGlobalStateTypes,
-  Notice,
-} from '../../global/state/globalState';
-*/
+import { factoryConstants } from 'tods-competition-factory';
 
-const MISSING_TOURNAMENT_RECORD = 'Missing Tournament Record';
 const INVALID_VALUES = 'Invalid values';
 const SUCCESS = { success: true };
 const NOT_FOUND = 'Not found';
@@ -38,7 +30,6 @@ asyncHook.enable();
 
 function createInstanceState() {
   const asyncId = executionAsyncId();
-  // const instanceState: ImplemtationGlobalStateTypes = {
   const instanceState: any = {
     disableNotifications: false,
     tournamentId: undefined,
@@ -127,7 +118,7 @@ export function setTournamentId(tournamentId) {
     instanceState.tournamentId = tournamentId;
     return { ...SUCCESS };
   } else {
-    return { error: MISSING_TOURNAMENT_RECORD };
+    return { error: factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD };
   }
 }
 
@@ -185,16 +176,15 @@ function cycleMutationStatus() {
   return status;
 }
 
-// function addNotice({ topic, payload, key }: Notice) {
 function addNotice({ topic, payload, key }: any) {
   const instanceState = getInstanceState();
 
   if (typeof topic !== 'string' || typeof payload !== 'object') {
-    return;
+    return undefined;
   }
 
   if (!instanceState.disableNotifications) instanceState.modified = true;
-  if (instanceState.disableNotifications || !instanceState.subscriptions[topic]) return;
+  if (instanceState.disableNotifications || !instanceState.subscriptions[topic]) return undefined;
 
   if (key) {
     instanceState.notices = instanceState.notices.filter((notice) => !(notice.topic === topic && notice.key === key));
@@ -212,7 +202,6 @@ function getMethods() {
   return instanceState.methods ?? {};
 }
 
-// function getNotices({ topic }: GetNoticesArgs) {
 function getNotices({ topic }: any) {
   const instanceState = getInstanceState();
 
@@ -246,7 +235,6 @@ async function callListener({ topic, notices }) {
   }
 }
 
-// export function handleCaughtError({ engineName, methodName, params, err }: HandleCaughtErrorArgs) {
 export function handleCaughtError({ engineName, methodName, params, err }: any) {
   let error;
   if (typeof err === 'string') {
