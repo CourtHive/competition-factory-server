@@ -1,6 +1,8 @@
-import { recordStorage } from '../../../data/fileSystem';
 import { mutationEngine } from '../engines/mutationEngine';
+import { recordStorage } from '../../../data/fileSystem';
 import { Logger } from '@nestjs/common';
+
+import { TournamentRecords } from '../../../../../types/factoryTypes';
 
 export async function executionQueue(payload: any) {
   const { executionQueue = [] } = payload ?? {};
@@ -11,14 +13,16 @@ export async function executionQueue(payload: any) {
     return { error: 'No tournamentIds provided' };
   }
 
-  const tournamentRecords = await recordStorage.fetchTournamentRecords(tournamentIds);
-  mutationEngine.setState(tournamentRecords);
+  const result = await recordStorage.fetchTournamentRecords({ tournamentIds });
+  if (result.error) return result;
+
+  mutationEngine.setState(result.tournamentRecords);
   const mutationResult = await mutationEngine.executionQueue(executionQueue);
 
   if (mutationResult.success) {
-    const mutatedTournamentRecords: any[] = mutationEngine.getState().tournamentRecords;
+    const mutatedTournamentRecords: TournamentRecords = mutationEngine.getState().tournamentRecords;
     const updateResult = await recordStorage.saveTournamentRecords({
-      tournamentRecords: mutatedTournamentRecords
+      tournamentRecords: mutatedTournamentRecords,
     });
     if (!updateResult.success) {
       return { error: 'Coult not persist tournament record(s)' };
