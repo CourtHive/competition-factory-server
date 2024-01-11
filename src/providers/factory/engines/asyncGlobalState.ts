@@ -1,14 +1,6 @@
 import { executionAsyncId, createHook } from 'async_hooks';
-/*
-import {
-  GetNoticesArgs,
-  HandleCaughtErrorArgs,
-  ImplemtationGlobalStateTypes,
-  Notice,
-} from '../../../../../global/state/globalState';
-*/
+import { factoryConstants } from 'tods-competition-factory';
 
-const MISSING_TOURNAMENT_RECORD = 'Missing Tournament Record';
 const INVALID_VALUES = 'Invalid values';
 const SUCCESS = { success: true };
 const NOT_FOUND = 'Not found';
@@ -126,7 +118,7 @@ export function setTournamentId(tournamentId) {
     instanceState.tournamentId = tournamentId;
     return { ...SUCCESS };
   } else {
-    return { error: MISSING_TOURNAMENT_RECORD };
+    return { error: factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD };
   }
 }
 
@@ -188,11 +180,11 @@ function addNotice({ topic, payload, key }: any) {
   const instanceState = getInstanceState();
 
   if (typeof topic !== 'string' || typeof payload !== 'object') {
-    return;
+    return undefined;
   }
 
   if (!instanceState.disableNotifications) instanceState.modified = true;
-  if (instanceState.disableNotifications || !instanceState.subscriptions[topic]) return;
+  if (instanceState.disableNotifications || !instanceState.subscriptions[topic]) return undefined;
 
   if (key) {
     instanceState.notices = instanceState.notices.filter((notice) => !(notice.topic === topic && notice.key === key));
