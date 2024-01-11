@@ -1,8 +1,8 @@
 {
-  "name": "nest-typescript-starter",
+  "name": "competition-factory-server",
   "private": true,
   "version": "1.0.0",
-  "description": "Nest TypeScript starter repository",
+  "description": "Server side factory mutations",
   "license": "MIT",
   "scripts": {
     "build": "nest -p tsconfig.build.json build",
