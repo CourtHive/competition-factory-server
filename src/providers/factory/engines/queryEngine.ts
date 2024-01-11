@@ -1,11 +1,12 @@
-import { governors, askEngine } from 'tods-competition-factory';
+import { governors } from '../../../../../assemblies/governors';
+import { askEngine } from '../../../../..';
 
 const methods = {
   ...governors.reportGovernor,
-  ...governors.queryGovernor
+  ...governors.queryGovernor,
 };
 
 askEngine.importMethods(methods);
 
 export const queryEngine = askEngine;
-export default askEngine;
+export default queryEngine;
