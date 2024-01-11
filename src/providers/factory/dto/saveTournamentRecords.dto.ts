@@ -1,6 +1,9 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SaveTournamentRecordsDto {
-  @ApiProperty()
-  tournamentRecords: { [key: string]: any };
+  @ApiPropertyOptional()
+  tournamentRecords?: any;
+
+  @ApiPropertyOptional()
+  tournamentRecord?: any;
 }

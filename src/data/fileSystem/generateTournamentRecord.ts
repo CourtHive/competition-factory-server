@@ -10,10 +10,9 @@ export function generateTournamentRecord(mockProfile?: any) {
     throw new Error(mockResult?.error || 'Could not generate tournament record');
   }
 
-  const { tournamentRecord } = mockResult;
-  saveTournamentRecords({
-    tournamentRecords: { [tournamentRecord.tournamentId]: tournamentRecord }
-  });
+  const tournamentRecord: any = mockResult.tournamentRecord;
+  const tournamentRecords: any = { [tournamentRecord.tournamentId]: tournamentRecord };
+  saveTournamentRecords({ tournamentRecords });
 
   return { tournamentRecord, ...SUCCESS };
 }
