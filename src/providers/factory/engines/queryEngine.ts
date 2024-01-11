@@ -1,5 +1,4 @@
-import { governors } from '../../../../../assemblies/governors';
-import { askEngine } from '../../../../..';
+import { governors, askEngine } from 'tods-competition-factory';
 
 const methods = {
   ...governors.reportGovernor,

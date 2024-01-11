@@ -3,9 +3,9 @@ import { AppModule } from '../../app.module';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
+import { mocksEngine, factoryConstants } from 'tods-competition-factory';
 import { TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
-import { SINGLES } from '../../../../constants/eventConstants';
-import { mocksEngine } from '../../../..';
+const { SINGLES } = factoryConstants.eventConstants;
 
 describe('AppService', () => {
   let app: INestApplication;

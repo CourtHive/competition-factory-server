@@ -1,5 +1,4 @@
-import { governors } from '../../../../../assemblies/governors';
-import { asyncEngine, globalState } from '../../../../..';
+import { governors, asyncEngine, globalState } from 'tods-competition-factory';
 import asyncGlobalState from './asyncGlobalState';
 
 globalState.setStateProvider(asyncGlobalState);
