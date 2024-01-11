@@ -1,8 +1,6 @@
 import { saveTournamentRecords } from './saveTournamentRecords';
-import { governors } from '../../../../assemblies/governors';
+import { governors } from 'tods-competition-factory';
 
-import { TournamentRecords } from '../../../../types/factoryTypes';
-import { Tournament } from '../../../../types/tournamentTypes';
 import { SUCCESS } from '../../common/constants/app';
 
 export function generateTournamentRecord(mockProfile?: any) {
@@ -12,8 +10,8 @@ export function generateTournamentRecord(mockProfile?: any) {
     throw new Error(mockResult?.error || 'Could not generate tournament record');
   }
 
-  const tournamentRecord: Tournament = mockResult.tournamentRecord;
-  const tournamentRecords: TournamentRecords = { [tournamentRecord.tournamentId]: tournamentRecord };
+  const tournamentRecord: any = mockResult.tournamentRecord;
+  const tournamentRecords: any = { [tournamentRecord.tournamentId]: tournamentRecord };
   saveTournamentRecords({ tournamentRecords });
 
   return { tournamentRecord, ...SUCCESS };

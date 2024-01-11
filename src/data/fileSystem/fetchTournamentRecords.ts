@@ -1,6 +1,6 @@
 import { findTournamentRecord } from './findTournamentRecord';
 
-import { factoryConstants } from '../../../../constants/';
+import { factoryConstants } from 'tods-competition-factory';
 import { SUCCESS } from '../../common/constants/app';
 
 export async function fetchTournamentRecords(params?: { tournamentIds?: string[]; tournamentId?: string }) {

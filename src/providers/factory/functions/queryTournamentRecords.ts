@@ -10,7 +10,7 @@ export async function queryTournamentRecords(payload) {
     return { error: 'No tournamentIds provided' };
   }
 
-  const result = await recordStorage.fetchTournamentRecords({ tournamentIds });
+  const result: any = await recordStorage.fetchTournamentRecords({ tournamentIds });
   if (result.error) return result;
   queryEngine.setState(result.tournamentRecords);
 
