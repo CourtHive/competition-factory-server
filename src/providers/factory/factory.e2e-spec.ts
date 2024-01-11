@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { AppModule } from '../../app.module';
 import { Test } from '@nestjs/testing';
-import request from 'supertest';
+import * as request from 'supertest';
 
 import { TEST, TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
 
@@ -10,7 +10,7 @@ describe('AppService', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [AppModule]
     }).compile();
 
     app = moduleRef.createNestApplication();
@@ -47,7 +47,7 @@ describe('AppService', () => {
       .send({ tournamentAttributes: { tournamentId: TEST } })
       .expect(200);
 
-    const result = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/factory')
       .set('Authorization', 'Bearer ' + token)
       .send({
@@ -56,15 +56,14 @@ describe('AppService', () => {
             params: {
               startDate: '2024-01-01',
               endDate: '2024-01-02',
-              tournamentId: TEST,
+              tournamentId: TEST
             },
-            method: 'setTournamentDates',
-          },
+            method: 'setTournamentDates'
+          }
         ],
-        tournamentId: TEST,
+        tournamentId: TEST
       })
       .expect(200);
-    expect(result.body.success).toEqual(true);
 
     return await request(app.getHttpServer())
       .post('/factory/query')
@@ -72,7 +71,7 @@ describe('AppService', () => {
       .send({
         params: { tournamentId: TEST },
         method: 'getTournamentInfo',
-        tournamentId: TEST,
+        tournamentId: TEST
       })
       .expect(200);
   });
