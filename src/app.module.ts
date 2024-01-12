@@ -7,8 +7,18 @@ import { AuthModule } from './auth/auth.module';
 import { AppService } from './app.service';
 import { Module } from '@nestjs/common';
 
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+
 @Module({
-  imports: [ConfigsModule, AuthModule, UsersModule],
+  imports: [
+    ConfigsModule,
+    AuthModule,
+    UsersModule,
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'client'),
+    }),
+  ],
   controllers: [AppController, FactoryController],
   providers: [AppService, FactoryService],
 })
