@@ -3,7 +3,7 @@ import { getMatchStats } from './getMatchStats';
 import fs from 'fs-extra';
 
 export function saveMatchPoints({ matchUp }) {
-  const destination = '/matchups';
+  const destination = '/tracker';
   const cacheDir = process.env.TRACKER_CACHE;
   fs.ensureDirSync(cacheDir + destination);
 
