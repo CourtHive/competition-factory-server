@@ -12,11 +12,11 @@ type User = {
 export class UsersService {
   private readonly users = [
     {
-      userId: 1,
-      email: TEST_EMAIL,
+      roles: ['admin', 'client'],
       password: TEST_PASSWORD,
-      roles: ['admin', 'client']
-    }
+      email: TEST_EMAIL,
+      userId: 1,
+    },
   ];
 
   async findOne(email: string): Promise<User | undefined> {
