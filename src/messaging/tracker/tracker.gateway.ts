@@ -65,6 +65,7 @@ export class TrackerGateway {
   }
 
   @SubscribeMessage('test')
+  // not @Public() so requires auth
   async test(@MessageBody() data: any): Promise<any> {
     console.log({ data });
     return data;
