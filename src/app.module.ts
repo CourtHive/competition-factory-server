@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { AppService } from './app.service';
 import { Module } from '@nestjs/common';
 
+import { TrackerModule } from './messaging/tracker/tracker.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 
@@ -14,6 +15,7 @@ import { join } from 'path';
   imports: [
     ConfigsModule,
     AuthModule,
+    TrackerModule,
     UsersModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'client'),
