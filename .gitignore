@@ -8,6 +8,7 @@ storage/
 
 client/
 scratch/
+cache/
 
 # IDE - VSCode
 .vscode/*
