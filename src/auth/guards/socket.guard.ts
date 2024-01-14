@@ -20,10 +20,11 @@ export class SocketGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
-    const socket: Socket = context.switchToWs().getClient();
-    const token = this.extractTokenFromContext(context);
+    const client: Socket = context.switchToWs().getClient();
+    const token = this.extractTokenFromClient(client);
+
     if (!token) {
-      socket.emit('exception', { message: 'Not logged in or token expired' });
+      client.emit('exception', { message: 'Not logged in or token expired' });
       return false;
     }
 
@@ -37,13 +38,13 @@ export class SocketGuard implements CanActivate {
         return hasRole ? resolve(true) : reject(false);
       });
     } catch (exception) {
-      socket.emit('exception', { message: exception });
+      client.emit('exception', { message: exception });
       return false;
     }
   }
 
-  private extractTokenFromContext(context: any): string | undefined {
-    const [type, token] = context.args[0].handshake.headers.authorization?.split(' ') ?? '';
+  private extractTokenFromClient(client: Socket): string | undefined {
+    const [type, token] = client.handshake.headers.authorization?.split(' ') ?? '';
     return type === 'Bearer' ? token : undefined;
   }
 }
