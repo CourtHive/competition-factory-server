@@ -35,6 +35,7 @@ export class SocketGuard implements CanActivate {
       return new Promise((resolve, reject) => {
         const roles = this.reflector.get(Roles, context.getHandler());
         const hasRole = !roles || user.roles?.some((role) => !!roles.find((item) => item === role));
+        context.switchToHttp().getRequest().user = user;
         return hasRole ? resolve(true) : reject(false);
       });
     } catch (exception) {
