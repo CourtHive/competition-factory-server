@@ -1,6 +1,7 @@
 import { Public } from '../../auth/decorators/public.decorator';
+import { Roles } from 'src/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/auth/guards/socket.guard';
-import { ConfigService } from '@nestjs/config';
+// import { ConfigService } from '@nestjs/config';
 import { UseGuards } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { from, Observable } from 'rxjs';
@@ -15,7 +16,6 @@ import {
   WsResponse,
   ConnectedSocket,
 } from '@nestjs/websockets';
-import { Roles } from 'src/auth/decorators/roles.decorator';
 
 @UseGuards(SocketGuard)
 @WebSocketGateway({
@@ -23,11 +23,7 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
   namespace: 'mobile',
 })
 export class TrackerGateway {
-  constructor(
-    private readonly configService: ConfigService,
-    // private usersService: UsersService,
-    // private authService: AuthService,
-  ) {}
+  constructor() {} // private readonly configService: ConfigService,
 
   private readonly logger = new Logger(TrackerGateway.name);
 
@@ -47,8 +43,8 @@ export class TrackerGateway {
   @SubscribeMessage('events')
   @Public()
   findAll(@MessageBody() data: any): Observable<WsResponse<number>> {
-    const tracker = this.configService.get('tracker');
-    console.log({ tracker });
+    // const tracker = this.configService.get('tracker');
+    // console.log({ tracker });
     return from([1, 2, 3]).pipe(map((iteration) => ({ event: 'events', data, iteration })));
   }
 
