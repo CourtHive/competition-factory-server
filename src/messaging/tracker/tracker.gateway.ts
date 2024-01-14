@@ -4,8 +4,9 @@ import { ConfigService } from '@nestjs/config';
 import { UseGuards } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { from, Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Logger } from '@nestjs/common';
 import { messages } from './messages';
+import { map } from 'rxjs/operators';
 import {
   MessageBody,
   SubscribeMessage,
@@ -14,6 +15,7 @@ import {
   WsResponse,
   ConnectedSocket,
 } from '@nestjs/websockets';
+import { Roles } from 'src/auth/decorators/roles.decorator';
 
 @UseGuards(SocketGuard)
 @WebSocketGateway({
@@ -27,15 +29,20 @@ export class TrackerGateway {
     // private authService: AuthService,
   ) {}
 
+  private readonly logger = new Logger(TrackerGateway.name);
+
   @WebSocketServer()
   server?: Server;
 
+  /*
+  // EXAMPLE usage
   async handleConnection(client: Socket) {
-    console.log({ connectionHeaders: client.handshake.headers });
+    console.log({ auth: !!client.handshake.headers?.authorization });
     // const payload = this.usersService.verify(client.handshake.headers.authorization);
     // const user = await this.usersService.findOne(payload.userId);
     // !user && client.disconnect();
   }
+  */
 
   @SubscribeMessage('events')
   @Public()
@@ -59,15 +66,16 @@ export class TrackerGateway {
     if (messages[type]) {
       return messages[type]({ client, payload });
     } else {
-      console.log({ notFound: type }, data);
+      this.logger.debug(`Not found: ${type}`);
     }
     return { notFound: type };
   }
 
   @SubscribeMessage('test')
+  @Roles(['client'])
   // not @Public() so requires auth
   async test(@MessageBody() data: any): Promise<any> {
-    console.log({ data });
-    return data;
+    this.logger.debug(`test route successful`);
+    return { event: 'ack', data }; // emit to client
   }
 }
