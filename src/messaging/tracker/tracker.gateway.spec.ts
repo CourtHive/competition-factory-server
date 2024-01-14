@@ -1,13 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TrackerGateway } from './tracker.gateway';
+import { ConfigService } from '@nestjs/config';
 import { reduce } from 'rxjs/operators';
+import { JwtService } from '@nestjs/jwt';
 
-describe('EventsGateway', () => {
+describe('TrackerGateway', () => {
   let gateway: TrackerGateway;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [TrackerGateway],
+      providers: [TrackerGateway, ConfigService, JwtService],
     }).compile();
 
     gateway = module.get<TrackerGateway>(TrackerGateway);
