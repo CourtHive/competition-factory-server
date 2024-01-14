@@ -6,6 +6,10 @@ storage/
 *.un~
 .*.un~
 
+client/
+scratch/
+cache/
+
 # IDE - VSCode
 .vscode/*
 !.vscode/settings.json
