@@ -8,7 +8,7 @@
     "build": "nest -p tsconfig.build.json build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "NODE_ENV=production nest start",
-    "start:dev": "NODE_ENV=development nest start --watch",
+    "watch": "NODE_ENV=development nest start --watch",
     "start:debug": "NODE_ENV=test nest start --debug --watch",
     "start:prod": "NODE_ENV=production node dist/main",
     "lint:staged": "TZ=UTC lint-staged",
@@ -39,7 +39,8 @@
     "reflect-metadata": "0.2.1",
     "rxjs": "7.8.1",
     "socket.io": "4.7.4",
-    "tods-competition-factory": "2.0.8"
+    "tods-competition-factory": "2.0.8",
+    "tods-tmx-classic-converter": "^2.14.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.1",
