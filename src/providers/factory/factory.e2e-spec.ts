@@ -5,7 +5,7 @@ import request from 'supertest';
 
 import { TEST, TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
 
-describe('AppService', () => {
+describe('FactoryService', () => {
   let app: INestApplication;
 
   beforeAll(async () => {

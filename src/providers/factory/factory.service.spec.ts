@@ -21,4 +21,8 @@ describe('AppService', () => {
       expect(factoryController.getVersion().version).toBeDefined();
     });
   });
+
+  afterAll(async () => {
+    await app.close();
+  });
 });
