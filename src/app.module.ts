@@ -1,5 +1,5 @@
-import { FactoryController } from './providers/factory/factory.controller';
-import { FactoryService } from './providers/factory/factory.service';
+import { ConversionModule } from './providers/conversion/conversion.module';
+import { FactoryModule } from './providers/factory/factory.module';
 import { UsersModule } from './providers/users/users.module';
 import { ConfigsModule } from './config/config.module';
 import { AppController } from './app.controller';
@@ -16,12 +16,14 @@ import { join } from 'path';
     ConfigsModule,
     AuthModule,
     TrackerModule,
+    FactoryModule,
+    ConversionModule,
     UsersModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'client'),
     }),
   ],
-  controllers: [AppController, FactoryController],
-  providers: [AppService, FactoryService],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
