@@ -1,4 +1,6 @@
 import { TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
+import { ADMIN, CLIENT, DEVELOPER } from 'src/common/constants/roles';
+import { DEV_MODE } from 'src/common/constants/permissions';
 import { Injectable } from '@nestjs/common';
 
 type User = {
@@ -12,7 +14,8 @@ type User = {
 export class UsersService {
   private readonly users = [
     {
-      roles: ['admin', 'client'],
+      roles: [ADMIN, DEVELOPER, CLIENT],
+      permissions: [DEV_MODE],
       password: TEST_PASSWORD,
       email: TEST_EMAIL,
       userId: 1,
