@@ -7,13 +7,18 @@ import { UseGuards } from '@nestjs/common';
 import { Logger } from '@nestjs/common';
 import { messages } from './messages';
 
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import { Inject, Injectable } from '@nestjs/common';
+
+@Injectable()
 @UseGuards(SocketGuard) // SocketGuard handles authentication as well as roles
 @WebSocketGateway({
   cors: { origin: '*' },
   namespace: 'tmx',
 })
 export class TmxGateway {
-  constructor() {} // private readonly configService: ConfigService,
+  // constructor() {} // private readonly configService: ConfigService,
+  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
 
   private readonly logger = new Logger(TmxGateway.name);
 
@@ -50,6 +55,16 @@ export class TmxGateway {
   @SubscribeMessage('test')
   @Public()
   async test(@MessageBody() data: any): Promise<any> {
+    if (data?.payload?.cache) {
+      const cachedData = await this.cacheManager.get(data.payload.cache);
+      if (!cachedData) {
+        console.log({ cachedData: 'not found' });
+        await this.cacheManager.set(data.payload.cache, data.payload, 600);
+      } else {
+        console.log({ cachedData });
+      }
+    }
+
     this.logger.debug(`test route successful`);
     return { event: 'ack', data }; // emit to client
   }
