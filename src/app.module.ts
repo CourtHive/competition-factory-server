@@ -11,6 +11,7 @@ import { AppService } from './app.service';
 import { Module } from '@nestjs/common';
 
 import { join } from 'path';
+import { CacheModule } from './providers/cache/cache.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { join } from 'path';
     FactoryModule,
     ConversionModule,
     UsersModule,
+    CacheModule,
     ServeStaticModule.forRoot({ rootPath: join(__dirname, '..', 'client') }),
   ],
   controllers: [AppController],

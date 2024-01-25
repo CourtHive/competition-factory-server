@@ -8,7 +8,9 @@ storage/
 
 client/
 scratch/
-cache/
+
+# only ignore the cache at the root level
+/cache/ 
 
 # IDE - VSCode
 .vscode/*
