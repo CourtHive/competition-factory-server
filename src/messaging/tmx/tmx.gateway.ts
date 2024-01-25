@@ -59,7 +59,7 @@ export class TmxGateway {
       const cachedData = await this.cacheManager.get(data.payload.cache);
       if (!cachedData) {
         console.log({ cachedData: 'not found' });
-        await this.cacheManager.set(data.payload.cache, data.payload, 600);
+        await this.cacheManager.set(data.payload.cache, data.payload, data.payload.ttl);
       } else {
         console.log({ cachedData });
       }

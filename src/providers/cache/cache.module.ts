@@ -1,29 +1,31 @@
-import { CacheModule as CacheModule_ } from '@nestjs/cache-manager';
-import { redisStore } from 'cache-manager-redis-store';
+import { CacheModule as CacheModule_, CacheModuleOptions } from '@nestjs/cache-manager';
+import { ConfigsModule } from 'src/config/config.module';
+import { redisStore } from 'cache-manager-redis-yet';
+import type { RedisClientOptions } from 'redis';
 import { Module, Global } from '@nestjs/common';
-// import { CacheService } from './cache.service';
 import { ConfigService } from '@nestjs/config';
+
+export const configCacheFactory = (config: ConfigService): CacheModuleOptions<RedisClientOptions> => {
+  const redisConfig = config.get('redis');
+  const url = redisConfig?.url || 'redis://127.0.0.1:6379';
+  const ttl = redisConfig?.ttl;
+
+  return {
+    store: () => redisStore({ ttl, url }),
+    isGlobal: true,
+    max: 10_000,
+  };
+};
 
 @Global()
 @Module({
   imports: [
     CacheModule_.registerAsync({
-      isGlobal: true,
+      useFactory: configCacheFactory,
+      imports: [ConfigsModule],
       inject: [ConfigService],
-      useFactory: async (config: ConfigService) => ({
-        isGlobal: true,
-        max: 10_000,
-        store: (): any =>
-          redisStore({
-            socket: {
-              host: config.getOrThrow('redis').host || 'localhost',
-              port: config.getOrThrow('redis').port || 6379,
-            },
-          }),
-      }),
+      isGlobal: true,
     }),
   ],
-  // exports: [CacheService],
-  // providers: [CacheService],
 })
 export class CacheModule {}
