@@ -48,10 +48,12 @@ $ pnpm run start:prod
 
 ```bash
 # unit tests
-$ pnpm run test
+$ pnpm test controller
+$ pnpm test factory
+$ pnpm test service
 
 # e2e tests
-$ pnpm run test:e2e
+$ pnpm test e2e
 
 # test coverage
 $ pnpm run test:cov
