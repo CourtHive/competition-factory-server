@@ -43,8 +43,8 @@
     "reflect-metadata": "0.2.1",
     "rxjs": "7.8.1",
     "socket.io": "4.7.4",
-    "tods-competition-factory": "2.0.20",
-    "tods-tmx-classic-converter": "^2.14.0"
+    "tods-competition-factory": "2.0.21",
+    "tods-tmx-classic-converter": "^2.14.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.1",
