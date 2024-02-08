@@ -1,14 +1,11 @@
 import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer, ConnectedSocket } from '@nestjs/websockets';
+import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
 import { Public } from '../../auth/decorators/public.decorator';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/auth/guards/socket.guard';
 import { Server, Socket } from 'socket.io';
-import { UseGuards } from '@nestjs/common';
-import { Logger } from '@nestjs/common';
 import { messages } from './messages';
-
-import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { Inject, Injectable } from '@nestjs/common';
 
 @Injectable()
 @UseGuards(SocketGuard) // SocketGuard handles authentication as well as roles
