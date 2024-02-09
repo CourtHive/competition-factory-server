@@ -15,7 +15,7 @@ export async function executionQueue(payload: any, cacheManager?: any) {
   const result: any = await recordStorage.fetchTournamentRecords({ tournamentIds });
   if (result.error) return result;
 
-  const mutationEngine = getMutationEngine();
+  const mutationEngine = getMutationEngine(cacheManager);
   mutationEngine.setState(result.tournamentRecords);
   const mutationResult = await mutationEngine.executionQueue(executionQueue);
 
