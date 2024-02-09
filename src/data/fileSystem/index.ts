@@ -4,7 +4,7 @@ import { fetchTournamentRecords } from './fetchTournamentRecords';
 import { saveTournamentRecords } from './saveTournamentRecords';
 import { findTournamentRecord } from './findTournamentRecord';
 
-export const recordStorage = {
+export const fileStorage = {
   generateTournamentRecord,
   removeTournamentRecords,
   fetchTournamentRecords,
@@ -12,4 +12,4 @@ export const recordStorage = {
   findTournamentRecord,
 };
 
-export default recordStorage;
+export default fileStorage;
