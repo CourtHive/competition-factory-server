@@ -3,6 +3,7 @@
 node_modules/
 scratch/
 storage/
+data/
 *.un~
 .*.un~
 
