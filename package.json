@@ -20,9 +20,12 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/jest/bin/jest --runInBand",
     "test:e2e": "jest --config ./jest-e2e.json",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "hive-db": "net-level-server"
   },
   "dependencies": {
+    "@gridspace/net-level": "^0.1.10",
+    "@gridspace/net-level-client": "^0.1.10",
     "@nestjs/cache-manager": "^2.2.0",
     "@nestjs/class-transformer": "0.4.0",
     "@nestjs/class-validator": "0.13.4",
