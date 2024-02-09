@@ -1,5 +1,5 @@
 import { queryEngine } from 'src/providers/factory/engines/queryEngine';
-import recordStorage from 'src/data/fileSystem';
+import levelStorage from 'src/data/netLevel';
 import { Logger } from '@nestjs/common';
 
 export async function queryTournamentRecords(payload) {
@@ -10,7 +10,7 @@ export async function queryTournamentRecords(payload) {
     return { error: 'No tournamentIds provided' };
   }
 
-  const result: any = await recordStorage.fetchTournamentRecords({ tournamentIds });
+  const result: any = await levelStorage.fetchTournamentRecords({ tournamentIds });
   if (result.error) return result;
   queryEngine.setState(result.tournamentRecords);
 
