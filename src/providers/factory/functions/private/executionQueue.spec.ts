@@ -1,7 +1,7 @@
-import { generateTournamentRecord } from '../../../data/fileSystem/generateTournamentRecord';
-import { removeTournamentRecords } from '../../../data/fileSystem/removeTournamentRecords';
+import { generateTournamentRecord } from '../../../../data/fileSystem/generateTournamentRecord';
+import { removeTournamentRecords } from '../../../../data/fileSystem/removeTournamentRecords';
 import { factoryConstants } from 'tods-competition-factory';
-import { TEST } from '../../../common/constants/test';
+import { TEST } from '../../../../common/constants/test';
 import { executionQueue } from './executionQueue';
 
 describe('executionQueue', () => {

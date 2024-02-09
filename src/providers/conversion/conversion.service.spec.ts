@@ -1,8 +1,8 @@
 import { ConversionController } from './conversion.controller';
+import { UsersModule } from 'src/providers/users/users.module';
 import { ConversionService } from './conversion.service';
 import { Test, TestingModule } from '@nestjs/testing';
-import { UsersModule } from '../users/users.module';
-import { AuthModule } from '../../auth/auth.module';
+import { AuthModule } from 'src/auth/auth.module';
 
 describe('AppService', () => {
   let app: TestingModule;
