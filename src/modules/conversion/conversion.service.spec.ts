@@ -1,5 +1,5 @@
 import { ConversionController } from './conversion.controller';
-import { UsersModule } from 'src/providers/users/users.module';
+import { UsersModule } from 'src/modules/users/users.module';
 import { ConversionService } from './conversion.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthModule } from 'src/auth/auth.module';

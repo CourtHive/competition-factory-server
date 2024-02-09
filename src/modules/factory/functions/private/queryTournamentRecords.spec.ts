@@ -1,5 +1,5 @@
-import { generateTournamentRecord } from '../../../../data/fileSystem/generateTournamentRecord';
-import { removeTournamentRecords } from '../../../../data/fileSystem/removeTournamentRecords';
+import { generateTournamentRecord } from '../../../../services/fileSystem/generateTournamentRecord';
+import { removeTournamentRecords } from '../../../../services/fileSystem/removeTournamentRecords';
 import { queryTournamentRecords } from './queryTournamentRecords';
 import { TEST } from '../../../../common/constants/test';
 

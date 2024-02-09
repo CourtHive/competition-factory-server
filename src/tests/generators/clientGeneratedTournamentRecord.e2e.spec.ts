@@ -5,6 +5,7 @@ import request from 'supertest';
 
 import { mocksEngine, factoryConstants } from 'tods-competition-factory';
 import { TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
+
 const { SINGLES } = factoryConstants.eventConstants;
 
 describe('AppService', () => {
