@@ -2,9 +2,10 @@ import { getMutationEngine } from '../../engines/mutationEngine';
 import { recordStorage } from '../../../../data/fileSystem';
 import { Logger } from '@nestjs/common';
 
-export async function executionQueue(payload: any) {
+export async function executionQueue(payload: any, cacheManager?: any) {
   const { executionQueue = [] } = payload ?? {};
   const tournamentIds = payload?.tournamentIds || (payload?.tournamentId && [payload.tournamentId]) || [];
+  !!cacheManager;
 
   if (!tournamentIds.length) {
     Logger.error('No tournamentRecord provided');

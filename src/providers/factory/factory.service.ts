@@ -1,6 +1,8 @@
 import { queryTournamentRecords } from './functions/private/queryTournamentRecords';
 import { executionQueue as eq } from './functions/private/executionQueue';
+import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
 import { checkEngineError } from '../../common/errors/engineError';
+import { getMatchUps } from './functions/private/getMatchUps';
 import { recordStorage } from '../../data/fileSystem';
 import { askEngine } from 'tods-competition-factory';
 import publicQueries from './functions/public';
@@ -17,6 +19,14 @@ export class FactoryService {
     const result = await eq(params);
     checkEngineError(result);
     return result;
+  }
+
+  async setMatchUpStatus(params, cacheManager) {
+    return await setMatchUpStatus(params, cacheManager);
+  }
+
+  async getMatchUps(params) {
+    return await getMatchUps(params);
   }
 
   async fetchTournamentRecords(params) {

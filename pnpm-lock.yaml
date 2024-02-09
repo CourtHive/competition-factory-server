@@ -41,6 +41,9 @@ dependencies:
   '@nestjs/websockets':
     specifier: 10.3.2
     version: 10.3.2(@nestjs/common@10.3.2)(@nestjs/core@10.3.2)(@nestjs/platform-socket.io@10.3.2)(reflect-metadata@0.2.1)(rxjs@7.8.1)
+  bcryptjs:
+    specifier: ^2.4.3
+    version: 2.4.3
   body-parser:
     specifier: 1.20.2
     version: 1.20.2
@@ -2280,6 +2283,10 @@ packages:
   /base64id@2.0.0:
     resolution: {integrity: sha512-lGe34o6EHj9y3Kts9R4ZYs/Gr+6N7MCaMlIFA3F1R2O5/m7K06AxfSeO5530PEERE6/WyEg3lsuyw4GHlPZHog==}
     engines: {node: ^4.5.0 || >= 5.9}
+
+  /bcryptjs@2.4.3:
+    resolution: {integrity: sha512-V/Hy/X9Vt7f3BbPJEi8BdVFMByHi+jNXrYkW3huaybV/kQ0KJg0Y6PkEMbn+zeT+i+SiKZ/HMqJGIIt4LZDqNQ==}
+    dev: false
 
   /bin-check@4.1.0:
     resolution: {integrity: sha512-b6weQyEUKsDGFlACWSIOfveEnImkJyK/FGW6FAG42loyoquvjdtOIqO6yBFzHyqyVVhNgNkQxxx09SFLK28YnA==}
