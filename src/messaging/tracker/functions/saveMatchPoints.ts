@@ -23,7 +23,7 @@ export function saveMatchPoints({ matchUp }) {
   });
 
   const stats = getMatchStats({ source: matchUp });
-  if (stats && stats.length) {
+  if (stats?.length) {
     const statsFileName = `${cacheDir}${destination}${providerDestination}/${matchUpId}.stats.json`;
     fs.writeFile(statsFileName, JSON.stringify(stats, null, 2), UTF8, function (err) {
       if (!err) {
