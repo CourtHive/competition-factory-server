@@ -3,8 +3,10 @@ import { FetchTournamentRecordsDto } from './dto/fetchTournamentRecords.dto';
 import { QueryTournamentRecordsDto } from './dto/queryTournamentRecords.dto';
 import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
 import { GetTournamentInfoDto } from './dto/getTournamentInfo.dto';
+import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
 import { ExecutionQueueDto } from './dto/executionQueue.dto';
 import { GetEventDataDto } from './dto/getEventData.dto';
+import { GetMatchUpsDto } from './dto/getMatchUps.dto';
 
 import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param } from '@nestjs/common';
 import { Public } from 'src/auth/decorators/public.decorator';
@@ -60,6 +62,20 @@ export class FactoryController {
   @Post('eventdata')
   eventData(@Body() ged: GetEventDataDto) {
     return this.factoryService.getEventData(ged);
+  }
+
+  @Post('matchups')
+  @Roles(['score'])
+  async getMatchUps(@Body() gmr: GetMatchUpsDto) {
+    const key = `gmr|${gmr.tournamentId}`;
+    return await this.cachFx(key, this.factoryService.getMatchUps, gmr);
+  }
+
+  @Post('score')
+  @Roles(['score'])
+  @HttpCode(HttpStatus.OK)
+  async scoreMatchUp(@Body() sms: SetMatchUpStatusDto) {
+    return await this.factoryService.setMatchUpStatus(sms, this.cacheManager);
   }
 
   @Post()
