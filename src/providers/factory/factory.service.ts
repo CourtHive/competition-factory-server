@@ -5,7 +5,7 @@ import { checkEngineError } from '../../common/errors/engineError';
 import { getMatchUps } from './functions/private/getMatchUps';
 import { askEngine } from 'tods-competition-factory';
 import publicQueries from './functions/public';
-import levelStorage from 'src/data/levelDB';
+import levelStorage from 'src/services/levelDB';
 import { Injectable } from '@nestjs/common';
 
 @Injectable()

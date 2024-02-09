@@ -1,5 +1,5 @@
-import { generateTournamentRecord } from '../../../../data/fileSystem/generateTournamentRecord';
-import { removeTournamentRecords } from '../../../../data/fileSystem/removeTournamentRecords';
+import { generateTournamentRecord } from '../../../../services/fileSystem/generateTournamentRecord';
+import { removeTournamentRecords } from '../../../../services/fileSystem/removeTournamentRecords';
 import { factoryConstants } from 'tods-competition-factory';
 import { TEST } from '../../../../common/constants/test';
 import { executionQueue } from './executionQueue';
