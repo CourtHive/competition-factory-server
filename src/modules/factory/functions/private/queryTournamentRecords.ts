@@ -1,4 +1,4 @@
-import { queryEngine } from 'src/providers/factory/engines/queryEngine';
+import { queryEngine } from 'src/modules/factory/engines/queryEngine';
 import levelStorage from 'src/services/levelDB';
 import { Logger } from '@nestjs/common';
 

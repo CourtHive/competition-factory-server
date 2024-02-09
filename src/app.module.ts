@@ -1,8 +1,8 @@
-import { ConversionModule } from './providers/conversion/conversion.module';
-import { FactoryModule } from './providers/factory/factory.module';
+import { ConversionModule } from './modules/conversion/conversion.module';
+import { FactoryModule } from './modules/factory/factory.module';
 import { MessagingModule } from './messaging/messaging.module';
-import { CacheModule } from './providers/cache/cache.module';
-import { UsersModule } from './providers/users/users.module';
+import { CacheModule } from './modules/cache/cache.module';
+import { UsersModule } from './modules/users/users.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ConfigsModule } from './config/config.module';
 import { AuthModule } from './auth/auth.module';
