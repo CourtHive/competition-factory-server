@@ -1,4 +1,4 @@
-import { UsersModule } from './providers/users/users.module';
+import { UsersModule } from './modules/users/users.module';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
@@ -11,7 +11,7 @@ describe('AppService', () => {
     app = await Test.createTestingModule({
       imports: [AuthModule, UsersModule],
       controllers: [AppController],
-      providers: [AppService]
+      providers: [AppService],
     }).compile();
   });
 
@@ -19,7 +19,7 @@ describe('AppService', () => {
     it('should return "Factory server"', () => {
       const appController = app.get(AppController);
       expect(appController.factoryService()).toStrictEqual({
-        message: 'Factory server'
+        message: 'Factory server',
       });
     });
   });

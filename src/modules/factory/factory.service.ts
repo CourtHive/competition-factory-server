@@ -3,9 +3,9 @@ import { executionQueue as eq } from './functions/private/executionQueue';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
 import { checkEngineError } from '../../common/errors/engineError';
 import { getMatchUps } from './functions/private/getMatchUps';
-import { recordStorage } from '../../data/fileSystem';
 import { askEngine } from 'tods-competition-factory';
 import publicQueries from './functions/public';
+import levelStorage from 'src/services/levelDB';
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
@@ -30,11 +30,11 @@ export class FactoryService {
   }
 
   async fetchTournamentRecords(params) {
-    return await recordStorage.fetchTournamentRecords(params);
+    return await levelStorage.fetchTournamentRecords(params);
   }
 
   async generateTournamentRecord(params) {
-    return recordStorage.generateTournamentRecord(params);
+    return levelStorage.generateTournamentRecord(params);
   }
 
   async queryTournamentRecords(params) {
@@ -42,11 +42,11 @@ export class FactoryService {
   }
 
   async removeTournamentRecords(params) {
-    return await recordStorage.removeTournamentRecords(params);
+    return await levelStorage.removeTournamentRecords(params);
   }
 
   async saveTournamentRecords(params) {
-    return await recordStorage.saveTournamentRecords(params);
+    return await levelStorage.saveTournamentRecords(params);
   }
 
   async getTournamentInfo({ tournamentId }: { tournamentId: string }) {
