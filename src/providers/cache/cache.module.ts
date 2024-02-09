@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 export const configCacheFactory = (config: ConfigService): CacheModuleOptions<RedisClientOptions> => {
   const redisConfig = config.get('redis');
   const url = redisConfig?.url || 'redis://127.0.0.1:6379';
-  const ttl = redisConfig?.ttl;
+  const ttl = redisConfig?.ttl || 60 * 60 * 24 * 7;
 
   return {
     store: () => redisStore({ ttl, url }),
