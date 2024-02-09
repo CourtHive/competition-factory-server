@@ -1,8 +1,9 @@
-import { queryTournamentRecords } from './functions/queryTournamentRecords';
+import { queryTournamentRecords } from './functions/private/queryTournamentRecords';
+import { executionQueue as eq } from './functions/private/executionQueue';
 import { checkEngineError } from '../../common/errors/engineError';
-import { executionQueue as eq } from './functions/executionQueue';
 import { recordStorage } from '../../data/fileSystem';
 import { askEngine } from 'tods-competition-factory';
+import publicQueries from './functions/public';
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
@@ -36,5 +37,13 @@ export class FactoryService {
 
   async saveTournamentRecords(params) {
     return await recordStorage.saveTournamentRecords(params);
+  }
+
+  async getTournamentInfo({ tournamentId }: { tournamentId: string }) {
+    return await publicQueries.getTournamentInfo({ tournamentId });
+  }
+
+  async getEventData({ tournamentId, eventId }: { tournamentId: string; eventId: string }) {
+    return await publicQueries.getEventData({ tournamentId, eventId });
   }
 }

@@ -1,7 +1,7 @@
-import { generateTournamentRecord } from '../../../data/fileSystem/generateTournamentRecord';
-import { removeTournamentRecords } from '../../../data/fileSystem/removeTournamentRecords';
+import { generateTournamentRecord } from '../../../../data/fileSystem/generateTournamentRecord';
+import { removeTournamentRecords } from '../../../../data/fileSystem/removeTournamentRecords';
 import { queryTournamentRecords } from './queryTournamentRecords';
-import { TEST } from '../../../common/constants/test';
+import { TEST } from '../../../../common/constants/test';
 
 describe('queryTournamentRecords', () => {
   it('can query a tournamentRecord', async () => {
