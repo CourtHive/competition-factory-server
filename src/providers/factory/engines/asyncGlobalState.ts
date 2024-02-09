@@ -1,5 +1,5 @@
-import { executionAsyncId, createHook } from 'async_hooks';
 import { factoryConstants } from 'tods-competition-factory';
+import { executionAsyncId, createHook } from 'async_hooks';
 
 const INVALID_VALUES = 'Invalid values';
 const SUCCESS = { success: true };
@@ -148,18 +148,19 @@ export function removeTournamentRecord(tournamentId) {
   return { ...SUCCESS };
 }
 
-function setSubscriptions({ subscriptions = {} } = {}) {
+function setSubscriptions(params) {
+  if (typeof params?.subscriptions !== 'object') return { error: INVALID_VALUES };
+
   const instanceState = getInstanceState();
 
-  if (typeof subscriptions !== 'object') return { error: INVALID_VALUES };
-
-  Object.keys(subscriptions).forEach((subscription) => {
-    instanceState.subscriptions[subscription] = subscriptions[subscription];
+  Object.keys(params.subscriptions).forEach((subscription) => {
+    instanceState.subscriptions[subscription] = params.subscriptions[subscription];
   });
   return { ...SUCCESS };
 }
 
 function setMethods(params) {
+  if (typeof params !== 'object') return { error: INVALID_VALUES };
   const instanceState = getInstanceState();
 
   Object.keys(params).forEach((methodName) => {
@@ -176,15 +177,12 @@ function cycleMutationStatus() {
   return status;
 }
 
-function addNotice({ topic, payload, key }: any) {
+function addNotice({ topic, payload, key }, isGlobalSubscription?: boolean) {
+  if (typeof topic !== 'string' || typeof payload !== 'object') return;
   const instanceState = getInstanceState();
-
-  if (typeof topic !== 'string' || typeof payload !== 'object') {
-    return undefined;
-  }
-
+  // if there is a notice then the state has been modified, regardless of whether there is a subscription
   if (!instanceState.disableNotifications) instanceState.modified = true;
-  if (instanceState.disableNotifications || !instanceState.subscriptions[topic]) return undefined;
+  if (instanceState.disableNotifications || (!instanceState.subscriptions[topic] && !isGlobalSubscription)) return;
 
   if (key) {
     instanceState.notices = instanceState.notices.filter((notice) => !(notice.topic === topic && notice.key === key));
@@ -202,11 +200,9 @@ function getMethods() {
   return instanceState.methods ?? {};
 }
 
-function getNotices({ topic }: any) {
+function getNotices({ topic }) {
   const instanceState = getInstanceState();
-
-  const notices = instanceState.notices.filter((notice) => notice.topic === topic).map((notice) => notice.payload);
-  return notices?.length && notices;
+  return instanceState.notices.filter((notice) => notice.topic === topic).map((notice) => notice.payload);
 }
 
 function deleteNotices() {
@@ -227,12 +223,12 @@ function getTopics() {
   return { topics };
 }
 
-async function callListener({ topic, notices }) {
+async function callListener({ topic, notices }, globalSubscriptions?: any) {
   const instanceState = getInstanceState();
   const method = instanceState.subscriptions[topic];
-  if (method && typeof method === 'function') {
-    await method(notices);
-  }
+  if (method && typeof method === 'function') await method(notices);
+  const globalMethod = globalSubscriptions?.[topic];
+  if (globalMethod && typeof globalMethod === 'function') await globalMethod(notices);
 }
 
 export function handleCaughtError({ engineName, methodName, params, err }: any) {
