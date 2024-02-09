@@ -3,7 +3,7 @@ import { recordStorage } from '../../../../data/fileSystem';
 import { Logger } from '@nestjs/common';
 
 export async function executionQueue(payload: any, cacheManager?: any) {
-  const { executionQueue = [] } = payload ?? {};
+  const { methods = [] } = payload ?? {};
   const tournamentIds = payload?.tournamentIds || (payload?.tournamentId && [payload.tournamentId]) || [];
   !!cacheManager;
 
@@ -17,7 +17,7 @@ export async function executionQueue(payload: any, cacheManager?: any) {
 
   const mutationEngine = getMutationEngine(cacheManager);
   mutationEngine.setState(result.tournamentRecords);
-  const mutationResult = await mutationEngine.executionQueue(executionQueue);
+  const mutationResult = await mutationEngine.executionQueue(methods);
 
   if (mutationResult.success) {
     const mutatedTournamentRecords: any = mutationEngine.getState().tournamentRecords;

@@ -8,5 +8,5 @@ export class ExecutionQueueDto {
   tournamentId?: string;
 
   @ApiProperty()
-  executionQueue: any[] = [];
+  methods: any[] = [];
 }

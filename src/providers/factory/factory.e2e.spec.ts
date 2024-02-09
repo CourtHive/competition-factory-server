@@ -51,7 +51,7 @@ describe('FactoryService', () => {
       .post('/factory')
       .set('Authorization', 'Bearer ' + token)
       .send({
-        executionQueue: [
+        methods: [
           {
             params: {
               startDate: '2024-01-01',

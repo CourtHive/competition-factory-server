@@ -19,7 +19,7 @@ describe('executionQueue', () => {
 
     // THIRD: execute a directive on the tournamentRecord
     result = await executionQueue({
-      executionQueue: [
+      methods: [
         {
           params: {
             startDate: '2024-01-01',
@@ -35,7 +35,7 @@ describe('executionQueue', () => {
 
     // FOURTH: attempt to execute a directive on a tournamentRecord that does not exist
     result = await executionQueue({
-      executionQueue: [{ method: 'setTournamentDates', params: { tournamentId: TEST } }],
+      methods: [{ method: 'setTournamentDates', params: { tournamentId: TEST } }],
       tournamentIds: ['doesNotExist'],
     });
     expect(result.error).toEqual(factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD);
