@@ -67,7 +67,7 @@ dependencies:
     version: 4.7.4
   tods-competition-factory:
     specifier: 2.0.21
-    version: link:../factory
+    version: 2.0.21
   tods-tmx-classic-converter:
     specifier: ^2.14.1
     version: 2.14.1
