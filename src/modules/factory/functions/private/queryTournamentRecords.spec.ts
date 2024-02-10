@@ -2,6 +2,7 @@ import { generateTournamentRecord } from '../../../../services/fileSystem/genera
 import { removeTournamentRecords } from '../../../../services/fileSystem/removeTournamentRecords';
 import { queryTournamentRecords } from './queryTournamentRecords';
 import { TEST } from '../../../../common/constants/test';
+import levelStorage from 'src/services/levelDB';
 
 describe('queryTournamentRecords', () => {
   it('can query a tournamentRecord', async () => {
@@ -17,11 +18,14 @@ describe('queryTournamentRecords', () => {
     expect(result.success).toEqual(true);
 
     // THIRD: execute a directive on the tournamentRecord
-    result = await queryTournamentRecords({
-      params: { tournamentId: TEST },
-      method: 'getTournamentInfo',
-      tournamentId: TEST,
-    });
+    result = await queryTournamentRecords(
+      {
+        params: { tournamentId: TEST },
+        method: 'getTournamentInfo',
+        tournamentId: TEST,
+      },
+      { storage: levelStorage },
+    );
     expect(result.success).toEqual(true);
   });
 });
