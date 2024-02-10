@@ -6,23 +6,17 @@ import FormData from 'form-data';
 @Injectable()
 export class MailgunService {
   constructor(private readonly config: ConfigService) {}
-  // mailgun secret key
-  // private MAILGUN_KEY = this.config.get<string>('MAILGUN_KEY');
-  // private MAILGUN_DOMAIN = this.config.get<string>('MAILGUN_DOMAIN');
-  private MAILGUN_KEY = 'MAILGUN_KEY';
-  private MAILGUN_DOMAIN = 'MAILGUN_DOMAIN';
+  private domain = this.config.get('mail')?.domain || process.env.MAILGUN_DOMAIN;
+  private key = this.config.get('mail')?.key || process.env.MAILGUN_API_KEY;
+
   private client = new Mailgun(FormData).client({
-    key: this.MAILGUN_KEY,
     username: 'api',
+    key: this.key,
   });
-  /**
-   * Send via API
-   *
-   * @param data
-   */
+
   async sendMail(data) {
     this.client.messages
-      .create(this.MAILGUN_DOMAIN, data)
+      .create(this.domain, data)
       .then((res) => {
         console.log(res);
       })

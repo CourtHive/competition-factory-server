@@ -24,9 +24,9 @@
     "hive-db": "net-level-server"
   },
   "dependencies": {
-    "@gridspace/net-level": "^0.1.10",
-    "@gridspace/net-level-client": "^0.1.10",
-    "@nestjs/cache-manager": "^2.2.0",
+    "@gridspace/net-level": "0.1.10",
+    "@gridspace/net-level-client": "0.1.10",
+    "@nestjs/cache-manager": "2.2.0",
     "@nestjs/class-transformer": "0.4.0",
     "@nestjs/class-validator": "0.13.4",
     "@nestjs/common": "10.3.2",
@@ -38,20 +38,21 @@
     "@nestjs/serve-static": "4.0.1",
     "@nestjs/swagger": "7.3.0",
     "@nestjs/websockets": "10.3.2",
-    "bcryptjs": "^2.4.3",
+    "@next/env": "14.1.0",
+    "bcryptjs": "2.4.3",
     "body-parser": "1.20.2",
-    "cache-manager": "^5.4.0",
-    "cache-manager-redis-yet": "^4.1.2",
+    "cache-manager": "5.4.0",
+    "cache-manager-redis-yet": "4.1.2",
     "ejs": "^3.1.9",
-    "form-data": "^4.0.0",
+    "form-data": "4.0.0",
     "fs-extra": "11.2.0",
-    "mailgun.js": "^10.1.0",
-    "redis": "^4.6.12",
+    "mailgun.js": "10.1.0",
+    "redis": "4.6.12",
     "reflect-metadata": "0.2.1",
     "rxjs": "7.8.1",
     "socket.io": "4.7.4",
     "tods-competition-factory": "2.0.23",
-    "tods-tmx-classic-converter": "^2.14.1"
+    "tods-tmx-classic-converter": "2.14.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.1",
@@ -107,6 +108,9 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "setupFiles": [
+      "<rootDir>/src/tests/setupTests.ts"
+    ]
   }
 }
