@@ -6,5 +6,14 @@ module.exports = {
       name: 'Factory Server',
       watch: ['dist'],
     },
+    {
+      name: 'hive-db',
+      script: 'npx',
+      args: 'net-level-server',
+      watch: false,
+      env: {
+        NODE_ENV: 'production',
+      },
+    },
   ],
 };

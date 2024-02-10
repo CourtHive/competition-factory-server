@@ -1,7 +1,7 @@
 import { executionQueue } from './executionQueue';
 
-export async function setMatchUpStatus(payload: any, cacheManager: any) {
+export async function setMatchUpStatus(payload: any, services: any) {
   const { params = {} } = payload ?? {};
   const methods = [{ method: 'setMatchUpStatus', params }];
-  return await executionQueue({ methods }, cacheManager);
+  return await executionQueue({ methods, services });
 }

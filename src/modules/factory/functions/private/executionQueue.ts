@@ -1,27 +1,25 @@
 import { getMutationEngine } from '../../engines/mutationEngine';
-import levelStorage from 'src/services/levelDB';
 import { Logger } from '@nestjs/common';
 
-export async function executionQueue(payload: any, cacheManager?: any) {
+export async function executionQueue(payload: any, services?: any) {
   const { methods = [] } = payload ?? {};
   const tournamentIds = payload?.tournamentIds || (payload?.tournamentId && [payload.tournamentId]) || [];
-  !!cacheManager;
 
   if (!tournamentIds.length) {
     Logger.error('No tournamentRecord provided');
     return { error: 'No tournamentIds provided' };
   }
 
-  const result: any = await levelStorage.fetchTournamentRecords({ tournamentIds });
+  const result: any = await services.storage.fetchTournamentRecords({ tournamentIds });
   if (result.error) return result;
 
-  const mutationEngine = getMutationEngine(cacheManager);
+  const mutationEngine = getMutationEngine(services?.cacheManager);
   mutationEngine.setState(result.tournamentRecords);
   const mutationResult = await mutationEngine.executionQueue(methods);
 
   if (mutationResult.success) {
     const mutatedTournamentRecords: any = mutationEngine.getState().tournamentRecords;
-    const updateResult = await levelStorage.saveTournamentRecords({
+    const updateResult = await services.storage.saveTournamentRecords({
       tournamentRecords: mutatedTournamentRecords,
     });
     if (!updateResult.success) {
