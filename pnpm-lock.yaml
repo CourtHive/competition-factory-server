@@ -6,13 +6,13 @@ settings:
 
 dependencies:
   '@gridspace/net-level':
-    specifier: ^0.1.10
+    specifier: 0.1.10
     version: 0.1.10
   '@gridspace/net-level-client':
-    specifier: ^0.1.10
+    specifier: 0.1.10
     version: 0.1.10
   '@nestjs/cache-manager':
-    specifier: ^2.2.0
+    specifier: 2.2.0
     version: 2.2.0(@nestjs/common@10.3.2)(@nestjs/core@10.3.2)(cache-manager@5.4.0)(reflect-metadata@0.2.1)(rxjs@7.8.1)
   '@nestjs/class-transformer':
     specifier: 0.4.0
@@ -47,32 +47,35 @@ dependencies:
   '@nestjs/websockets':
     specifier: 10.3.2
     version: 10.3.2(@nestjs/common@10.3.2)(@nestjs/core@10.3.2)(@nestjs/platform-socket.io@10.3.2)(reflect-metadata@0.2.1)(rxjs@7.8.1)
+  '@next/env':
+    specifier: 14.1.0
+    version: 14.1.0
   bcryptjs:
-    specifier: ^2.4.3
+    specifier: 2.4.3
     version: 2.4.3
   body-parser:
     specifier: 1.20.2
     version: 1.20.2
   cache-manager:
-    specifier: ^5.4.0
+    specifier: 5.4.0
     version: 5.4.0
   cache-manager-redis-yet:
-    specifier: ^4.1.2
+    specifier: 4.1.2
     version: 4.1.2
   ejs:
     specifier: ^3.1.9
     version: 3.1.9
   form-data:
-    specifier: ^4.0.0
+    specifier: 4.0.0
     version: 4.0.0
   fs-extra:
     specifier: 11.2.0
     version: 11.2.0
   mailgun.js:
-    specifier: ^10.1.0
+    specifier: 10.1.0
     version: 10.1.0
   redis:
-    specifier: ^4.6.12
+    specifier: 4.6.12
     version: 4.6.12
   reflect-metadata:
     specifier: 0.2.1
@@ -87,7 +90,7 @@ dependencies:
     specifier: 2.0.23
     version: 2.0.23
   tods-tmx-classic-converter:
-    specifier: ^2.14.1
+    specifier: 2.14.1
     version: 2.14.1
 
 devDependencies:
@@ -1277,6 +1280,10 @@ packages:
       reflect-metadata: 0.2.1
       rxjs: 7.8.1
       tslib: 2.6.2
+
+  /@next/env@14.1.0:
+    resolution: {integrity: sha512-Py8zIo+02ht82brwwhTg36iogzFqGLPXlRGKQw5s+qP/kMNc4MAyDeEwBKDijk6zTIbegEgu8Qy7C1LboslQAw==}
+    dev: false
 
   /@nodelib/fs.scandir@2.1.5:
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}

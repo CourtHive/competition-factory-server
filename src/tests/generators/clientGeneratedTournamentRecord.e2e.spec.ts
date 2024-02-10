@@ -1,9 +1,9 @@
+import { mocksEngine, factoryConstants } from 'tods-competition-factory';
 import { INestApplication } from '@nestjs/common';
 import { AppModule } from '../../app.module';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
-import { mocksEngine, factoryConstants } from 'tods-competition-factory';
 import { TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
 
 const { SINGLES } = factoryConstants.eventConstants;
