@@ -18,4 +18,9 @@ export class AuthController {
   getProfile(@Request() req) {
     return req.user;
   }
+
+  @Get('invite')
+  generateAuthToken(@Request() req) {
+    return req.user;
+  }
 }
