@@ -12,5 +12,6 @@ export enum ConfigKey {
 }
 
 export const SUCCESS = { success: true };
+export const TEMPLATES = './templates';
 export const STORAGE = './storage';
 export const UTF8 = 'utf8';
