@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersModule } from '../users/users.module';
 import { AuthModule } from '../../auth/auth.module';
 import { FactoryService } from './factory.service';
+import { ConfigService } from '@nestjs/config';
 
 describe('AppController', () => {
   let factoryController: FactoryController;
@@ -12,7 +13,7 @@ describe('AppController', () => {
     const app: TestingModule = await Test.createTestingModule({
       imports: [AuthModule, UsersModule],
       controllers: [FactoryController],
-      providers: [FactoryService, { provide: CACHE_MANAGER, useValue: {} }],
+      providers: [FactoryService, ConfigService, { provide: CACHE_MANAGER, useValue: {} }],
     }).compile();
 
     factoryController = app.get<FactoryController>(FactoryController);
