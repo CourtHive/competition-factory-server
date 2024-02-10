@@ -1,8 +1,7 @@
 import { queryGovernor } from 'tods-competition-factory';
-import levelStorage from 'src/services/levelDB';
 
-export async function getTournamentInfo({ tournamentId }) {
-  const findResult = await levelStorage.findTournamentRecord({ tournamentId });
+export async function getTournamentInfo({ tournamentId }, services?: any) {
+  const findResult = await services.storage.findTournamentRecord({ tournamentId });
   if (findResult.error) return findResult;
   const infoResult = queryGovernor.getTournamentInfo({ tournamentRecord: findResult.tournamentRecord });
   if (infoResult.error) return infoResult;

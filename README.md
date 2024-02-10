@@ -21,27 +21,57 @@ $ pnpm install
 
 ## .env file
 
-Create an `.env` file in the root directory
+Create an `.env` file in the root directory.
 
 ```txt
+APP_STORAGE='fileSystem' # 'levelDB' or 'fileSystem'
 APP_NAME='Competition Factory Server'
 APP_PORT=8383
 
 JWT_SECRET='Replace this string with a truly random string'
 JWT_VALIDITY=2h
+
+TRACKER_CACHE='cache'
+
+REDIS_TTL= 8 * 60 * 60 * 1000
+REDIS_HOST='localhost'
+REDIS_USERNAME=''
+REDIS_PASSWORD=''
+REDIS_PORT=6379
+
+DB_HOST=localhost
+DB_PORT=3838
+DB_USER=admin
+DB_PASS=adminpass
+```
+
+## Storage
+
+By default the server will store tournaments in the file system. In order to use `levelDB` to persist tournament records, `net-level-server` must be running.
+
+```bash
+$ pnpm hive-db
 ```
 
 ## Running the app
 
+If you have PM2 installed:
+
+```bash
+pm2 start ecosystem.config.js
+```
+
+...otherwise...
+
 ```bash
 # development
-$ pnpm run start
+$ pnpm start
 
 # watch mode
-$ pnpm run start:dev
+$ pnpm watch
 
 # production mode
-$ pnpm run start:prod
+$ pnpm start:prod
 ```
 
 ## Test

@@ -23,8 +23,6 @@ import {
   namespace: 'mobile',
 })
 export class TrackerGateway {
-  constructor() {} // private readonly configService: ConfigService,
-
   private readonly logger = new Logger(TrackerGateway.name);
 
   @WebSocketServer()
@@ -43,8 +41,6 @@ export class TrackerGateway {
   @SubscribeMessage('events')
   @Public()
   findAll(@MessageBody() data: any): Observable<WsResponse<number>> {
-    // const tracker = this.configService.get('tracker');
-    // console.log({ tracker });
     return from([1, 2, 3]).pipe(map((iteration) => ({ event: 'events', data, iteration })));
   }
 

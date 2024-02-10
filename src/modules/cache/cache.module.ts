@@ -1,5 +1,4 @@
 import { CacheModule as CacheModule_, CacheModuleOptions } from '@nestjs/cache-manager';
-import { ConfigsModule } from 'src/config/config.module';
 import { redisStore } from 'cache-manager-redis-yet';
 import type { RedisClientOptions } from 'redis';
 import { Module, Global } from '@nestjs/common';
@@ -22,7 +21,6 @@ export const configCacheFactory = (config: ConfigService): CacheModuleOptions<Re
   imports: [
     CacheModule_.registerAsync({
       useFactory: configCacheFactory,
-      imports: [ConfigsModule],
       inject: [ConfigService],
       isGlobal: true,
     }),
