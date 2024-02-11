@@ -9,8 +9,8 @@ dependencies:
     specifier: ^0.1.10
     version: 0.1.10
   '@gridspace/net-level-client':
-    specifier: ^0.1.10
-    version: 0.1.10
+    specifier: ^0.2.0
+    version: 0.2.2
   '@nestjs/cache-manager':
     specifier: ^2.2.0
     version: 2.2.0(@nestjs/common@10.3.2)(@nestjs/core@10.3.2)(cache-manager@5.4.0)(reflect-metadata@0.2.1)(rxjs@7.8.1)
@@ -606,11 +606,11 @@ packages:
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     dev: true
 
-  /@gridspace/net-level-client@0.1.10:
-    resolution: {integrity: sha512-vNRBG14yttx3tA4Jebb/GVudxspJ0LMQG8zd2n2ljtXvU99Un8cLvzK1K79BKEC+tE3V4LsUUzMFjhjba1yIHA==}
+  /@gridspace/net-level-client@0.2.2:
+    resolution: {integrity: sha512-ob/FTc1/Y4uwNXfdcqzIK9LAY5bw0Ca0FgVbbaZMyCRfpREE4+UFALA+DiBmw2pAwM3j0uqSsRZ9bVd5Ta0z5g==}
     hasBin: true
     dependencies:
-      date-fns: 2.30.0
+      dayjs: 1.11.10
       minimist: 1.2.8
     dev: false
 
@@ -3089,6 +3089,10 @@ packages:
     engines: {node: '>=0.11'}
     dependencies:
       '@babel/runtime': 7.23.8
+    dev: false
+
+  /dayjs@1.11.10:
+    resolution: {integrity: sha512-vjAczensTgRcqDERK0SR2XMwsF/tSvnvlv6VcF2GIhg6Sx4yOIt/irsr1RDJsKiIyBzJDpCoXiWWq28MqH2cnQ==}
     dev: false
 
   /debug@2.6.9:
