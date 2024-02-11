@@ -24,8 +24,8 @@
     "hive-db": "net-level-server"
   },
   "dependencies": {
-    "@gridspace/net-level": "0.1.10",
-    "@gridspace/net-level-client": "0.1.10",
+    "@gridspace/net-level": "0.2.2",
+    "@gridspace/net-level-client": "0.2.2",
     "@nestjs/cache-manager": "2.2.0",
     "@nestjs/class-transformer": "0.4.0",
     "@nestjs/class-validator": "0.13.4",
