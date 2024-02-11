@@ -43,6 +43,10 @@ DB_HOST=localhost
 DB_PORT=3838
 DB_USER=admin
 DB_PASS=adminpass
+
+MAILGUN_API_KEY='your-mailgun-api-key'
+MAILGUN_HOST='api.eu.mailgun.net'
+MAILGUN_DOMAIN='m.your.domain'
 ```
 
 ## Storage
