@@ -59,7 +59,6 @@ function useBase({ args, base }) {
       if (connected) resolve();
       else if (timeout && Date.now() - start >= timeout) {
         reject(new Error(`Could not connect to ${base} in ${timeout} ms`));
-        // @ts-expect-error missing type
       } else setTimeout(waitForConnection.bind(this, resolve, reject), 30);
     }
   }
