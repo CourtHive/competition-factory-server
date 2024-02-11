@@ -116,8 +116,8 @@ devDependencies:
     specifier: 4.17.21
     version: 4.17.21
   '@types/jest':
-    specifier: 29.5.2
-    version: 29.5.2
+    specifier: 29.5.12
+    version: 29.5.12
   '@types/node':
     specifier: 20.11.17
     version: 20.11.17
@@ -1716,8 +1716,8 @@ packages:
       '@types/istanbul-lib-report': 3.0.3
     dev: true
 
-  /@types/jest@29.5.2:
-    resolution: {integrity: sha512-mSoZVJF5YzGVCk+FsDxzDuH7s+SCkzrgKZzf0Z0T2WudhBUPoF6ktoTPC4R0ZoCPCV5xUvuU6ias5NvxcBcMMg==}
+  /@types/jest@29.5.12:
+    resolution: {integrity: sha512-eDC8bTvT/QhYdxJAulQikueigY5AsdBRH2yDKW3yveW7svY3+DzN84/2NUgkw10RTiJbWqZrTtoGVdYlvFJdLw==}
     dependencies:
       expect: 29.7.0
       pretty-format: 29.7.0
