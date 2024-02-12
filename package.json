@@ -55,7 +55,7 @@
     "tods-tmx-classic-converter": "2.14.1"
   },
   "devDependencies": {
-    "@nestjs/cli": "10.2.1",
+    "@nestjs/cli": "10.3.2",
     "@nestjs/schematics": "10.0.3",
     "@nestjs/testing": "10.3.0",
     "@swc/cli": "0.3.9",
