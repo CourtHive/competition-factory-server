@@ -55,7 +55,7 @@ export class TrackerGateway {
   async messageHandler(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<any> {
     if (typeof data !== 'object') return { notFound: data };
     const { type, payload = {} } = data;
-    if (messages['executionQueue']) {
+    if (messages[type]) {
       return messages[type]({ client, payload });
     } else {
       this.logger.debug(`Not found: ${type}`);
