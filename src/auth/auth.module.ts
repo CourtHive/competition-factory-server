@@ -5,8 +5,6 @@ import { AuthService } from './auth.service';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { Module } from '@nestjs/common';
-import { MailgunService } from 'src/modules/mail/mailGun.service';
-import { ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
@@ -19,8 +17,6 @@ import { ConfigService } from '@nestjs/config';
   ],
   providers: [
     AuthService,
-    MailgunService,
-    ConfigService,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
