@@ -1764,7 +1764,7 @@ umo.common = () => {
       },
     };
 
-    const teams_counters = Object.keys(stats.teams).map((team) => Object.keys(stats.teams[team]));
+    const teams_counters = Object.keys(stats.teams).flatMap((team) => Object.keys(stats.teams[team]));
     return Object.keys(calculated_stats)
       .map((stat) => {
         const stat_obj = calculated_stats[stat];
