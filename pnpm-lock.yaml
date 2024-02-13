@@ -92,6 +92,9 @@ dependencies:
   tods-tmx-classic-converter:
     specifier: 2.14.1
     version: 2.14.1
+  tslib:
+    specifier: ^2.6.2
+    version: 2.6.2
 
 devDependencies:
   '@nestjs/cli':

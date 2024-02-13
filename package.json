@@ -52,7 +52,8 @@
     "rxjs": "7.8.1",
     "socket.io": "4.7.4",
     "tods-competition-factory": "2.0.25",
-    "tods-tmx-classic-converter": "2.14.1"
+    "tods-tmx-classic-converter": "2.14.1",
+    "tslib": "^2.6.2"
   },
   "devDependencies": {
     "@nestjs/cli": "10.3.2",
