@@ -1,12 +1,10 @@
 import { Public } from '../../auth/decorators/public.decorator';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/auth/guards/socket.guard';
-// import { ConfigService } from '@nestjs/config';
-import { UseGuards } from '@nestjs/common';
+import { trackerMessages } from './trackerMessages';
+import { Logger, UseGuards } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { from, Observable } from 'rxjs';
-import { Logger } from '@nestjs/common';
-import { messages } from './messages';
 import { map } from 'rxjs/operators';
 import {
   MessageBody,
@@ -55,8 +53,8 @@ export class TrackerGateway {
   async messageHandler(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<any> {
     if (typeof data !== 'object') return { notFound: data };
     const { type, payload = {} } = data;
-    if (messages[type]) {
-      return messages[type]({ client, payload });
+    if (trackerMessages[type]) {
+      return trackerMessages[type]({ client, payload });
     } else {
       this.logger.debug(`Not found: ${type}`);
     }
