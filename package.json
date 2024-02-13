@@ -108,9 +108,6 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node",
-    "setupFiles": [
-      "<rootDir>/src/tests/setupTests.ts"
-    ]
+    "testEnvironment": "node"
   }
 }
