@@ -9,7 +9,7 @@
     "noImplicitAny": false,
     "target": "ES6",
     "sourceMap": true,
-    "outDir": "./dist",
+    "outDir": "./build",
     "baseUrl": "./",
     "incremental": true,
     "downlevelIteration": true,
