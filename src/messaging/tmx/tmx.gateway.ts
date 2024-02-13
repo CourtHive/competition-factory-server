@@ -4,8 +4,8 @@ import { Public } from '../../auth/decorators/public.decorator';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/auth/guards/socket.guard';
+import { tmxMessages } from './tmxMessages';
 import { Server, Socket } from 'socket.io';
-import { messages } from './messages';
 
 @Injectable()
 @UseGuards(SocketGuard) // SocketGuard handles authentication as well as roles
@@ -28,8 +28,8 @@ export class TmxGateway {
     if (typeof data !== 'object') return { notFound: data };
     const { type, payload = {} } = data;
     this.logger.debug(`executionQueue route successful`);
-    if (messages[type]) {
-      return messages[type]({ client, payload });
+    if (tmxMessages[type]) {
+      return tmxMessages[type]({ client, payload });
     } else {
       this.logger.debug(`Not found: ${type}`);
     }
