@@ -22,7 +22,7 @@ export function saveMatchPoints({ matchUp }) {
     }
   });
 
-  const stats = getMatchStats({ source: matchUp });
+  const stats = getMatchStats(matchUp);
   if (stats?.length) {
     const statsFileName = `${cacheDir}${destination}${providerDestination}/${matchUpId}.stats.json`;
     fs.writeFile(statsFileName, JSON.stringify(stats, null, 2), UTF8, function (err) {
