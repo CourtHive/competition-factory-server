@@ -1,6 +1,6 @@
 import { saveMatchPoints } from './functions/saveMatchPoints';
 
-export const messages = {
+export const trackerMessages = {
   score: ({ client, payload }) => {
     client.emit('ack', { received: !!payload });
     return true;

@@ -11,7 +11,7 @@ export function saveMatchPoints({ matchUp }) {
   if (provider) fs.ensureDirSync(cacheDir + destination + '/' + provider);
 
   const matchUpId = matchUp.muid || matchUp.matchUpId;
-  const providerDestination = provider ? `/${provider}` : '';
+  const providerDestination = provider ? `/${provider}` : '/unknown';
   const fileName = `${cacheDir}${destination}${providerDestination}/${matchUpId}.json`;
 
   fs.writeFile(fileName, JSON.stringify(matchUp, null, 2), UTF8, function (err) {

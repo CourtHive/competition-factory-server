@@ -41,4 +41,5 @@ storage/
 # Local
 .env
 dist
+build
 .webpack
