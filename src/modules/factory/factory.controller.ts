@@ -9,10 +9,10 @@ import { GetEventDataDto } from './dto/getEventData.dto';
 import { GetMatchUpsDto } from './dto/getMatchUps.dto';
 
 import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param } from '@nestjs/common';
-import { Public } from 'src/auth/decorators/public.decorator';
+import { Public } from 'src/modules/auth/decorators/public.decorator';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-import { RolesGuard } from 'src/auth/guards/role.guard';
+import { Roles } from 'src/modules/auth/decorators/roles.decorator';
+import { RolesGuard } from 'src/modules/auth/guards/role.guard';
 import { FactoryService } from './factory.service';
 
 @UseGuards(RolesGuard)
