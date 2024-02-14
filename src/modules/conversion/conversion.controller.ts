@@ -1,8 +1,8 @@
 import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards } from '@nestjs/common';
 import { ConvertTournamentDto } from './dto/convertTournament.dto';
-import { Public } from '../../auth/decorators/public.decorator';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { RolesGuard } from '../../auth/guards/role.guard';
+import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/role.guard';
 import { ConversionService } from './conversion.service';
 
 @UseGuards(RolesGuard)
