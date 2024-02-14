@@ -19,4 +19,9 @@ export class AuthService {
       token: await this.jwtService.signAsync(payload),
     };
   }
+
+  async invite(email: string, providerId: string) {
+    // const inviteCode = createUniqueKey();
+    return { email, providerId };
+  }
 }
