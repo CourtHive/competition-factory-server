@@ -1,0 +1,1 @@
+if [ $(git rev-parse --abbrev-ref HEAD) = 'main' ]; then pnpm test; else echo 'Skipping pre-push hook for non-main branch'; fi"
