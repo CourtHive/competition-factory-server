@@ -2,14 +2,15 @@ import { ConversionController } from './conversion.controller';
 import { UsersModule } from 'src/modules/users/users.module';
 import { ConversionService } from './conversion.service';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuthModule } from 'src/auth/auth.module';
+import { AuthModule } from 'src/modules/auth/auth.module';
+import { CacheModule } from '../cache/cache.module';
 
 describe('AppService', () => {
   let app: TestingModule;
 
   beforeAll(async () => {
     app = await Test.createTestingModule({
-      imports: [AuthModule, UsersModule],
+      imports: [AuthModule, UsersModule, CacheModule],
       controllers: [ConversionController],
       providers: [ConversionService],
     }).compile();

@@ -26,6 +26,7 @@ Create an `.env` file in the root directory.
 ```txt
 APP_STORAGE='fileSystem' # 'levelDB' or 'fileSystem'
 APP_NAME='Competition Factory Server'
+APP_MODE='development' # 'production'
 APP_PORT=8383
 
 JWT_SECRET='Replace this string with a truly random string'
