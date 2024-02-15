@@ -2,10 +2,13 @@ import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/commo
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { createUniqueKey } from './helpers/createUniqueKey';
 import { UsersService } from '../users/users.service';
+import netLevel from 'src/services/levelDB/netLevel';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
 
+import { BASE_RESET_CODES, BASE_USER } from 'src/services/levelDB/constants';
 import { SUCCESS } from 'src/common/constants/app';
+import { hashPassword } from './helpers/hashPassword';
 
 @Injectable()
 export class AuthService {
@@ -58,5 +61,35 @@ export class AuthService {
     const result: any = await this.usersService.create({ ...details, ...invite });
     if (result.error) return result;
     return { ...SUCCESS };
+  }
+
+  // TODO: implement forgot password code
+  async forgotPassword(email: string) {
+    const user = await this.usersService.findOne(email);
+    if (!user) return { error: 'User not found' };
+    const code = Math.floor(100000 + Math.random() * 900000);
+    await netLevel.set(BASE_RESET_CODES, { key: code, value: email });
+
+    /*
+    await sendEmailHTML({
+      to: email,
+      subject: `Reset Password Code: ${code}`,
+      templateName: 'resetPassword',
+      templateData: { code },
+    });
+    */
+    return email;
+  }
+
+  // TODO: implement password reset
+  async resetPassword(code: string, newPassword: string) {
+    const resetDetails: any = await netLevel.get(BASE_RESET_CODES, { key: code });
+    await netLevel.delete(BASE_RESET_CODES, { key: code });
+    if (!resetDetails.email) return { error: 'Invalid reset code' };
+    const user = await this.usersService.findOne(resetDetails?.email);
+    if (!user) return { error: 'User not found' };
+    user.password = await hashPassword(newPassword);
+    const storageRecord = { key: user.email, value: user };
+    return await netLevel.set(BASE_USER, storageRecord);
   }
 }
