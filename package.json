@@ -29,7 +29,6 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/jest/bin/jest --runInBand",
-    "test:e2e": "jest --config ./jest-e2e.json",
     "check-types": "tsc --noEmit",
     "hive-db": "net-level-server",
     "prepare": "husky"
@@ -104,6 +103,8 @@
     "**/*.ts": "tsc --noEmit"
   },
   "jest": {
+    "globalSetup": "./src/tests/config/setup.ts",
+    "globalTeardown": "./src/tests/config/teardown.ts",
     "moduleDirectories": [
       "node_modules",
       "src"

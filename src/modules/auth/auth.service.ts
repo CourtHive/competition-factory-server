@@ -1,16 +1,15 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { createUniqueKey } from './helpers/createUniqueKey';
 import { UsersService } from '../users/users.service';
-import netLevel from 'src/services/levelDB/netLevel';
 import { JwtService } from '@nestjs/jwt';
-
-import { BASE_USER_INVITE } from 'src/services/levelDB/constants';
 
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async signIn(email: string, pass: string) {
@@ -18,18 +17,17 @@ export class AuthService {
     if (user?.password !== pass) {
       throw new UnauthorizedException();
     }
-    const payload = { email: user.email, sub: user.userId, roles: user.roles };
+    const payload = { email: user.email, roles: user.roles, permissions: user.permissions };
     return {
       token: await this.jwtService.signAsync(payload),
     };
   }
 
-  async invite(email: string, providerId: string, services: { cacheManager: any }) {
+  async invite(invitation: any) {
+    const { email } = invitation;
     const inviteCode = createUniqueKey();
     const invitationLink = `/newUser?code=${inviteCode}`;
-    const invitation = { providerId };
-    await netLevel.set(BASE_USER_INVITE, { key: inviteCode, value: invitation });
-    await services.cacheManager.set(inviteCode, invitation, 60 * 60 * 24 * 1000);
+    await this.cacheManager.set(`invite:${inviteCode}`, invitation, 60 * 60 * 24 * 1000);
 
     Logger.log(`Invite code: ${inviteCode}, Email: ${email}, InviteLink: ${invitationLink}`);
     /**
@@ -43,5 +41,16 @@ export class AuthService {
       });
      */
     return { invitationLink };
+  }
+
+  async register(invitation: any) {
+    const { code, ...details } = invitation;
+    const invite = await this.cacheManager.get(`invite:${code}`);
+    if (!invite) {
+      throw new UnauthorizedException('Invalid invitation code');
+    }
+    const user = await this.usersService.create(details);
+    await this.cacheManager.del(code);
+    return user;
   }
 }

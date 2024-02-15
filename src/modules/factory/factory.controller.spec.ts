@@ -1,20 +1,20 @@
 import { FactoryController } from './factory.controller';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { ConfigsModule } from 'src/config/config.module';
 import { Test, TestingModule } from '@nestjs/testing';
+import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
-import { AuthModule } from '../auth/auth.module';
 import { FactoryService } from './factory.service';
+import { AuthModule } from '../auth/auth.module';
 import { TEST } from 'src/common/constants/test';
 import { ConfigService } from '@nestjs/config';
-import { ConfigsModule } from 'src/config/config.module';
 
 describe('FactoryController', () => {
   let factoryController: FactoryController;
 
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
-      providers: [FactoryService, ConfigService, { provide: CACHE_MANAGER, useValue: {} }],
-      imports: [AuthModule, UsersModule, ConfigsModule],
+      providers: [FactoryService, ConfigService],
+      imports: [AuthModule, UsersModule, ConfigsModule, CacheModule],
       controllers: [FactoryController],
     }).compile();
 

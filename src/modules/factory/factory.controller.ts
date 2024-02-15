@@ -14,6 +14,7 @@ import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/modules/auth/guards/role.guard';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { FactoryService } from './factory.service';
+import { GetTournamentMatchUpsDto } from './dto/getTournamentMatchUps.dto';
 
 @UseGuards(RolesGuard)
 @Controller('factory')
@@ -62,6 +63,12 @@ export class FactoryController {
   @Post('eventdata')
   eventData(@Body() ged: GetEventDataDto) {
     return this.factoryService.getEventData(ged);
+  }
+
+  @Public()
+  @Post('tournamentmatchups')
+  tournamentMatchUps(@Body() gtm: GetTournamentMatchUpsDto) {
+    return this.factoryService.getTournamentMatchUps(gtm);
   }
 
   @Post('matchups')
