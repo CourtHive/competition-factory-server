@@ -1,12 +1,14 @@
 import { hashPassword } from '../auth/helpers/hashPassword';
 import netLevel from 'src/services/levelDB/netLevel';
+import { ConfigService } from '@nestjs/config';
 import { Injectable } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 
+import { BASE_ACCESS_CODES, BASE_USER } from 'src/services/levelDB/constants';
 import { ADMIN, CLIENT, DEVELOPER, SCORE } from 'src/common/constants/roles';
 import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
 import { DEV_MODE } from 'src/common/constants/permissions';
-import { BASE_USER } from 'src/services/levelDB/constants';
-import { ConfigService } from '@nestjs/config';
+import { createUniqueKey } from '../auth/helpers/createUniqueKey';
 
 type User = {
   permissions?: string[];
@@ -19,7 +21,10 @@ type User = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private jwtService: JwtService,
+  ) {}
 
   private testUsers: any[] = [
     {
@@ -44,8 +49,43 @@ export class UsersService {
       value: { ...value, password: await hashPassword(password) },
       key: value.email,
     };
-    console.log({ storageRecord });
     await netLevel.set(BASE_USER, storageRecord);
     return user;
+  }
+
+  // TODO: implement this method in controller
+  async useMagic(code: string) {
+    const email = await netLevel.get(BASE_ACCESS_CODES, { key: code });
+    const userRecord: any = await netLevel.get(BASE_USER, { key: email });
+    const user = await this.findOne(userRecord.email);
+    const payload = { email: user.email, roles: user.roles, permissions: user.permissions };
+    return {
+      token: await this.jwtService.signAsync(payload),
+    };
+  }
+
+  async requestMagicLink(email: string) {
+    if (!email) return { error: 'Invalid request' };
+
+    const user = await netLevel.get(BASE_USER, { key: email });
+    if (!user) {
+      return { error: 'User not found' };
+    } else {
+      const magicLinkCode = createUniqueKey();
+      await netLevel.set(`${BASE_ACCESS_CODES}:${magicLinkCode}`, email);
+
+      // TODO: The magic link URL will need to launch the web server / end user app
+      /*
+      await sendEmailHTML({
+        to: email,
+        subject: 'Invitation',
+        templateName: 'magicLink',
+        templateData: {
+          magicLink: `/magic?code=${magicLinkCode}`,
+        },
+      });
+      */
+      return;
+    }
   }
 }
