@@ -5,5 +5,6 @@ export const APPConfig = registerAs(ConfigKey.App, () => ({
   env: Environment[process.env.NODE_ENV as keyof typeof Environment] || Environment.Development,
   port: Number(process.env.APP_PORT) || 8383,
   storage: String(process.env.APP_STORAGE),
+  mode: String(process.env.APP_MODE),
   name: String(process.env.APP_NAME),
 }));
