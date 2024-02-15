@@ -29,6 +29,10 @@ export class AuthService {
 
   async invite(invitation: any) {
     const { email } = invitation;
+
+    const user = await this.usersService.findOne(email);
+    if (user.email) return { error: 'Existing user' };
+
     const inviteCode = createUniqueKey();
     const invitationLink = `/newUser?code=${inviteCode}`;
     await this.cacheManager.set(`invite:${inviteCode}`, invitation, 60 * 60 * 24 * 1000);
