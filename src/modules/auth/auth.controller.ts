@@ -1,19 +1,19 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Request } from '@nestjs/common';
-import { ADMIN, CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
 import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
+import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
 import { SignInDto } from './dto/signIn.dto';
 import { InviteDto } from './dto/invite.dto';
-import { RegisterDto } from './dto/register.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Public()
-  @HttpCode(HttpStatus.OK)
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   signIn(@Body() signIn: SignInDto) {
     return this.authService.signIn(signIn.email, signIn.password);
   }
@@ -24,14 +24,10 @@ export class AuthController {
     return this.authService.invite(invitation);
   }
 
+  @Public()
   @Post('register')
-  @Roles([CLIENT])
+  @HttpCode(HttpStatus.OK)
   register(@Body() register: RegisterDto) {
     return this.authService.register(register);
-  }
-
-  @Get('profile')
-  getProfile(@Request() req) {
-    return req.user;
   }
 }
