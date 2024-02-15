@@ -1,9 +1,9 @@
 import { FactoryController } from './factory.controller';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Test, TestingModule } from '@nestjs/testing';
+import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
-import { AuthModule } from '../../auth/auth.module';
 import { FactoryService } from './factory.service';
+import { AuthModule } from '../auth/auth.module';
 import { ConfigService } from '@nestjs/config';
 
 describe('AppService', () => {
@@ -11,9 +11,9 @@ describe('AppService', () => {
 
   beforeAll(async () => {
     app = await Test.createTestingModule({
-      imports: [AuthModule, UsersModule],
+      imports: [AuthModule, UsersModule, CacheModule],
       controllers: [FactoryController],
-      providers: [FactoryService, ConfigService, { provide: CACHE_MANAGER, useValue: {} }],
+      providers: [FactoryService, ConfigService],
     }).compile();
   });
 

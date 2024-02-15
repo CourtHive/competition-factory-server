@@ -2,8 +2,8 @@ import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer, Conne
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
 import { Public } from '../../auth/decorators/public.decorator';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-import { SocketGuard } from 'src/auth/guards/socket.guard';
+import { Roles } from 'src/modules/auth/decorators/roles.decorator';
+import { SocketGuard } from 'src/modules/auth/guards/socket.guard';
 import { tmxMessages } from './tmxMessages';
 import { Server, Socket } from 'socket.io';
 

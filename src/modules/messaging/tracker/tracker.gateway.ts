@@ -1,6 +1,6 @@
 import { Public } from '../../auth/decorators/public.decorator';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-import { SocketGuard } from 'src/auth/guards/socket.guard';
+import { Roles } from 'src/modules/auth/decorators/roles.decorator';
+import { SocketGuard } from 'src/modules/auth/guards/socket.guard';
 import { trackerMessages } from './trackerMessages';
 import { Logger, UseGuards } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';

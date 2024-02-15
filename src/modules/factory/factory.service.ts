@@ -65,4 +65,8 @@ export class FactoryService {
   async getEventData({ tournamentId, eventId }: { tournamentId: string; eventId: string }) {
     return await publicQueries.getEventData({ tournamentId, eventId }, { storage: this.getStorage() });
   }
+
+  async getTournamentMatchUps(params) {
+    return await publicQueries.getTournamentMatchUps(params, { storage: this.getStorage() });
+  }
 }

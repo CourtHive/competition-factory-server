@@ -1,8 +1,8 @@
 import { governors } from 'tods-competition-factory';
+import { SUCCESS } from '../../common/constants/app';
 import netLevel from './netLevel';
 
 import { factoryConstants } from 'tods-competition-factory';
-import { SUCCESS } from '../../common/constants/app';
 import { BASE_TOURNAMENT } from './constants';
 
 async function findTournamentRecord({ tournamentId }) {
@@ -43,6 +43,7 @@ async function saveTournamentRecord({ tournamentRecord }) {
   };
 
   await netLevel.set(BASE_TOURNAMENT, storageRecord);
+  netLevel.exit();
   return { ...SUCCESS };
 }
 
@@ -67,6 +68,7 @@ async function removeTournamentRecords(params?: any) {
     removed += 1;
   }
 
+  netLevel.exit();
   return { ...SUCCESS, removed };
 }
 
