@@ -24,10 +24,12 @@ export class AuthService {
     };
   }
 
-  async invite(email: string, providerId: string) {
+  async invite(email: string, providerId: string, services: { cacheManager: any }) {
     const inviteCode = createUniqueKey();
     const invitationLink = `/newUser?code=${inviteCode}`;
-    await netLevel.set(BASE_USER_INVITE, { key: inviteCode, value: { providerId } });
+    const invitation = { providerId };
+    await netLevel.set(BASE_USER_INVITE, { key: inviteCode, value: invitation });
+    await services.cacheManager.set(inviteCode, invitation, 60 * 60 * 24 * 1000);
 
     Logger.log(`Invite code: ${inviteCode}, Email: ${email}, InviteLink: ${invitationLink}`);
     /**
