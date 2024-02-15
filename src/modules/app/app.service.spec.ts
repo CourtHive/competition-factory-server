@@ -16,7 +16,7 @@ describe('AppService', () => {
     }).compile();
   });
 
-  describe('getHello', () => {
+  describe('factoryService', () => {
     it('should return "Factory server"', () => {
       const appController = app.get(AppController);
       expect(appController.factoryService()).toStrictEqual({
