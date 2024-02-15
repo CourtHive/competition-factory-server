@@ -30,6 +30,12 @@ const requestHandler = (method) => (base, request?) =>
     }
   });
 
+async function exit() {
+  for (const base in bases) {
+    await requestHandler(methods.close)(base);
+  }
+}
+
 // net level access object definition
 const netLevel = {
   setArgs: (values) => (args = values),
@@ -41,6 +47,7 @@ const netLevel = {
   delete: (base, request) => requestHandler(methods.del)(base, request),
   close: (base) => requestHandler(methods.close)(base),
   bases: () => bases,
+  exit,
 };
 
 // define method to ready each base for use

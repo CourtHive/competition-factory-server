@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class inviteDto {
   @ApiProperty()
@@ -6,4 +6,10 @@ export class inviteDto {
 
   @ApiProperty()
   providerId: string = '';
+
+  @ApiPropertyOptional()
+  permissions?: string[];
+
+  @ApiPropertyOptional()
+  roles?: string[];
 }
