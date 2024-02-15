@@ -37,10 +37,7 @@ export async function fetchTournamentRecords(params?: { tournamentIds?: string[]
 }
 
 async function saveTournamentRecord({ tournamentRecord }) {
-  const storageRecord = {
-    key: tournamentRecord.tournamentId,
-    value: tournamentRecord,
-  };
+  const storageRecord = { key: tournamentRecord.tournamentId, value: tournamentRecord };
 
   await netLevel.set(BASE_TOURNAMENT, storageRecord);
   netLevel.exit();
