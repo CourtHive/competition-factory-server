@@ -1,26 +1,26 @@
 import { ConversionModule } from '../conversion/conversion.module';
-import { FactoryModule } from '../factory/factory.module';
 import { MessagingModule } from '../messaging/messaging.module';
-import { CacheModule } from '../cache/cache.module';
-import { UsersModule } from '../users/users.module';
+import { FactoryModule } from '../factory/factory.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ConfigsModule } from '../../config/config.module';
-import { AuthModule } from '../auth/auth.module';
+import { CacheModule } from '../cache/cache.module';
+import { UsersModule } from '../users/users.module';
 import { AppController } from './app.controller';
+import { AuthModule } from '../auth/auth.module';
 import { AppService } from './app.service';
 import { Module } from '@nestjs/common';
 import { join } from 'path';
 
 @Module({
   imports: [
-    ConfigsModule,
-    AuthModule,
+    ServeStaticModule.forRoot({ rootPath: join(__dirname, '..', 'client') }),
+    ConversionModule,
     MessagingModule,
     FactoryModule,
-    ConversionModule,
+    ConfigsModule,
     UsersModule,
     CacheModule,
-    ServeStaticModule.forRoot({ rootPath: join(__dirname, '..', 'client') }),
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

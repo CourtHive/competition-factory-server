@@ -29,11 +29,14 @@ export class AuthService {
 
   async invite(invitation: any) {
     const { email } = invitation;
+
+    const user = await this.usersService.findOne(email);
+    if (user?.email) return { error: 'Existing user' };
+
     const inviteCode = createUniqueKey();
-    const invitationLink = `/newUser?code=${inviteCode}`;
     await this.cacheManager.set(`invite:${inviteCode}`, invitation, 60 * 60 * 24 * 1000);
 
-    Logger.log(`Invite code: ${inviteCode}, Email: ${email}, InviteLink: ${invitationLink}`);
+    Logger.log(`Invite code: ${inviteCode}, Email: ${email}`);
     /**
       await sendEmailHTML({
         to: email,
@@ -44,16 +47,13 @@ export class AuthService {
         },
       });
      */
-    return { invitationLink };
+    return { inviteCode };
   }
 
   async register(invitation: any) {
     const { code, ...details } = invitation;
     const invite = await this.cacheManager.get(`invite:${code}`);
-    console.log({ invite });
-    if (!invite) {
-      throw new UnauthorizedException('Invalid invitation code');
-    }
+    if (!invite) throw new UnauthorizedException('Invalid invitation code');
     await this.cacheManager.del(`invite:${code}`);
     const result: any = await this.usersService.create({ ...details, ...invite });
     if (result.error) return result;
