@@ -1,15 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class InviteDto {
+export class RegisterDto {
+  @ApiProperty()
+  code: string = '';
+
   @ApiProperty()
   email: string = '';
 
   @ApiProperty()
-  providerId: string = '';
+  password: string = '';
 
   @ApiPropertyOptional()
-  permissions?: string[];
+  firstName?: string;
 
   @ApiPropertyOptional()
-  roles?: string[];
+  lastName?: string;
 }
