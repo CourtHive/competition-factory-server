@@ -5,9 +5,13 @@ import { AuthService } from './auth.service';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { ConfigsModule } from 'src/config/config.module';
 
 @Module({
   imports: [
+    ConfigsModule,
     UsersModule,
     JwtModule.register({
       signOptions: { expiresIn: process.env.JWT_VALIDITY ?? '1d' },
@@ -21,6 +25,8 @@ import { Module } from '@nestjs/common';
       provide: APP_GUARD,
       useClass: AuthGuard,
     },
+    ConfigService,
+    { provide: CACHE_MANAGER, useValue: {} },
   ],
   controllers: [AuthController],
   exports: [AuthService],
