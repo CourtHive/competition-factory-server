@@ -37,9 +37,20 @@ export async function createProviderCalendars(tournamentsPath) {
     let tournamentRecord;
     try {
       legacyTournamentRecord = JSON.parse(tournamentRaw);
-      tournamentRecord = convertTMX2TODS({ tournament: legacyTournamentRecord }).tournamentRecord;
+      if (legacyTournamentRecord?.doNotProcess) {
+        console.log('DO NOT PROCESS');
+        continue;
+      }
+      tournamentRecord = convertTMX2TODS({ tournament: legacyTournamentRecord, verbose: true }).tournamentRecord;
     } catch (err) {
       console.log('error', { fileName, err });
+      continue;
+    }
+
+    if (legacyTournamentRecord?.players?.length < 2) {
+      continue;
+    }
+    if (!legacyTournamentRecord?.events?.length) {
       continue;
     }
 
@@ -48,6 +59,7 @@ export async function createProviderCalendars(tournamentsPath) {
       await netLevel.set('tournamentRecord', { key: tournamentId, value: tournamentRecord });
       if (tournamentRecord.isMock) continue;
 
+      const providerAbbr = parentOrganisation?.organisationAbbreviation;
       const providerId = parentOrganisation?.organisationId;
       if (!providerId) continue;
 
@@ -71,6 +83,7 @@ export async function createProviderCalendars(tournamentsPath) {
           tournamentName,
         },
         searchText: tournamentName.toLowerCase(),
+        providerAbbr,
         providerId,
       };
 
