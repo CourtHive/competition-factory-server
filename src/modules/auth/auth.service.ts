@@ -2,13 +2,13 @@ import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/commo
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { createUniqueKey } from './helpers/createUniqueKey';
 import { UsersService } from '../users/users.service';
+import { hashPassword } from './helpers/hashPassword';
 import netLevel from 'src/services/levelDB/netLevel';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
 
 import { BASE_RESET_CODES, BASE_USER } from 'src/services/levelDB/constants';
 import { SUCCESS } from 'src/common/constants/app';
-import { hashPassword } from './helpers/hashPassword';
 
 @Injectable()
 export class AuthService {
