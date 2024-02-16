@@ -2,11 +2,13 @@ import { RemoveTournamentRecordsDto } from './dto/removeTournamentRecords.dto';
 import { FetchTournamentRecordsDto } from './dto/fetchTournamentRecords.dto';
 import { QueryTournamentRecordsDto } from './dto/queryTournamentRecords.dto';
 import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
+import { GetTournamentMatchUpsDto } from './dto/getTournamentMatchUps.dto';
 import { GetTournamentInfoDto } from './dto/getTournamentInfo.dto';
 import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
 import { ExecutionQueueDto } from './dto/executionQueue.dto';
 import { GetEventDataDto } from './dto/getEventData.dto';
 import { GetMatchUpsDto } from './dto/getMatchUps.dto';
+import { CLIENT } from 'src/common/constants/roles';
 
 import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param } from '@nestjs/common';
 import { Public } from 'src/modules/auth/decorators/public.decorator';
@@ -14,7 +16,6 @@ import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/modules/auth/guards/role.guard';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { FactoryService } from './factory.service';
-import { GetTournamentMatchUpsDto } from './dto/getTournamentMatchUps.dto';
 
 @UseGuards(RolesGuard)
 @Controller('factory')
@@ -86,42 +87,42 @@ export class FactoryController {
   }
 
   @Post()
-  @Roles(['client'])
+  @Roles([CLIENT])
   @HttpCode(HttpStatus.OK)
   executionQueue(@Body() eqd: ExecutionQueueDto) {
     return this.factoryService.executionQueue(eqd);
   }
 
   @Post('fetch')
-  @Roles(['client'])
+  @Roles([CLIENT])
   @HttpCode(HttpStatus.OK)
   fetchTournamentRecords(@Body() ftd: FetchTournamentRecordsDto) {
     return this.factoryService.fetchTournamentRecords(ftd);
   }
 
   @Post('generate')
-  @Roles(['client'])
+  @Roles([CLIENT])
   @HttpCode(HttpStatus.OK)
   generateTournamentRecord(@Body() gtd: any) {
     return this.factoryService.generateTournamentRecord(gtd);
   }
 
   @Post('query')
-  @Roles(['client'])
+  @Roles([CLIENT])
   @HttpCode(HttpStatus.OK)
   queryTournamentRecords(@Body() qtd: QueryTournamentRecordsDto) {
     return this.factoryService.queryTournamentRecords(qtd);
   }
 
   @Post('remove')
-  @Roles(['client'])
+  @Roles([CLIENT])
   @HttpCode(HttpStatus.OK)
   removeTournamentRecords(@Body() rtd: RemoveTournamentRecordsDto) {
     return this.factoryService.removeTournamentRecords(rtd);
   }
 
   @Post('save')
-  @Roles(['client'])
+  @Roles([CLIENT])
   @HttpCode(HttpStatus.OK)
   saveTournamentRecords(@Body() std: SaveTournamentRecordsDto) {
     return this.factoryService.saveTournamentRecords(std);
