@@ -1,6 +1,6 @@
+import { Public } from '../auth/decorators/public.decorator';
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
-import { Public } from '../auth/decorators/public.decorator';
 
 @Controller()
 export class AppController {
@@ -8,7 +8,7 @@ export class AppController {
 
   @Get()
   @Public()
-  factoryService(): any {
-    return this.appService.factoryService();
+  factoryServer(): any {
+    return this.appService.factoryServer();
   }
 }
