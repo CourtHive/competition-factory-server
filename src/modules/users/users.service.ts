@@ -1,14 +1,14 @@
+import { createUniqueKey } from '../auth/helpers/createUniqueKey';
 import { hashPassword } from '../auth/helpers/hashPassword';
 import netLevel from 'src/services/levelDB/netLevel';
 import { ConfigService } from '@nestjs/config';
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
+import { ADMIN, CLIENT, DEVELOPER, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
 import { BASE_ACCESS_CODES, BASE_USER } from 'src/services/levelDB/constants';
-import { ADMIN, CLIENT, DEVELOPER, SCORE } from 'src/common/constants/roles';
 import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
 import { DEV_MODE } from 'src/common/constants/permissions';
-import { createUniqueKey } from '../auth/helpers/createUniqueKey';
 
 type User = {
   permissions?: string[];
@@ -28,7 +28,7 @@ export class UsersService {
 
   private testUsers: any[] = [
     {
-      roles: [ADMIN, DEVELOPER, CLIENT, SCORE],
+      roles: [SUPER_ADMIN, ADMIN, DEVELOPER, CLIENT, SCORE],
       permissions: [DEV_MODE],
       password: TEST_PASSWORD,
       email: TEST_EMAIL,

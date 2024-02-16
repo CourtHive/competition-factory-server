@@ -8,7 +8,7 @@ import { TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
 
 const { SINGLES } = factoryConstants.eventConstants;
 
-describe('AppService', () => {
+describe('ClientGeneratedTournamentRecord', () => {
   let app: INestApplication;
   let token: string;
 
