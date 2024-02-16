@@ -29,14 +29,19 @@ describe('FactoryController', () => {
     expect(factoryController.getVersion()).toBeDefined();
   });
 
-  it('can get tournamentInfo', async () => {
-    const result = await factoryController.tournamentInfo({ tournamentId: TEST });
-    console.log({ result });
+  it('can generate a tournament record', async () => {
+    const result = await factoryController.generateTournamentRecord({ tournamentId: TEST });
+    expect(result.success).toEqual(true);
   });
 
   it('can get tournamentInfo', async () => {
-    const result = await factoryController.fetchTournamentRecords({ tournamentId: TEST });
-    console.log({ result });
+    const result = await factoryController.tournamentInfo({ tournamentId: TEST });
+    expect(result.success).toEqual(true);
+  });
+
+  it('can get tournamentInfo', async () => {
+    const result: any = await factoryController.fetchTournamentRecords({ tournamentId: TEST });
+    expect(result.success).toEqual(true);
   });
 
   it('can generate a tournamentRecord and query for it', async () => {
