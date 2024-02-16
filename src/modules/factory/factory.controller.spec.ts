@@ -39,9 +39,9 @@ describe('FactoryController', () => {
     expect(result.success).toEqual(true);
   });
 
-  it('can get tournamentInfo', async () => {
+  it('cannot fetch tournamentRecords without login', async () => {
     const result: any = await factoryController.fetchTournamentRecords({ tournamentId: TEST });
-    expect(result.success).toEqual(true);
+    expect(result.error).toBeDefined();
   });
 
   it('can generate a tournamentRecord and query for it', async () => {
