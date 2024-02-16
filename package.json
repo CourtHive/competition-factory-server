@@ -63,7 +63,7 @@
     "rxjs": "7.8.1",
     "socket.io": "4.7.4",
     "tods-competition-factory": "2.0.26",
-    "tods-tmx-classic-converter": "2.15.1",
+    "tods-tmx-classic-converter": "2.15.2",
     "tslib": "^2.6.2"
   },
   "devDependencies": {
