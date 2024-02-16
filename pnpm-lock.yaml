@@ -74,6 +74,9 @@ dependencies:
   mailgun.js:
     specifier: 10.2.0
     version: 10.2.0
+  minimist:
+    specifier: ^1.2.8
+    version: 1.2.8
   redis:
     specifier: 4.6.13
     version: 4.6.13
@@ -90,8 +93,8 @@ dependencies:
     specifier: 2.0.26
     version: 2.0.26
   tods-tmx-classic-converter:
-    specifier: 2.14.1
-    version: 2.14.1
+    specifier: 2.15.0
+    version: 2.15.0
   tslib:
     specifier: ^2.6.2
     version: 2.6.2
@@ -6886,8 +6889,8 @@ packages:
     engines: {node: '>=18.17.1 < 21'}
     dev: false
 
-  /tods-tmx-classic-converter@2.14.1:
-    resolution: {integrity: sha512-MF3vMW+ybSbO8+MRe0Jawu0xxxBwvwgiPRdmdQJkEGlb3AnsQN56lnII7lY2jlgb06d9PBeUCw5R2Xl3kToVTA==}
+  /tods-tmx-classic-converter@2.15.0:
+    resolution: {integrity: sha512-lACQ/hF48wYIRhS33/nytVtOQWF2gavktFAO9khcJtppAyZbfk7CGYgfl8rTIJrmr3gndNi7rCI9EvL7TdCC2A==}
     engines: {node: '>=16.16.0 < 21'}
     dependencies:
       circular-json: 0.5.9
