@@ -41,7 +41,7 @@ export async function createProviderCalendars(tournamentsPath) {
         console.log('DO NOT PROCESS');
         continue;
       }
-      tournamentRecord = convertTMX2TODS({ tournament: legacyTournamentRecord }).tournamentRecord;
+      tournamentRecord = convertTMX2TODS({ tournament: legacyTournamentRecord, verbose: true }).tournamentRecord;
     } catch (err) {
       console.log('error', { fileName, err });
       continue;
