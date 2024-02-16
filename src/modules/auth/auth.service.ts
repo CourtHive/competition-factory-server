@@ -70,7 +70,7 @@ export class AuthService {
     const code = Math.floor(100000 + Math.random() * 900000);
     await netLevel.set(BASE_RESET_CODES, { key: code, value: email });
 
-    /*
+    /**
     await sendEmailHTML({
       to: email,
       subject: `Reset Password Code: ${code}`,
