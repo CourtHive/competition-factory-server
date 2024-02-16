@@ -59,7 +59,6 @@ export async function createProviderCalendars(tournamentsPath) {
       await netLevel.set('tournamentRecord', { key: tournamentId, value: tournamentRecord });
       if (tournamentRecord.isMock) continue;
 
-      const providerAbbr = parentOrganisation?.organisationAbbreviation;
       const providerId = parentOrganisation?.organisationId;
       if (!providerId) continue;
 
@@ -75,16 +74,15 @@ export async function createProviderCalendars(tournamentsPath) {
       if (!providerCalendars[providerId]) providerCalendars[providerId] = [];
 
       const calendarEntry = {
+        searchText: tournamentName.toLowerCase(),
         tournamentId,
+        providerId,
         tournament: {
           startDate: new Date(startDate).toISOString().split('T')[0],
           endDate: new Date(endDate).toISOString().split('T')[0],
           tournamentImageURL,
           tournamentName,
         },
-        searchText: tournamentName.toLowerCase(),
-        providerAbbr,
-        providerId,
       };
 
       providerCalendars[providerId].push(calendarEntry);
@@ -94,9 +92,11 @@ export async function createProviderCalendars(tournamentsPath) {
   }
 
   for (const providerId of Object.keys(providerCalendars)) {
-    const calendar = providerCalendars[providerId];
-    await netLevel.set('calendar', { key: providerId, value: calendar });
+    const tournaments = providerCalendars[providerId];
     const provider = providers[providerId];
     await netLevel.set('provider', { key: providerId, value: provider });
+
+    const abbr = provider?.organisationAbbreviation;
+    abbr && (await netLevel.set('calendar', { key: abbr, value: { provider, tournaments } }));
   }
 }
