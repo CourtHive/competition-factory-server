@@ -95,7 +95,7 @@ function useBase({ args, base }) {
   async function keys(request) {
     try {
       if (!connected) await connect();
-      if (!request.from && !request.startsWith) throw new Error('missing parameter for keys');
+      if (!request?.from && !request?.startsWith) throw new Error('missing parameter for keys');
       return await db.keys({ pre: request.startsWith, gte: request.from, lt: request.to });
     } catch (err) {
       throw err;
@@ -105,7 +105,7 @@ function useBase({ args, base }) {
   async function list(request) {
     try {
       if (!connected) await connect();
-      if (!request.from && !request.startsWith && !request.all === true) {
+      if (!request?.from && !request?.startsWith && !request?.all === true) {
         throw new Error('missing parameter for list');
       }
       return await db.list({ pre: request.startsWith, gte: request.from, lt: request.to });
@@ -117,7 +117,7 @@ function useBase({ args, base }) {
   async function cull(request) {
     try {
       if (!connected) await connect();
-      if (!request.from && !request.startsWith) throw new Error('missing parameter for cull');
+      if (!(request?.from || request?.to) && !request?.startsWith) throw new Error('missing parameter for cull');
       return await db.cull({ pre: request.startsWith, gte: request.from, lt: request.to });
     } catch (err) {
       throw err;
@@ -127,7 +127,7 @@ function useBase({ args, base }) {
   async function get(request) {
     try {
       if (!connected) await connect();
-      if (!request.key) throw new Error('missing { key } parameter for get');
+      if (!request?.key) throw new Error('missing { key } parameter for get');
       return await db.get(request.key);
     } catch (err) {
       throw err;
