@@ -84,7 +84,7 @@ function useBase({ args, base }) {
         await db.auth(args.dbUser || process.env.DB_USER, args.dbPass || process.env.DB_PASS);
         connected = true;
         connecting = false;
-        await db.use(base);
+        await db.use(base, { create: true });
       }
     } catch (err) {
       throw new Error(err.message);
