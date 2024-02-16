@@ -1,4 +1,5 @@
-import { governors } from 'tods-competition-factory';
+import { generateTournamentRecord as gen } from 'src/modules/factory/helpers/generateTournamentRecord';
+import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { SUCCESS } from '../../common/constants/app';
 import netLevel from './netLevel';
 
@@ -45,9 +46,7 @@ async function saveTournamentRecord({ tournamentRecord }) {
 }
 
 async function saveTournamentRecords(params?: { tournamentRecords?: any; tournamentRecord?: any }) {
-  const tournamentRecords =
-    params?.tournamentRecords ??
-    (params?.tournamentRecord ? { [params.tournamentRecord.tournamentId]: params.tournamentRecord } : {});
+  const tournamentRecords = getTournamentRecords(params);
 
   for (const tournamentId of Object.keys(tournamentRecords)) {
     saveTournamentRecord({ tournamentRecord: tournamentRecords[tournamentId] });
@@ -69,17 +68,9 @@ async function removeTournamentRecords(params?: any) {
   return { ...SUCCESS, removed };
 }
 
-export function generateTournamentRecord(mockProfile?: any) {
-  const mockResult = governors.mocksGovernor.generateTournamentRecord(mockProfile);
-
-  if (!mockResult || mockResult.error) {
-    throw new Error(mockResult?.error || 'Could not generate tournament record');
-  }
-
-  const tournamentRecord: any = mockResult.tournamentRecord;
-  const tournamentRecords: any = { [tournamentRecord.tournamentId]: tournamentRecord };
+export async function generateTournamentRecord(genProfile?: any, user?: any) {
+  const { tournamentRecord, tournamentRecords } = await gen(genProfile, user);
   saveTournamentRecords({ tournamentRecords });
-
   return { tournamentRecord, ...SUCCESS };
 }
 

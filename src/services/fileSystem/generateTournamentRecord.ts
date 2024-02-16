@@ -1,18 +1,10 @@
+import { generateTournamentRecord as gen } from 'src/modules/factory/helpers/generateTournamentRecord';
 import { saveTournamentRecords } from './saveTournamentRecords';
-import { governors } from 'tods-competition-factory';
 
 import { SUCCESS } from '../../common/constants/app';
 
-export async function generateTournamentRecord(mockProfile?: any) {
-  const mockResult = governors.mocksGovernor.generateTournamentRecord(mockProfile);
-
-  if (!mockResult || mockResult.error) {
-    throw new Error(mockResult?.error || 'Could not generate tournament record');
-  }
-
-  const tournamentRecord: any = mockResult.tournamentRecord;
-  const tournamentRecords: any = { [tournamentRecord.tournamentId]: tournamentRecord };
+export async function generateTournamentRecord(genProfile?: any, user?: any) {
+  const { tournamentRecord, tournamentRecords } = await gen(genProfile, user);
   await saveTournamentRecords({ tournamentRecords });
-
   return { tournamentRecord, ...SUCCESS };
 }
