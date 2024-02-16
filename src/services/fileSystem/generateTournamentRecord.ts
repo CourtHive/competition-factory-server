@@ -3,7 +3,7 @@ import { governors } from 'tods-competition-factory';
 
 import { SUCCESS } from '../../common/constants/app';
 
-export function generateTournamentRecord(mockProfile?: any) {
+export async function generateTournamentRecord(mockProfile?: any) {
   const mockResult = governors.mocksGovernor.generateTournamentRecord(mockProfile);
 
   if (!mockResult || mockResult.error) {
@@ -12,7 +12,7 @@ export function generateTournamentRecord(mockProfile?: any) {
 
   const tournamentRecord: any = mockResult.tournamentRecord;
   const tournamentRecords: any = { [tournamentRecord.tournamentId]: tournamentRecord };
-  saveTournamentRecords({ tournamentRecords });
+  await saveTournamentRecords({ tournamentRecords });
 
   return { tournamentRecord, ...SUCCESS };
 }
