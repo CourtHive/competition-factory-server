@@ -12,8 +12,8 @@ describe('AppService', () => {
   beforeAll(async () => {
     app = await Test.createTestingModule({
       imports: [AuthModule, UsersModule, CacheModule],
-      controllers: [FactoryController],
       providers: [FactoryService, ConfigService],
+      controllers: [FactoryController],
     }).compile();
   });
 

@@ -32,6 +32,13 @@ describe('FactoryService', () => {
       .expect(401);
   });
 
+  it('/POST fetchTournamentRecords no auth', async () => {
+    return await request(app.getHttpServer())
+      .post('/factory/fetch')
+      .send({ tournamentIds: [TEST] })
+      .expect(401);
+  });
+
   it('should get JWT then successful executionQueue', async () => {
     const loginReq = await request(app.getHttpServer())
       .post('/auth/login')
