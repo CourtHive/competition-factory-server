@@ -16,7 +16,7 @@ describe('executionQueue', () => {
     expect(result.success).toEqual(true);
 
     // SECOND: generate a tournamentRecord with this tournamentId and persist to storage
-    result = generateTournamentRecord({
+    result = await generateTournamentRecord({
       tournamentAttributes: { tournamentId: TEST },
       drawProfiles: [{ drawSize: 16 }],
     });
