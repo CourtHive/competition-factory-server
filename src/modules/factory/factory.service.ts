@@ -1,40 +1,31 @@
 import { queryTournamentRecords } from './functions/private/queryTournamentRecords';
 import { executionQueue as eq } from './functions/private/executionQueue';
+import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
 import { checkEngineError } from '../../common/errors/engineError';
 import { getMatchUps } from './functions/private/getMatchUps';
 import { checkProvider } from './helpers/checkProvider';
 import { askEngine } from 'tods-competition-factory';
-import fileStorage from 'src/services/fileSystem';
-import levelStorage from 'src/services/levelDB';
-import publicQueries from './functions/public';
-import { ConfigService } from '@nestjs/config';
-import { Injectable } from '@nestjs/common';
 import { checkUser } from './helpers/checkUser';
-import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
+import publicQueries from './functions/public';
+import { Injectable } from '@nestjs/common';
+import levelStorage from 'src/services/levelDB';
 
 @Injectable()
 export class FactoryService {
-  constructor(private readonly configService: ConfigService) {}
-
-  getStorage() {
-    const storage = this.configService.get('APP').storage;
-    return storage === 'levelDB' ? levelStorage : fileStorage;
-  }
-
   getVersion(): any {
     const version = askEngine.version();
     return { version };
   }
 
   async executionQueue(params) {
-    const result = await eq(params, { storage: this.getStorage() });
+    const result = await eq(params);
     checkEngineError(result);
     return result;
   }
 
   async setMatchUpStatus(params, cacheManager) {
-    return await setMatchUpStatus(params, { cacheManager, storage: this.getStorage() });
+    return await setMatchUpStatus(params, { cacheManager });
   }
 
   async getMatchUps(params) {
@@ -44,22 +35,22 @@ export class FactoryService {
   async fetchTournamentRecords(params, user) {
     const validUser = checkUser({ user }); // don't attempt fetch if user is not allowed
     if (!validUser) return { error: 'Invalid user' };
-    const result: any = await this.getStorage().fetchTournamentRecords(params);
+    const result: any = await levelStorage.fetchTournamentRecords(params);
     if (result.error) return result;
     const allowUser = checkProvider({ ...result, user });
     return allowUser ? result : { error: 'User not allowed' };
   }
 
   async generateTournamentRecord(params, user) {
-    return this.getStorage().generateTournamentRecord(params, user);
+    return levelStorage.generateTournamentRecord(params, user);
   }
 
   async queryTournamentRecords(params) {
-    return await queryTournamentRecords(params, { storage: this.getStorage() });
+    return await queryTournamentRecords(params);
   }
 
   async removeTournamentRecords(params) {
-    return await this.getStorage().removeTournamentRecords(params);
+    return await levelStorage.removeTournamentRecords(params);
   }
 
   async saveTournamentRecords(params, user) {
@@ -68,18 +59,18 @@ export class FactoryService {
     const tournamentRecords = getTournamentRecords(params);
     const allowUser = checkProvider({ tournamentRecords, user });
     if (!allowUser) return { error: 'User not allowed' };
-    return await this.getStorage().saveTournamentRecords(params);
+    return await levelStorage.saveTournamentRecords(params);
   }
 
   async getTournamentInfo({ tournamentId }: { tournamentId: string }) {
-    return await publicQueries.getTournamentInfo({ tournamentId }, { storage: this.getStorage() });
+    return await publicQueries.getTournamentInfo({ tournamentId });
   }
 
   async getEventData({ tournamentId, eventId }: { tournamentId: string; eventId: string }) {
-    return await publicQueries.getEventData({ tournamentId, eventId }, { storage: this.getStorage() });
+    return await publicQueries.getEventData({ tournamentId, eventId });
   }
 
   async getTournamentMatchUps(params) {
-    return await publicQueries.getTournamentMatchUps(params, { storage: this.getStorage() });
+    return await publicQueries.getTournamentMatchUps(params);
   }
 }

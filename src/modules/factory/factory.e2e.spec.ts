@@ -84,6 +84,10 @@ describe('FactoryService', () => {
       .expect(200);
   });
 
+  test('it can get tournamentInfo', async () => {
+    return await request(app.getHttpServer()).post('/factory/tournamentinfo').send({ tournamentId: TEST }).expect(201);
+  });
+
   afterAll(async () => {
     await app.close();
   });
