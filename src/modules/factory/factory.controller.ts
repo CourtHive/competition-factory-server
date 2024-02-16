@@ -16,6 +16,7 @@ import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/modules/auth/guards/role.guard';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { FactoryService } from './factory.service';
+import { User } from '../auth/decorators/user.decorator';
 
 @UseGuards(RolesGuard)
 @Controller('factory')
@@ -96,8 +97,8 @@ export class FactoryController {
   @Post('fetch')
   @Roles([CLIENT])
   @HttpCode(HttpStatus.OK)
-  fetchTournamentRecords(@Body() ftd: FetchTournamentRecordsDto) {
-    return this.factoryService.fetchTournamentRecords(ftd);
+  fetchTournamentRecords(@Body() ftd: FetchTournamentRecordsDto, @User() user?: any) {
+    return this.factoryService.fetchTournamentRecords(ftd, user);
   }
 
   @Post('generate')
