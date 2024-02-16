@@ -1,6 +1,6 @@
 import { queryTournamentRecords } from './queryTournamentRecords';
 
-export async function getMatchUps(params: any, services?: any) {
+export async function getMatchUps(params: any) {
   const { tournamentId, matchUpStatuses, ...rest } = params;
   const method = 'allTournamentMatchUps';
   const payload = {
@@ -8,5 +8,5 @@ export async function getMatchUps(params: any, services?: any) {
     tournamentId,
     method,
   };
-  return queryTournamentRecords(payload, services);
+  return queryTournamentRecords(payload);
 }

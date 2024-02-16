@@ -10,7 +10,7 @@ import { GetEventDataDto } from './dto/getEventData.dto';
 import { GetMatchUpsDto } from './dto/getMatchUps.dto';
 import { CLIENT, GENERATE, SUPER_ADMIN } from 'src/common/constants/roles';
 
-import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param } from '@nestjs/common';
+import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param, Logger } from '@nestjs/common';
 import { Public } from 'src/modules/auth/decorators/public.decorator';
 import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/modules/auth/guards/role.guard';
@@ -26,10 +26,11 @@ export class FactoryController {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  async cachFx(key, fx, params) {
+  async cacheFx(key, fx, params) {
     const cachedData: any = await this.cacheManager.get(key);
     if (cachedData) {
       if (typeof cachedData === 'object') cachedData._cached = true;
+      Logger.log(`Cache hit: ${key}`);
       return cachedData;
     }
     const result = await fx(params);
@@ -51,33 +52,37 @@ export class FactoryController {
 
   @Public()
   @Get('tournamentinfo/:tid')
-  getTournamentInfo(@Param('tid') tid) {
-    return this.factoryService.getTournamentInfo({ tournamentId: tid });
+  async getTournamentInfo(@Param('tid') tid) {
+    const key = `gti|${tid}`;
+    return await this.cacheFx(key, this.factoryService.getTournamentInfo, { tournamentId: tid });
   }
 
   @Public()
   @Post('tournamentinfo')
-  tournamentInfo(@Body() gti: GetTournamentInfoDto) {
-    return this.factoryService.getTournamentInfo(gti);
+  async tournamentInfo(@Body() gti: GetTournamentInfoDto) {
+    const key = `gti|${gti.tournamentId}`;
+    return await this.cacheFx(key, this.factoryService.getTournamentInfo, gti);
   }
 
   @Public()
   @Post('eventdata')
-  eventData(@Body() ged: GetEventDataDto) {
-    return this.factoryService.getEventData(ged);
+  async eventData(@Body() ged: GetEventDataDto) {
+    const key = `ged|${ged.tournamentId}`;
+    return await this.cacheFx(key, this.factoryService.getEventData, ged);
   }
 
-  @Public()
   @Post('tournamentmatchups')
-  tournamentMatchUps(@Body() gtm: GetTournamentMatchUpsDto) {
-    return this.factoryService.getTournamentMatchUps(gtm);
+  @Roles(['score'])
+  async tournamentMatchUps(@Body() gtm: GetTournamentMatchUpsDto) {
+    const key = `gtm|${gtm.params.tournamentId}`;
+    return await this.cacheFx(key, this.factoryService.getTournamentMatchUps, gtm);
   }
 
   @Post('matchups')
   @Roles(['score'])
   async getMatchUps(@Body() gmr: GetMatchUpsDto) {
     const key = `gmr|${gmr.tournamentId}`;
-    return await this.cachFx(key, this.factoryService.getMatchUps, gmr);
+    return await this.cacheFx(key, this.factoryService.getMatchUps, gmr);
   }
 
   @Post('score')
