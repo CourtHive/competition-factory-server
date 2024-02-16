@@ -1,11 +1,11 @@
+import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
+
 import { STORAGE, SUCCESS, UTF8 } from '../../common/constants/app';
 
 import * as fs from 'fs-extra';
 
 export async function saveTournamentRecords(params?: { tournamentRecords?: any; tournamentRecord?: any }) {
-  const tournamentRecords =
-    params?.tournamentRecords ??
-    (params?.tournamentRecord ? { [params.tournamentRecord.tournamentId]: params.tournamentRecord } : {});
+  const tournamentRecords = getTournamentRecords(params);
 
   fs.ensureDirSync(STORAGE);
 

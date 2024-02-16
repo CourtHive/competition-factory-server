@@ -8,7 +8,7 @@ import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
 import { ExecutionQueueDto } from './dto/executionQueue.dto';
 import { GetEventDataDto } from './dto/getEventData.dto';
 import { GetMatchUpsDto } from './dto/getMatchUps.dto';
-import { CLIENT } from 'src/common/constants/roles';
+import { CLIENT, GENERATE, SUPER_ADMIN } from 'src/common/constants/roles';
 
 import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param } from '@nestjs/common';
 import { Public } from 'src/modules/auth/decorators/public.decorator';
@@ -102,10 +102,10 @@ export class FactoryController {
   }
 
   @Post('generate')
-  @Roles([CLIENT])
+  @Roles([SUPER_ADMIN, GENERATE])
   @HttpCode(HttpStatus.OK)
-  generateTournamentRecord(@Body() gtd: any) {
-    return this.factoryService.generateTournamentRecord(gtd);
+  generateTournamentRecord(@Body() gtd: any, @User() user?: any) {
+    return this.factoryService.generateTournamentRecord(gtd, user);
   }
 
   @Post('query')
@@ -125,7 +125,7 @@ export class FactoryController {
   @Post('save')
   @Roles([CLIENT])
   @HttpCode(HttpStatus.OK)
-  saveTournamentRecords(@Body() std: SaveTournamentRecordsDto) {
-    return this.factoryService.saveTournamentRecords(std);
+  saveTournamentRecords(@Body() std: SaveTournamentRecordsDto, @User() user?: any) {
+    return this.factoryService.saveTournamentRecords(std, user);
   }
 }

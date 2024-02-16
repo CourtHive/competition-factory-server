@@ -11,6 +11,7 @@ import publicQueries from './functions/public';
 import { ConfigService } from '@nestjs/config';
 import { Injectable } from '@nestjs/common';
 import { checkUser } from './helpers/checkUser';
+import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 
 @Injectable()
 export class FactoryService {
@@ -49,8 +50,8 @@ export class FactoryService {
     return allowUser ? result : { error: 'User not allowed' };
   }
 
-  async generateTournamentRecord(params) {
-    return this.getStorage().generateTournamentRecord(params);
+  async generateTournamentRecord(params, user) {
+    return this.getStorage().generateTournamentRecord(params, user);
   }
 
   async queryTournamentRecords(params) {
@@ -61,7 +62,12 @@ export class FactoryService {
     return await this.getStorage().removeTournamentRecords(params);
   }
 
-  async saveTournamentRecords(params) {
+  async saveTournamentRecords(params, user) {
+    const validUser = checkUser({ user }); // don't attempt save if user doesn't have providerId
+    if (!validUser) return { error: 'Invalid user' };
+    const tournamentRecords = getTournamentRecords(params);
+    const allowUser = checkProvider({ tournamentRecords, user });
+    if (!allowUser) return { error: 'User not allowed' };
     return await this.getStorage().saveTournamentRecords(params);
   }
 
