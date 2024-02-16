@@ -92,4 +92,12 @@ export class AuthService {
     const storageRecord = { key: user.email, value: user };
     return await netLevel.set(BASE_USER, storageRecord);
   }
+
+  async decode(token: string) {
+    try {
+      return await this.jwtService.verifyAsync(token);
+    } catch (e) {
+      throw new UnauthorizedException('Incorrect auth token.');
+    }
+  }
 }
