@@ -1,4 +1,5 @@
 import { MessagingModule } from '../messaging/messaging.module';
+import { ProvidersModule } from '../providers/providers.module';
 import { FactoryModule } from '../factory/factory.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ConfigsModule } from '../../config/config.module';
@@ -13,6 +14,7 @@ import { join } from 'path';
 @Module({
   imports: [
     ServeStaticModule.forRoot({ rootPath: join(__dirname, '../../..', 'client') }),
+    ProvidersModule,
     MessagingModule,
     FactoryModule,
     ConfigsModule,

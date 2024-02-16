@@ -19,6 +19,7 @@ export class ProvidersController {
 
   @Post('allproviders')
   @Roles([SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
   getProviders() {
     return this.providers.getProviders();
   }

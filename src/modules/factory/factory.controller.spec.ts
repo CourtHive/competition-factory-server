@@ -13,8 +13,8 @@ describe('FactoryController', () => {
 
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
-      providers: [FactoryService, ConfigService],
       imports: [AuthModule, UsersModule, ConfigsModule, CacheModule],
+      providers: [FactoryService, ConfigService],
       controllers: [FactoryController],
     }).compile();
 
@@ -27,6 +27,16 @@ describe('FactoryController', () => {
 
   it('can get version', () => {
     expect(factoryController.getVersion()).toBeDefined();
+  });
+
+  it('can get tournamentInfo', async () => {
+    const result = await factoryController.tournamentInfo({ tournamentId: TEST });
+    console.log({ result });
+  });
+
+  it('can get tournamentInfo', async () => {
+    const result = await factoryController.fetchTournamentRecords({ tournamentId: TEST });
+    console.log({ result });
   });
 
   it('can generate a tournamentRecord and query for it', async () => {

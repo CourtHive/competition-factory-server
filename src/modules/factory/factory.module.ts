@@ -5,8 +5,8 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 @Module({
-  controllers: [FactoryController],
   providers: [FactoryService, ConfigService],
+  controllers: [FactoryController],
   exports: [FactoryService],
   imports: [ConfigsModule],
 })
