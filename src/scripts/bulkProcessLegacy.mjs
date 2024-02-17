@@ -55,14 +55,14 @@ export async function createProviderCalendars(tournamentsPath) {
     }
 
     if (tournamentRecord?.tournamentId) {
-      const { tournamentName, tournamentId, startDate, endDate, parentOrganisation } = tournamentRecord;
-      await netLevel.set('tournamentRecord', { key: tournamentId, value: tournamentRecord });
+      await netLevel.set('tournamentRecord', { key: tournamentRecord.tournamentId, value: tournamentRecord });
+      if (!tournamentRecord.parentOrganisation?.providerId) continue;
       if (tournamentRecord.isMock) continue;
 
-      const providerId = parentOrganisation?.organisationId;
-      if (!providerId) continue;
+      providers[providerId] = tournamentRecord.parentOrganisation;
 
-      providers[providerId] = parentOrganisation;
+      const providerId = tournamentRecord.parentOrganisation?.organisationId;
+      if (!providerCalendars[providerId]) providerCalendars[providerId] = [];
 
       const tournamentImageURL = tournamentRecord.onlineResources.find(
         (resource) =>
@@ -71,8 +71,7 @@ export async function createProviderCalendars(tournamentsPath) {
           resource.name === 'tournamentImage',
       )?.identifier;
 
-      if (!providerCalendars[providerId]) providerCalendars[providerId] = [];
-
+      // TODO: getTournamentInfo with publishState and add events to calendar
       const calendarEntry = {
         searchText: tournamentName.toLowerCase(),
         tournamentId,
@@ -86,8 +85,6 @@ export async function createProviderCalendars(tournamentsPath) {
       };
 
       providerCalendars[providerId].push(calendarEntry);
-
-      //  fs.writeFileSync(`${tournamentsPath}/${tournamentId}.tods.json`, JSON.stringify(tournamentRecord));
     }
   }
 
