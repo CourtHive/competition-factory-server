@@ -7,6 +7,7 @@ export function getCalendarEntry({ tournamentRecord }) {
   )?.identifier;
 
   // TODO: getTournamentInfo with publishState and add events to calendar
+  // what other details?  Ratings ranges, age groups, # of matches etc.
   return {
     searchText: tournamentName.toLowerCase(),
     tournamentId,
