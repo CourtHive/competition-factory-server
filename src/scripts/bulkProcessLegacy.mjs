@@ -56,12 +56,11 @@ export async function createProviderCalendars(tournamentsPath) {
 
     if (tournamentRecord?.tournamentId) {
       await netLevel.set('tournamentRecord', { key: tournamentRecord.tournamentId, value: tournamentRecord });
-      if (!tournamentRecord.parentOrganisation?.providerId) continue;
+      if (!tournamentRecord.parentOrganisation?.organisationId) continue;
       if (tournamentRecord.isMock) continue;
 
-      providers[providerId] = tournamentRecord.parentOrganisation;
-
       const providerId = tournamentRecord.parentOrganisation?.organisationId;
+      providers[providerId] = tournamentRecord.parentOrganisation;
       if (!providerCalendars[providerId]) providerCalendars[providerId] = [];
 
       const tournamentImageURL = tournamentRecord.onlineResources.find(
@@ -71,6 +70,7 @@ export async function createProviderCalendars(tournamentsPath) {
           resource.name === 'tournamentImage',
       )?.identifier;
 
+      const { tournamentId, tournamentName, startDate, endDate } = tournamentRecord;
       // TODO: getTournamentInfo with publishState and add events to calendar
       const calendarEntry = {
         searchText: tournamentName.toLowerCase(),
