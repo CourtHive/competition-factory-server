@@ -87,7 +87,7 @@ export async function createProviderCalendars(tournamentsPath) {
 
       providerCalendars[providerId].push(calendarEntry);
 
-      fs.writeFileSync(`${tournamentsPath}/${tournamentId}.tods.json`, JSON.stringify(tournamentRecord));
+      //  fs.writeFileSync(`${tournamentsPath}/${tournamentId}.tods.json`, JSON.stringify(tournamentRecord));
     }
   }
 
