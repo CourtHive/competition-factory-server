@@ -8,15 +8,15 @@ import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
 import { ExecutionQueueDto } from './dto/executionQueue.dto';
 import { GetEventDataDto } from './dto/getEventData.dto';
 import { GetMatchUpsDto } from './dto/getMatchUps.dto';
-import { CLIENT, GENERATE, SUPER_ADMIN } from 'src/common/constants/roles';
 
 import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param, Logger } from '@nestjs/common';
+import { CLIENT, GENERATE, SUPER_ADMIN } from 'src/common/constants/roles';
 import { Public } from 'src/modules/auth/decorators/public.decorator';
 import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/modules/auth/guards/role.guard';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { FactoryService } from './factory.service';
 import { User } from '../auth/decorators/user.decorator';
+import { FactoryService } from './factory.service';
 
 @UseGuards(RolesGuard)
 @Controller('factory')
