@@ -71,7 +71,6 @@ export async function createProviderCalendars(tournamentsPath) {
       )?.identifier;
 
       const { tournamentId, tournamentName, startDate, endDate } = tournamentRecord;
-      // TODO: getTournamentInfo with publishState and add events to calendar
       const calendarEntry = {
         searchText: tournamentName.toLowerCase(),
         tournamentId,
