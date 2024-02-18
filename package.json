@@ -34,7 +34,7 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@gridspace/net-level": "0.2.4-0",
+    "@gridspace/net-level": "0.2.4-1",
     "@gridspace/net-level-client": "0.2.2",
     "@nestjs/cache-manager": "2.2.1",
     "@nestjs/class-transformer": "0.4.0",
