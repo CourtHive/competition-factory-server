@@ -2,6 +2,7 @@ import { convertTMX2TODS } from 'tods-tmx-classic-converter';
 import netLevel from './netLevel.mjs';
 import minimist from 'minimist';
 import fs from 'fs-extra';
+import 'dotenv/config';
 
 const UTF8 = 'utf8';
 
