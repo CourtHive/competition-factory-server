@@ -39,7 +39,7 @@ export class TmxGateway {
   @SubscribeMessage('tmx')
   @Roles(['client'])
   async tmx(@MessageBody() data: any): Promise<any> {
-    this.logger.debug(`tmx route successful`, { data });
+    this.logger.debug(`tmx route successful -- no action taken (yet)`, { data });
     return { event: 'ack', data }; // emit to client
   }
 
