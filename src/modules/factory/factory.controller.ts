@@ -67,7 +67,7 @@ export class FactoryController {
   @Public()
   @Post('eventdata')
   async eventData(@Body() ged: GetEventDataDto) {
-    const key = `ged|${ged.tournamentId}`;
+    const key = `ged|${ged.tournamentId}|${ged.eventId}`;
     return await this.cacheFx(key, this.factoryService.getEventData, ged);
   }
 
