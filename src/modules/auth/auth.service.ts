@@ -20,11 +20,12 @@ export class AuthService {
 
   async signIn(email: string, clearTextPassword: string) {
     const user = await this.usersService.findOne(email);
+    const { password, ...userDetails } = user;
     const passwordMatch =
-      user && (user.password === clearTextPassword || (await bcrypt.compare(clearTextPassword, user.password)));
+      user && (password === clearTextPassword || (await bcrypt.compare(clearTextPassword, user.password)));
     if (!passwordMatch) throw new UnauthorizedException();
 
-    const payload = { email: user.email, roles: user.roles, permissions: user.permissions };
+    const payload = userDetails;
     return {
       token: await this.jwtService.signAsync(payload),
     };
