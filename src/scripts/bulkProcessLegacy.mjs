@@ -93,7 +93,7 @@ export async function createProviderCalendars(tournamentsPath) {
     const provider = providers[providerId];
     await netLevel.set('provider', { key: providerId, value: provider });
 
-    const abbr = provider?.organisationAbbreviation;
-    abbr && (await netLevel.set('calendar', { key: abbr, value: { provider, tournaments } }));
+    const key = provider?.organisationAbbreviation ?? provider?.organisationId;
+    key && (await netLevel.set('calendar', { key, value: { provider, tournaments } }));
   }
 }
