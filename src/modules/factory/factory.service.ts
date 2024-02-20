@@ -7,9 +7,9 @@ import { getMatchUps } from './functions/private/getMatchUps';
 import { checkProvider } from './helpers/checkProvider';
 import { askEngine } from 'tods-competition-factory';
 import { checkUser } from './helpers/checkUser';
+import levelStorage from 'src/services/levelDB';
 import publicQueries from './functions/public';
 import { Injectable } from '@nestjs/common';
-import levelStorage from 'src/services/levelDB';
 
 @Injectable()
 export class FactoryService {
