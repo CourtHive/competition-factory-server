@@ -1,11 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { ADMIN, CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ProvidersService } from './providers.service';
 import { GetProviderDto } from './dto/getProvider.dto';
 import { GetCalendarDto } from './dto/getCalendar.dto';
+import { RolesGuard } from '../auth/guards/role.guard';
 
+@UseGuards(RolesGuard)
 @Controller('provider')
 export class ProvidersController {
   constructor(private providers: ProvidersService) {}
@@ -15,6 +17,13 @@ export class ProvidersController {
   @HttpCode(HttpStatus.OK)
   getCalendar(@Body() providerAbbr: GetCalendarDto) {
     return this.providers.getCalendar(providerAbbr);
+  }
+
+  @Post('checkcalendars')
+  @Roles([SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  checkCalendars() {
+    return this.providers.checkCalendars();
   }
 
   @Post('allproviders')
