@@ -29,7 +29,7 @@ export class TmxGateway {
     const { type, payload = {} } = data;
     if (tmxMessages[type]) {
       tmxMessages[type]({ client, payload, services: { cacheManager: this.cacheManager } });
-      this.logger.debug(`${type} route successful`, { payload });
+      this.logger.debug(`${type} route successful: ${payload.userId}`);
     } else {
       this.logger.debug(`Not found: ${type}`);
     }
