@@ -1,11 +1,9 @@
+import { executionQueue } from 'src/modules/factory/functions/private/executionQueue';
+
 export const tmxMessages = {
-  executionQueue: ({ client, payload }) => {
-    client.emit('ack', { received: !!payload });
-    console.log('executionQueue', payload);
-    return true;
-  },
-  fetch: ({ client, payload }) => {
-    client.emit('ack', { received: !!payload });
-    return true;
+  executionQueue: async ({ client, payload, services }) => {
+    const result = await executionQueue(payload, services);
+    const response = result.error ? { error: result.error } : { success: result.success };
+    client.emit('ack', response);
   },
 };
