@@ -1,6 +1,5 @@
 import { governors, asyncEngine, globalState, topicConstants } from 'tods-competition-factory';
 import asyncGlobalState from './asyncGlobalState';
-import { Logger } from '@nestjs/common';
 
 const traverse = true;
 const global = true;
@@ -23,8 +22,7 @@ export function getMutationEngine(services?) {
         if (Array.isArray(params)) {
           for (const item of params) {
             const key = `ged|${item.tournamentId}|${item.eventData.eventInfo.eventId}`;
-            Logger.debug(`publish event: ${key}`);
-            services?.cacheManager?.set(key, item, 60 * 3 * 1000); // 3 minutes
+            services?.cacheManager?.set(key, item.eventData, 60 * 3 * 1000); // 3 minutes
             // remove cached tournammentInfo so that event will be immediately available
             const infoKey = `gti|${item.tournamentId}`;
             services?.cacheManager?.del(infoKey);
@@ -34,7 +32,6 @@ export function getMutationEngine(services?) {
       [topicConstants.UNPUBLISH_EVENT]: (params) => {
         for (const item of params) {
           const eventDataKey = `ged|${item.tournamentId}|${item.eventId}`;
-          Logger.debug(`unpublish event: ${eventDataKey}}`);
           services?.cacheManager?.del(eventDataKey);
           const infoKey = `gti|${item.tournamentId}`;
           services?.cacheManager?.del(infoKey);

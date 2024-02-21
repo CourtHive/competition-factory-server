@@ -156,6 +156,7 @@ function setSubscriptions(params) {
   Object.keys(params.subscriptions).forEach((subscription) => {
     instanceState.subscriptions[subscription] = params.subscriptions[subscription];
   });
+
   return { ...SUCCESS };
 }
 
