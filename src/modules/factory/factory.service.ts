@@ -18,8 +18,8 @@ export class FactoryService {
     return { version };
   }
 
-  async executionQueue(params) {
-    const result = await eq(params);
+  async executionQueue(params, services) {
+    const result = await eq(params, services);
     checkEngineError(result);
     return result;
   }
