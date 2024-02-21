@@ -96,7 +96,7 @@ export class FactoryController {
   @Roles([CLIENT])
   @HttpCode(HttpStatus.OK)
   executionQueue(@Body() eqd: ExecutionQueueDto) {
-    return this.factoryService.executionQueue(eqd);
+    return this.factoryService.executionQueue(eqd, { cacheManager: this.cacheManager });
   }
 
   @Post('fetch')
