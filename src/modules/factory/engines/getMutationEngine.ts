@@ -14,7 +14,7 @@ globalState.setGlobalSubscriptions({
 });
 asyncGlobalState.createInstanceState(); // is there only one instance of asyncGlobalState?
 
-export function getMutationEngine(cacheManager?) {
+export function getMutationEngine(services?) {
   const engineAsync = asyncEngine();
   globalState.setSubscriptions({
     subscriptions: {
@@ -22,8 +22,19 @@ export function getMutationEngine(cacheManager?) {
         if (Array.isArray(params)) {
           for (const item of params) {
             const key = `ged|${item.tournamentId}|${item.eventData.eventInfo.eventId}`;
-            cacheManager?.set(key, item, 60 * 3 * 1000); // 3 minutes
+            services?.cacheManager?.set(key, item.eventData, 60 * 3 * 1000); // 3 minutes
+            // remove cached tournammentInfo so that event will be immediately available
+            const infoKey = `gti|${item.tournamentId}`;
+            services?.cacheManager?.del(infoKey);
           }
+        }
+      },
+      [topicConstants.UNPUBLISH_EVENT]: (params) => {
+        for (const item of params) {
+          const eventDataKey = `ged|${item.tournamentId}|${item.eventId}`;
+          services?.cacheManager?.del(eventDataKey);
+          const infoKey = `gti|${item.tournamentId}`;
+          services?.cacheManager?.del(infoKey);
         }
       },
     },

@@ -1,4 +1,4 @@
-import { getMutationEngine } from '../../engines/mutationEngine';
+import { getMutationEngine } from '../../engines/getMutationEngine';
 import levelStorage from 'src/services/levelDB';
 import { Logger } from '@nestjs/common';
 
@@ -14,7 +14,7 @@ export async function executionQueue(payload: any, services?: any) {
   const result: any = await levelStorage.fetchTournamentRecords({ tournamentIds });
   if (result.error) return result;
 
-  const mutationEngine = getMutationEngine(services?.cacheManager);
+  const mutationEngine = getMutationEngine(services);
   mutationEngine.setState(result.tournamentRecords);
   const mutationResult = await mutationEngine.executionQueue(methods);
 

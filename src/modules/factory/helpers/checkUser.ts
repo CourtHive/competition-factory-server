@@ -7,5 +7,5 @@ import { SUPER_ADMIN } from 'src/common/constants/roles';
  * @returns boolean
  */
 export function checkUser({ user }) {
-  return !!(user?.roles?.includes(SUPER_ADMIN) || user?.providerIds?.length);
+  return !!(user?.roles?.includes(SUPER_ADMIN) || user?.providerIds?.length || user?.providerId);
 }
