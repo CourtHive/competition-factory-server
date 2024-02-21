@@ -29,7 +29,8 @@ export class TmxGateway {
     const { type, payload = {} } = data;
     if (tmxMessages[type]) {
       tmxMessages[type]({ client, payload, services: { cacheManager: this.cacheManager } });
-      this.logger.debug(`${type} route successful: ${payload.userId}`);
+      const methods = payload?.methods?.map((directive) => directive.method).join('|');
+      this.logger.debug(`${type} route successful: ${payload.userId}: ${methods}`);
     } else {
       this.logger.debug(`Not found: ${type}`);
     }
