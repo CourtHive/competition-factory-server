@@ -7,7 +7,7 @@ import netLevel from 'src/services/levelDB/netLevel';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
 
-import { BASE_RESET_CODES, BASE_USER } from 'src/services/levelDB/constants';
+import { BASE_PROVIDER, BASE_RESET_CODES, BASE_USER } from 'src/services/levelDB/constants';
 import { SUCCESS } from 'src/common/constants/app';
 
 @Injectable()
@@ -24,6 +24,10 @@ export class AuthService {
     const passwordMatch =
       user && (password === clearTextPassword || (await bcrypt.compare(clearTextPassword, user.password)));
     if (!passwordMatch) throw new UnauthorizedException();
+    if (user.providerId) {
+      const provider = await netLevel.get(BASE_PROVIDER, { key: user.providerId });
+      userDetails.provider = provider;
+    }
 
     const payload = userDetails;
     return {
