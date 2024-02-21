@@ -25,6 +25,9 @@ export function getMutationEngine(services?) {
             const key = `ged|${item.tournamentId}|${item.eventData.eventInfo.eventId}`;
             Logger.debug(`publish event: ${key}`);
             services?.cacheManager?.set(key, item, 60 * 3 * 1000); // 3 minutes
+            // remove cached tournammentInfo so that event will be immediately available
+            const infoKey = `gti|${item.tournamentId}`;
+            services?.cacheManager?.del(infoKey);
           }
         }
       },
