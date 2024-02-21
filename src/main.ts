@@ -7,7 +7,7 @@ import { Logger } from '@nestjs/common';
 import { json } from 'body-parser';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { logger: ['fatal', 'verbose', 'debug', 'error', 'warn'] });
   app.enableCors({
     methods: ['GET', 'POST'],
     allowedHeaders: '*',
@@ -36,6 +36,6 @@ async function bootstrap() {
 
   await app.listen(port, '0.0.0.0');
   Logger.verbose(`Application ${appName} is running on: ${await app.getUrl()}`);
-  Logger.debug(`Factory ${version()}`);
+  Logger.verbose(`Factory ${version()}`);
 }
 bootstrap();
