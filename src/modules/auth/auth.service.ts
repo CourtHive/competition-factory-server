@@ -44,7 +44,7 @@ export class AuthService {
     const inviteCode = createUniqueKey();
     await this.cacheManager.set(`invite:${inviteCode}`, invitation, 60 * 60 * 24 * 1000);
 
-    Logger.log(`Invite code: ${inviteCode}, Email: ${email}`);
+    Logger.verbose(`Invite code: ${inviteCode}, Email: ${email}`);
     /**
       await sendEmailHTML({
         to: email,

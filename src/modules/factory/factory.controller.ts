@@ -30,7 +30,7 @@ export class FactoryController {
     const cachedData: any = await this.cacheManager.get(key);
     if (cachedData) {
       if (typeof cachedData === 'object') cachedData._cached = true;
-      Logger.log(`Cache hit: ${key}`);
+      Logger.verbose(`Cache hit: ${key}`);
       return cachedData;
     }
     const result = await fx(params);
