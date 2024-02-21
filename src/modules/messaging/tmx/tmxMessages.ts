@@ -3,7 +3,9 @@ import { executionQueue } from 'src/modules/factory/functions/private/executionQ
 export const tmxMessages = {
   executionQueue: async ({ client, payload, services }) => {
     const result = await executionQueue(payload, services);
-    const response = result.error ? { error: result.error } : { success: result.success };
+    const ackId = payload.ackId;
+
+    const response = result.error ? { ackId, error: result.error } : { ackId, success: result.success };
     client.emit('ack', response);
   },
 };
