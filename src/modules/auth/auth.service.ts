@@ -7,7 +7,7 @@ import netLevel from 'src/services/levelDB/netLevel';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
 
-import { BASE_RESET_CODES, BASE_USER } from 'src/services/levelDB/constants';
+import { BASE_PROVIDER, BASE_RESET_CODES, BASE_USER } from 'src/services/levelDB/constants';
 import { SUCCESS } from 'src/common/constants/app';
 
 @Injectable()
@@ -20,11 +20,16 @@ export class AuthService {
 
   async signIn(email: string, clearTextPassword: string) {
     const user = await this.usersService.findOne(email);
+    const { password, ...userDetails } = user;
     const passwordMatch =
-      user && (user.password === clearTextPassword || (await bcrypt.compare(clearTextPassword, user.password)));
+      user && (password === clearTextPassword || (await bcrypt.compare(clearTextPassword, user.password)));
     if (!passwordMatch) throw new UnauthorizedException();
+    if (user.providerId) {
+      const provider = await netLevel.get(BASE_PROVIDER, { key: user.providerId });
+      userDetails.provider = provider;
+    }
 
-    const payload = { email: user.email, roles: user.roles, permissions: user.permissions };
+    const payload = userDetails;
     return {
       token: await this.jwtService.signAsync(payload),
     };
@@ -39,7 +44,7 @@ export class AuthService {
     const inviteCode = createUniqueKey();
     await this.cacheManager.set(`invite:${inviteCode}`, invitation, 60 * 60 * 24 * 1000);
 
-    Logger.log(`Invite code: ${inviteCode}, Email: ${email}`);
+    Logger.verbose(`Invite code: ${inviteCode}, Email: ${email}`);
     /**
       await sendEmailHTML({
         to: email,

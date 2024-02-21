@@ -7,8 +7,8 @@ import 'dotenv/config';
 const UTF8 = 'utf8';
 
 const args = minimist(process.argv.slice(2), {
-  default: { path: './cache/tournaments', limit: 0 },
-  alias: { p: 'path', l: 'limit' },
+  default: { path: './cache/tournaments', limit: 0, verbose: false },
+  alias: { p: 'path', l: 'limit', v: 'verbose' },
 });
 
 createProviderCalendars(args.path).then(() => {
@@ -27,7 +27,10 @@ export async function createProviderCalendars(tournamentsPath) {
   const fileNames = directoryContents.filter((name) => name.endsWith('.circular.json'));
 
   const providerCalendars = {};
+  const tournamentIds = [];
   const providers = {};
+  let calendarCount = 0;
+  let added = 0;
   let count = 0;
 
   for (const fileName of fileNames) {
@@ -39,26 +42,45 @@ export async function createProviderCalendars(tournamentsPath) {
     try {
       legacyTournamentRecord = JSON.parse(tournamentRaw);
       if (legacyTournamentRecord?.doNotProcess) {
-        console.log('DO NOT PROCESS');
+        args.verbose && console.log('DO NOT PROCESS', legacyTournamentRecord?.tuid);
         continue;
       }
-      tournamentRecord = convertTMX2TODS({ tournament: legacyTournamentRecord, verbose: true }).tournamentRecord;
+      tournamentRecord = convertTMX2TODS({ tournament: legacyTournamentRecord, verbose: false }).tournamentRecord;
     } catch (err) {
       console.log('error', { fileName, err });
       continue;
     }
 
+    const { name: tournamentName, tuid } = legacyTournamentRecord;
+
     if (legacyTournamentRecord?.players?.length < 2) {
+      args.verbose && console.log('NO PLAYERS', { tournamentId: tuid, tournamentName });
       continue;
     }
     if (!legacyTournamentRecord?.events?.length) {
+      args.verbose && console.log('NO PLAYERS', { tournamentId: tuid, tournamentName });
       continue;
     }
 
     if (tournamentRecord?.tournamentId) {
-      await netLevel.set('tournamentRecord', { key: tournamentRecord.tournamentId, value: tournamentRecord });
-      if (!tournamentRecord.parentOrganisation?.organisationId) continue;
-      if (tournamentRecord.isMock) continue;
+      const { tournamentId, tournamentName, startDate, endDate } = tournamentRecord;
+      if (tournamentIds.includes(tournamentId)) {
+        console.log('DUPLICATE', { tournamentId });
+        continue;
+      }
+
+      await netLevel.set('tournamentRecord', { key: tournamentId, value: tournamentRecord });
+      tournamentIds.push(tournamentId);
+      added++;
+
+      if (!tournamentRecord.parentOrganisation?.organisationId) {
+        console.log('NO PROVIDER', { tournamentId });
+        continue;
+      }
+      if (tournamentRecord.isMock) {
+        console.log('IS MOCK', { tournamentId });
+        continue;
+      }
 
       const providerId = tournamentRecord.parentOrganisation?.organisationId;
       providers[providerId] = tournamentRecord.parentOrganisation;
@@ -71,7 +93,6 @@ export async function createProviderCalendars(tournamentsPath) {
           resource.name === 'tournamentImage',
       )?.identifier;
 
-      const { tournamentId, tournamentName, startDate, endDate } = tournamentRecord;
       const calendarEntry = {
         searchText: tournamentName.toLowerCase(),
         tournamentId,
@@ -85,6 +106,7 @@ export async function createProviderCalendars(tournamentsPath) {
       };
 
       providerCalendars[providerId].push(calendarEntry);
+      calendarCount++;
     }
   }
 
@@ -96,4 +118,10 @@ export async function createProviderCalendars(tournamentsPath) {
     const key = provider?.organisationAbbreviation ?? provider?.organisationId;
     key && (await netLevel.set('calendar', { key, value: { provider, tournaments } }));
   }
+
+  const calendarTournamentIds = Object.values(providerCalendars).flatMap((tournaments) =>
+    tournaments.map((t) => t.tournamentId),
+  );
+  const missingTournamentIds = tournamentIds.filter((id) => !calendarTournamentIds.includes(id));
+  console.log({ added, calendarCount, calendarTournamentIdCount: calendarTournamentIds.length, missingTournamentIds });
 }

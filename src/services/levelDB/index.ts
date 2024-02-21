@@ -1,5 +1,6 @@
 import { generateTournamentRecord as gen } from 'src/modules/factory/helpers/generateTournamentRecord';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
+import { updateCalendar } from 'src/modules/providers/updateCalendar';
 import { SUCCESS } from '../../common/constants/app';
 import netLevel from './netLevel';
 
@@ -39,6 +40,15 @@ export async function fetchTournamentRecords(params?: { tournamentIds?: string[]
 
 async function saveTournamentRecord({ tournamentRecord }) {
   const storageRecord = { key: tournamentRecord.tournamentId, value: tournamentRecord };
+  const keysValues = await netLevel.keys(BASE_TOURNAMENT, { from: 0 });
+  const tournamentIds = (keysValues as Array<any>)?.map((kv) => kv.key);
+  const exists = tournamentIds?.includes(tournamentRecord.tournamentId);
+  if (!exists) {
+    await updateCalendar({
+      providerId: tournamentRecord.parentOrganisation.organisationId,
+      tournamentRecord,
+    });
+  }
 
   await netLevel.set(BASE_TOURNAMENT, storageRecord);
   netLevel.exit();

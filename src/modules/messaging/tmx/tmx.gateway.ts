@@ -27,13 +27,13 @@ export class TmxGateway {
   async messageHandler(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<any> {
     if (typeof data !== 'object') return { notFound: data };
     const { type, payload = {} } = data;
-    this.logger.debug(`executionQueue route successful`);
     if (tmxMessages[type]) {
-      return tmxMessages[type]({ client, payload });
+      tmxMessages[type]({ client, payload, services: { cacheManager: this.cacheManager } });
+      const methods = payload?.methods?.map((directive) => directive.method).join('|');
+      this.logger.debug(`${type} route successful: ${payload.userId}: ${methods}`);
     } else {
       this.logger.debug(`Not found: ${type}`);
     }
-    return { notFound: type };
   }
 
   @SubscribeMessage('tmx')
@@ -45,7 +45,8 @@ export class TmxGateway {
 
   @SubscribeMessage('timestamp')
   @Roles(['client'])
-  async timestamp(): Promise<any> {
+  async timestamp(@MessageBody() data: any): Promise<any> {
+    this.logger.verbose(`client timestamp: ${data.timestamp}`);
     return { event: 'timestamp', data: { timestamp: new Date().getTime() } }; // emit to client
   }
 

@@ -1,7 +1,7 @@
 import netLevel from 'src/services/levelDB/netLevel';
 import { Injectable } from '@nestjs/common';
 
-import { BASE_CALENDAR, BASE_PROVIDER } from 'src/services/levelDB/constants';
+import { BASE_CALENDAR, BASE_PROVIDER, BASE_TOURNAMENT } from 'src/services/levelDB/constants';
 import { SUCCESS } from 'src/common/constants/app';
 
 @Injectable()
@@ -22,5 +22,16 @@ export class ProvidersService {
     const providers = await netLevel.list(BASE_PROVIDER, { all: true });
     if (!providers) return { success: false, message: 'No providers found' };
     return { ...SUCCESS, providers };
+  }
+
+  async checkCalendars() {
+    const values = await netLevel.list(BASE_CALENDAR, { all: true });
+    const calendarTournamentIds = (values as Array<any>)?.flatMap((v) =>
+      (v.value?.tournaments ?? []).map((t) => t.tournamentId),
+    );
+    const keysValues = await netLevel.keys(BASE_TOURNAMENT, { from: 0 });
+    const tournamentIds = (keysValues as Array<any>)?.map((kv) => kv.key)?.filter(Boolean) ?? [];
+    const missingTournamentIds = tournamentIds?.filter((id) => !calendarTournamentIds?.includes(id));
+    return { ...SUCCESS, missingTournamentIds, tournamentsCount: tournamentIds.length };
   }
 }
