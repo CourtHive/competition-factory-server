@@ -20,9 +20,9 @@ export class AuthService {
 
   async signIn(email: string, clearTextPassword: string) {
     const user = await this.usersService.findOne(email);
-    const { password, ...userDetails } = user;
+    const { password, ...userDetails } = user ?? {};
     const passwordMatch =
-      user && (password === clearTextPassword || (await bcrypt.compare(clearTextPassword, user.password)));
+      user && (password === clearTextPassword || (await bcrypt.compare(clearTextPassword, user?.password)));
     if (!passwordMatch) throw new UnauthorizedException();
     if (user.providerId) {
       const provider = await netLevel.get(BASE_PROVIDER, { key: user.providerId });
