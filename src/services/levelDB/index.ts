@@ -43,10 +43,11 @@ async function saveTournamentRecord({ tournamentRecord }) {
   const keysValues = await netLevel.keys(BASE_TOURNAMENT, { from: 0 });
   const tournamentIds = (keysValues as Array<any>)?.map((kv) => kv.key);
   const exists = tournamentIds?.includes(tournamentRecord.tournamentId);
-  if (!exists) {
+  const providerId = tournamentRecord.parentOrganisation?.organisationId;
+  if (!exists && providerId) {
     await updateCalendar({
-      providerId: tournamentRecord.parentOrganisation.organisationId,
       tournamentRecord,
+      providerId,
     });
   }
 
