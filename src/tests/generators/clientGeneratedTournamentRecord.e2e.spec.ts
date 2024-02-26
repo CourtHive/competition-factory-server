@@ -56,13 +56,16 @@ describe('ClientGeneratedTournamentRecord', () => {
       .expect(200);
     expect(result.body.success).toEqual(true);
 
-    result = await request(app.getHttpServer())
-      .post('/factory/fetch')
-      .set('Authorization', 'Bearer ' + token)
-      .send({ tournamentId })
-      .expect(200);
-    expect(result.body.success).toEqual(true);
-    expect(result.body.fetched).toEqual(1);
+    // save is async, so we need to wait a bit before fetching
+    setTimeout(async () => {
+      result = await request(app.getHttpServer())
+        .post('/factory/fetch')
+        .set('Authorization', 'Bearer ' + token)
+        .send({ tournamentId })
+        .expect(200);
+      expect(result.body.success).toEqual(true);
+      expect(result.body.fetched).toEqual(1);
+    }, 1000);
   });
 
   afterAll(async () => {
