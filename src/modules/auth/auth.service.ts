@@ -36,7 +36,8 @@ export class AuthService {
   }
 
   async invite(invitation: any) {
-    const { email } = invitation;
+    const email = invitation?.email ?? '';
+    if (!email) return { error: 'Email is required' };
 
     const user = await this.usersService.findOne(email);
     if (user?.email) return { error: 'Existing user' };
