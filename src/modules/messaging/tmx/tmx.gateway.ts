@@ -30,7 +30,7 @@ export class TmxGateway {
     if (tmxMessages[type]) {
       tmxMessages[type]({ client, payload, services: { cacheManager: this.cacheManager } });
       const methods = payload?.methods?.map((directive) => directive.method).join('|');
-      this.logger.debug(`${type} route successful: ${payload.userId}: ${methods}`);
+      this.logger.debug(`${type} message successful: ${payload.userId}: ${methods}`);
     } else {
       this.logger.debug(`Not found: ${type}`);
     }
@@ -39,7 +39,7 @@ export class TmxGateway {
   @SubscribeMessage('tmx')
   @Roles(['client'])
   async tmx(@MessageBody() data: any): Promise<any> {
-    this.logger.debug(`tmx route successful -- no action taken (yet)`, { data });
+    this.logger.debug(`tmx message successful -- no action taken (yet)`, { data });
     return { event: 'ack', data }; // emit to client
   }
 
