@@ -1,9 +1,10 @@
 import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer, ConnectedSocket } from '@nestjs/websockets';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
-import { Public } from '../../auth/decorators/public.decorator';
-import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/modules/auth/guards/socket.guard';
+import { Public } from '../../auth/decorators/public.decorator';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import { tools } from 'tods-competition-factory';
 import { tmxMessages } from './tmxMessages';
 import { Server, Socket } from 'socket.io';
 
@@ -29,7 +30,7 @@ export class TmxGateway {
     const { type, payload = {} } = data;
     if (tmxMessages[type]) {
       tmxMessages[type]({ client, payload, services: { cacheManager: this.cacheManager } });
-      const methods = payload?.methods?.map((directive) => directive.method).join('|');
+      const methods = tools.unique(payload?.methods?.map((directive) => directive.method) ?? []).join('|');
       this.logger.debug(`${type} message successful: ${payload.userId}: ${methods}`);
     } else {
       this.logger.debug(`Not found: ${type}`);
