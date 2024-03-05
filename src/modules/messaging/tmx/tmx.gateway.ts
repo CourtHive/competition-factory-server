@@ -4,6 +4,7 @@ import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/modules/auth/guards/socket.guard';
 import { Public } from '../../auth/decorators/public.decorator';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
 import { tools } from 'tods-competition-factory';
 import { tmxMessages } from './tmxMessages';
 import { Server, Socket } from 'socket.io';
@@ -24,7 +25,7 @@ export class TmxGateway {
   server?: Server;
 
   @SubscribeMessage('executionQueue')
-  @Roles(['client'])
+  @Roles([CLIENT, SUPER_ADMIN])
   async messageHandler(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<any> {
     if (typeof data !== 'object') return { notFound: data };
     const { type, payload = {} } = data;
@@ -38,14 +39,14 @@ export class TmxGateway {
   }
 
   @SubscribeMessage('tmx')
-  @Roles(['client'])
+  @Roles([CLIENT, SUPER_ADMIN])
   async tmx(@MessageBody() data: any): Promise<any> {
     this.logger.debug(`tmx message successful -- no action taken (yet)`, { data });
     return { event: 'ack', data }; // emit to client
   }
 
   @SubscribeMessage('timestamp')
-  @Roles(['client'])
+  @Roles([CLIENT, SUPER_ADMIN])
   async timestamp(@MessageBody() data: any): Promise<any> {
     this.logger.verbose(`client timestamp: ${data.timestamp}`);
     return { event: 'timestamp', data: { timestamp: new Date().getTime() } }; // emit to client
