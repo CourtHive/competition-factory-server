@@ -1,6 +1,7 @@
-import { Public } from '../../auth/decorators/public.decorator';
 import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/modules/auth/guards/socket.guard';
+import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
+import { Public } from '../../auth/decorators/public.decorator';
 import { trackerMessages } from './trackerMessages';
 import { Logger, UseGuards } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
@@ -62,7 +63,7 @@ export class TrackerGateway {
   }
 
   @SubscribeMessage('test')
-  @Roles(['client'])
+  @Roles([CLIENT, SUPER_ADMIN])
   // not @Public() so requires auth
   async test(@MessageBody() data: any): Promise<any> {
     this.logger.debug(`test route successful`);
