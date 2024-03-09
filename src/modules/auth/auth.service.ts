@@ -19,6 +19,7 @@ export class AuthService {
   ) {}
 
   async signIn(email: string, clearTextPassword: string) {
+    if (!email) throw new UnauthorizedException();
     const user = await this.usersService.findOne(email);
     const { password, ...userDetails } = user ?? {};
     const passwordMatch =
