@@ -70,7 +70,7 @@ export class FactoryService {
     return await publicQueries.getEventData({ tournamentId, eventId });
   }
 
-  async getTournamentMatchUps(params) {
+  async getTournamentMatchUps({ params }) {
     return await publicQueries.getTournamentMatchUps(params);
   }
 }
