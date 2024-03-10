@@ -6,6 +6,7 @@ import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
 import { SignInDto } from './dto/signIn.dto';
 import { InviteDto } from './dto/invite.dto';
+import { RemoveDto } from './dto/remove.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -22,6 +23,19 @@ export class AuthController {
   @Roles([ADMIN, SUPER_ADMIN])
   invite(@Body() invitation: InviteDto) {
     return this.authService.invite(invitation);
+  }
+
+  @Post('remove')
+  @Roles([SUPER_ADMIN])
+  remove(@Body() params: RemoveDto) {
+    return this.authService.removeUser(params);
+  }
+
+  @Post('allusers')
+  @Roles([SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  getProviders() {
+    return this.authService.getUsers();
   }
 
   @Public()
