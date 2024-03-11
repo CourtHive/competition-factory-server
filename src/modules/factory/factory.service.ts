@@ -49,8 +49,8 @@ export class FactoryService {
     return await queryTournamentRecords(params);
   }
 
-  async removeTournamentRecords(params) {
-    return await levelStorage.removeTournamentRecords(params);
+  async removeTournamentRecords(params, user) {
+    return await levelStorage.removeTournamentRecords(params, user);
   }
 
   async saveTournamentRecords(params, user) {

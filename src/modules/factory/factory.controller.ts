@@ -123,8 +123,8 @@ export class FactoryController {
   @Post('remove')
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  removeTournamentRecords(@Body() rtd: RemoveTournamentRecordsDto) {
-    return this.factoryService.removeTournamentRecords(rtd);
+  removeTournamentRecords(@Body() rtd: RemoveTournamentRecordsDto, @User() user?: any) {
+    return this.factoryService.removeTournamentRecords(rtd, user);
   }
 
   @Post('save')
