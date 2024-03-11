@@ -10,11 +10,14 @@ export async function getTournamentMatchUps(params) {
   const findResult: any = await levelStorage.fetchTournamentRecords({ tournamentId });
   if (findResult.error) return findResult;
 
+  const tournamentRecords = findResult.tournamentRecords;
+
   const matchUpsResult = queryGovernor.competitionScheduleMatchUps({
+    ...opts, // order is important here because we don't want to overwrite required parameter values
     policyDefinitions: fixtures.policies.POLICY_PRIVACTY_DEFAULT,
-    tournamentRecords: findResult.tournamentRecords,
+    activeTournamentId: tournamentId,
     usePublishState: true,
-    ...opts,
+    tournamentRecords,
   });
   if (matchUpsResult.error) return matchUpsResult;
   return { ...SUCCESS, ...matchUpsResult };
