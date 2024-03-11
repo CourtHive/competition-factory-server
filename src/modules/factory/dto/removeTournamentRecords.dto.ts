@@ -6,4 +6,7 @@ export class RemoveTournamentRecordsDto {
 
   @ApiPropertyOptional()
   tournamentId?: string;
+
+  @ApiPropertyOptional()
+  providerId?: string;
 }

@@ -68,14 +68,16 @@ async function saveTournamentRecords(params?: { tournamentRecords?: any; tournam
 
 async function removeTournamentRecords(params?: any, user?: any) {
   const tournamentIds = params?.tournamentIds ?? [params?.tournamentId].filter(Boolean);
+  const providerId = user?.providerId || params.providerId;
   let removed = 0;
 
   for (const tournamentId of tournamentIds) {
-    if (!user.permissions || user.permissions.includes('deleteTournament')) {
+    if (!user.permissions || user.permissions.includes('deleteTournament') || user.roles?.includes('superadmin')) {
       await netLevel.delete(BASE_TOURNAMENT, { key: tournamentId });
-      const providerId = user?.providerId || params.providerId;
-      await removeFromCalendar({ providerId, tournamentId });
-      removed += 1;
+      if (providerId) {
+        await removeFromCalendar({ providerId, tournamentId });
+        removed += 1;
+      }
     }
   }
 
