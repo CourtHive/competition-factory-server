@@ -1,6 +1,6 @@
 import { generateTournamentRecord as gen } from 'src/modules/factory/helpers/generateTournamentRecord';
+import { addToCalendar, removeFromCalendar } from 'src/modules/providers/updateCalendar';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
-import { updateCalendar } from 'src/modules/providers/updateCalendar';
 import { SUCCESS } from '../../common/constants/app';
 import netLevel from './netLevel';
 
@@ -45,7 +45,7 @@ async function saveTournamentRecord({ tournamentRecord }) {
   const exists = tournamentIds?.includes(tournamentRecord.tournamentId);
   const providerId = tournamentRecord.parentOrganisation?.organisationId;
   if (!exists && providerId) {
-    await updateCalendar({
+    await addToCalendar({
       tournamentRecord,
       providerId,
     });
@@ -66,13 +66,17 @@ async function saveTournamentRecords(params?: { tournamentRecords?: any; tournam
   return { ...SUCCESS };
 }
 
-async function removeTournamentRecords(params?: any) {
+async function removeTournamentRecords(params?: any, user?: any) {
   const tournamentIds = params?.tournamentIds ?? [params?.tournamentId].filter(Boolean);
   let removed = 0;
 
   for (const tournamentId of tournamentIds) {
-    await netLevel.delete(BASE_TOURNAMENT, { key: tournamentId });
-    removed += 1;
+    if (!user.permissions || user.permissions.includes('deleteTournament')) {
+      await netLevel.delete(BASE_TOURNAMENT, { key: tournamentId });
+      const providerId = user?.providerId || params.providerId;
+      await removeFromCalendar({ providerId, tournamentId });
+      removed += 1;
+    }
   }
 
   netLevel.exit();

@@ -37,6 +37,14 @@ export function getMutationEngine(services?) {
           services?.cacheManager?.del(infoKey);
         }
       },
+      [topicConstants.MODIFY_TOURNAMENT_DETAIL]: (params) => {
+        const tournamentUpdates = params.reduce((tu, item) => {
+          const { tournamentId, ...updates } = item;
+          tu[tournamentId] = { ...tu[tournamentId], ...updates };
+          return tu;
+        }, {});
+        console.log(tournamentUpdates);
+      },
     },
   });
 
