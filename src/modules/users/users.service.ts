@@ -9,6 +9,7 @@ import { ADMIN, CLIENT, DEVELOPER, SCORE, SUPER_ADMIN } from 'src/common/constan
 import { BASE_ACCESS_CODES, BASE_USER } from 'src/services/levelDB/constants';
 import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
 import { DEV_MODE } from 'src/common/constants/permissions';
+import { SUCCESS } from 'src/common/constants/app';
 
 type User = {
   permissions?: string[];
@@ -51,6 +52,18 @@ export class UsersService {
     };
     await netLevel.set(BASE_USER, storageRecord);
     return user;
+  }
+
+  async remove(email: string) {
+    const result = await netLevel.delete(BASE_USER, { key: email });
+    console.log('remove result', { key: email }, result);
+    return { ...SUCCESS };
+  }
+
+  async findAll() {
+    const users = await netLevel.list(BASE_USER, { all: true });
+    if (!users) return { success: false, message: 'No users found' };
+    return { ...SUCCESS, users };
   }
 
   // TODO: implement this method in controller

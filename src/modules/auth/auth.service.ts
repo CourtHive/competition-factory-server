@@ -31,9 +31,8 @@ export class AuthService {
     }
 
     const payload = userDetails;
-    return {
-      token: await this.jwtService.signAsync(payload),
-    };
+    const token = await this.jwtService.signAsync(payload);
+    return { token };
   }
 
   async invite(invitation: any) {
@@ -98,6 +97,14 @@ export class AuthService {
     user.password = await hashPassword(newPassword);
     const storageRecord = { key: user.email, value: user };
     return await netLevel.set(BASE_USER, storageRecord);
+  }
+
+  async removeUser(params: any) {
+    return await this.usersService.remove(params.email);
+  }
+
+  async getUsers() {
+    return await this.usersService.findAll();
   }
 
   async decode(token: string) {
