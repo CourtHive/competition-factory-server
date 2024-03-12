@@ -55,9 +55,10 @@ export async function modifyProviderCalendar({ providerId, tournamentId, updates
     if (entry.tournamentId === tournamentId) {
       const searchText = updates.tournamentName?.toLowerCase() || entry.searchText;
       const tournament = { ...entry.tournament, ...updates };
-      return { ...tournament, ...updates, searchText };
+      return { searchText, tournamentId, providerId, tournament };
     }
     return entry;
   });
+
   return await updateCalendar({ provider, tournaments: updatedEntries });
 }
