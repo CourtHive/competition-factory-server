@@ -52,7 +52,7 @@
     "bcryptjs": "2.4.3",
     "body-parser": "1.20.2",
     "cache-manager": "5.4.0",
-    "cache-manager-redis-yet": "4.1.2",
+    "cache-manager-redis-yet": "4.2.0",
     "dotenv": "^16.4.4",
     "ejs": "3.1.9",
     "form-data": "4.0.0",
