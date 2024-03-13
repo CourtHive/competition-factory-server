@@ -86,6 +86,7 @@ export async function createProviderCalendars(tournamentsPath) {
       providers[providerId] = tournamentRecord.parentOrganisation;
       if (!providerCalendars[providerId]) providerCalendars[providerId] = [];
 
+      // deprecate this!
       const tournamentImageURL = tournamentRecord.onlineResources.find(
         (resource) =>
           resource.resourceType === 'URL' &&
@@ -100,7 +101,8 @@ export async function createProviderCalendars(tournamentsPath) {
         tournament: {
           startDate: new Date(startDate).toISOString().split('T')[0],
           endDate: new Date(endDate).toISOString().split('T')[0],
-          tournamentImageURL,
+          onLineResources: tournamentRecord.onlineResources,
+          tournamentImageURL, // deprecate this!
           tournamentName,
         },
       };
