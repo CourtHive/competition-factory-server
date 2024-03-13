@@ -63,7 +63,7 @@
     "reflect-metadata": "0.2.1",
     "rxjs": "7.8.1",
     "socket.io": "4.7.4",
-    "tods-competition-factory": "2.0.48",
+    "tods-competition-factory": "2.0.49",
     "tods-tmx-classic-converter": "3.0.4",
     "tslib": "^2.6.2"
   },
