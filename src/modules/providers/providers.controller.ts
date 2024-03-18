@@ -1,8 +1,10 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { ADMIN, CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
+import { ModifyProviderDto } from './dto/modifyProvider.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ProvidersService } from './providers.service';
+import { AddProviderDto } from './dto/addProvider.dto';
 import { GetProviderDto } from './dto/getProvider.dto';
 import { GetCalendarDto } from './dto/getCalendar.dto';
 import { RolesGuard } from '../auth/guards/role.guard';
@@ -34,9 +36,23 @@ export class ProvidersController {
   }
 
   @Post('detail')
-  @Roles([CLIENT, ADMIN])
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   getProvider(@Body() providerId: GetProviderDto) {
     return this.providers.getProvider(providerId);
+  }
+
+  @Post('add')
+  @Roles([SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  addProvider(@Body() provider: AddProviderDto) {
+    return this.providers.addProvider(provider);
+  }
+
+  @Post('modify')
+  @Roles([ADMIN, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  modifyProvider(@Body() provider: ModifyProviderDto) {
+    return this.providers.modifyProvider(provider);
   }
 }
