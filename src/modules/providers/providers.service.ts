@@ -40,9 +40,7 @@ export class ProvidersService {
     if (!provider?.organisationAbbreviation) return { error: 'organisationAbbreviation is required' };
     const providerResult: any = await this.getProviders();
 
-    const providerAbbreviations = providerResult.providers.map(
-      ({ organisationAbbreviation }) => organisationAbbreviation,
-    );
+    const providerAbbreviations = providerResult.providers.map(({ value }) => value.organisationAbbreviation);
     if (providerAbbreviations.includes(provider.organisationAbbreviation)) {
       return { error: 'organisationAbbreviation already exists' };
     }
