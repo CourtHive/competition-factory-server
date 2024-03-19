@@ -55,13 +55,11 @@ export class ProvidersService {
 
   async modifyProvider(provider) {
     const { providerId, organisationId, ...value } = provider;
-    const storedProvider = await netLevel.get(BASE_PROVIDER, { key: providerId ?? organisationId });
+    const key = providerId ?? organisationId;
+    const storedProvider = await netLevel.get(BASE_PROVIDER, { key });
     if (!storedProvider) return { error: 'Provider not found' };
 
-    const storageRecord = {
-      value: { ...storedProvider, ...value },
-      key: providerId,
-    };
+    const storageRecord = { value: { ...storedProvider, ...value }, key };
     await netLevel.set(BASE_PROVIDER, storageRecord);
 
     return { ...SUCCESS };
