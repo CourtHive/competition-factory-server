@@ -48,7 +48,7 @@
     "@nestjs/serve-static": "4.0.1",
     "@nestjs/swagger": "7.3.0",
     "@nestjs/websockets": "10.3.4",
-    "@next/env": "14.1.3",
+    "@next/env": "14.1.4",
     "bcryptjs": "2.4.3",
     "body-parser": "1.20.2",
     "cache-manager": "5.4.0",
@@ -63,7 +63,7 @@
     "reflect-metadata": "0.2.1",
     "rxjs": "7.8.1",
     "socket.io": "4.7.5",
-    "tods-competition-factory": "2.0.55",
+    "tods-competition-factory": "2.0.56",
     "tods-tmx-classic-converter": "3.0.4",
     "tslib": "^2.6.2"
   },
