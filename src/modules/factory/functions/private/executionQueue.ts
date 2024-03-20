@@ -3,7 +3,7 @@ import levelStorage from 'src/services/levelDB';
 import { Logger } from '@nestjs/common';
 
 export async function executionQueue(payload: any, services?: any) {
-  const { methods = [] } = payload ?? {};
+  const { methods = [], rollbackOnError } = payload ?? {};
   const tournamentIds = payload?.tournamentIds || (payload?.tournamentId && [payload.tournamentId]) || [];
 
   if (!tournamentIds.length) {
@@ -16,7 +16,7 @@ export async function executionQueue(payload: any, services?: any) {
 
   const mutationEngine = getMutationEngine(services);
   mutationEngine.setState(result.tournamentRecords);
-  const mutationResult = await mutationEngine.executionQueue(methods);
+  const mutationResult = await mutationEngine.executionQueue(methods, rollbackOnError);
 
   if (mutationResult.success) {
     const mutatedTournamentRecords: any = mutationEngine.getState().tournamentRecords;
