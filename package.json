@@ -63,7 +63,7 @@
     "reflect-metadata": "0.2.1",
     "rxjs": "7.8.1",
     "socket.io": "4.7.5",
-    "tods-competition-factory": "2.0.57",
+    "tods-competition-factory": "2.0.58",
     "tods-tmx-classic-converter": "3.0.4",
     "tslib": "^2.6.2"
   },
@@ -97,7 +97,7 @@
     "ts-loader": "9.5.1",
     "ts-node": "10.9.2",
     "tsconfig-paths": "4.2.0",
-    "typescript": "5.4.2"
+    "typescript": "5.4.3"
   },
   "lint-staged": {
     "*.{js,ts}": "eslint --cache --fix",
