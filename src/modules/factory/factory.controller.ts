@@ -89,7 +89,8 @@ export class FactoryController {
   @Roles([SCORE, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   async scoreMatchUp(@Body() sms: SetMatchUpStatusDto) {
-    return await this.factoryService.setMatchUpStatus(sms, this.cacheManager);
+    console.log({ sms });
+    return await this.factoryService.score(sms, this.cacheManager);
   }
 
   @Post()
