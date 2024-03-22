@@ -1,8 +1,8 @@
+import { GetScheduledMatchUpsDto } from './dto/getCompetitionScheduleMatchUps.dto';
 import { RemoveTournamentRecordsDto } from './dto/removeTournamentRecords.dto';
 import { FetchTournamentRecordsDto } from './dto/fetchTournamentRecords.dto';
 import { QueryTournamentRecordsDto } from './dto/queryTournamentRecords.dto';
 import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
-import { GetTournamentMatchUpsDto } from './dto/getTournamentMatchUps.dto';
 import { GetTournamentInfoDto } from './dto/getTournamentInfo.dto';
 import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
 import { ExecutionQueueDto } from './dto/executionQueue.dto';
@@ -71,11 +71,11 @@ export class FactoryController {
     return await this.cacheFx(key, this.factoryService.getEventData, ged);
   }
 
-  @Post('tournamentmatchups')
+  @Post('scheduledmatchups')
   @Roles([SCORE, SUPER_ADMIN])
-  async tournamentMatchUps(@Body() gtm: GetTournamentMatchUpsDto) {
-    const key = `gtm|${gtm.params.tournamentId}`;
-    return await this.cacheFx(key, this.factoryService.getTournamentMatchUps, gtm);
+  async tournamentMatchUps(@Body() gtm: GetScheduledMatchUpsDto) {
+    const key = `gtm|${gtm.params?.tournamentId}`;
+    return await this.cacheFx(key, this.factoryService.getScheduleMatchUps, gtm);
   }
 
   @Post('matchups')

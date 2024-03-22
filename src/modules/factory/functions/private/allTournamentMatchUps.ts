@@ -1,6 +1,6 @@
 import { queryTournamentRecords } from './queryTournamentRecords';
 
-export async function getMatchUps(params: any) {
+export async function allTournamentMatchUps(params: any) {
   const { tournamentId, matchUpStatuses, ...rest } = params;
   const method = 'allTournamentMatchUps';
   const payload = {

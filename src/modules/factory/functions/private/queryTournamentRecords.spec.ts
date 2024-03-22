@@ -1,6 +1,6 @@
 import { generateTournamentRecord } from '../../../../services/fileSystem/generateTournamentRecord';
 import { removeTournamentRecords } from '../../../../services/fileSystem/removeTournamentRecords';
-import { getTournamentMatchUps } from '../public/getTournamentMatchUps';
+import { getCompetitionScheduleMatchUps } from '../public/getCompetitionScheduleMatchUps';
 import { queryTournamentRecords } from './queryTournamentRecords';
 import { getTournamentInfo } from '../public/getTournamentInfo';
 import { TEST } from '../../../../common/constants/test';
@@ -32,7 +32,7 @@ describe('queryTournamentRecords', () => {
     expect(result.tournamentInfo).toBeDefined();
     expect(result.success).toEqual(true);
 
-    result = await getTournamentMatchUps({ tournamentId: TEST });
+    result = await getCompetitionScheduleMatchUps({ tournamentId: TEST });
     expect(result.success).toEqual(true);
 
     // FOURTH: remove the tournamentRecord

@@ -1,9 +1,9 @@
-import { getTournamentMatchUps } from './getTournamentMatchUps';
+import { getCompetitionScheduleMatchUps } from './getCompetitionScheduleMatchUps';
 import { getTournamentInfo } from './getTournamentInfo';
 import { getEventData } from './getEventData';
 
 export const publicQueries = {
-  getTournamentMatchUps,
+  getCompetitionScheduleMatchUps,
   getTournamentInfo,
   getEventData,
 };
