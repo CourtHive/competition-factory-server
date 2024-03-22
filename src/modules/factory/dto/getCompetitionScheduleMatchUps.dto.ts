@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class GetTournamentMatchUpsDto {
+export class GetScheduledMatchUpsDto {
   @ApiProperty()
   params: { tournamentId?: string; [key: string]: any } = {};
 }

@@ -3,7 +3,7 @@ import levelStorage from 'src/services/levelDB';
 
 import { SUCCESS } from 'src/common/constants/app';
 
-export async function getTournamentMatchUps(params) {
+export async function getCompetitionScheduleMatchUps(params) {
   const { tournamentId, ...opts } = params;
   if (!tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
 
