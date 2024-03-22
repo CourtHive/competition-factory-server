@@ -27,11 +27,13 @@ export class FactoryController {
   ) {}
 
   async cacheFx(key, fx, params) {
-    const cachedData: any = await this.cacheManager.get(key);
-    if (cachedData) {
-      if (typeof cachedData === 'object') cachedData._cached = true;
-      Logger.verbose(`Cache hit: ${key}`);
-      return cachedData;
+    if (key) {
+      const cachedData: any = await this.cacheManager.get(key);
+      if (cachedData) {
+        if (typeof cachedData === 'object') cachedData._cached = true;
+        Logger.verbose(`Cache hit: ${key}`);
+        return cachedData;
+      }
     }
     const result = await fx(params);
     if (!result.error) this.cacheManager.set(key, result, 60 * 3 * 1000); // 3 minutes
@@ -74,7 +76,7 @@ export class FactoryController {
   @Post('scheduledmatchups')
   @Roles([SCORE, SUPER_ADMIN])
   async tournamentMatchUps(@Body() gtm: GetScheduledMatchUpsDto) {
-    const key = `gtm|${gtm.params?.tournamentId}`;
+    const key = !gtm.params?.noCache && `gtm|${gtm.params?.tournamentId}`;
     return await this.cacheFx(key, this.factoryService.getScheduleMatchUps, gtm);
   }
 
@@ -89,7 +91,6 @@ export class FactoryController {
   @Roles([SCORE, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   async scoreMatchUp(@Body() sms: SetMatchUpStatusDto) {
-    console.log({ sms });
     return await this.factoryService.score(sms, this.cacheManager);
   }
 
