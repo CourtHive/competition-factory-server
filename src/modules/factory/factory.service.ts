@@ -24,7 +24,7 @@ export class FactoryService {
     return result;
   }
 
-  async setMatchUpStatus(params, cacheManager) {
+  async score(params, cacheManager) {
     return await setMatchUpStatus(params, { cacheManager });
   }
 
