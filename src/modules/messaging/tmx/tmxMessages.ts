@@ -7,5 +7,6 @@ export const tmxMessages = {
 
     const response = result.error ? { ackId, error: result.error } : { ackId, success: result.success };
     client.emit('ack', response);
+    return response;
   },
 };
