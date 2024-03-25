@@ -30,9 +30,11 @@ export class TmxGateway {
     if (typeof data !== 'object') return { notFound: data };
     const { type, payload = {} } = data;
     if (tmxMessages[type]) {
-      tmxMessages[type]({ client, payload, services: { cacheManager: this.cacheManager } });
+      const result = await tmxMessages[type]({ client, payload, services: { cacheManager: this.cacheManager } });
       const methods = tools.unique(payload?.methods?.map((directive) => directive.method) ?? []).join('|');
-      this.logger.debug(`${type} message successful: ${payload.userId}: ${methods}`);
+      const message = result.error ? 'errored' : 'successful';
+      const logType = result.error ? 'error' : 'debug';
+      this.logger[logType](`${type} message ${message}: ${payload.userId}: ${methods}`);
     } else {
       this.logger.debug(`Not found: ${type}`);
     }
