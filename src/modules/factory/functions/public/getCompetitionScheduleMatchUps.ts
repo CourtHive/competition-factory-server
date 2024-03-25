@@ -3,7 +3,7 @@ import levelStorage from 'src/services/levelDB';
 
 import { SUCCESS } from 'src/common/constants/app';
 
-export async function getTournamentMatchUps(params) {
+export async function getCompetitionScheduleMatchUps(params) {
   const { tournamentId, ...opts } = params;
   if (!tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
 
@@ -13,8 +13,9 @@ export async function getTournamentMatchUps(params) {
   const tournamentRecords = findResult.tournamentRecords;
 
   const matchUpsResult = queryGovernor.competitionScheduleMatchUps({
-    ...opts, // order is important here because we don't want to overwrite required parameter values
     policyDefinitions: fixtures.policies.POLICY_PRIVACTY_DEFAULT,
+    contextFilters: opts?.contextFilters,
+    matchUpFilters: opts?.matchUpFilters,
     activeTournamentId: tournamentId,
     usePublishState: true,
     tournamentRecords,

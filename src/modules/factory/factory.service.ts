@@ -1,9 +1,9 @@
 import { queryTournamentRecords } from './functions/private/queryTournamentRecords';
 import { executionQueue as eq } from './functions/private/executionQueue';
+import { allTournamentMatchUps } from './functions/private/allTournamentMatchUps';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
 import { checkEngineError } from '../../common/errors/engineError';
-import { getMatchUps } from './functions/private/getMatchUps';
 import { checkProvider } from './helpers/checkProvider';
 import { askEngine } from 'tods-competition-factory';
 import { checkUser } from './helpers/checkUser';
@@ -24,12 +24,12 @@ export class FactoryService {
     return result;
   }
 
-  async setMatchUpStatus(params, cacheManager) {
+  async score(params, cacheManager) {
     return await setMatchUpStatus(params, { cacheManager });
   }
 
   async getMatchUps(params) {
-    return await getMatchUps(params);
+    return await allTournamentMatchUps(params);
   }
 
   async fetchTournamentRecords(params, user) {
@@ -70,7 +70,7 @@ export class FactoryService {
     return await publicQueries.getEventData({ tournamentId, eventId });
   }
 
-  async getTournamentMatchUps({ params }) {
-    return await publicQueries.getTournamentMatchUps(params);
+  async getScheduleMatchUps({ params }) {
+    return await publicQueries.getCompetitionScheduleMatchUps(params);
   }
 }

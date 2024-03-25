@@ -1,8 +1,8 @@
+import { GetScheduledMatchUpsDto } from './dto/getCompetitionScheduleMatchUps.dto';
 import { RemoveTournamentRecordsDto } from './dto/removeTournamentRecords.dto';
 import { FetchTournamentRecordsDto } from './dto/fetchTournamentRecords.dto';
 import { QueryTournamentRecordsDto } from './dto/queryTournamentRecords.dto';
 import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
-import { GetTournamentMatchUpsDto } from './dto/getTournamentMatchUps.dto';
 import { GetTournamentInfoDto } from './dto/getTournamentInfo.dto';
 import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
 import { ExecutionQueueDto } from './dto/executionQueue.dto';
@@ -27,11 +27,13 @@ export class FactoryController {
   ) {}
 
   async cacheFx(key, fx, params) {
-    const cachedData: any = await this.cacheManager.get(key);
-    if (cachedData) {
-      if (typeof cachedData === 'object') cachedData._cached = true;
-      Logger.verbose(`Cache hit: ${key}`);
-      return cachedData;
+    if (key) {
+      const cachedData: any = await this.cacheManager.get(key);
+      if (cachedData) {
+        if (typeof cachedData === 'object') cachedData._cached = true;
+        Logger.verbose(`Cache hit: ${key}`);
+        return cachedData;
+      }
     }
     const result = await fx(params);
     if (!result.error) this.cacheManager.set(key, result, 60 * 3 * 1000); // 3 minutes
@@ -71,11 +73,11 @@ export class FactoryController {
     return await this.cacheFx(key, this.factoryService.getEventData, ged);
   }
 
-  @Post('tournamentmatchups')
+  @Post('scheduledmatchups')
   @Roles([SCORE, SUPER_ADMIN])
-  async tournamentMatchUps(@Body() gtm: GetTournamentMatchUpsDto) {
-    const key = `gtm|${gtm.params.tournamentId}`;
-    return await this.cacheFx(key, this.factoryService.getTournamentMatchUps, gtm);
+  async tournamentMatchUps(@Body() gtm: GetScheduledMatchUpsDto) {
+    const key = !gtm.params?.noCache && `gtm|${gtm.params?.tournamentId}`;
+    return await this.cacheFx(key, this.factoryService.getScheduleMatchUps, gtm);
   }
 
   @Post('matchups')
@@ -89,7 +91,7 @@ export class FactoryController {
   @Roles([SCORE, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   async scoreMatchUp(@Body() sms: SetMatchUpStatusDto) {
-    return await this.factoryService.setMatchUpStatus(sms, this.cacheManager);
+    return await this.factoryService.score(sms, this.cacheManager);
   }
 
   @Post()
