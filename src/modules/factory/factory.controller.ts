@@ -74,12 +74,14 @@ export class FactoryController {
     return await this.cacheFx(key, this.factoryService.getEventData, ged);
   }
 
+  @Public()
   @Post('scheduledmatchups')
   async tournamentMatchUps(@Body() gtm: GetScheduledMatchUpsDto) {
     const key = !gtm.params?.noCache && `gtm|${gtm.params?.tournamentId}`;
     return await this.cacheFx(key, this.factoryService.getScheduleMatchUps, gtm);
   }
 
+  @Public()
   @Post('participants')
   async tournamentParticipants(@Body() gtp: GetParticipantsDto) {
     const key = !gtp.params?.noCache && `gtp|${gtp.params?.tournamentId}`;
