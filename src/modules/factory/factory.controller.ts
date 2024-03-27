@@ -81,9 +81,9 @@ export class FactoryController {
   }
 
   @Post('participants')
-  async tournamentParticipants(@Body() gtm: GetParticipantsDto) {
-    const key = !gtm.params?.noCache && `gtm|${gtm.params?.tournamentId}`;
-    return await this.cacheFx(key, this.factoryService.getParticipants, gtm);
+  async tournamentParticipants(@Body() gtp: GetParticipantsDto) {
+    const key = !gtp.params?.noCache && `gtp|${gtp.params?.tournamentId}`;
+    return await this.cacheFx(key, this.factoryService.getParticipants, gtp);
   }
 
   @Post('matchups')
