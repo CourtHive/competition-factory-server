@@ -13,8 +13,8 @@ export async function getParticipants(params) {
 
   const tournamentRecords = findResult.tournamentRecords;
 
-  // const pubStatus = queryGovernor.getTournamentPublishStatus({ tournamentRecords });
-  // if (!pubStatus?.participants?.published) return { error: 'Participants not published' };
+  const pubStatus = queryGovernor.getTournamentPublishStatus({ tournamentRecords });
+  if (!pubStatus?.participants?.published) return { error: 'Participants not published' };
 
   const participantResult = queryGovernor.getParticipants({
     policyDefinitions: fixtures.policies.POLICY_PRIVACTY_DEFAULT,
