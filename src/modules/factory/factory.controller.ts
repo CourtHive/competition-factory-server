@@ -74,7 +74,6 @@ export class FactoryController {
   }
 
   @Post('scheduledmatchups')
-  @Roles([SCORE, SUPER_ADMIN])
   async tournamentMatchUps(@Body() gtm: GetScheduledMatchUpsDto) {
     const key = !gtm.params?.noCache && `gtm|${gtm.params?.tournamentId}`;
     return await this.cacheFx(key, this.factoryService.getScheduleMatchUps, gtm);
