@@ -38,6 +38,12 @@ export function getMutationEngine(services?) {
           services?.cacheManager?.del(infoKey);
         }
       },
+      [topicConstants.UNPUBLISH_ORDER_OF_PLAY]: (params) => {
+        for (const item of params) {
+          const key = `gtm|${item?.tournamentId}`;
+          services?.cacheManager?.del(key);
+        }
+      },
       [topicConstants.MODIFY_TOURNAMENT_DETAIL]: (params) => {
         const tournamentUpdates = params.reduce((tu, item) => {
           const { tournamentId, ...updates } = item;
