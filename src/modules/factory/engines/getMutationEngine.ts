@@ -42,6 +42,14 @@ export function getMutationEngine(services?) {
         for (const item of params) {
           const key = `gtm|${item?.tournamentId}`;
           services?.cacheManager?.del(key);
+          const infoKey = `gti|${item.tournamentId}`;
+          services?.cacheManager?.del(infoKey);
+        }
+      },
+      [topicConstants.PUBLISH_ORDER_OF_PLAY]: (params) => {
+        for (const item of params) {
+          const infoKey = `gti|${item.tournamentId}`;
+          services?.cacheManager?.del(infoKey);
         }
       },
       [topicConstants.MODIFY_TOURNAMENT_DETAIL]: (params) => {
