@@ -1,6 +1,6 @@
 import { queryTournamentRecords } from './functions/private/queryTournamentRecords';
-import { executionQueue as eq } from './functions/private/executionQueue';
 import { allTournamentMatchUps } from './functions/private/allTournamentMatchUps';
+import { executionQueue as eq } from './functions/private/executionQueue';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
 import { checkEngineError } from '../../common/errors/engineError';
@@ -72,5 +72,9 @@ export class FactoryService {
 
   async getScheduleMatchUps({ params }) {
     return await publicQueries.getCompetitionScheduleMatchUps(params);
+  }
+
+  async getParticipants({ params }) {
+    return await publicQueries.getParticipants(params);
   }
 }
