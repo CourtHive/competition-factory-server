@@ -118,7 +118,17 @@ export async function createProviderCalendars(tournamentsPath) {
     await netLevel.set('provider', { key: providerId, value: provider });
 
     const key = provider?.organisationAbbreviation ?? provider?.organisationId;
-    key && (await netLevel.set('calendar', { key, value: { provider, tournaments } }));
+    if (key) {
+      const existingCalendar = await netLevel.get('calendar', key);
+      const existingTournaments = existingCalendar?.value.tournaments ?? [];
+      const newTournaments = tournaments.filter(
+        (t) => !existingTournaments.find((et) => et.tournamentId === t.tournamentId),
+      );
+      await netLevel.set('calendar', {
+        key,
+        value: { provider, tournaments: [...existingTournaments, ...newTournaments] },
+      });
+    }
   }
 
   const calendarTournamentIds = Object.values(providerCalendars).flatMap((tournaments) =>
