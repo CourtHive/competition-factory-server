@@ -96,8 +96,8 @@ dependencies:
     specifier: 2.1.0
     version: 2.1.0
   tods-tmx-classic-converter:
-    specifier: 3.0.4
-    version: 3.0.4
+    specifier: 3.0.5
+    version: 3.0.5
   tslib:
     specifier: ^2.6.2
     version: 2.6.2
@@ -6879,8 +6879,8 @@ packages:
     engines: {node: '>=18.17.1 < 21'}
     dev: false
 
-  /tods-tmx-classic-converter@3.0.4:
-    resolution: {integrity: sha512-z20ZEx2W9q78bV5z4uC7QzYz+spDASVSKDbfwEbTvp5Lnt6gqwgS4CjnRhFRUAKgbFAEZnDUHEAXJZoosJsEOw==}
+  /tods-tmx-classic-converter@3.0.5:
+    resolution: {integrity: sha512-J6xeFKnne2cxNk/ROP2SGjvC56OomPgydNrdaqKa9KLtXCBd8jfEDxylsN/LUfR0CXzGI2nZs/FRNBMBZoXxAA==}
     engines: {node: '>=16.16.0 < 21'}
     dependencies:
       cli-progress: 3.12.0
