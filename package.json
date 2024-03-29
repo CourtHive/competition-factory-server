@@ -60,7 +60,7 @@
     "mailgun.js": "10.2.1",
     "minimist": "1.2.8",
     "redis": "4.6.13",
-    "reflect-metadata": "0.2.1",
+    "reflect-metadata": "0.2.2",
     "rxjs": "7.8.1",
     "socket.io": "4.7.5",
     "tods-competition-factory": "2.1.0",
