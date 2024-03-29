@@ -1,9 +1,10 @@
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { AppModule } from './modules/app/app.module';
 import { version } from 'tods-competition-factory';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './modules/app/app.module';
 import { Logger } from '@nestjs/common';
+import compression from 'compression';
 import { json } from 'body-parser';
 
 async function bootstrap() {
@@ -16,8 +17,8 @@ async function bootstrap() {
 
   /**
   await app.register(cookieParser);
-  await app.register(compression);
   */
+  await app.use(compression());
   app.use(json({ limit: '8mb' }));
 
   const swaggerConfig = new DocumentBuilder()
