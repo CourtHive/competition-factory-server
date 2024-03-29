@@ -5,6 +5,7 @@ import { QueryTournamentRecordsDto } from './dto/queryTournamentRecords.dto';
 import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
 import { GetTournamentInfoDto } from './dto/getTournamentInfo.dto';
 import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
+import { GetParticipantsDto } from './dto/getParticipants.dto';
 import { ExecutionQueueDto } from './dto/executionQueue.dto';
 import { GetEventDataDto } from './dto/getEventData.dto';
 import { GetMatchUpsDto } from './dto/getMatchUps.dto';
@@ -73,11 +74,18 @@ export class FactoryController {
     return await this.cacheFx(key, this.factoryService.getEventData, ged);
   }
 
+  @Public()
   @Post('scheduledmatchups')
-  @Roles([SCORE, SUPER_ADMIN])
   async tournamentMatchUps(@Body() gtm: GetScheduledMatchUpsDto) {
     const key = !gtm.params?.noCache && `gtm|${gtm.params?.tournamentId}`;
     return await this.cacheFx(key, this.factoryService.getScheduleMatchUps, gtm);
+  }
+
+  @Public()
+  @Post('participants')
+  async tournamentParticipants(@Body() gtp: GetParticipantsDto) {
+    const key = !gtp.params?.noCache && `gtp|${gtp.params?.tournamentId}`;
+    return await this.cacheFx(key, this.factoryService.getParticipants, gtp);
   }
 
   @Post('matchups')

@@ -17,6 +17,14 @@ asyncGlobalState.createInstanceState(); // is there only one instance of asyncGl
 
 export function getMutationEngine(services?) {
   const engineAsync = asyncEngine();
+  const clearCache = (tournamentId) => {
+    // remove cached tournammentInfo so that event will be immediately available
+    const infoKey = `gti|${tournamentId}`;
+    services?.cacheManager?.del(infoKey);
+    // remove cached scheduling
+    const scheduleKey = `gtm|${tournamentId}`;
+    services?.cacheManager?.del(scheduleKey);
+  };
   globalState.setSubscriptions({
     subscriptions: {
       [topicConstants.PUBLISH_EVENT]: (params) => {
@@ -24,9 +32,7 @@ export function getMutationEngine(services?) {
           for (const item of params) {
             const key = `ged|${item.tournamentId}|${item.eventData.eventInfo.eventId}`;
             services?.cacheManager?.set(key, item.eventData, 60 * 3 * 1000); // 3 minutes
-            // remove cached tournammentInfo so that event will be immediately available
-            const infoKey = `gti|${item.tournamentId}`;
-            services?.cacheManager?.del(infoKey);
+            clearCache(item.tournamentId);
           }
         }
       },
@@ -34,8 +40,19 @@ export function getMutationEngine(services?) {
         for (const item of params) {
           const eventDataKey = `ged|${item.tournamentId}|${item.eventId}`;
           services?.cacheManager?.del(eventDataKey);
-          const infoKey = `gti|${item.tournamentId}`;
-          services?.cacheManager?.del(infoKey);
+          clearCache(item.tournamentId);
+        }
+      },
+      [topicConstants.UNPUBLISH_ORDER_OF_PLAY]: (params) => {
+        for (const item of params) {
+          const key = `gtm|${item?.tournamentId}`;
+          services?.cacheManager?.del(key);
+          clearCache(item.tournamentId);
+        }
+      },
+      [topicConstants.PUBLISH_ORDER_OF_PLAY]: (params) => {
+        for (const item of params) {
+          clearCache(item.tournamentId);
         }
       },
       [topicConstants.MODIFY_TOURNAMENT_DETAIL]: (params) => {
