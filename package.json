@@ -46,7 +46,7 @@
     "@nestjs/platform-express": "10.3.7",
     "@nestjs/platform-socket.io": "10.3.7",
     "@nestjs/serve-static": "4.0.2",
-    "@nestjs/swagger": "7.3.0",
+    "@nestjs/swagger": "7.3.1",
     "@nestjs/websockets": "10.3.7",
     "@next/env": "14.1.4",
     "bcryptjs": "2.4.3",
