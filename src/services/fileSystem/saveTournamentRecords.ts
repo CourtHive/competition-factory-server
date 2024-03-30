@@ -9,7 +9,7 @@ export async function saveTournamentRecords(params?: { tournamentRecords?: any; 
 
   fs.ensureDirSync(STORAGE);
 
-  // TODO: ensure valid tournamentRecords
+  // TODO: ensure valid tournamentRecords and that user is either superadmin or admin of the tournamentRecord.provider
   for (const tournamentId of Object.keys(tournamentRecords)) {
     const content = JSON.stringify(tournamentRecords[tournamentId], null, 2);
     const tournamentFile = `${STORAGE}/${tournamentId}.tods.json`;
