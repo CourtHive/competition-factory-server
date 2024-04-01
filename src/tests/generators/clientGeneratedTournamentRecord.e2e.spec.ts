@@ -4,7 +4,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { mocksEngine, factoryConstants } from 'tods-competition-factory';
-import { TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
+import { TEST, TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
 
 const { SINGLES } = factoryConstants.eventConstants;
 
@@ -33,7 +33,7 @@ describe('ClientGeneratedTournamentRecord', () => {
   });
 
   it('can remove, create, save and fetch a tournamentRecord', async () => {
-    const tournamentId = 't1';
+    const tournamentId = TEST;
 
     let result = await request(app.getHttpServer())
       .post('/factory/remove')
