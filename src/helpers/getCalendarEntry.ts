@@ -1,5 +1,8 @@
+import { queryGovernor } from 'tods-competition-factory';
+
 export function getCalendarEntry({ tournamentRecord }) {
   const { tournamentName, tournamentId, startDate, endDate, parentOrganisation } = tournamentRecord;
+  const tournamentInfo = queryGovernor.getTournamentInfo({ tournamentRecord })?.tournamentInfo ?? {};
   const providerId = parentOrganisation?.organisationId;
   const tournamentImageURL = tournamentRecord.onlineResources?.find(
     (resource) =>
@@ -11,6 +14,7 @@ export function getCalendarEntry({ tournamentRecord }) {
     tournamentId,
     providerId,
     tournament: {
+      ...tournamentInfo,
       startDate: new Date(startDate).toISOString().split('T')[0],
       endDate: new Date(endDate).toISOString().split('T')[0],
       tournamentImageURL,
