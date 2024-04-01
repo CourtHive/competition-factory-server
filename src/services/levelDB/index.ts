@@ -1,5 +1,5 @@
 import { generateTournamentRecord as gen } from 'src/modules/factory/helpers/generateTournamentRecord';
-import { addToCalendar, removeFromCalendar } from 'src/modules/providers/updateCalendar';
+import { addToOrUpdateCalendar, removeFromCalendar } from 'src/modules/providers/updateCalendar';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { SUCCESS } from '../../common/constants/app';
 import netLevel from './netLevel';
@@ -38,14 +38,12 @@ export async function fetchTournamentRecords(params?: { tournamentIds?: string[]
   return { ...SUCCESS, tournamentRecords, fetched, notFound };
 }
 
+// TODO: ensure valid tournamentRecords and that user is either superadmin or admin of the tournamentRecord.provider
 async function saveTournamentRecord({ tournamentRecord }) {
   const storageRecord = { key: tournamentRecord.tournamentId, value: tournamentRecord };
-  const keysValues = await netLevel.keys(BASE_TOURNAMENT, { from: 0 });
-  const tournamentIds = (keysValues as Array<any>)?.map((kv) => kv.key);
-  const exists = tournamentIds?.includes(tournamentRecord.tournamentId);
   const providerId = tournamentRecord.parentOrganisation?.organisationId;
-  if (!exists && providerId) {
-    await addToCalendar({
+  if (providerId) {
+    await addToOrUpdateCalendar({
       tournamentRecord,
       providerId,
     });
