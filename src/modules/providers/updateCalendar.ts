@@ -20,18 +20,32 @@ export async function updateCalendar({ provider, tournaments }) {
   return { ...SUCCESS };
 }
 
-export async function addToCalendar({ providerId, tournamentRecord }) {
+export async function addToOrUpdateCalendar({ providerId, tournamentRecord }) {
   const providerResult = await getProviderCalendar({ providerId });
   if (providerResult.error) return providerResult;
 
   const { provider, tournaments } = providerResult;
 
+  let updatedEntries = tournaments;
   const calendarEntry = getCalendarEntry({ tournamentRecord });
-  if (calendarEntry && !tournaments.find((tournament) => tournament.tournamentId === tournamentRecord.tournamentId)) {
-    tournaments.push(calendarEntry);
+  if (calendarEntry) {
+    let modified = false;
+    const modifiedTournaments = tournaments.map((entry) => {
+      if (entry.tournamentId === calendarEntry.tournamentId) {
+        modified = true;
+        return calendarEntry;
+      }
+      return entry;
+    });
+
+    if (modified) {
+      updatedEntries = modifiedTournaments;
+    } else {
+      updatedEntries.push(calendarEntry);
+    }
   }
 
-  return await updateCalendar({ provider, tournaments });
+  return await updateCalendar({ provider, tournaments: updatedEntries });
 }
 
 export async function removeFromCalendar({ providerId, tournamentId }) {
@@ -39,8 +53,8 @@ export async function removeFromCalendar({ providerId, tournamentId }) {
   if (providerResult.error) return providerResult;
 
   const { provider, tournaments } = providerResult;
-  const updatedTournaments = tournaments.filter((tournament) => tournament.tournamentId !== tournamentId);
-  return await updateCalendar({ provider, tournaments: updatedTournaments });
+  const updatedEntries = tournaments.filter((tournament) => tournament.tournamentId !== tournamentId);
+  return await updateCalendar({ provider, tournaments: updatedEntries });
 }
 
 export async function modifyProviderCalendar({ providerId, tournamentId, updates }) {
