@@ -6,6 +6,7 @@ import netLevel from './netLevel';
 
 import { factoryConstants } from 'tods-competition-factory';
 import { BASE_TOURNAMENT } from './constants';
+import { TEST } from 'src/common/constants/test';
 
 async function findTournamentRecord({ tournamentId }) {
   const tournamentRecord = await netLevel.get(BASE_TOURNAMENT, { key: tournamentId });
@@ -38,10 +39,12 @@ export async function fetchTournamentRecords(params?: { tournamentIds?: string[]
   return { ...SUCCESS, tournamentRecords, fetched, notFound };
 }
 
-// TODO: ensure valid tournamentRecords and that user is either superadmin or admin of the tournamentRecord.provider
 async function saveTournamentRecord({ tournamentRecord }) {
-  const storageRecord = { key: tournamentRecord.tournamentId, value: tournamentRecord };
+  const key = tournamentRecord?.tournamentId;
+  if (!key) return { error: 'Invalid tournamentRecord' };
+  const storageRecord = { key, value: tournamentRecord };
   const providerId = tournamentRecord.parentOrganisation?.organisationId;
+  if (!providerId && key !== TEST) return { error: 'Missing providerId' };
   if (providerId) {
     await addToOrUpdateCalendar({
       tournamentRecord,
@@ -58,7 +61,8 @@ async function saveTournamentRecords(params?: { tournamentRecords?: any; tournam
   const tournamentRecords = getTournamentRecords(params);
 
   for (const tournamentId of Object.keys(tournamentRecords)) {
-    saveTournamentRecord({ tournamentRecord: tournamentRecords[tournamentId] });
+    const result: any = await saveTournamentRecord({ tournamentRecord: tournamentRecords[tournamentId] });
+    if (result.error) return result;
   }
 
   return { ...SUCCESS };
