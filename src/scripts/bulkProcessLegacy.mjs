@@ -1,8 +1,12 @@
 import { convertTMX2TODS } from 'tods-tmx-classic-converter';
+import { queryGovernor } from 'tods-competition-factory';
 import netLevel from './netLevel.mjs';
 import minimist from 'minimist';
 import fs from 'fs-extra';
 import 'dotenv/config';
+
+const BASE_CALENDAR = 'calendar';
+const BASE_PROVIDER = 'provider';
 
 const UTF8 = 'utf8';
 
@@ -27,10 +31,11 @@ export async function createProviderCalendars(tournamentsPath) {
   const fileNames = directoryContents.filter((name) => name.endsWith('.circular.json'));
 
   const providerCalendars = {};
+  let newTournamentCount = 0;
+  let newProvidersCount = 0;
   const tournamentIds = [];
-  const providers = {};
   let calendarCount = 0;
-  let added = 0;
+  const providers = {};
   let count = 0;
 
   for (const fileName of fileNames) {
@@ -69,10 +74,6 @@ export async function createProviderCalendars(tournamentsPath) {
         continue;
       }
 
-      await netLevel.set('tournamentRecord', { key: tournamentId, value: tournamentRecord });
-      tournamentIds.push(tournamentId);
-      added++;
-
       if (!tournamentRecord.parentOrganisation?.organisationId) {
         console.log('NO PROVIDER', { tournamentId });
         continue;
@@ -82,9 +83,19 @@ export async function createProviderCalendars(tournamentsPath) {
         continue;
       }
 
+      await netLevel.set('tournamentRecord', { key: tournamentId, value: tournamentRecord });
+      tournamentIds.push(tournamentId);
+
       const providerId = tournamentRecord.parentOrganisation?.organisationId;
       providers[providerId] = tournamentRecord.parentOrganisation;
       if (!providerCalendars[providerId]) providerCalendars[providerId] = [];
+
+      let tournamentInfo;
+      try {
+        tournamentInfo = queryGovernor.getTournamentInfo({ tournamentRecord })?.tournamentInfo ?? {};
+      } catch (err) {
+        console.log('error', { tournamentId, err });
+      }
 
       // deprecate this!
       const tournamentImageURL = tournamentRecord.onlineResources.find(
@@ -99,6 +110,7 @@ export async function createProviderCalendars(tournamentsPath) {
         tournamentId,
         providerId,
         tournament: {
+          ...tournamentInfo,
           startDate: new Date(startDate).toISOString().split('T')[0],
           endDate: new Date(endDate).toISOString().split('T')[0],
           onLineResources: tournamentRecord.onlineResources,
@@ -112,19 +124,28 @@ export async function createProviderCalendars(tournamentsPath) {
     }
   }
 
+  const existingProviders = await netLevel.list(BASE_PROVIDER, { all: true });
   for (const providerId of Object.keys(providerCalendars)) {
     const tournaments = providerCalendars[providerId];
     const provider = providers[providerId];
-    await netLevel.set('provider', { key: providerId, value: provider });
+
+    // only set provider if it doesn't already exist
+    const existingProvider = existingProviders.find((p) => p.key === providerId);
+    if (!existingProvider) {
+      console.log('new provider:', { providerId });
+      await netLevel.set(BASE_PROVIDER, { key: providerId, value: provider });
+      newProvidersCount++;
+    }
 
     const key = provider?.organisationAbbreviation ?? provider?.organisationId;
     if (key) {
-      const existingCalendar = await netLevel.get('calendar', key);
-      const existingTournaments = existingCalendar?.value.tournaments ?? [];
+      const existingCalendar = await netLevel.get(BASE_CALENDAR, { key });
+      const existingTournaments = existingCalendar?.tournaments ?? [];
       const newTournaments = tournaments.filter(
         (t) => !existingTournaments.find((et) => et.tournamentId === t.tournamentId),
       );
-      await netLevel.set('calendar', {
+      if (newTournaments.length) newTournamentCount += newTournaments.length;
+      await netLevel.set(BASE_CALENDAR, {
         key,
         value: { provider, tournaments: [...existingTournaments, ...newTournaments] },
       });
@@ -135,5 +156,11 @@ export async function createProviderCalendars(tournamentsPath) {
     tournaments.map((t) => t.tournamentId),
   );
   const missingTournamentIds = tournamentIds.filter((id) => !calendarTournamentIds.includes(id));
-  console.log({ added, calendarCount, calendarTournamentIdCount: calendarTournamentIds.length, missingTournamentIds });
+  console.log({
+    calendarTournamentIdCount: calendarTournamentIds.length,
+    missingTournamentIds,
+    newTournamentCount,
+    newProvidersCount,
+    calendarCount,
+  });
 }
