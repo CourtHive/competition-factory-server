@@ -38,6 +38,9 @@ export async function createProviderCalendars(tournamentsPath) {
   const providers = {};
   let count = 0;
 
+  const tournamentKeys = await netLevel.keys('tournamentRecord');
+  const existingTournamentIds = tournamentKeys.map(({ key }) => key);
+
   for (const fileName of fileNames) {
     if (args.limit && count++ > args.limit) break;
     const tournamentRaw = fs.readFileSync(`${tournamentsPath}/${fileName}`, UTF8);
@@ -69,6 +72,12 @@ export async function createProviderCalendars(tournamentsPath) {
 
     if (tournamentRecord?.tournamentId) {
       const { tournamentId, tournamentName, startDate, endDate } = tournamentRecord;
+
+      if (existingTournamentIds.includes(tournamentId)) {
+        args.verbose && console.log('Previously converted', { tournamentId, tournamentName });
+        continue;
+      }
+
       if (tournamentIds.includes(tournamentId)) {
         console.log('DUPLICATE', { tournamentId });
         continue;
