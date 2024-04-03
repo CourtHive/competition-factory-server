@@ -87,6 +87,7 @@ function useBase({ args, base }) {
         await db.use(base, { create: true });
       }
     } catch (err) {
+      console.error(err); // Add logic to log the error
       throw err;
     }
   }
@@ -99,6 +100,7 @@ function useBase({ args, base }) {
       if (!isNumeric(request?.from) && !isNumeric(request?.startsWith)) throw new Error('missing parameter for keys');
       return await db.keys({ pre: request.startsWith, gte: request.from, lt: request.to });
     } catch (err) {
+      console.error(err); // Add logic to log the error
       throw err;
     }
   }
@@ -111,6 +113,7 @@ function useBase({ args, base }) {
       }
       return await db.list({ pre: request.startsWith, gte: request.from, lt: request.to });
     } catch (err) {
+      console.error(err); // Add logic to log the error
       throw err;
     }
   }
@@ -121,6 +124,7 @@ function useBase({ args, base }) {
       if (!(request?.from || request?.to) && !request?.startsWith) throw new Error('missing parameter for cull');
       return await db.cull({ pre: request.startsWith, gte: request.from, lt: request.to });
     } catch (err) {
+      console.error(err); // Add logic to log the error
       throw err;
     }
   }
@@ -131,6 +135,7 @@ function useBase({ args, base }) {
       if (!request?.key) throw new Error('missing { key } parameter for get');
       return await db.get(request.key);
     } catch (err) {
+      console.error(err); // Add logic to log the error
       throw err;
     }
   }
@@ -142,7 +147,8 @@ function useBase({ args, base }) {
       await db.put(request.key, request.value);
       return SUCCESS;
     } catch (err) {
-      throw err;
+      console.error(err); // Add logic to log the error
+      throw err; // Rethrow the exception automatically
     }
   }
 
@@ -153,6 +159,7 @@ function useBase({ args, base }) {
       await db.del(request.key);
       return SUCCESS;
     } catch (err) {
+      console.error(err); // Add logic to log the error
       throw err;
     }
   }
@@ -164,6 +171,7 @@ function useBase({ args, base }) {
       await db.close();
       return SUCCESS;
     } catch (err) {
+      console.error(err); // Add logic to log the error
       throw err;
     }
   }

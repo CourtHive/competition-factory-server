@@ -95,8 +95,7 @@ function useBase({ args, base }) {
   async function keys(request) {
     try {
       if (!connected) await connect();
-      if (!request.from && !request.startsWith) throw new Error('missing parameter for keys');
-      return await db.keys({ pre: request.startsWith, gte: request.from, lt: request.to });
+      return await db.keys({ pre: request?.startsWith, gte: request?.from, lt: request?.to });
     } catch (err) {
       throw new Error(err.message);
     }
