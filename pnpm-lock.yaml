@@ -60,8 +60,8 @@ dependencies:
     specifier: 5.5.0
     version: 5.5.0
   cache-manager-redis-yet:
-    specifier: 4.2.0
-    version: 4.2.0
+    specifier: 5.0.0
+    version: 5.0.0
   dotenv:
     specifier: ^16.4.4
     version: 16.4.5
@@ -2702,9 +2702,9 @@ packages:
     resolution: {integrity: sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==}
     engines: {node: '>= 0.8'}
 
-  /cache-manager-redis-yet@4.2.0:
-    resolution: {integrity: sha512-3Exp8Hv52G/K8oY5U8OwS2A7MJEJmNUvn9DPEnNSo/yu+Ken4v9VEnIAq9YZ6b6E0LN1NwPXNF3N+IaQM9RcTQ==}
-    engines: {node: '>= 16.17.0'}
+  /cache-manager-redis-yet@5.0.0:
+    resolution: {integrity: sha512-ooBCA71CVUFPoLBx54vig0zhEe5yLcGDQmy9FGS1lBm0wc/efccC+KHdW9mURbuAtL7bi4mRiDA0bHg1a3Vbhw==}
+    engines: {node: '>= 18'}
     dependencies:
       '@redis/bloom': 1.2.0(@redis/client@1.5.14)
       '@redis/client': 1.5.14
