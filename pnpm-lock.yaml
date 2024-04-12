@@ -48,8 +48,8 @@ dependencies:
     specifier: 10.3.7
     version: 10.3.7(@nestjs/common@10.3.7)(@nestjs/core@10.3.7)(@nestjs/platform-socket.io@10.3.7)(reflect-metadata@0.2.2)(rxjs@7.8.1)
   '@next/env':
-    specifier: 14.1.4
-    version: 14.1.4
+    specifier: 14.2.0
+    version: 14.2.0
   bcryptjs:
     specifier: 2.4.3
     version: 2.4.3
@@ -1429,8 +1429,8 @@ packages:
       rxjs: 7.8.1
       tslib: 2.6.2
 
-  /@next/env@14.1.4:
-    resolution: {integrity: sha512-e7X7bbn3Z6DWnDi75UWn+REgAbLEqxI8Tq2pkFOFAMpWAWApz/YCUhtWMWn410h8Q2fYiYL7Yg5OlxMOCfFjJQ==}
+  /@next/env@14.2.0:
+    resolution: {integrity: sha512-4+70ELtSbRtYUuyRpAJmKC8NHBW2x1HMje9KO2Xd7IkoyucmV9SjgO+qeWMC0JWkRQXgydv1O7yKOK8nu/rITQ==}
     dev: false
 
   /@nodelib/fs.scandir@2.1.5:
