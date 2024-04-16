@@ -71,7 +71,7 @@ export class UsersService {
     const email = await netLevel.get(BASE_ACCESS_CODES, { key: code });
     const userRecord: any = await netLevel.get(BASE_USER, { key: email });
     const user = await this.findOne(userRecord.email);
-    const payload = { email: user.email, roles: user.roles, permissions: user.permissions };
+    const payload = { email: user.email, roles: user.roles, permissions: user.permissions, services: user.services };
     return {
       token: await this.jwtService.signAsync(payload),
     };
