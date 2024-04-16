@@ -11,5 +11,8 @@ export class InviteDto {
   permissions?: string[];
 
   @ApiPropertyOptional()
+  services?: string[];
+
+  @ApiPropertyOptional()
   roles?: string[];
 }
