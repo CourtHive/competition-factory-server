@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TrackerGateway } from './tracker.gateway';
 import { ConfigService } from '@nestjs/config';
-import { reduce } from 'rxjs/operators';
 import { JwtService } from '@nestjs/jwt';
+import { reduce } from 'rxjs/operators';
+import { it } from '@jest/globals';
 
 describe('TrackerGateway', () => {
   let gateway: TrackerGateway;

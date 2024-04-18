@@ -7,6 +7,7 @@ import { FactoryService } from './factory.service';
 import { AuthModule } from '../auth/auth.module';
 import { TEST } from 'src/common/constants/test';
 import { ConfigService } from '@nestjs/config';
+import { it } from '@jest/globals';
 
 describe('FactoryController', () => {
   let factoryController: FactoryController;
