@@ -1,6 +1,7 @@
 import { AppModule } from 'src/modules/app/app.module';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { it } from '@jest/globals';
 import request from 'supertest';
 
 describe('Static Files', () => {
