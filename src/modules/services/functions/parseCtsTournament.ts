@@ -18,7 +18,7 @@ export function parseCtsTournament({ tournamentId, doc }) {
   const { startDate } = tournamentRecord;
 
   const firstHeader = doc.querySelector('h3');
-  const relevantNodes = firstHeader && firstHeader.parentNode.childNodes;
+  const relevantNodes = firstHeader?.parentNode.childNodes;
   if (relevantNodes) {
     const participants: any = [];
     let sectionType;
@@ -70,7 +70,6 @@ function getTournamentDetails({ tournamentId, category, keyValue, indexValue }) 
   const { text: ballType } = keyValue['Míče:'] || {};
   const { text: drawSize } = keyValue['Počet účastníků:'] || {};
 
-  // const { text: location } = keyValue['Místo konání:'] || {};
   const { text: organizationName } = keyValue['Pořadatel:'] || {};
   const { text: telephone } = keyValue['Tel. (1):'] || {};
   const { text: email } = keyValue['E-mail:'] || {};
@@ -162,7 +161,7 @@ function getParticipant(row, sectionType, category, gender, startDate) {
       Object.assign(participant.person, { standardGivenName, standardFamilyName });
 
       const a = col.querySelector('a');
-      if (a && a.rawAttrs) {
+      if (a?.rawAttrs) {
         const id = a.rawAttrs.split('"').join('');
         const participantId = `CZE${id.split('/').reverse()[0]}`;
         participant.participantId = participantId;

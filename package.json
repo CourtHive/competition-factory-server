@@ -48,7 +48,7 @@
     "@nestjs/serve-static": "4.0.2",
     "@nestjs/swagger": "7.3.1",
     "@nestjs/websockets": "10.3.7",
-    "@next/env": "14.2.1",
+    "@next/env": "14.2.2",
     "axios": "^1.6.8",
     "bcryptjs": "2.4.3",
     "body-parser": "1.20.2",
@@ -73,6 +73,7 @@
   "devDependencies": {
     "@commitlint/cli": "^19.0.0",
     "@commitlint/config-conventional": "^19.0.0",
+    "@jest/globals": "^29.7.0",
     "@nestjs/cli": "10.3.2",
     "@nestjs/schematics": "10.1.1",
     "@nestjs/testing": "10.3.7",
