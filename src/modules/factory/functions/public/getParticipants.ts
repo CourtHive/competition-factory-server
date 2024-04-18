@@ -2,7 +2,7 @@ import { fixtures, queryGovernor } from 'tods-competition-factory';
 import levelStorage from 'src/services/levelDB';
 
 // constants
-import { SUCCESS } from 'dist/common/constants/app';
+import { SUCCESS } from 'src/common/constants/app';
 
 export async function getParticipants(params) {
   const { tournamentId, ...opts } = params ?? {};
