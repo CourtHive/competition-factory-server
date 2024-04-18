@@ -4,7 +4,7 @@ import levelStorage from 'src/services/levelDB';
 import { parse } from 'node-html-parser';
 import axios from 'axios';
 
-import { BASE_CALENDAR } from 'dist/services/levelDB/constants';
+import { BASE_CALENDAR } from 'src/services/levelDB/constants';
 import { SUCCESS } from 'src/common/constants/app';
 
 export async function fetchCtsTournament({ identifier, tournamentId }) {
