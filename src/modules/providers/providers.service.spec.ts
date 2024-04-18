@@ -5,6 +5,7 @@ import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
 import { AuthModule } from '../auth/auth.module';
 import { ConfigService } from '@nestjs/config';
+import { it } from '@jest/globals';
 
 describe('ProvidersService', () => {
   let providersController: any;

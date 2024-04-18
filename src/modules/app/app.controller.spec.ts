@@ -4,6 +4,7 @@ import { CacheModule } from '../cache/cache.module';
 import { AppController } from './app.controller';
 import { AuthModule } from '../auth/auth.module';
 import { AppService } from './app.service';
+import { it } from '@jest/globals';
 
 describe('AppController', () => {
   let appController: AppController;
