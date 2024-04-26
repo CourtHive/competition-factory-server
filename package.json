@@ -48,7 +48,7 @@
     "@nestjs/serve-static": "4.0.2",
     "@nestjs/swagger": "7.3.1",
     "@nestjs/websockets": "10.3.8",
-    "@next/env": "14.2.2",
+    "@next/env": "14.2.3",
     "axios": "^1.6.8",
     "bcryptjs": "2.4.3",
     "body-parser": "1.20.2",
