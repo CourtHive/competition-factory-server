@@ -105,8 +105,8 @@ importers:
         specifier: 4.7.5
         version: 4.7.5
       tods-competition-factory:
-        specifier: 2.1.11
-        version: 2.1.11
+        specifier: 2.1.15
+        version: 2.1.15
       tods-tmx-classic-converter:
         specifier: 3.0.5
         version: 3.0.5
@@ -3799,6 +3799,7 @@ packages:
   superagent@8.1.2:
     resolution: {integrity: sha512-6WTxW1EB6yCxV5VFOIPQruWGHqc3yI7hEmZK6h+pyk69Lk/Ut7rLUY6W/ONF2MjBuGjvmMiIpsrVJ2vjrHlslA==}
     engines: {node: '>=6.4.0 <13 || >=14'}
+    deprecated: Please upgrade to v9.0.0+ as we have fixed a public vulnerability with formidable dependency. Note that v9.0.0+ requires Node.js v14.18.0+. See https://github.com/ladjs/superagent/pull/1800 for insight. This project is supported and maintained by the team at Forward Email @ https://forwardemail.net
 
   supertest@6.3.4:
     resolution: {integrity: sha512-erY3HFDG0dPnhw4U+udPfrzXa4xhSG+n4rxfRuZWCUvjFWwKl+OxWf/7zk50s84/fAAs7vf5QAb9uRa0cCykxw==}
@@ -3885,8 +3886,8 @@ packages:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
 
-  tods-competition-factory@2.1.11:
-    resolution: {integrity: sha512-kxYAgIq8/OFoA4yf+6tyblorrE5NY+yWtPxXSiY043DbS0SiSFbb+52z4ONl0G6Ch9ye4wlm/a5b9xkBCW1LLQ==}
+  tods-competition-factory@2.1.15:
+    resolution: {integrity: sha512-33Zi/9hdt3T0zf6oGAs1Xp55U481tHd5hbxTFUWr0ikmyo69wp1BzXiCxOZyWk63JDvBMQnK39CDsPZYrhYy9w==}
     engines: {node: '>=18.17.1 < 21'}
 
   tods-tmx-classic-converter@3.0.5:
@@ -8468,7 +8469,7 @@ snapshots:
     dependencies:
       is-number: 7.0.0
 
-  tods-competition-factory@2.1.11: {}
+  tods-competition-factory@2.1.15: {}
 
   tods-tmx-classic-converter@3.0.5:
     dependencies:
@@ -8476,7 +8477,7 @@ snapshots:
       d3: 5.16.0
       date-fns: 2.30.0
       minimist: 1.2.8
-      tods-competition-factory: 2.1.11
+      tods-competition-factory: 2.1.15
 
   toidentifier@1.0.1: {}
 
