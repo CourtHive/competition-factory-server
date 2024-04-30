@@ -3,7 +3,6 @@ import { removeTournamentRecords } from '../../../../services/fileSystem/removeT
 import { factoryConstants } from 'tods-competition-factory';
 import { TEST } from '../../../../common/constants/test';
 import { executionQueue } from './executionQueue';
-import { it } from '@jest/globals';
 import 'dotenv/config';
 
 describe('executionQueue', () => {

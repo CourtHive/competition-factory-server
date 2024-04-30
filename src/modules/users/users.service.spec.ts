@@ -3,7 +3,6 @@ import { UsersService } from './users.service';
 import { ConfigsModule } from 'src/config/config.module';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { it } from '@jest/globals';
 
 describe('UsersService', () => {
   let service: UsersService;
