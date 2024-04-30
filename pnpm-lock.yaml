@@ -120,9 +120,6 @@ importers:
       '@commitlint/config-conventional':
         specifier: ^19.0.0
         version: 19.2.2
-      '@jest/globals':
-        specifier: ^29.7.0
-        version: 29.7.0
       '@nestjs/cli':
         specifier: 10.3.2
         version: 10.3.2(@swc/cli@0.3.12(@swc/core@1.5.2)(chokidar@3.6.0))(@swc/core@1.5.2)
