@@ -4,7 +4,6 @@ import { getCompetitionScheduleMatchUps } from '../public/getCompetitionSchedule
 import { queryTournamentRecords } from './queryTournamentRecords';
 import { getTournamentInfo } from '../public/getTournamentInfo';
 import { TEST } from '../../../../common/constants/test';
-import { it } from '@jest/globals';
 import 'dotenv/config';
 
 describe('queryTournamentRecords', () => {

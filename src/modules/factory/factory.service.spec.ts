@@ -5,7 +5,6 @@ import { UsersModule } from '../users/users.module';
 import { FactoryService } from './factory.service';
 import { AuthModule } from '../auth/auth.module';
 import { ConfigService } from '@nestjs/config';
-import { it } from '@jest/globals';
 
 describe('AppService', () => {
   let app: TestingModule;
