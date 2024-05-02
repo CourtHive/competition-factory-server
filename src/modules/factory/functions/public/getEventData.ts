@@ -10,8 +10,15 @@ export async function getEventData(params: any) {
   policyDefinitions.participant.participant.rankings = true;
   policyDefinitions.participant.participant.ratings = true;
   const infoResult = queryGovernor.getEventData({
-    participantsProfile: { withScaleValues: true },
+    participantsProfile: {
+      convertExtensions: true,
+      withScaleValues: true,
+      withGroupings: true,
+      withISO2: true,
+      withIOC: true,
+    },
     tournamentRecord: findResult.tournamentRecord,
+    includePositionAssignments: true,
     allParticipantResults: true,
     eventId: params.eventId,
     usePublishState: true,
