@@ -8,7 +8,9 @@ export async function getEventData(params: any) {
   const policyDefinitions = fixtures.policies.POLICY_PRIVACY_DEFAULT;
   policyDefinitions.participant.participant.person.sex = true;
   policyDefinitions.participant.participant.rankings = true;
+  policyDefinitions.participant.participant.seedings = true;
   policyDefinitions.participant.participant.ratings = true;
+  policyDefinitions.participant.participant.teams = true;
   const infoResult = queryGovernor.getEventData({
     participantsProfile: {
       convertExtensions: true,
