@@ -31,6 +31,12 @@ async function bootstrap() {
   });
   SwaggerModule.setup('api', app, document);
 
+  if (!Array.prototype.toSorted) {
+    Array.prototype.toSorted = function (compareFn) {
+      return this.slice().sort(compareFn);
+    };
+  }
+
   const config = app.get(ConfigService);
   const appName = config.get('APP.name');
   const port = config.get('APP.port');
