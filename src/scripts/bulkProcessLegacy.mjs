@@ -10,6 +10,12 @@ const BASE_PROVIDER = 'provider';
 
 const UTF8 = 'utf8';
 
+if (!Array.prototype.toSorted) {
+  Array.prototype.toSorted = function (compareFn) {
+    return this.slice().sort(compareFn);
+  };
+}
+
 const args = minimist(process.argv.slice(2), {
   default: { path: './cache/tournaments', limit: 0, verbose: false },
   alias: { p: 'path', l: 'limit', v: 'verbose' },
