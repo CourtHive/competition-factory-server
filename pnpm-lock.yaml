@@ -16,7 +16,7 @@ importers:
         version: 0.2.3
       '@nestjs/cache-manager':
         specifier: 2.2.2
-        version: 2.2.2(@nestjs/common@10.3.9(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/core@10.3.9(@nestjs/common@10.3.9(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/platform-express@10.3.9)(@nestjs/websockets@10.3.9)(reflect-metadata@0.2.2)(rxjs@7.8.1))(cache-manager@5.5.3)(rxjs@7.8.1)
+        version: 2.2.2(@nestjs/common@10.3.9(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/core@10.3.9(@nestjs/common@10.3.9(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/platform-express@10.3.9)(@nestjs/websockets@10.3.9)(reflect-metadata@0.2.2)(rxjs@7.8.1))(cache-manager@5.6.1)(rxjs@7.8.1)
       '@nestjs/class-transformer':
         specifier: 0.4.0
         version: 0.4.0
@@ -63,8 +63,8 @@ importers:
         specifier: 1.20.2
         version: 1.20.2
       cache-manager:
-        specifier: 5.5.3
-        version: 5.5.3
+        specifier: 5.6.1
+        version: 5.6.1
       cache-manager-redis-yet:
         specifier: 5.1.1
         version: 5.1.1
@@ -1482,8 +1482,9 @@ packages:
     resolution: {integrity: sha512-bgc7rDYDeDSeoT8SYmDNgOF2Rdq38n85Y6r4Jt9JpzxzT4/DxVr9yqJfKo+tecXIwy/Z0ltrZ8tF3EgsulQwMw==}
     engines: {node: '>= 18'}
 
-  cache-manager@5.5.3:
-    resolution: {integrity: sha512-Td6F8lZE/YCciSi8xmdBjur6zlKIcoLMZp9jTmJNc44DrXIIcEhr9gra5j1T7RRbtWHaG5tJMEBKS+0S1+T2NQ==}
+  cache-manager@5.6.1:
+    resolution: {integrity: sha512-9uTQmLPaTKpvO38RXOm54jfPyrcXR+51NzNdba+Jaydnz8v5l/YEA6l/MsSSeAvF6s43+K4wojIGJC9i6cLfJg==}
+    engines: {node: '>= 18'}
 
   cacheable-lookup@5.0.4:
     resolution: {integrity: sha512-2/kNscPhpcxrOigMZzbiWF7dz8ilhb/nIHU3EyZiXWXpeq/au8qJ8VhdftMkty3n7Gj6HIGalQG8oiBNB3AJgA==}
@@ -3002,10 +3003,6 @@ packages:
   lowercase-keys@2.0.0:
     resolution: {integrity: sha512-tqNXrS78oMOE73NMxK4EMLQsQowWf8jKooH9g7xPavRT706R6bkQJ6DY2Te7QukaZsulxa30wQ7bk0pm4XiHmA==}
     engines: {node: '>=8'}
-
-  lru-cache@10.2.0:
-    resolution: {integrity: sha512-2bIM8x+VAf6JT4bKAljS1qUWgMsqZRPGJS6FSahIMPVvctcNhyVp7AJu7quxOW9jwkryBReKZY5tY5JYv2n/7Q==}
-    engines: {node: 14 || >=16.14}
 
   lru-cache@10.2.2:
     resolution: {integrity: sha512-9hp3Vp2/hFQUiIwKo8XCeFVnrg8Pk3TYNPIR7tJADKi5YfcF7vEaK7avFHTlSy3kOKYaJQaalfEo6YuXdceBOQ==}
@@ -4876,11 +4873,11 @@ snapshots:
       got: 11.8.6
       os-filter-obj: 2.0.0
 
-  '@nestjs/cache-manager@2.2.2(@nestjs/common@10.3.9(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/core@10.3.9(@nestjs/common@10.3.9(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/platform-express@10.3.9)(@nestjs/websockets@10.3.9)(reflect-metadata@0.2.2)(rxjs@7.8.1))(cache-manager@5.5.3)(rxjs@7.8.1)':
+  '@nestjs/cache-manager@2.2.2(@nestjs/common@10.3.9(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/core@10.3.9(@nestjs/common@10.3.9(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/platform-express@10.3.9)(@nestjs/websockets@10.3.9)(reflect-metadata@0.2.2)(rxjs@7.8.1))(cache-manager@5.6.1)(rxjs@7.8.1)':
     dependencies:
       '@nestjs/common': 10.3.9(reflect-metadata@0.2.2)(rxjs@7.8.1)
       '@nestjs/core': 10.3.9(@nestjs/common@10.3.9(reflect-metadata@0.2.2)(rxjs@7.8.1))(@nestjs/platform-express@10.3.9)(@nestjs/websockets@10.3.9)(reflect-metadata@0.2.2)(rxjs@7.8.1)
-      cache-manager: 5.5.3
+      cache-manager: 5.6.1
       rxjs: 7.8.1
 
   '@nestjs/class-transformer@0.4.0': {}
@@ -5822,10 +5819,10 @@ snapshots:
       '@redis/json': 1.0.6(@redis/client@1.5.16)
       '@redis/search': 1.1.6(@redis/client@1.5.16)
       '@redis/time-series': 1.0.5(@redis/client@1.5.16)
-      cache-manager: 5.5.3
+      cache-manager: 5.6.1
       redis: 4.6.14
 
-  cache-manager@5.5.3:
+  cache-manager@5.6.1:
     dependencies:
       eventemitter3: 5.0.1
       lodash.clonedeep: 4.5.0
@@ -7665,8 +7662,6 @@ snapshots:
 
   lowercase-keys@2.0.0: {}
 
-  lru-cache@10.2.0: {}
-
   lru-cache@10.2.2: {}
 
   lru-cache@4.1.5:
@@ -7964,7 +7959,7 @@ snapshots:
 
   path-scurry@1.10.1:
     dependencies:
-      lru-cache: 10.2.0
+      lru-cache: 10.2.2
       minipass: 7.0.4
 
   path-to-regexp@0.1.7: {}
