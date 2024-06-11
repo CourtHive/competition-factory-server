@@ -21,6 +21,7 @@ export async function getEventData(params: any) {
     },
     hydrateParticipants: params?.hydrateParticipants,
     tournamentRecord: findResult.tournamentRecord,
+    contextProfile: { withCompetitiveness: true },
     includePositionAssignments: true,
     allParticipantResults: true,
     eventId: params.eventId,
