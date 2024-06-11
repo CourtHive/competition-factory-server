@@ -15,6 +15,7 @@ export async function getCompetitionScheduleMatchUps(params) {
   const matchUpsResult = queryGovernor.competitionScheduleMatchUps({
     policyDefinitions: fixtures.policies.POLICY_PRIVACTY_DEFAULT,
     courtCompletedMatchUps: opts?.courtCompletedMatchUps,
+    hydrateParticipants: opts?.hydrateParticipants,
     contextFilters: opts?.contextFilters,
     matchUpFilters: opts?.matchUpFilters,
     activeTournamentId: tournamentId,

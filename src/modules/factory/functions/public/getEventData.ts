@@ -19,6 +19,7 @@ export async function getEventData(params: any) {
       withISO2: true,
       withIOC: true,
     },
+    hydrateParticipants: params?.hydrateParticipants,
     tournamentRecord: findResult.tournamentRecord,
     includePositionAssignments: true,
     allParticipantResults: true,
