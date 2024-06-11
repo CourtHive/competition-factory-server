@@ -66,8 +66,16 @@ export class FactoryService {
     return await publicQueries.getTournamentInfo({ tournamentId });
   }
 
-  async getEventData({ tournamentId, eventId }: { tournamentId: string; eventId: string }) {
-    return await publicQueries.getEventData({ tournamentId, eventId });
+  async getEventData({
+    hydrateParticipants,
+    tournamentId,
+    eventId,
+  }: {
+    hydrateParticipants?: boolean;
+    tournamentId: string;
+    eventId: string;
+  }) {
+    return await publicQueries.getEventData({ hydrateParticipants, tournamentId, eventId });
   }
 
   async getScheduleMatchUps({ params }) {
