@@ -31,10 +31,15 @@ async function bootstrap() {
   });
   SwaggerModule.setup('api', app, document);
 
-  if (!Array.prototype.toSorted) {
-    Array.prototype.toSorted = function (compareFn) {
-      return this.slice().sort(compareFn);
-    };
+  if (!Array.prototype.hasOwnProperty('toSorted')) {
+    Object.defineProperty(Array.prototype, 'toSorted', {
+      value: function (compareFn) {
+        return this.slice().sort(compareFn);
+      },
+      writable: false,
+      enumerable: false,
+      configurable: true,
+    });
   }
 
   const config = app.get(ConfigService);
