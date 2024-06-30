@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext.Array", "ES6"],
+    "lib": ["ESNext.Array", "ES2017"],
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,
