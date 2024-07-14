@@ -66,8 +66,8 @@ importers:
         specifier: 5.7.2
         version: 5.7.2
       cache-manager-redis-yet:
-        specifier: 5.1.2
-        version: 5.1.2
+        specifier: 5.1.3
+        version: 5.1.3
       codepage:
         specifier: ^1.15.0
         version: 1.15.0
@@ -845,10 +845,6 @@ packages:
     peerDependencies:
       '@redis/client': ^1.0.0
 
-  '@redis/client@1.5.16':
-    resolution: {integrity: sha512-X1a3xQ5kEMvTib5fBrHKh6Y+pXbeKXqziYuxOUo1ojQNECg4M5Etd1qqyhMap+lFUOAh8S7UYevgJHOm4A+NOg==}
-    engines: {node: '>=14'}
-
   '@redis/client@1.5.17':
     resolution: {integrity: sha512-IPvU9A31qRCZ7lds/x+ksuK/UMndd0EASveAvCvEtFFKIZjZ+m/a4a0L7S28KEWoR5ka8526hlSghDo4Hrc2Hg==}
     engines: {node: '>=14'}
@@ -1487,8 +1483,8 @@ packages:
     resolution: {integrity: sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==}
     engines: {node: '>= 0.8'}
 
-  cache-manager-redis-yet@5.1.2:
-    resolution: {integrity: sha512-InCnAd2CB8NPfhtCT5CAyPQc5jqPgO/SpCJnA52QZnYhJ6GiZgPQebd8ugEueQuoV2PbuS13YxKR54atqF0AgQ==}
+  cache-manager-redis-yet@5.1.3:
+    resolution: {integrity: sha512-V/IcEBqNQkwlPz/p4AsJLCBFmv3KVasQPSuQZx4ykPCbBm3ybIDoqf6dXuOKaBwIk7CQwoNxTR8HJ5Bssv1iYg==}
     engines: {node: '>= 18'}
 
   cache-manager@5.7.2:
@@ -5064,19 +5060,9 @@ snapshots:
 
   '@pkgr/core@0.1.0': {}
 
-  '@redis/bloom@1.2.0(@redis/client@1.5.16)':
-    dependencies:
-      '@redis/client': 1.5.16
-
   '@redis/bloom@1.2.0(@redis/client@1.5.17)':
     dependencies:
       '@redis/client': 1.5.17
-
-  '@redis/client@1.5.16':
-    dependencies:
-      cluster-key-slot: 1.1.2
-      generic-pool: 3.9.0
-      yallist: 4.0.0
 
   '@redis/client@1.5.17':
     dependencies:
@@ -5084,33 +5070,17 @@ snapshots:
       generic-pool: 3.9.0
       yallist: 4.0.0
 
-  '@redis/graph@1.1.1(@redis/client@1.5.16)':
-    dependencies:
-      '@redis/client': 1.5.16
-
   '@redis/graph@1.1.1(@redis/client@1.5.17)':
     dependencies:
       '@redis/client': 1.5.17
-
-  '@redis/json@1.0.6(@redis/client@1.5.16)':
-    dependencies:
-      '@redis/client': 1.5.16
 
   '@redis/json@1.0.6(@redis/client@1.5.17)':
     dependencies:
       '@redis/client': 1.5.17
 
-  '@redis/search@1.1.6(@redis/client@1.5.16)':
-    dependencies:
-      '@redis/client': 1.5.16
-
   '@redis/search@1.1.6(@redis/client@1.5.17)':
     dependencies:
       '@redis/client': 1.5.17
-
-  '@redis/time-series@1.0.5(@redis/client@1.5.16)':
-    dependencies:
-      '@redis/client': 1.5.16
 
   '@redis/time-series@1.0.5(@redis/client@1.5.17)':
     dependencies:
@@ -5826,14 +5796,14 @@ snapshots:
 
   bytes@3.1.2: {}
 
-  cache-manager-redis-yet@5.1.2:
+  cache-manager-redis-yet@5.1.3:
     dependencies:
-      '@redis/bloom': 1.2.0(@redis/client@1.5.16)
-      '@redis/client': 1.5.16
-      '@redis/graph': 1.1.1(@redis/client@1.5.16)
-      '@redis/json': 1.0.6(@redis/client@1.5.16)
-      '@redis/search': 1.1.6(@redis/client@1.5.16)
-      '@redis/time-series': 1.0.5(@redis/client@1.5.16)
+      '@redis/bloom': 1.2.0(@redis/client@1.5.17)
+      '@redis/client': 1.5.17
+      '@redis/graph': 1.1.1(@redis/client@1.5.17)
+      '@redis/json': 1.0.6(@redis/client@1.5.17)
+      '@redis/search': 1.1.6(@redis/client@1.5.17)
+      '@redis/time-series': 1.0.5(@redis/client@1.5.17)
       cache-manager: 5.7.2
       redis: 4.6.15
 
