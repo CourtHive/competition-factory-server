@@ -20,7 +20,6 @@ export async function getParticipants(params) {
     policyDefinitions: fixtures.policies.POLICY_PRIVACY_DEFAULT,
     contextFilters: opts?.contextFilters,
     matchUpFilters: opts?.matchUpFilters,
-    activeTournamentId: tournamentId,
     withScaleValues: true,
     usePublishState: true, // filters out events that are not published
     tournamentRecord,
