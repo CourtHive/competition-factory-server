@@ -1,11 +1,11 @@
-import { queryGovernor, fixtures } from 'tods-competition-factory';
+import { queryGovernor, fixtures, Tournament } from 'tods-competition-factory';
 import levelStorage from 'src/services/levelDB';
 
 export async function getEventData(params: any) {
   if (!params.tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
   const findResult = await levelStorage.findTournamentRecord({ tournamentId: params.tournamentId });
   if (findResult.error) return findResult;
-  const policyDefinitions = fixtures.policies.POLICY_PRIVACY_DEFAULT;
+  const policyDefinitions = fixtures.policies.POLICY_PRIVACY_DEFAULT as any;
   policyDefinitions.participant.participant.person.sex = true;
   policyDefinitions.participant.participant.rankings = true;
   policyDefinitions.participant.participant.seedings = true;
@@ -19,8 +19,8 @@ export async function getEventData(params: any) {
       withISO2: true,
       withIOC: true,
     },
+    tournamentRecord: findResult.tournamentRecord as Tournament,
     hydrateParticipants: params?.hydrateParticipants,
-    tournamentRecord: findResult.tournamentRecord,
     contextProfile: { withCompetitiveness: true },
     includePositionAssignments: true,
     allParticipantResults: true,
