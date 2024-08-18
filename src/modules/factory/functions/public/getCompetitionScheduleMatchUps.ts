@@ -13,7 +13,7 @@ export async function getCompetitionScheduleMatchUps(params) {
   const tournamentRecords = findResult.tournamentRecords;
 
   const matchUpsResult = queryGovernor.competitionScheduleMatchUps({
-    policyDefinitions: fixtures.policies.POLICY_PRIVACTY_DEFAULT,
+    policyDefinitions: fixtures.policies.POLICY_PRIVACY_DEFAULT,
     courtCompletedMatchUps: opts?.courtCompletedMatchUps,
     hydrateParticipants: opts?.hydrateParticipants,
     contextFilters: opts?.contextFilters,
