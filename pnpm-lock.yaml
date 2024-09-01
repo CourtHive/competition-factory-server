@@ -173,7 +173,7 @@ importers:
         version: 15.8.0
       husky:
         specifier: ^9.0.11
-        version: 9.0.11
+        version: 9.1.5
       jest:
         specifier: 29.7.0
         version: 29.7.0(@types/node@20.16.3)(ts-node@10.9.2(@swc/core@1.7.22)(@types/node@20.16.3)(typescript@5.5.4))
@@ -2558,8 +2558,8 @@ packages:
     resolution: {integrity: sha512-AXcZb6vzzrFAUE61HnN4mpLqd/cSIwNQjtNWR0euPm6y0iqx3G4gOXaIDdtdDwZmhwe82LA6+zinmW4UBWVePQ==}
     engines: {node: '>=16.17.0'}
 
-  husky@9.0.11:
-    resolution: {integrity: sha512-AB6lFlbwwyIqMdHYhwPe+kjOC3Oc5P3nThEoW/AaO2BX3vJDjWPFxYLxokUZOo6RNX20He3AaT8sESs9NJcmEw==}
+  husky@9.1.5:
+    resolution: {integrity: sha512-rowAVRUBfI0b4+niA4SJMhfQwc107VLkBUgEYYAOQAbqDCnra1nYh83hF/MDmhYs9t9n1E3DuKOrs2LYNC+0Ag==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -7089,7 +7089,7 @@ snapshots:
 
   human-signals@5.0.0: {}
 
-  husky@9.0.11: {}
+  husky@9.1.5: {}
 
   iconv-lite@0.4.24:
     dependencies:
