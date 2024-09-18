@@ -19,6 +19,10 @@ Lightweight NestJS example server for testing client/server use cases with tods-
 $ pnpm install
 ```
 
+## Redis
+
+Make sure you have [Redis](https://redis.io/docs/latest/operate/oss_and_stack/install/install-redis/install-redis-on-linux/) installed
+
 ## .env file
 
 Create an `.env` file in the root directory.
@@ -93,6 +97,20 @@ $ pnpm test e2e
 # test coverage
 $ pnpm run test:cov
 ```
+
+## Development User Creation
+
+In order for Tournaments to persist, you need to create a user that is backed by a 'provider'.
+
+If running in development, point a [TMX](https://github.com/CourtHive/TMX) frontend instance at your server, use the test user username: `alex@castle.com` password: `castle` to login.
+
+Create your provider (top right user icon/dropdown -> Create Provider), then create a user with that provider.
+
+The frontend will copy the invite link to your clipboard in order to complete that user, use that and complete your account.
+
+Logout of `alex@castle.com` and into your newly created account.
+
+Tournaments should now persist on the LevelDB/filesystem.
 
 ## Support
 
