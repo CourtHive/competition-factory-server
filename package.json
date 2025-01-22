@@ -52,7 +52,7 @@
     "axios": "^1.6.8",
     "bcryptjs": "2.4.3",
     "body-parser": "1.20.3",
-    "cache-manager": "5.7.6",
+    "cache-manager": "6.3.2",
     "cache-manager-redis-yet": "5.1.5",
     "codepage": "^1.15.0",
     "dotenv": "^16.4.5",
