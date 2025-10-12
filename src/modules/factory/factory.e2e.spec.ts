@@ -1,6 +1,6 @@
 import { AppModule } from 'src/modules/app/app.module';
 import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
 import { TEST, TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
@@ -9,7 +9,7 @@ describe('FactoryService', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
+    const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
