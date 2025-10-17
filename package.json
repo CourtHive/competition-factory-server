@@ -64,7 +64,7 @@
     "node-html-parser": "^6.1.13",
     "redis": "4.7.0",
     "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.1",
+    "rxjs": "7.8.2",
     "socket.io": "4.8.1",
     "tods-competition-factory": "2.2.30",
     "tods-tmx-classic-converter": "3.0.5",
