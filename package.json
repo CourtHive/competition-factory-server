@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@gridspace/net-level": "0.2.4",
-    "@gridspace/net-level-client": "0.2.3",
+    "@gridspace/net-level-client": "0.2.5",
     "@nestjs/cache-manager": "2.3.0",
     "@nestjs/class-transformer": "0.4.0",
     "@nestjs/class-validator": "0.13.4",
