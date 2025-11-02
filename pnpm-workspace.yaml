@@ -1,2 +1,4 @@
 ignoredBuiltDependencies:
   - '@nestjs/core'
+  - '@swc/core'
+  - classic-level
