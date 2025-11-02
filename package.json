@@ -66,7 +66,7 @@
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "socket.io": "4.8.1",
-    "tods-competition-factory": "2.2.30",
+    "tods-competition-factory": "2.2.31",
     "tods-tmx-classic-converter": "3.0.5",
     "tslib": "^2.6.2"
   },
@@ -79,7 +79,7 @@
     "@swc/cli": "0.7.8",
     "@swc/core": "1.13.5",
     "@types/cache-manager-redis-store": "2.0.4",
-    "@types/express": "5.0.3",
+    "@types/express": "5.0.5",
     "@types/jest": "29.5.14",
     "@types/node": "20.19.24",
     "@types/supertest": "6.0.3",
