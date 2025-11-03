@@ -87,7 +87,7 @@
     "@typescript-eslint/parser": "8.46.2",
     "compression": "^1.7.4",
     "eslint": "9.39.0",
-    "eslint-config-prettier": "9.1.2",
+    "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.4",
     "globals": "^15.2.0",
     "husky": "^9.0.11",
