@@ -81,8 +81,8 @@ importers:
         specifier: 4.0.4
         version: 4.0.4
       fs-extra:
-        specifier: 11.2.0
-        version: 11.2.0
+        specifier: 11.3.2
+        version: 11.3.2
       mailgun.js:
         specifier: 10.2.3
         version: 10.2.3
@@ -2539,8 +2539,8 @@ packages:
     resolution: {integrity: sha512-oRXApq54ETRj4eMiFzGnHWGy+zo5raudjuxN0b8H7s/RU2oW0Wvsx9O0ACRN/kRq9E8Vu/ReskGB5o3ji+FzHQ==}
     engines: {node: '>=12'}
 
-  fs-extra@11.2.0:
-    resolution: {integrity: sha512-PmDi3uwK5nFuXh7XDTlVnS17xJS7vW36is2+w3xcv8SVxiB4NyATf4ctkVY5bkSjX0Y4nbvZCq1/EjtEyr9ktw==}
+  fs-extra@11.3.2:
+    resolution: {integrity: sha512-Xr9F6z6up6Ws+NjzMCZc6WXg2YFRlrLP9NQDO3VQrWrfiojdhS56TzueT88ze0uBdCTwEIhQ3ptnmKeWGFAe0A==}
     engines: {node: '>=14.14'}
 
   fs-monkey@1.1.0:
@@ -4809,7 +4809,7 @@ snapshots:
       dayjs: 1.11.10
       dotenv: 16.4.5
       express: 4.19.2
-      fs-extra: 11.2.0
+      fs-extra: 11.3.2
       level: 8.0.1
       minimist: 1.2.8
       serve-static: 1.15.0
@@ -7245,7 +7245,7 @@ snapshots:
       jsonfile: 6.2.0
       universalify: 2.0.1
 
-  fs-extra@11.2.0:
+  fs-extra@11.3.2:
     dependencies:
       graceful-fs: 4.2.11
       jsonfile: 6.2.0
