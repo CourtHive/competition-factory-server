@@ -1,3 +1,5 @@
+packages: []
+
 ignoredBuiltDependencies:
   - '@nestjs/core'
   - '@swc/core'
