@@ -2,5 +2,7 @@ packages: []
 
 ignoredBuiltDependencies:
   - '@nestjs/core'
+  - '@scarf/scarf'
   - '@swc/core'
   - classic-level
+  - unrs-resolver
