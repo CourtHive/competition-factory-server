@@ -136,8 +136,8 @@ importers:
         specifier: 1.14.0
         version: 1.14.0
       '@types/cache-manager-redis-store':
-        specifier: 2.0.4
-        version: 2.0.4
+        specifier: 3.0.0
+        version: 3.0.0
       '@types/express':
         specifier: 5.0.5
         version: 5.0.5
@@ -1129,12 +1129,9 @@ packages:
   '@types/body-parser@1.19.6':
     resolution: {integrity: sha512-HLFeCYgz89uk22N5Qg3dvGvsv46B8GLvKKo1zKG4NybA8U2DiEO3w9lqGg29t/tfLRJpJ6iQxnVw4OnB7MoM9g==}
 
-  '@types/cache-manager-redis-store@2.0.4':
-    resolution: {integrity: sha512-EG4ac1KsUr07uv6N/O0X1OaQBNVKShVUxn+GwJQQpUkTEi4+KJl6yvqfwc4uTPT1+pwfKRgQhCoHQQCd/ObkZQ==}
-
-  '@types/cache-manager@5.0.0':
-    resolution: {integrity: sha512-YaQBBhn2OIShxGMH7l1qzGgXCQJ2TRYTqMhFMXRBkDcXQIlqXv+XFkBGstwXSyv7q+JQm3HbpVhaVF8l5tr+Hg==}
-    deprecated: This is a stub types definition. cache-manager provides its own type definitions, so you do not need this installed.
+  '@types/cache-manager-redis-store@3.0.0':
+    resolution: {integrity: sha512-mz00UnOw5MZyAhw+zyltFwyYXqOBUL4miBj93E22gNjWO8/DbUDd6DbM+q3vJjZ15qd+O3FSWUo/AQg7fWbsWQ==}
+    deprecated: This is a stub types definition. cache-manager-redis-store provides its own type definitions, so you do not need this installed.
 
   '@types/connect@3.4.38':
     resolution: {integrity: sha512-K6uROf1LD88uDQqJCktA4yzL1YYAK6NgfsI0v/mTgyPKWsX1CnJ0XPSDhViejru1GcRkLWb8RlzFYJRqGUbaug==}
@@ -1204,9 +1201,6 @@ packages:
 
   '@types/range-parser@1.2.7':
     resolution: {integrity: sha512-hKormJbkJqzQGhziax5PItDUTMAM9uE2XXQmM37dyd4hVM+5aVl7oVxMVUiVQn2oCQFN/LKCZdvSM0pFRqbSmQ==}
-
-  '@types/redis@2.8.32':
-    resolution: {integrity: sha512-7jkMKxcGq9p242exlbsVzuJb57KqHRhNl4dHoQu2Y5v9bCAbtIXXH0R3HleSQW4CTOqpHIYUW3t6tpUj4BVQ+w==}
 
   '@types/send@0.17.6':
     resolution: {integrity: sha512-Uqt8rPBE8SY0RK8JB1EzVOIZ32uqy8HwdxCnoCOsYrvnswqmFZ/k+9Ikidlk/ImhsdvBsloHbAlewb2IEBV/Og==}
@@ -1641,6 +1635,10 @@ packages:
   bytes@3.1.2:
     resolution: {integrity: sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==}
     engines: {node: '>= 0.8'}
+
+  cache-manager-redis-store@3.0.1:
+    resolution: {integrity: sha512-o560kw+dFqusC9lQJhcm6L2F2fMKobJ5af+FoR2PdnMVdpQ3f3Bz6qzvObTGyvoazQJxjQNWgMQeChP4vRTuXQ==}
+    engines: {node: '>= 16.18.0'}
 
   cache-manager-redis-yet@5.1.5:
     resolution: {integrity: sha512-NYDxrWBoLXxxVPw4JuBriJW0f45+BVOAsgLiozRo4GoJQyoKPbueQWYStWqmO73/AeHJeWrV7Hzvk6vhCGHlqA==}
@@ -5463,14 +5461,9 @@ snapshots:
       '@types/connect': 3.4.38
       '@types/node': 24.10.0
 
-  '@types/cache-manager-redis-store@2.0.4':
+  '@types/cache-manager-redis-store@3.0.0':
     dependencies:
-      '@types/cache-manager': 5.0.0
-      '@types/redis': 2.8.32
-
-  '@types/cache-manager@5.0.0':
-    dependencies:
-      cache-manager: 5.7.6
+      cache-manager-redis-store: 3.0.1
 
   '@types/connect@3.4.38':
     dependencies:
@@ -5551,10 +5544,6 @@ snapshots:
   '@types/qs@6.14.0': {}
 
   '@types/range-parser@1.2.7': {}
-
-  '@types/redis@2.8.32':
-    dependencies:
-      '@types/node': 24.10.0
 
   '@types/send@0.17.6':
     dependencies:
@@ -6169,6 +6158,10 @@ snapshots:
       streamsearch: 1.1.0
 
   bytes@3.1.2: {}
+
+  cache-manager-redis-store@3.0.1:
+    dependencies:
+      redis: 4.7.1
 
   cache-manager-redis-yet@5.1.5:
     dependencies:
