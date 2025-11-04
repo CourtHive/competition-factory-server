@@ -45,7 +45,7 @@
     "@nestjs/jwt": "10.2.0",
     "@nestjs/platform-express": "10.4.20",
     "@nestjs/platform-socket.io": "10.4.20",
-    "@nestjs/serve-static": "4.0.2",
+    "@nestjs/serve-static": "5.0.4",
     "@nestjs/swagger": "11.2.1",
     "@nestjs/websockets": "10.4.20",
     "@next/env": "16.0.1",
@@ -78,7 +78,6 @@
     "@nestjs/testing": "10.4.20",
     "@swc/cli": "0.7.8",
     "@swc/core": "1.15.0",
-
     "@types/express": "5.0.5",
     "@types/jest": "29.5.14",
     "@types/node": "24.10.0",
