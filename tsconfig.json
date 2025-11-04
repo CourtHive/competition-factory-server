@@ -23,6 +23,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "skipLibCheck": true,
-    "strict": true
+    "strict": true,
+    "types": ["node", "jest", "express", "supertest"]
   }
 }
