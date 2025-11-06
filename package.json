@@ -61,7 +61,7 @@
     "fs-extra": "11.3.2",
     "mailgun.js": "12.1.1",
     "minimist": "1.2.8",
-    "node-html-parser": "^6.1.13",
+    "node-html-parser": "^7.0.0",
     "redis": "5.9.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
