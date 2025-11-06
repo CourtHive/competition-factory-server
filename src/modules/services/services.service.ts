@@ -1,6 +1,6 @@
 // import cpTable from 'codepage'; // see HiveEye server for example use
 import { fetchCtsTournament } from './functions/fetchCtsTournament';
-import { isString } from '@nestjs/class-validator';
+import { isString } from 'class-validator';
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
