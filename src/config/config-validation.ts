@@ -1,5 +1,5 @@
-import { IsDefined, IsString, IsNumber, validateSync, MinLength, IsEnum } from '@nestjs/class-validator';
-import { plainToClass } from '@nestjs/class-transformer';
+import { IsDefined, IsString, IsNumber, validateSync, MinLength, IsEnum } from 'class-validator';
+import { plainToClass } from 'class-transformer';
 import { Environment } from '../common/constants/app';
 
 class EnvironmentVariables {
