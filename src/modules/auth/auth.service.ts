@@ -110,7 +110,7 @@ export class AuthService {
   async decode(token: string) {
     try {
       return await this.jwtService.verifyAsync(token);
-    } catch (e) {
+    } catch {
       throw new UnauthorizedException('Incorrect auth token.');
     }
   }
