@@ -110,7 +110,7 @@ $ pnpm run test:cov
 
 In order for Tournaments to persist, you need to create a user that is backed by a 'provider'.
 
-If running in development, point a [TMX](https://github.com/CourtHive/TMX) frontend instance at your server, use the test user username: `alex@castle.com` password: `castle` to login.
+If running in development, point a [TMX](https://github.com/CourtHive/TMX) frontend instance at your server, use the test user username: `axel@castle.com` password: `castle` to login.
 
 Create your provider (top right user icon/dropdown -> Create Provider), then create a user with that provider.
 
