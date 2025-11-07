@@ -62,6 +62,14 @@ By default the server will store tournaments in the file system. In order to use
 $ pnpm hive-db
 ```
 
+## Building the app
+
+```bash
+mkdir dist
+pnpm build
+pnpm pushbuild
+```
+
 ## Running the app
 
 If you have PM2 installed:
@@ -108,7 +116,7 @@ Create your provider (top right user icon/dropdown -> Create Provider), then cre
 
 The frontend will copy the invite link to your clipboard in order to complete that user, use that and complete your account.
 
-Logout of `alex@castle.com` and into your newly created account.
+Logout of `axel@castle.com` and into your newly created account.
 
 Tournaments should now persist on the LevelDB/filesystem.
 
