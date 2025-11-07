@@ -1,5 +1,6 @@
 {
   "name": "competition-factory-server",
+  "type": "module",
   "private": true,
   "version": "1.1.1",
   "description": "Server side factory mutations",

@@ -56,7 +56,7 @@ export async function createProviderCalendars(tournamentsPath) {
     try {
       legacyTournamentRecord = JSON.parse(tournamentRaw);
       if (legacyTournamentRecord?.doNotProcess) {
-        args.verbose && console.log('DO NOT PROCESS', legacyTournamentRecord?.tuid);
+        if (args.verbose) console.log('DO NOT PROCESS', legacyTournamentRecord?.tuid);
         continue;
       }
       tournamentRecord = convertTMX2TODS({ tournament: legacyTournamentRecord, verbose: false }).tournamentRecord;
@@ -68,11 +68,11 @@ export async function createProviderCalendars(tournamentsPath) {
     const { name: tournamentName, tuid } = legacyTournamentRecord;
 
     if (legacyTournamentRecord?.players?.length < 2) {
-      args.verbose && console.log('NO PLAYERS', { tournamentId: tuid, tournamentName });
+      if (args.verbose) console.log('NO PLAYERS', { tournamentId: tuid, tournamentName });
       continue;
     }
     if (!legacyTournamentRecord?.events?.length) {
-      args.verbose && console.log('NO PLAYERS', { tournamentId: tuid, tournamentName });
+      if (args.verbose) console.log('NO PLAYERS', { tournamentId: tuid, tournamentName });
       continue;
     }
 
@@ -80,7 +80,7 @@ export async function createProviderCalendars(tournamentsPath) {
       const { tournamentId, tournamentName, startDate, endDate } = tournamentRecord;
 
       if (existingTournamentIds.includes(tournamentId)) {
-        args.verbose && console.log('Previously converted', { tournamentId, tournamentName });
+        if (args.verbose) console.log('Previously converted', { tournamentId, tournamentName });
         continue;
       }
 

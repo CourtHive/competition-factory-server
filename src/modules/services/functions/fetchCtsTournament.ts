@@ -22,7 +22,7 @@ export async function fetchCtsTournament({ identifier, tournamentId }) {
       await levelStorage.saveTournamentRecord({ tournamentRecord });
     }
     return { ...SUCCESS, tournamentRecord };
-  } catch (err) {
+  } catch {
     return { error: `request failed` };
   }
 }

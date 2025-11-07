@@ -1,15 +1,20 @@
-const { FlatCompat } = require('@eslint/eslintrc');
-const typescriptEsLintEsLintPlugin = require('@typescript-eslint/eslint-plugin');
-const typescriptEslintParser = require('@typescript-eslint/parser');
-const globals = require('globals');
-const js = require('@eslint/js');
+import { FlatCompat } from '@eslint/eslintrc';
+import typescriptEsLintEsLintPlugin from '@typescript-eslint/eslint-plugin';
+import typescriptEslintParser from '@typescript-eslint/parser';
+import globals from 'globals';
+import js from '@eslint/js';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const compat = new FlatCompat({
   baseDirectory: __dirname,
   recommendedConfig: js.configs.recommended,
 });
 
-module.exports = [
+export default [
   ...compat.extends('plugin:@typescript-eslint/recommended', 'plugin:prettier/recommended'),
   {
     plugins: {
