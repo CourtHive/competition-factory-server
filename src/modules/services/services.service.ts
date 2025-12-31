@@ -1,12 +1,11 @@
 // import cpTable from 'codepage'; // see HiveEye server for example use
 import { fetchCtsTournament } from './functions/fetchCtsTournament';
-import { isString } from 'class-validator';
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class Services {
   async fetchTournamentDetails(params) {
-    if (!isString(params.identifier)) return { error: 'Invalid parameters' };
+    if (typeof params.identifier !== 'string') return { error: 'Invalid parameters' };
 
     const parts = params.identifier
       .toLowerCase()
