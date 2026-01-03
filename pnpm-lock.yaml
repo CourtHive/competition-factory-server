@@ -93,8 +93,8 @@ importers:
         specifier: ^5.5.3
         version: 5.5.5
       mailgun.js:
-        specifier: 12.4.1
-        version: 12.4.1
+        specifier: 12.5.0
+        version: 12.5.0
       minimist:
         specifier: 1.2.8
         version: 1.2.8
@@ -3424,8 +3424,8 @@ packages:
   magic-string@0.30.17:
     resolution: {integrity: sha512-sNPKHvyjVf7gyjwS4xGTaW/mCnF8wnjtifKBEhxfZ7E/S8tQ0rssrwGNn6q8JH/ohItJfSQp9mBtQYuTlH5QnA==}
 
-  mailgun.js@12.4.1:
-    resolution: {integrity: sha512-NkjtQuH75brwWPiCn/LyWVjeA+oBWevPMwiM0QXvz/bSgGyxfDcau8c8c7qjkEtVclfcOStQGxmkfw6/tqe9DA==}
+  mailgun.js@12.5.0:
+    resolution: {integrity: sha512-O3CIpV2y+diAgPu9+7tEUCjkvtN+pxvVj3QLo20zGSMjxjJZpWfTSG67GYXOVI5ubVF/NRMDCsI69mWEorMuaQ==}
     engines: {node: '>=18.0.0'}
 
   make-dir@4.0.0:
@@ -8307,7 +8307,7 @@ snapshots:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  mailgun.js@12.4.1:
+  mailgun.js@12.5.0:
     dependencies:
       axios: 1.13.2
       base-64: 1.0.0
