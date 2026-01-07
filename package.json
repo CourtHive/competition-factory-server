@@ -50,7 +50,7 @@
     "@next/env": "16.1.1",
     "axios": "^1.6.8",
     "bcryptjs": "3.0.3",
-    "body-parser": "2.2.1",
+    "body-parser": "2.2.2",
     "cache-manager": "6.4.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
