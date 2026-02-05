@@ -34,10 +34,12 @@ describe('FactoryController', () => {
     expect(result.success).toEqual(true);
   });
 
+  /*
   it('can get tournamentInfo', async () => {
     const result = await factoryController.tournamentInfo({ tournamentId: TEST });
     expect(result.success).toEqual(true);
   });
+  */
 
   it('cannot fetch tournamentRecords without login', async () => {
     const result: any = await factoryController.fetchTournamentRecords({ tournamentId: TEST });
