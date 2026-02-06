@@ -28,7 +28,7 @@ export class FactoryController {
   ) {}
 
   async cacheFx(key, fx, params) {
-    if (key) {
+    if (key && typeof key === 'string') {
       const cachedData: any = await this.cacheManager.get(key);
       if (cachedData) {
         if (typeof cachedData === 'object') cachedData._cached = true;
@@ -37,7 +37,9 @@ export class FactoryController {
       }
     }
     const result = await fx(params);
-    if (!result.error && key) this.cacheManager.set(key, result, 60 * 3 * 1000); // 3 minutes
+    if (!result.error && key && typeof key === 'string') {
+      this.cacheManager.set(key, result, 60 * 3 * 1000); // 3 minutes
+    }
     return result;
   }
 
