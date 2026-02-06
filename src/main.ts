@@ -6,6 +6,7 @@ import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import compression from 'compression';
 import { json } from 'body-parser';
+import { version as serverVersion } from '../package.json';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: ['fatal', 'verbose', 'debug', 'error', 'warn'] });
@@ -48,6 +49,7 @@ async function bootstrap() {
 
   await app.listen(port, '0.0.0.0');
   Logger.verbose(`Application ${appName} is running on: ${await app.getUrl()}`);
+  Logger.verbose(`Server version: ${serverVersion}`);
   Logger.verbose(`Factory ${version()}`);
 }
 bootstrap();
