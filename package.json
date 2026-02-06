@@ -19,7 +19,7 @@
     "build:major": "pnpm run commits && pnpm version $(semver $npm_package_version -i major) && pnpm build",
     "build:minor": "pnpm run commits && pnpm version $(semver $npm_package_version -i minor) && pnpm build",
     "build:patch": "pnpm run commits && pnpm version $(semver $npm_package_version -i patch) && pnpm build",
-    "pushbuild": "cp -r build/* dist",
+    "pushbuild": "cp -r build/* dist && rm -rf dist/client && ln -s ../client dist/client",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "NODE_ENV=production nest start",
     "watch": "NODE_ENV=development nest start --watch",
