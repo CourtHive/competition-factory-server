@@ -18,6 +18,7 @@ asyncGlobalState.createInstanceState(); // is there only one instance of asyncGl
 export function getMutationEngine(services?) {
   const engineAsync = asyncEngine();
   const clearCache = (tournamentId) => {
+    if (!tournamentId || typeof tournamentId !== 'string') return;
     // remove cached tournammentInfo so that event will be immediately available
     const infoKey = `gti|${tournamentId}`;
     services?.cacheManager?.del(infoKey);
@@ -30,23 +31,29 @@ export function getMutationEngine(services?) {
       [topicConstants.PUBLISH_EVENT]: (params) => {
         if (Array.isArray(params)) {
           for (const item of params) {
-            const key = `ged|${item.tournamentId}|${item.eventData.eventInfo.eventId}`;
-            services?.cacheManager?.set(key, item.eventData, 60 * 3 * 1000); // 3 minutes
+            if (item.tournamentId && item.eventData?.eventInfo?.eventId) {
+              const key = `ged|${item.tournamentId}|${item.eventData.eventInfo.eventId}`;
+              services?.cacheManager?.set(key, item.eventData, 60 * 3 * 1000); // 3 minutes
+            }
             clearCache(item.tournamentId);
           }
         }
       },
       [topicConstants.UNPUBLISH_EVENT]: (params) => {
         for (const item of params) {
-          const eventDataKey = `ged|${item.tournamentId}|${item.eventId}`;
-          services?.cacheManager?.del(eventDataKey);
+          if (item.tournamentId && item.eventId) {
+            const eventDataKey = `ged|${item.tournamentId}|${item.eventId}`;
+            services?.cacheManager?.del(eventDataKey);
+          }
           clearCache(item.tournamentId);
         }
       },
       [topicConstants.UNPUBLISH_ORDER_OF_PLAY]: (params) => {
         for (const item of params) {
-          const key = `gtm|${item?.tournamentId}`;
-          services?.cacheManager?.del(key);
+          if (item?.tournamentId) {
+            const key = `gtm|${item.tournamentId}`;
+            services?.cacheManager?.del(key);
+          }
           clearCache(item.tournamentId);
         }
       },

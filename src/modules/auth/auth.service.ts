@@ -13,9 +13,9 @@ import { SUCCESS } from 'src/common/constants/app';
 @Injectable()
 export class AuthService {
   constructor(
-    private usersService: UsersService,
-    private jwtService: JwtService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async signIn(email: string, clearTextPassword: string) {

@@ -1,4 +1,5 @@
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { version as serverVersion } from '../package.json';
 import { AppModule } from './modules/app/app.module';
 import { version } from 'tods-competition-factory';
 import { ConfigService } from '@nestjs/config';
@@ -48,6 +49,7 @@ async function bootstrap() {
 
   await app.listen(port, '0.0.0.0');
   Logger.verbose(`Application ${appName} is running on: ${await app.getUrl()}`);
+  Logger.verbose(`Server version: ${serverVersion}`);
   Logger.verbose(`Factory ${version()}`);
 }
 bootstrap();

@@ -94,7 +94,7 @@ function useBase({ args, base }) {
 
   // define each access method
   async function keys(request) {
-    const isNumeric = (value) => !isNaN(parseFloat(value));
+    const isNumeric = (value) => !Number.isNaN(Number.parseFloat(value));
     try {
       if (!connected) await connect();
       if (!isNumeric(request?.from) && !isNumeric(request?.startsWith)) throw new Error('missing parameter for keys');
