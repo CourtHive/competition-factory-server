@@ -57,7 +57,7 @@ export class TmxGateway {
   @SubscribeMessage('test')
   @Public()
   async test(@MessageBody() data: any): Promise<any> {
-    if (data?.payload?.cache) {
+    if (data?.payload?.cache && typeof data.payload.cache === 'string') {
       const cachedData = await this.cacheManager.get(data.payload.cache);
       if (!cachedData) {
         console.log({ cachedData: 'not found' });
