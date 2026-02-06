@@ -6,9 +6,9 @@ import FormData from 'form-data';
 @Injectable()
 export class MailgunService {
   constructor(private readonly configService: ConfigService) {}
-  private domain = this.configService.get('email').domain || '';
-  private key = this.configService.get('email').key;
-  private client = new Mailgun(FormData).client({
+  private readonly domain = this.configService.get('email').domain || '';
+  private readonly key = this.configService.get('email').key;
+  private readonly client = new Mailgun(FormData).client({
     username: 'api',
     key: this.key,
   });
