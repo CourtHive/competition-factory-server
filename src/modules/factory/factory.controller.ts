@@ -24,7 +24,7 @@ import { FactoryService } from './factory.service';
 export class FactoryController {
   constructor(
     private readonly factoryService: FactoryService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async cacheFx(key, fx, params) {
@@ -37,7 +37,7 @@ export class FactoryController {
       }
     }
     const result = await fx(params);
-    if (!result.error) this.cacheManager.set(key, result, 60 * 3 * 1000); // 3 minutes
+    if (!result.error && key) this.cacheManager.set(key, result, 60 * 3 * 1000); // 3 minutes
     return result;
   }
 
