@@ -7,7 +7,7 @@ import { UsersService } from '../users/users.service';
 export class AuthMiddleware implements NestMiddleware {
   constructor(
     private readonly authService: AuthService,
-    private usersService: UsersService,
+    private readonly usersService: UsersService,
   ) {}
 
   async use(req, _res, next: () => void): Promise<void> {
@@ -22,7 +22,9 @@ export class AuthMiddleware implements NestMiddleware {
       if (parts[1]) {
         try {
           jwtPayload = await this.authService.decode(parts[1]);
-        } catch {}
+        } catch (error) {
+          console.error('Error decoding JWT:', error);
+        }
       }
     }
 
