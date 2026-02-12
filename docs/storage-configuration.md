@@ -4,10 +4,10 @@ The server supports multiple storage backends, selected at startup via the `STOR
 
 ## Supported Backends
 
-| Backend    | `STORAGE_PROVIDER` | Description                                         |
-|------------|-------------------|-----------------------------------------------------|
-| LevelDB    | `leveldb`         | Default. Uses `@gridspace/net-level-client`.        |
-| PostgreSQL | `postgres`        | JSONB document storage with `pg` (node-postgres).   |
+| Backend    | `STORAGE_PROVIDER` | Description                                       |
+| ---------- | ------------------ | ------------------------------------------------- |
+| LevelDB    | `leveldb`          | Default. Uses `@gridspace/net-level-client`.      |
+| PostgreSQL | `postgres`         | JSONB document storage with `pg` (node-postgres). |
 
 ## Quick Start: Switching to PostgreSQL
 
@@ -41,6 +41,7 @@ node src/scripts/migrate-to-postgres.mjs --verbose
 ```
 
 The migration tool:
+
 - Reads **all** data from LevelDB (tournaments, users, providers, calendars, auth codes)
 - Writes it into PostgreSQL using `INSERT ... ON CONFLICT DO UPDATE`
 - Is safe to run multiple times — it will update existing records rather than duplicate them
@@ -107,7 +108,7 @@ Your LevelDB data is untouched — the migration script never modifies it. Any d
 
 ## Architecture Overview
 
-```
+```text
 Controllers / Gateways
         |
     Services (FactoryService, AuthService, etc.)
@@ -134,7 +135,7 @@ This separation means that adding a new storage backend only requires implementi
 
 The schema uses JSONB columns to store the full tournament/user/provider objects, with denormalized columns for commonly queried fields:
 
-```
+```text
 tournaments   — tournament_id (PK), provider_id, tournament_name, start_date, end_date, data (JSONB)
 users         — email (PK), password, provider_id, roles (JSONB), permissions (JSONB), data (JSONB)
 providers     — provider_id (PK), organisation_abbreviation (UNIQUE), organisation_name, data (JSONB)
@@ -147,7 +148,7 @@ The full schema SQL is at `src/storage/postgres/migrations/001-initial-schema.sq
 
 ## Migration Script Reference
 
-```
+```text
 node src/scripts/migrate-to-postgres.mjs [options]
 
 Options:

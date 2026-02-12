@@ -68,9 +68,9 @@ Log in via the API or client using the email and password you just created.
 
 When `APP_MODE=development` in `.env`, a hardcoded test user is available without needing any database entry:
 
-| Email              | Password | Roles                                          |
-|--------------------|----------|-------------------------------------------------|
-| `axel@castle.com`  | `castle` | superadmin, admin, developer, client, score     |
+| Email             | Password | Roles                                       |
+| ----------------- | -------- | ------------------------------------------- |
+| `axel@castle.com` | `castle` | superadmin, admin, developer, client, score |
 
 This user only works in development mode and is checked before the database lookup, so it cannot be overridden.
 
@@ -98,14 +98,14 @@ Passwords are stored as bcrypt hashes (10 salt rounds). The sign-in flow accepts
 
 Available roles:
 
-| Role          | Purpose                                          |
-|---------------|--------------------------------------------------|
-| `superadmin`  | Full access — manage users, providers, all data  |
-| `admin`       | Provider-level administration                    |
-| `client`      | Tournament management (mutations, fetch, save)   |
-| `developer`   | Development features                             |
-| `score`       | Score entry (setMatchUpStatus)                   |
-| `generate`    | Generate tournament records                      |
+| Role         | Purpose                                         |
+| ------------ | ----------------------------------------------- |
+| `superadmin` | Full access — manage users, providers, all data |
+| `admin`      | Provider-level administration                   |
+| `client`     | Tournament management (mutations, fetch, save)  |
+| `developer`  | Development features                            |
+| `score`      | Score entry (setMatchUpStatus)                  |
+| `generate`   | Generate tournament records                     |
 
 To change a user's roles:
 
@@ -119,7 +119,7 @@ node src/scripts/admin-user.mjs set-roles \
 
 ## Full CLI Reference
 
-```
+```text
 node src/scripts/admin-user.mjs <command> [options]
 
 Commands:
@@ -158,18 +158,22 @@ node src/scripts/admin-user.mjs set-roles -e ops@courthive.com -r client,score
 ## Troubleshooting
 
 **"Failed to connect to leveldb"**
+
 - Make sure `pnpm hive-db` is running in another terminal
 - Check `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS` in `.env`
 
 **"Failed to connect to postgres"**
+
 - Check `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PASSWORD`, `PG_DATABASE` in `.env`
 - Make sure the PostgreSQL server is running and the database exists
 
 **"User already exists" when creating**
+
 - Use `reset-password` to change the password instead
 - Use `set-roles` to change their roles
 
 **Can't log in after creating a user**
+
 - Run `list` to verify the user exists and has the correct roles
 - Make sure you're hitting the right server (check `APP_PORT` in `.env`)
 - In development mode, the test user `axel@castle.com` / `castle` always works
