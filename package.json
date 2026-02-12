@@ -35,6 +35,11 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/jest/bin/jest --runInBand",
     "check-types": "tsc --noEmit",
     "hive-db": "net-level-server",
+    "admin:list": "node src/scripts/admin-user.mjs list",
+    "admin:create": "node src/scripts/admin-user.mjs create",
+    "admin:reset-password": "node src/scripts/admin-user.mjs reset-password",
+    "migrate:postgres": "node src/scripts/migrate-to-postgres.mjs",
+    "migrate:postgres:dry": "node src/scripts/migrate-to-postgres.mjs --dry-run --verbose",
     "prepare": "husky"
   },
   "dependencies": {
@@ -68,6 +73,7 @@
     "mailgun.js": "12.7.0",
     "minimist": "1.2.8",
     "node-html-parser": "^7.0.0",
+    "pg": "^8.18.0",
     "redis": "5.10.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
@@ -88,6 +94,7 @@
     "@types/express": "5.0.6",
     "@types/jest": "30.0.0",
     "@types/node": "24.10.13",
+    "@types/pg": "^8.16.0",
     "@types/supertest": "6.0.3",
     "@typescript-eslint/eslint-plugin": "8.55.0",
     "@typescript-eslint/parser": "8.55.0",

@@ -1,4 +1,5 @@
 import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer, ConnectedSocket } from '@nestjs/websockets';
+import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
 import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/modules/auth/guards/socket.guard';
@@ -16,8 +17,10 @@ import { Server, Socket } from 'socket.io';
   namespace: 'tmx',
 })
 export class TmxGateway {
-  // constructor() {} // private readonly configService: ConfigService,
-  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
+  constructor(
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly tournamentStorageService: TournamentStorageService,
+  ) {}
 
   private readonly logger = new Logger(TmxGateway.name);
 
@@ -30,7 +33,12 @@ export class TmxGateway {
     if (typeof data !== 'object') return { notFound: data };
     const { type, payload = {} } = data;
     if (tmxMessages[type]) {
-      const result = await tmxMessages[type]({ client, payload, services: { cacheManager: this.cacheManager } });
+      const result = await tmxMessages[type]({
+        client,
+        payload,
+        services: { cacheManager: this.cacheManager },
+        storage: this.tournamentStorageService,
+      });
       const methods = tools.unique(payload?.methods?.map((directive) => directive.method) ?? []).join('|');
       const message = result.error ? 'errored' : 'successful';
       const logType = result.error ? 'error' : 'debug';

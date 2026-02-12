@@ -3,8 +3,13 @@ import { removeTournamentRecords } from '../../../../services/fileSystem/removeT
 import { getCompetitionScheduleMatchUps } from '../public/getCompetitionScheduleMatchUps';
 import { queryTournamentRecords } from './queryTournamentRecords';
 import { getTournamentInfo } from '../public/getTournamentInfo';
+import fileStorage from '../../../../services/fileSystem';
 import { TEST } from '../../../../common/constants/test';
 import 'dotenv/config';
+
+import type { ITournamentStorage } from 'src/storage/interfaces';
+
+const storage = fileStorage as unknown as ITournamentStorage;
 
 describe('queryTournamentRecords', () => {
   it('can query a tournamentRecord', async () => {
@@ -24,15 +29,15 @@ describe('queryTournamentRecords', () => {
       params: { tournamentId: TEST },
       method: 'getTournamentInfo',
       tournamentId: TEST,
-    });
+    }, storage);
     expect(result.tournamentInfo).toBeDefined();
     expect(result.success).toEqual(true);
 
-    result = await getTournamentInfo({ tournamentId: TEST });
+    result = await getTournamentInfo({ tournamentId: TEST }, storage);
     expect(result.tournamentInfo).toBeDefined();
     expect(result.success).toEqual(true);
 
-    result = await getCompetitionScheduleMatchUps({ tournamentId: TEST });
+    result = await getCompetitionScheduleMatchUps({ tournamentId: TEST }, storage);
     expect(result.success).toEqual(true);
 
     // FOURTH: remove the tournamentRecord

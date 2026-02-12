@@ -1,6 +1,8 @@
 import { queryTournamentRecords } from './queryTournamentRecords';
 
-export async function allTournamentMatchUps(params: any) {
+import type { ITournamentStorage } from 'src/storage/interfaces';
+
+export async function allTournamentMatchUps(params: any, storage: ITournamentStorage) {
   const { tournamentId, matchUpStatuses, ...rest } = params;
   const method = 'allTournamentMatchUps';
   const payload = {
@@ -8,5 +10,5 @@ export async function allTournamentMatchUps(params: any) {
     tournamentId,
     method,
   };
-  return queryTournamentRecords(payload);
+  return queryTournamentRecords(payload, storage);
 }
