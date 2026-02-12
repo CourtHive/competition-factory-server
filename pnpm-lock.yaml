@@ -114,8 +114,8 @@ importers:
         specifier: 4.8.3
         version: 4.8.3
       tods-competition-factory:
-        specifier: 2.3.15
-        version: 2.3.15
+        specifier: 2.3.16
+        version: 2.3.16
       tods-tmx-classic-converter:
         specifier: 3.0.5
         version: 3.0.5
@@ -4236,8 +4236,8 @@ packages:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
 
-  tods-competition-factory@2.3.15:
-    resolution: {integrity: sha512-T2MMYqPF3sGgWoRxS6p+7RMih3wR64Z/p+tsno58ubk3TN4CuyxsQwKxkf8VNT7DCVRita9rw9RftOVYXXaJDw==}
+  tods-competition-factory@2.3.16:
+    resolution: {integrity: sha512-OixXfaBeW8Jz9y5xz9E1uVqR+5Wher8qdsSih6YG6O2AUcEcba+vKXBNcxrDpQXaIrh7hhhqSD5hvUF6oZHRYg==}
     engines: {node: '>=20'}
 
   tods-tmx-classic-converter@3.0.5:
@@ -9081,7 +9081,7 @@ snapshots:
     dependencies:
       is-number: 7.0.0
 
-  tods-competition-factory@2.3.15: {}
+  tods-competition-factory@2.3.16: {}
 
   tods-tmx-classic-converter@3.0.5:
     dependencies:
@@ -9089,7 +9089,7 @@ snapshots:
       d3: 5.16.0
       date-fns: 2.30.0
       minimist: 1.2.8
-      tods-competition-factory: 2.3.15
+      tods-competition-factory: 2.3.16
 
   toidentifier@1.0.1: {}
 
