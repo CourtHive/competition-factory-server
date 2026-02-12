@@ -24,10 +24,10 @@ type User = {
 export class UsersService {
   constructor(
     private readonly configService: ConfigService,
-    private jwtService: JwtService,
+    private readonly jwtService: JwtService,
   ) {}
 
-  private testUsers: any[] = [
+  private readonly testUsers: any[] = [
     {
       roles: [SUPER_ADMIN, ADMIN, DEVELOPER, CLIENT, SCORE],
       permissions: [DEV_MODE],
@@ -81,24 +81,24 @@ export class UsersService {
     if (!email) return { error: 'Invalid request' };
 
     const user = await netLevel.get(BASE_USER, { key: email });
-    if (!user) {
-      return { error: 'User not found' };
-    } else {
+    if (user) {
       const magicLinkCode = createUniqueKey();
       await netLevel.set(`${BASE_ACCESS_CODES}:${magicLinkCode}`, email);
 
       // TODO: The magic link URL will need to launch the web server / end user app
       /*
-      await sendEmailHTML({
-        to: email,
-        subject: 'Invitation',
-        templateName: 'magicLink',
-        templateData: {
-          magicLink: `/magic?code=${magicLinkCode}`,
-        },
-      });
+      // await sendEmailHTML({
+      //   to: email,
+      //   subject: 'Invitation',
+      //   templateName: 'magicLink',
+      //   templateData: {
+      //     magicLink: `/magic?code=${magicLinkCode}`,
+      //   },
+      // });
       */
       return;
+    } else {
+      return { error: 'User not found' };
     }
   }
 }
