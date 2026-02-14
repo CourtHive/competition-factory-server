@@ -1,9 +1,17 @@
 // import cpTable from 'codepage'; // see HiveEye server for example use
 import { fetchCtsTournament } from './functions/fetchCtsTournament';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+
+import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import { CALENDAR_STORAGE, type ICalendarStorage } from 'src/storage/interfaces';
 
 @Injectable()
 export class Services {
+  constructor(
+    private readonly tournamentStorageService: TournamentStorageService,
+    @Inject(CALENDAR_STORAGE) private readonly calendarStorage: ICalendarStorage,
+  ) {}
+
   async fetchTournamentDetails(params) {
     if (typeof params.identifier !== 'string') return { error: 'Invalid parameters' };
 
@@ -21,7 +29,11 @@ export class Services {
         const season = parts[parts.indexOf('sezona') + 1];
 
         if (tournamentId && season) {
-          return fetchCtsTournament({ tournamentId, identifier: params.identifier });
+          return fetchCtsTournament(
+            { tournamentId, identifier: params.identifier },
+            this.tournamentStorageService,
+            this.calendarStorage,
+          );
         } else {
           return { error: 'Invalid parameters' };
         }

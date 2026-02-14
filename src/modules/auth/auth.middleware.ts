@@ -22,8 +22,9 @@ export class AuthMiddleware implements NestMiddleware {
       if (parts[1]) {
         try {
           jwtPayload = await this.authService.decode(parts[1]);
-        } catch (error) {
-          console.error('Error decoding JWT:', error);
+        } catch {
+          // Invalid/expired token — AuthGuard will handle the 401 response.
+          // No need to log here; this is expected for stale client tokens.
         }
       }
     }

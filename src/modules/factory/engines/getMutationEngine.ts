@@ -1,5 +1,4 @@
 import { governors, asyncEngine, globalState, topicConstants } from 'tods-competition-factory';
-import { modifyProviderCalendar } from 'src/modules/providers/updateCalendar';
 import asyncGlobalState from './asyncGlobalState';
 
 const traverse = true;
@@ -72,7 +71,9 @@ export function getMutationEngine(services?) {
         for (const [tournamentId, tournamentUpdate] of Object.entries(tournamentUpdates)) {
           const { parentOrganisation, ...updates } = tournamentUpdate as any;
           const providerId = parentOrganisation?.organisationId;
-          if (providerId) modifyProviderCalendar({ providerId, tournamentId, updates });
+          if (providerId) {
+            services?.tournamentStorageService?.modifyProviderCalendar({ providerId, tournamentId, updates });
+          }
         }
       },
     },
