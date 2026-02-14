@@ -1,6 +1,7 @@
 import { AppModule } from 'src/modules/app/app.module';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { mocksEngine } from 'tods-competition-factory';
 import request from 'supertest';
 
 import { TEST, TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
@@ -47,11 +48,14 @@ describe('FactoryService', () => {
 
     const token = loginReq.body.token;
 
-    // ENSURE: tournamentRecord exists
+    // ENSURE: tournamentRecord exists (use save to await persistence)
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      tournamentAttributes: { tournamentId: TEST },
+    });
     await request(app.getHttpServer())
-      .post('/factory/generate')
+      .post('/factory/save')
       .set('Authorization', 'Bearer ' + token)
-      .send({ tournamentAttributes: { tournamentId: TEST } })
+      .send({ tournamentRecord })
       .expect(200);
 
     const result = await request(app.getHttpServer())

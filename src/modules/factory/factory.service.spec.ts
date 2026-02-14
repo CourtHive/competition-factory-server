@@ -1,4 +1,5 @@
 import { FactoryController } from './factory.controller';
+import { StorageModule } from 'src/storage/storage.module';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
@@ -11,7 +12,7 @@ describe('AppService', () => {
 
   beforeAll(async () => {
     app = await Test.createTestingModule({
-      imports: [AuthModule, UsersModule, CacheModule],
+      imports: [AuthModule, UsersModule, CacheModule, StorageModule],
       providers: [FactoryService, ConfigService],
       controllers: [FactoryController],
     }).compile();

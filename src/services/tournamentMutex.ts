@@ -9,6 +9,13 @@
  * sorted order to prevent deadlocks.
  */
 
+import { Logger } from '@nestjs/common';
+
+const logger = new Logger('TournamentMutex');
+
+export const LOCK_TIMEOUT_ERROR = 'Tournament lock acquisition timed out';
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 interface LockEntry {
   queue: (() => void)[];
   active: boolean;
@@ -16,7 +23,7 @@ interface LockEntry {
 
 const locks = new Map<string, LockEntry>();
 
-function acquire(id: string): Promise<void> {
+function acquire(id: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<void> {
   let entry = locks.get(id);
   if (!entry) {
     entry = { queue: [], active: false };
@@ -28,8 +35,22 @@ function acquire(id: string): Promise<void> {
     return Promise.resolve();
   }
 
-  return new Promise<void>((resolve) => {
-    entry.queue.push(resolve);
+  logger.log(`Request queuing for lock on tournament ${id} (queue depth: ${entry.queue.length + 1})`);
+
+  return new Promise<void>((resolve, reject) => {
+    const resolver = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+
+    const timer = setTimeout(() => {
+      const idx = entry.queue.indexOf(resolver);
+      if (idx !== -1) entry.queue.splice(idx, 1);
+      logger.warn(`Lock timeout after ${timeoutMs}ms for tournament ${id}`);
+      reject(new Error(LOCK_TIMEOUT_ERROR));
+    }, timeoutMs);
+
+    entry.queue.push(resolver);
   });
 }
 
@@ -47,9 +68,19 @@ function release(id: string): void {
 
 export async function withTournamentLock<T>(tournamentIds: string[], fn: () => Promise<T>): Promise<T> {
   const sortedIds = [...tournamentIds].sort();
+  const acquiredIds: string[] = [];
 
-  for (const id of sortedIds) {
-    await acquire(id);
+  try {
+    for (const id of sortedIds) {
+      await acquire(id);
+      acquiredIds.push(id);
+    }
+  } catch (err) {
+    // Release any locks already acquired before the timeout
+    for (const id of acquiredIds) {
+      release(id);
+    }
+    throw err;
   }
 
   try {

@@ -18,9 +18,29 @@ The server supports multiple storage backends, selected at startup via the `STOR
 brew install postgresql@17
 brew services start postgresql@17
 
-# Create the database
+# Create the database and (optionally) a dedicated role
 createdb courthive
 ```
+
+> **Note:** By default the migration script and server connect as `PG_USER`
+> (defaults to `courthive`). On a local dev machine you can skip creating a
+> separate role and just set `PG_USER` to your system user (run `whoami` to
+> check). The value must match an existing PostgreSQL role — run
+> `psql -d postgres -c "\du"` to see what roles exist.
+>
+> If you prefer a dedicated role:
+>
+> ```bash
+> psql -d postgres -c "CREATE ROLE courthive WITH LOGIN;"
+> psql -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE courthive TO courthive;"
+> # On PostgreSQL 15+ you also need:
+> psql -d courthive -c "GRANT ALL ON SCHEMA public TO courthive;"
+> ```
+
+**Important:** `dotenv` does **not** override environment variables that are
+already set in the shell. If `PG_USER` (or any `PG_*` variable) is exported in
+your shell profile, that value takes precedence over `.env`. Run `echo $PG_USER`
+to verify, and `unset PG_USER` or correct your profile if needed.
 
 ### 2. Apply the schema
 
@@ -49,14 +69,14 @@ The migration tool:
 
 ### 4. Update `.env` and restart
 
-Add these variables to your `.env` file:
+Add these variables to your `.env` file (set `PG_USER` to an existing PostgreSQL role — see step 1):
 
 ```env
 STORAGE_PROVIDER=postgres
 
 PG_HOST=localhost
 PG_PORT=5432
-PG_USER=courthive
+PG_USER=courthive        # must match an existing PostgreSQL role
 PG_PASSWORD=
 PG_DATABASE=courthive
 ```
@@ -138,7 +158,7 @@ The schema uses JSONB columns to store the full tournament/user/provider objects
 ```text
 tournaments   — tournament_id (PK), provider_id, tournament_name, start_date, end_date, data (JSONB)
 users         — email (PK), password, provider_id, roles (JSONB), permissions (JSONB), data (JSONB)
-providers     — provider_id (PK), organisation_abbreviation (UNIQUE), organisation_name, data (JSONB)
+providers     — provider_id (PK), organisation_abbreviation, organisation_name, data (JSONB)
 calendars     — provider_abbr (PK), provider (JSONB), tournaments (JSONB array)
 reset_codes   — code (PK), email
 access_codes  — code (PK), email
