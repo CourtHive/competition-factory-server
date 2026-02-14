@@ -1,9 +1,10 @@
 import { queryGovernor, fixtures, Tournament } from 'tods-competition-factory';
-import levelStorage from 'src/services/levelDB';
 
-export async function getEventData(params: any) {
+import type { ITournamentStorage } from 'src/storage/interfaces';
+
+export async function getEventData(params: any, storage: ITournamentStorage) {
   if (!params.tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
-  const findResult = await levelStorage.findTournamentRecord({ tournamentId: params.tournamentId });
+  const findResult = await storage.findTournamentRecord({ tournamentId: params.tournamentId });
   if (findResult.error) return findResult;
   const policyDefinitions = fixtures.policies.POLICY_PRIVACY_DEFAULT as any;
   policyDefinitions.participant.participant.person.sex = true;

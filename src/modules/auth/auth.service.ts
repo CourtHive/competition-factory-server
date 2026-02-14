@@ -3,11 +3,12 @@ import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { createUniqueKey } from './helpers/createUniqueKey';
 import { UsersService } from '../users/users.service';
 import { hashPassword } from './helpers/hashPassword';
-import netLevel from 'src/services/levelDB/netLevel';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
 
-import { BASE_PROVIDER, BASE_RESET_CODES, BASE_USER } from 'src/services/levelDB/constants';
+import { PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
+import { AUTH_CODE_STORAGE, type IAuthCodeStorage } from 'src/storage/interfaces';
+import { USER_STORAGE, type IUserStorage } from 'src/storage/interfaces';
 import { SUCCESS } from 'src/common/constants/app';
 
 @Injectable()
@@ -16,6 +17,9 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
+    @Inject(AUTH_CODE_STORAGE) private readonly authCodeStorage: IAuthCodeStorage,
+    @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
   ) {}
 
   async signIn(email: string, clearTextPassword: string) {
@@ -26,7 +30,7 @@ export class AuthService {
       user && (password === clearTextPassword || (await bcrypt.compare(clearTextPassword, user?.password)));
     if (!passwordMatch) throw new UnauthorizedException();
     if (user.providerId) {
-      const provider = await netLevel.get(BASE_PROVIDER, { key: user.providerId });
+      const provider = await this.providerStorage.getProvider(user.providerId);
       userDetails.provider = provider;
     }
 
@@ -74,7 +78,7 @@ export class AuthService {
     const user = await this.usersService.findOne(email);
     if (!user) return { error: 'User not found' };
     const code = Math.floor(100000 + Math.random() * 900000);
-    await netLevel.set(BASE_RESET_CODES, { key: code, value: email });
+    await this.authCodeStorage.setResetCode(String(code), email);
 
     /**
     await sendEmailHTML({
@@ -89,14 +93,14 @@ export class AuthService {
 
   // TODO: implement password reset
   async resetPassword(code: string, newPassword: string) {
-    const resetDetails: any = await netLevel.get(BASE_RESET_CODES, { key: code });
-    await netLevel.delete(BASE_RESET_CODES, { key: code });
-    if (!resetDetails.email) return { error: 'Invalid reset code' };
+    const resetDetails: any = await this.authCodeStorage.getResetCode(code);
+    await this.authCodeStorage.deleteResetCode(code);
+    if (!resetDetails?.email) return { error: 'Invalid reset code' };
     const user = await this.usersService.findOne(resetDetails?.email);
     if (!user) return { error: 'User not found' };
     user.password = await hashPassword(newPassword);
-    const storageRecord = { key: user.email, value: user };
-    return await netLevel.set(BASE_USER, storageRecord);
+    await this.userStorage.update(user.email, user);
+    return { ...SUCCESS };
   }
 
   async removeUser(params: any) {

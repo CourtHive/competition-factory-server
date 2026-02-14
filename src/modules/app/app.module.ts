@@ -1,6 +1,7 @@
 import { MessagingModule } from '../messaging/messaging.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { ServicesModule } from '../services/services.module';
+import { StorageModule } from '../../storage/storage.module';
 import { FactoryModule } from '../factory/factory.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ConfigsModule } from '../../config/config.module';
@@ -14,7 +15,8 @@ import { join } from 'path';
 
 @Module({
   imports: [
-    ServeStaticModule.forRoot({ rootPath: join(__dirname, '../../..', 'client') }),
+    ServeStaticModule.forRoot({ rootPath: join(process.cwd(), 'client') }),
+    StorageModule,
     MessagingModule,
     ProvidersModule,
     ServicesModule,

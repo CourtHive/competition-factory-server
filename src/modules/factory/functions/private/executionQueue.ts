@@ -1,9 +1,10 @@
 import { withTournamentLock } from 'src/services/tournamentMutex';
 import { getMutationEngine } from '../../engines/getMutationEngine';
-import levelStorage from 'src/services/levelDB';
 import { Logger } from '@nestjs/common';
 
-export async function executionQueue(payload: any, services?: any) {
+import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
+
+export async function executionQueue(payload: any, services?: any, storage?: TournamentStorageService): Promise<any> {
   const { methods = [], rollbackOnError } = payload ?? {};
   const tournamentIds = payload?.tournamentIds || (payload?.tournamentId && [payload.tournamentId]) || [];
 
@@ -12,24 +13,32 @@ export async function executionQueue(payload: any, services?: any) {
     return { error: 'No tournamentIds provided' };
   }
 
-  return withTournamentLock(tournamentIds, async () => {
-    const result: any = await levelStorage.fetchTournamentRecords({ tournamentIds });
-    if (result.error) return result;
+  if (!storage) return { error: 'Storage not provided' };
 
-    const mutationEngine = getMutationEngine(services);
-    mutationEngine.setState(result.tournamentRecords);
-    const mutationResult = await mutationEngine.executionQueue(methods, rollbackOnError);
+  try {
+    return await withTournamentLock(tournamentIds, async () => {
+      const result: any = await storage.fetchTournamentRecords({ tournamentIds });
+      if (result.error) return result;
 
-    if (mutationResult.success) {
-      const mutatedTournamentRecords: any = mutationEngine.getState().tournamentRecords;
-      const updateResult = await levelStorage.saveTournamentRecords({
-        tournamentRecords: mutatedTournamentRecords,
-      });
-      if (!updateResult.success) {
-        return { error: 'Could not persist tournament record(s)' };
+      const mutationEngine = getMutationEngine({ ...services, tournamentStorageService: storage });
+      mutationEngine.setState(result.tournamentRecords);
+      const mutationResult = await mutationEngine.executionQueue(methods, rollbackOnError);
+
+      if (mutationResult.success) {
+        const mutatedTournamentRecords: any = mutationEngine.getState().tournamentRecords;
+        const updateResult = await storage.saveTournamentRecords({
+          tournamentRecords: mutatedTournamentRecords,
+        });
+        if (!updateResult.success) {
+          return { error: 'Could not persist tournament record(s)' };
+        }
       }
-    }
 
-    return mutationResult;
-  });
+      return mutationResult;
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    Logger.error(`executionQueue exception for tournaments [${tournamentIds.join(', ')}]: ${message}`);
+    return { error: message, tournamentIds };
+  }
 }

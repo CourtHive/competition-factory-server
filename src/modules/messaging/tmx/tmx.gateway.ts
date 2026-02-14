@@ -1,4 +1,5 @@
 import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer, ConnectedSocket } from '@nestjs/websockets';
+import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
 import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/modules/auth/guards/socket.guard';
@@ -16,8 +17,10 @@ import { Server, Socket } from 'socket.io';
   namespace: 'tmx',
 })
 export class TmxGateway {
-  // constructor() {} // private readonly configService: ConfigService,
-  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
+  constructor(
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly tournamentStorageService: TournamentStorageService,
+  ) {}
 
   private readonly logger = new Logger(TmxGateway.name);
 
@@ -30,11 +33,26 @@ export class TmxGateway {
     if (typeof data !== 'object') return { notFound: data };
     const { type, payload = {} } = data;
     if (tmxMessages[type]) {
-      const result = await tmxMessages[type]({ client, payload, services: { cacheManager: this.cacheManager } });
       const methods = tools.unique(payload?.methods?.map((directive) => directive.method) ?? []).join('|');
-      const message = result.error ? 'errored' : 'successful';
-      const logType = result.error ? 'error' : 'debug';
-      this.logger[logType](`${type} message ${message}: ${payload.userId}: ${methods}`);
+      try {
+        const result = await tmxMessages[type]({
+          client,
+          payload,
+          services: { cacheManager: this.cacheManager },
+          storage: this.tournamentStorageService,
+        });
+        if (result.error) {
+          const tournamentInfo = result.tournamentIds ? ` | tournaments: ${JSON.stringify(result.tournamentIds)}` : '';
+          this.logger.error(`${type} message errored: ${payload.userId}: ${methods}${tournamentInfo} | error: ${JSON.stringify(result.error)}`);
+        } else {
+          this.logger.debug(`${type} message successful: ${payload.userId}: ${methods}`);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.error(`${type} message threw: ${payload.userId}: ${methods} | error: ${message}`);
+        const ackId = payload?.ackId;
+        client.emit('ack', { ackId, error: message });
+      }
     } else {
       this.logger.debug(`Not found: ${type}`);
     }
