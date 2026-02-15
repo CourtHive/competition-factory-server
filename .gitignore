@@ -2,7 +2,7 @@
 # Ignore
 node_modules/
 scratch/
-storage/
+/storage/
 data/
 *.un~
 .*.un~
@@ -28,7 +28,7 @@ scratch/
 
 # test
 coverage/
-storage/
+/storage/
 
 # eslint
 .eslintcache
