@@ -74,7 +74,7 @@
     "minimist": "1.2.8",
     "node-html-parser": "^7.0.0",
     "pg": "^8.18.0",
-    "redis": "5.10.0",
+    "redis": "5.11.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "socket.io": "4.8.3",
