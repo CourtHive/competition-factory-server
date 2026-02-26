@@ -19,7 +19,7 @@ async function bootstrap() {
   /**
   await app.register(cookieParser);
   */
-  await app.use(compression());
+  app.use(compression());
   app.use(json({ limit: '8mb' }));
 
   const swaggerConfig = new DocumentBuilder()
@@ -32,17 +32,6 @@ async function bootstrap() {
   });
   SwaggerModule.setup('api', app, document);
 
-  if (!Array.prototype.hasOwnProperty('toSorted')) {
-    Object.defineProperty(Array.prototype, 'toSorted', {
-      value: function (compareFn) {
-        return this.slice().sort(compareFn);
-      },
-      writable: false,
-      enumerable: false,
-      configurable: true,
-    });
-  }
-
   const config = app.get(ConfigService);
   const appName = config.get('APP.name');
   const port = config.get('APP.port');
@@ -52,4 +41,5 @@ async function bootstrap() {
   Logger.verbose(`Server version: ${serverVersion}`);
   Logger.verbose(`Factory ${version()}`);
 }
+
 bootstrap();
