@@ -90,7 +90,7 @@
     "@nestjs/schematics": "11.0.9",
     "@nestjs/testing": "11.1.14",
     "@swc/cli": "0.8.0",
-    "@swc/core": "1.15.13",
+    "@swc/core": "1.15.17",
     "@types/express": "5.0.6",
     "@types/jest": "30.0.0",
     "@types/node": "24.10.15",
