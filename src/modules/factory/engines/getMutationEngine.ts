@@ -71,6 +71,11 @@ export function getMutationEngine(services?) {
           clearCache(item.tournamentId);
         }
       },
+      [topicConstants.UNPUBLISH_TOURNAMENT]: (params) => {
+        for (const item of params) {
+          clearCache(item.tournamentId);
+        }
+      },
       [topicConstants.MODIFY_TOURNAMENT_DETAIL]: (params) => {
         const tournamentUpdates = params.reduce((tu, item) => {
           const { tournamentId, ...updates } = item;
