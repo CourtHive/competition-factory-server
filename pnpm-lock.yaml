@@ -185,7 +185,7 @@ importers:
         version: 5.5.5(@types/eslint@9.6.1)(eslint-config-prettier@10.1.8(eslint@10.0.2(jiti@2.6.1)))(eslint@10.0.2(jiti@2.6.1))(prettier@3.8.1)
       globals:
         specifier: ^17.0.0
-        version: 17.3.0
+        version: 17.4.0
       husky:
         specifier: ^9.0.11
         version: 9.1.7
@@ -2949,8 +2949,8 @@ packages:
     resolution: {integrity: sha512-wHTUcDUoZ1H5/0iVqEudYW4/kAlN5cZ3j/bXn0Dpbizl9iaUVeWSHqiOjsgk6OW2bkLclbBjzewBz6weQ1zA2Q==}
     engines: {node: '>=18'}
 
-  globals@17.3.0:
-    resolution: {integrity: sha512-yMqGUQVVCkD4tqjOJf3TnrvaaHDMYp4VlUSObbkIiuCPe/ofdMBFIAcBbCSRFWOnos6qRiTVStDwqPLUclaxIw==}
+  globals@17.4.0:
+    resolution: {integrity: sha512-hjrNztw/VajQwOLsMNT1cbJiH2muO3OROCHnbehc8eY5JyD2gqz4AcMHPqgaOR59DjgUjYAYLeH699g/eWi2jw==}
     engines: {node: '>=18'}
 
   gopd@1.2.0:
@@ -7741,7 +7741,7 @@ snapshots:
     dependencies:
       ini: 4.1.1
 
-  globals@17.3.0: {}
+  globals@17.4.0: {}
 
   gopd@1.2.0: {}
 
