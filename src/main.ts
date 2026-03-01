@@ -1,3 +1,5 @@
+import 'core-js/actual/array/to-sorted';
+
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { version as serverVersion } from '../package.json';
 import { AppModule } from './modules/app/app.module';
