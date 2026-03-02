@@ -120,8 +120,8 @@ importers:
         specifier: 4.8.3
         version: 4.8.3
       tods-competition-factory:
-        specifier: 2.4.6-beta.9
-        version: 2.4.6-beta.9
+        specifier: 2.4.6-beta.11
+        version: 2.4.6-beta.11
       tods-tmx-classic-converter:
         specifier: 3.0.5
         version: 3.0.5
@@ -2925,6 +2925,7 @@ packages:
   git-raw-commits@4.0.0:
     resolution: {integrity: sha512-ICsMM1Wk8xSGMowkOmPrzo2Fgmfo4bMHLNX6ytHjajRJUqvHOw/TFapQ+QG75c3X/tTDDhOSRPGC52dDbNM8FQ==}
     engines: {node: '>=16'}
+    deprecated: This package is no longer maintained. For the JavaScript API, please use @conventional-changelog/git-client instead.
     hasBin: true
 
   glob-parent@6.0.2:
@@ -4330,8 +4331,8 @@ packages:
     resolution: {integrity: sha512-S+fswvRT0Nj/BZGAxD58McZuUVOwaGmPtXS4sRbHtAqHfICvyrCh9pv34jMYxkYOykZFLltyPzJybfeAVw538g==}
     engines: {node: '>=20'}
 
-  tods-competition-factory@2.4.6-beta.9:
-    resolution: {integrity: sha512-8c7s4OR/1qP7+OZmUzOLWcXEv0Fq2MleFtGdvwl5HemskB+pk5jH4mwwj2YslmzFV0EJkAnAgN+XZA8xqIm1Mg==}
+  tods-competition-factory@2.4.6-beta.11:
+    resolution: {integrity: sha512-t1Rsfi6RNNzHB4TA1xU0ZfgkjCs0mxSjU3lyo0m8lP7bIecSa1iaCTA7iE47rbuY4okpts/Gx1ppie/FF+MtJA==}
     engines: {node: '>=20'}
 
   tods-tmx-classic-converter@3.0.5:
@@ -9284,7 +9285,7 @@ snapshots:
 
   tods-competition-factory@2.4.5: {}
 
-  tods-competition-factory@2.4.6-beta.9: {}
+  tods-competition-factory@2.4.6-beta.11: {}
 
   tods-tmx-classic-converter@3.0.5:
     dependencies:
