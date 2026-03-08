@@ -9,7 +9,7 @@ import { SUCCESS } from 'src/common/constants/app';
 export class PostgresProviderStorage implements IProviderStorage {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-  async getProvider(providerId: string): Promise<any | null> {
+  async getProvider(providerId: string): Promise<any> {
     const result = await this.pool.query(
       'SELECT provider_id, organisation_abbreviation, organisation_name, data FROM providers WHERE provider_id = $1',
       [providerId],
@@ -40,7 +40,7 @@ export class PostgresProviderStorage implements IProviderStorage {
   }
 
   async setProvider(providerId: string, provider: any): Promise<{ success: boolean }> {
-    const { organisationAbbreviation, organisationName, organisationId, ...rest } = provider;
+    const { organisationAbbreviation, organisationName, ...rest } = provider;
     await this.pool.query(
       `INSERT INTO providers (provider_id, organisation_abbreviation, organisation_name, data)
        VALUES ($1, $2, $3, $4)
