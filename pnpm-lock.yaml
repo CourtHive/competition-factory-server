@@ -120,8 +120,8 @@ importers:
         specifier: 4.8.3
         version: 4.8.3
       tods-competition-factory:
-        specifier: 2.4.6-beta.22
-        version: 2.4.6-beta.22
+        specifier: 2.4.6-beta.23
+        version: 2.4.6-beta.23
       tods-tmx-classic-converter:
         specifier: 3.0.5
         version: 3.0.5
@@ -4341,8 +4341,8 @@ packages:
     resolution: {integrity: sha512-S+fswvRT0Nj/BZGAxD58McZuUVOwaGmPtXS4sRbHtAqHfICvyrCh9pv34jMYxkYOykZFLltyPzJybfeAVw538g==}
     engines: {node: '>=20'}
 
-  tods-competition-factory@2.4.6-beta.22:
-    resolution: {integrity: sha512-syZmLoJjFyV2qe88cIym9h4mf5YK8/CbzH4cRAG8ffUJXMJpIC2vF28JoKSO2JBT8JNW8BQPg3BULEzA5V+bzA==}
+  tods-competition-factory@2.4.6-beta.23:
+    resolution: {integrity: sha512-p7oISSpEjOgEv9K6cQenA00zcFlbntRlxj81VliUfJAnoIEMPmf4qic2HJRYgLIfNffHyVr/TcLEnyqoVhI4XQ==}
     engines: {node: '>=20'}
 
   tods-tmx-classic-converter@3.0.5:
@@ -9317,7 +9317,7 @@ snapshots:
 
   tods-competition-factory@2.4.5: {}
 
-  tods-competition-factory@2.4.6-beta.22: {}
+  tods-competition-factory@2.4.6-beta.23: {}
 
   tods-tmx-classic-converter@3.0.5:
     dependencies:
