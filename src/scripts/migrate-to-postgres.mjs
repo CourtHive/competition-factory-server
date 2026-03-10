@@ -154,7 +154,14 @@ async function migrateUsers(pool) {
            permissions = EXCLUDED.permissions,
            data = EXCLUDED.data,
            updated_at = NOW()`,
-        [email, password || '', providerId ?? null, JSON.stringify(roles), JSON.stringify(permissions), JSON.stringify(rest)],
+        [
+          email,
+          password || '',
+          providerId ?? null,
+          JSON.stringify(roles),
+          JSON.stringify(permissions),
+          JSON.stringify(rest),
+        ],
       );
     }
     migrated++;
@@ -186,7 +193,7 @@ async function migrateProviders(pool) {
     const providerId = record.key || provider?.organisationId;
     if (!providerId) continue;
 
-    const { organisationAbbreviation, organisationName, organisationId, ...rest } = provider;
+    const { organisationAbbreviation, organisationName, ...rest } = provider;
 
     log(`  -> ${providerId}: ${organisationAbbreviation || organisationName || '(unnamed)'}`);
 
@@ -340,7 +347,8 @@ async function main() {
   }
 
   console.log('LevelDB:    %s:%s', process.env.DB_HOST || 'localhost', process.env.DB_PORT || '3838');
-  console.log('PostgreSQL: %s:%s/%s',
+  console.log(
+    'PostgreSQL: %s:%s/%s',
     process.env.PG_HOST || 'localhost',
     process.env.PG_PORT || '5432',
     process.env.PG_DATABASE || 'courthive',

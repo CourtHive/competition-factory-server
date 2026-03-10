@@ -59,42 +59,42 @@ export class FactoryController {
   @Get('tournamentinfo/:tid')
   async getTournamentInfo(@Param('tid') tid) {
     const key = `gti|${tid}`;
-    return await this.cacheFx(key, this.factoryService.getTournamentInfo, { tournamentId: tid });
+    return await this.cacheFx(key, (params) => this.factoryService.getTournamentInfo(params), { tournamentId: tid });
   }
 
   @Public()
   @Post('tournamentinfo')
   async tournamentInfo(@Body() gti: GetTournamentInfoDto) {
     const key = `gti|${gti.tournamentId}`;
-    return await this.cacheFx(key, this.factoryService.getTournamentInfo, gti);
+    return await this.cacheFx(key, (params) => this.factoryService.getTournamentInfo(params), gti);
   }
 
   @Public()
   @Post('eventdata')
   async eventData(@Body() ged: GetEventDataDto) {
     const key = `ged|${ged.tournamentId}|${ged.eventId}`;
-    return await this.cacheFx(key, this.factoryService.getEventData, ged);
+    return await this.cacheFx(key, (params) => this.factoryService.getEventData(params), ged);
   }
 
   @Public()
   @Post('scheduledmatchups')
   async tournamentMatchUps(@Body() gtm: GetScheduledMatchUpsDto) {
     const key = !gtm.params?.noCache && `gtm|${gtm.params?.tournamentId}`;
-    return await this.cacheFx(key, this.factoryService.getScheduleMatchUps, gtm);
+    return await this.cacheFx(key, (params) => this.factoryService.getScheduleMatchUps(params), gtm);
   }
 
   @Public()
   @Post('participants')
   async tournamentParticipants(@Body() gtp: GetParticipantsDto) {
     const key = !gtp.params?.noCache && `gtp|${gtp.params?.tournamentId}`;
-    return await this.cacheFx(key, this.factoryService.getParticipants, gtp);
+    return await this.cacheFx(key, (params) => this.factoryService.getParticipants(params), gtp);
   }
 
   @Post('matchups')
   @Roles([SCORE, SUPER_ADMIN])
   async getMatchUps(@Body() gmr: GetMatchUpsDto) {
     const key = `gmr|${gmr.tournamentId}`;
-    return await this.cacheFx(key, this.factoryService.getMatchUps, gmr);
+    return await this.cacheFx(key, (params) => this.factoryService.getMatchUps(params), gmr);
   }
 
   @Post('score')

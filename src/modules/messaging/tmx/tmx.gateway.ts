@@ -3,9 +3,9 @@ import { TournamentStorageService } from 'src/storage/tournament-storage.service
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
 import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/modules/auth/guards/socket.guard';
+import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
 import { Public } from '../../auth/decorators/public.decorator';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
 import { tools } from 'tods-competition-factory';
 import { tmxMessages } from './tmxMessages';
 import { Server, Socket } from 'socket.io';
@@ -18,7 +18,7 @@ import { Server, Socket } from 'socket.io';
 })
 export class TmxGateway {
   constructor(
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly tournamentStorageService: TournamentStorageService,
   ) {}
 
@@ -43,7 +43,9 @@ export class TmxGateway {
         });
         if (result.error) {
           const tournamentInfo = result.tournamentIds ? ` | tournaments: ${JSON.stringify(result.tournamentIds)}` : '';
-          this.logger.error(`${type} message errored: ${payload.userId}: ${methods}${tournamentInfo} | error: ${JSON.stringify(result.error)}`);
+          this.logger.error(
+            `${type} message errored: ${payload.userId}: ${methods}${tournamentInfo} | error: ${JSON.stringify(result.error)}`,
+          );
         } else {
           this.logger.debug(`${type} message successful: ${payload.userId}: ${methods}`);
         }
