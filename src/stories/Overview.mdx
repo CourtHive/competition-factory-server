@@ -1,0 +1,99 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Overview" />
+
+<div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '8px' }}>
+  <h1 style={{ margin: 0 }}>Competition Factory Server</h1>
+</div>
+
+<p style={{ fontSize: '16px', color: '#666', marginBottom: '32px' }}>
+  A NestJS server for tournament management, providing WebSocket gateway, REST API, and pluggable storage.
+  Powered by{' '}
+  <a href="https://courthive.github.io/competition-factory/" target="_blank">tods-competition-factory</a>{' '}
+  for TODS-compliant tournament data modeling and business logic.
+</p>
+
+<hr />
+
+<h2>Documentation</h2>
+
+<h3>Getting Started</h3>
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Page</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Prerequisites</strong></td><td>System requirements, Node.js, pnpm, and database setup.</td></tr>
+    <tr><td><strong>Installation</strong></td><td>Clone, install, configure environment, and start the server.</td></tr>
+    <tr><td><strong>Configuration</strong></td><td>Environment variables reference — ports, JWT, Redis, database, email.</td></tr>
+  </tbody>
+</table>
+
+<h3>Storage</h3>
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Page</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Storage Overview</strong></td><td>Pluggable storage architecture — LevelDB and PostgreSQL backends.</td></tr>
+    <tr><td><strong>LevelDB Setup</strong></td><td>Default storage backend using net-level-server.</td></tr>
+    <tr><td><strong>PostgreSQL Setup</strong></td><td>JSONB document storage with node-postgres, schema, and migration.</td></tr>
+  </tbody>
+</table>
+
+<h3>Authentication & Users</h3>
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Page</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Admin Setup</strong></td><td>Creating admin accounts, password recovery, role management.</td></tr>
+    <tr><td><strong>Roles & Permissions</strong></td><td>Available roles, permission model, and access control.</td></tr>
+  </tbody>
+</table>
+
+<h3>Architecture</h3>
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Page</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Server Architecture</strong></td><td>NestJS module structure, dependency injection, and request flow.</td></tr>
+    <tr><td><strong>Mutation Flow</strong></td><td>End-to-end mutation path from client to factory engine to storage.</td></tr>
+    <tr><td><strong>WebSocket Gateway</strong></td><td>Socket.IO namespaces, message types, and real-time communication.</td></tr>
+    <tr><td><strong>Provider Configuration</strong></td><td>White labeling, feature governance, and policy defaults per provider.</td></tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2>Quick Start</h2>
+
+<pre style={{ background: '#f5f5f5', padding: '16px', borderRadius: '6px', fontSize: '13px', overflow: 'auto' }}>
+{`# Clone and install
+git clone https://github.com/CourtHive/competition-factory-server.git
+cd competition-factory-server
+pnpm install
+
+# Start the database (LevelDB)
+pnpm hive-db
+
+# Create an admin user (in another terminal)
+pnpm admin:create -e admin@example.com -p your-password
+
+# Start the dev server
+pnpm watch`}
+</pre>
+
+<hr />
+
+<div style={{ marginTop: '32px', padding: '12px 16px', background: '#f5f5f5', borderRadius: '6px', fontSize: '13px' }}>
+  <strong>Repository:</strong>{' '}
+  <a href="https://github.com/CourtHive/competition-factory-server" target="_blank">github.com/CourtHive/competition-factory-server</a>
+  <br />
+  <strong>Factory docs:</strong>{' '}
+  <a href="https://courthive.github.io/competition-factory/" target="_blank">courthive.github.io/competition-factory</a>
+  <br />
+  <strong>Components:</strong>{' '}
+  <a href="https://courthive.github.io/courthive-components/" target="_blank">courthive.github.io/courthive-components</a>
+</div>

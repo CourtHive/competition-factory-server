@@ -1,0 +1,119 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Getting Started/Installation" />
+
+# Installation
+
+## 1. Clone the repository
+
+```bash
+git clone https://github.com/CourtHive/competition-factory-server.git
+cd competition-factory-server
+```
+
+## 2. Install dependencies
+
+```bash
+pnpm install
+```
+
+> **Note:** `npm` is not supported — use `pnpm` only.
+
+## 3. Configure environment
+
+Copy the example `.env` file and customize:
+
+```bash
+cp .env.example .env
+```
+
+At minimum, set a secure JWT secret:
+
+```env
+JWT_SECRET='your-truly-random-secret-string-here'
+```
+
+See the **Configuration** page for the full environment variable reference.
+
+## 4. Start the database
+
+**LevelDB (default):**
+
+```bash
+pnpm hive-db
+```
+
+This starts the LevelDB network server on port 3838. Keep this running in a separate terminal.
+
+**PostgreSQL:**
+
+See **Storage / PostgreSQL Setup** for schema creation and migration steps.
+
+## 5. Create an admin user
+
+In a new terminal (with the database running):
+
+```bash
+pnpm admin:create -e admin@example.com -p your-secure-password
+```
+
+This creates a superadmin user with full access.
+
+## 6. Start the server
+
+**Development (with watch mode):**
+
+```bash
+pnpm watch
+```
+
+**Production:**
+
+```bash
+pnpm build
+pnpm start
+```
+
+The server starts on the port defined by `APP_PORT` in `.env` (default: `8383`).
+
+## 7. Verify
+
+```bash
+curl http://localhost:8383/api
+# Should return a response (or 404 for undefined root)
+```
+
+## Development User
+
+When `APP_MODE=development` in `.env`, a hardcoded test user is available:
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Email</th><th style={{ textAlign: 'left' }}>Password</th><th style={{ textAlign: 'left' }}>Roles</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>axel@castle.com</code></td><td><code>castle</code></td><td>superadmin, admin, developer, client, score</td></tr>
+  </tbody>
+</table>
+
+This user works without any database entry and is convenient for local development.
+
+## Available Scripts
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Script</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>pnpm watch</code></td><td>Development server with hot reload</td></tr>
+    <tr><td><code>pnpm build</code></td><td>Compile TypeScript to <code>./build/</code></td></tr>
+    <tr><td><code>pnpm start</code></td><td>Production server (<code>NODE_ENV=production</code>)</td></tr>
+    <tr><td><code>pnpm test</code></td><td>Run Jest tests</td></tr>
+    <tr><td><code>pnpm lint</code></td><td>ESLint with auto-fix</td></tr>
+    <tr><td><code>pnpm check-types</code></td><td>TypeScript type-check (<code>tsc --noEmit</code>)</td></tr>
+    <tr><td><code>pnpm hive-db</code></td><td>Start LevelDB server</td></tr>
+    <tr><td><code>pnpm admin:list</code></td><td>List all users</td></tr>
+    <tr><td><code>pnpm admin:create</code></td><td>Create a superadmin user</td></tr>
+    <tr><td><code>pnpm admin:reset-password</code></td><td>Reset a user's password</td></tr>
+  </tbody>
+</table>

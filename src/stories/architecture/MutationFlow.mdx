@@ -1,0 +1,95 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Architecture/Mutation Flow" />
+
+# End-to-End Mutation Flow
+
+All tournament data mutations follow a single path through client, server, and factory engine.
+
+## Flow Diagram
+
+```
+User Action (TMX client)
+  → mutationRequest()
+    → emitTmx('executionQueue', payload)
+      → Socket.IO → /tmx namespace
+        → TmxGateway.messageHandler()
+          → tmxMessages.executionQueue()
+            → executionQueue()
+              → withTournamentLock()
+              → fetchTournamentRecords()
+              → mutationEngine.executionQueue(methods)
+              → saveTournamentRecords()
+            → client.emit('ack')
+      → On ack: client runs same mutations locally
+        → saves to IndexedDB
+```
+
+## Message Format
+
+```json
+{
+  "type": "executionQueue",
+  "payload": {
+    "methods": [
+      { "method": "addEvent", "params": { "..." } },
+      { "method": "addDrawDefinition", "params": { "..." } }
+    ],
+    "tournamentIds": ["tournament-uuid"],
+    "rollbackOnError": true,
+    "ackId": "unique-request-id"
+  }
+}
+```
+
+## Server-First Execution
+
+With `serverFirst: true` (default), the flow is:
+
+1. **Client** sends mutation methods to server via Socket.IO
+2. **Server** acquires tournament lock (`withTournamentLock`)
+3. **Server** fetches tournament records from storage
+4. **Server** executes all methods via `mutationEngine.executionQueue()`
+5. **Server** saves updated records to storage
+6. **Server** broadcasts changes to other connected clients
+7. **Server** sends `ack` back to originating client
+8. **Client** receives `ack`, applies same mutations locally via factory engine
+9. **Client** saves to IndexedDB
+
+## Offline / Local-First Mode
+
+When disconnected from the server (or no provider configured):
+
+1. **Client** executes mutations directly via local factory engine
+2. **Client** saves to IndexedDB
+3. Mutations queue for server sync when reconnected
+
+## Tournament Locking
+
+The server uses per-tournament mutexes to prevent concurrent modifications:
+
+- Keys are sorted before acquisition to prevent deadlocks
+- 30-second timeout prevents stuck locks
+- Lock granularity is per-tournament, not global — different tournaments can be modified concurrently
+
+## Error Handling
+
+- `rollbackOnError: true` — if any method fails, all changes are reverted
+- Error response includes the failed method name and error details
+- Client shows toast notification on mutation failure
+
+## Key Files
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Location</th><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Client</td><td><code>TMX/src/services/mutation/mutationRequest.ts</code></td><td>Mutation entry point</td></tr>
+    <tr><td>Client</td><td><code>TMX/src/services/messaging/socketIo.ts</code></td><td>Socket.IO communication</td></tr>
+    <tr><td>Server</td><td><code>src/modules/messaging/tmx/tmx.gateway.ts</code></td><td>WebSocket gateway</td></tr>
+    <tr><td>Server</td><td><code>src/modules/messaging/tmx/tmxMessages.ts</code></td><td>Message routing</td></tr>
+    <tr><td>Server</td><td><code>src/modules/factory/functions/private/executionQueue.ts</code></td><td>Mutation execution</td></tr>
+    <tr><td>Server</td><td><code>src/services/tournamentMutex.ts</code></td><td>Concurrency control</td></tr>
+  </tbody>
+</table>

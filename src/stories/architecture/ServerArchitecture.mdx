@@ -1,0 +1,100 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Architecture/Server Architecture" />
+
+# Server Architecture
+
+The Competition Factory Server is built on NestJS 11, using a modular architecture with dependency injection, WebSocket gateway, and pluggable storage.
+
+## Module Structure
+
+```
+AppModule
+├── ConfigModule          (global) — environment variables, Joi validation
+├── StorageModule          (global) — pluggable storage (LevelDB / PostgreSQL)
+├── CacheModule            (global) — Redis caching via @nestjs/cache-manager
+├── AuthModule             — JWT authentication, login, registration
+├── UsersModule            — user CRUD, role management
+├── ProvidersModule        — provider/organisation management
+├── FactoryModule          — competition-factory engine integration
+│   ├── FactoryController  — REST API endpoints
+│   └── FactoryService     — business logic, engine management
+├── MessagingModule        — WebSocket gateway
+│   └── TmxGateway         — Socket.IO /tmx namespace
+└── EmailModule            — Mailgun email service
+```
+
+## Request Flow (REST)
+
+```
+HTTP Request
+  → Express middleware (body-parser, CORS)
+    → NestJS route guards (JWT auth, role checks)
+      → Controller method
+        → Service (business logic)
+          → Factory engine (tods-competition-factory)
+          → Storage interface (read/write)
+        → Response
+```
+
+## Request Flow (WebSocket)
+
+```
+Socket.IO message (/tmx namespace)
+  → TmxGateway.messageHandler()
+    → tmxMessages.executionQueue()
+      → withTournamentLock()
+        → fetchTournamentRecords()
+        → mutationEngine.executionQueue(methods)
+        → saveTournamentRecords()
+      → client.emit('ack')
+```
+
+## Per-Request State Isolation
+
+The server uses Node.js `async_hooks` (via `asyncGlobalState.ts`) to provide per-request state isolation for the factory engine. Each incoming request gets its own engine state context, preventing cross-request data leakage.
+
+## Concurrency Control
+
+`tournamentMutex.ts` provides per-tournament async locking:
+- Sorted key acquisition prevents deadlocks
+- 30-second timeout prevents stuck locks
+- Multiple tournaments in a single request are locked in deterministic order
+
+## Key Source Files
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>src/modules/app/app.module.ts</code></td><td>Root NestJS module</td></tr>
+    <tr><td><code>src/modules/factory/factory.service.ts</code></td><td>Factory engine integration</td></tr>
+    <tr><td><code>src/modules/factory/factory.controller.ts</code></td><td>REST API endpoints</td></tr>
+    <tr><td><code>src/modules/messaging/tmx/tmx.gateway.ts</code></td><td>WebSocket gateway</td></tr>
+    <tr><td><code>src/modules/messaging/tmx/tmxMessages.ts</code></td><td>WebSocket message handlers</td></tr>
+    <tr><td><code>src/modules/factory/functions/private/executionQueue.ts</code></td><td>Mutation execution pipeline</td></tr>
+    <tr><td><code>src/services/tournamentMutex.ts</code></td><td>Per-tournament async locking</td></tr>
+    <tr><td><code>src/modules/auth/</code></td><td>JWT auth, login, registration</td></tr>
+    <tr><td><code>src/storage/storage.module.ts</code></td><td>Storage DI configuration</td></tr>
+    <tr><td><code>src/config/</code></td><td>Environment config, validation</td></tr>
+  </tbody>
+</table>
+
+## Dependencies
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Package</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>@nestjs/*</code></td><td>Framework, DI, WebSocket, JWT, config</td></tr>
+    <tr><td><code>tods-competition-factory</code></td><td>Tournament engine (business logic)</td></tr>
+    <tr><td><code>socket.io</code></td><td>Real-time WebSocket communication</td></tr>
+    <tr><td><code>pg</code></td><td>PostgreSQL client</td></tr>
+    <tr><td><code>@gridspace/net-level-client</code></td><td>LevelDB client</td></tr>
+    <tr><td><code>redis</code> / <code>keyv</code></td><td>Caching</td></tr>
+    <tr><td><code>bcryptjs</code></td><td>Password hashing</td></tr>
+    <tr><td><code>class-validator</code></td><td>DTO validation</td></tr>
+  </tbody>
+</table>

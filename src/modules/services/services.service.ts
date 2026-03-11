@@ -1,4 +1,4 @@
-// import cpTable from 'codepage'; // see HiveEye server for example use
+/* check cpTable usage from 'codepage'; // see HiveEye server for example use */
 import { fetchCtsTournament } from './functions/fetchCtsTournament';
 import { Inject, Injectable } from '@nestjs/common';
 

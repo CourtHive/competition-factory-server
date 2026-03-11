@@ -43,3 +43,10 @@ coverage/
 dist
 build
 .webpack
+
+# Storybook
+storybook-static/
+
+# Admin client build output
+admin-client/dist/
+admin-client/node_modules/
