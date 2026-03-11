@@ -1,4 +1,7 @@
-import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer, ConnectedSocket } from '@nestjs/websockets';
+import {
+  MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer,
+  ConnectedSocket, OnGatewayConnection, OnGatewayDisconnect,
+} from '@nestjs/websockets';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
 import { Roles } from 'src/modules/auth/decorators/roles.decorator';
@@ -10,13 +13,15 @@ import { tools } from 'tods-competition-factory';
 import { tmxMessages } from './tmxMessages';
 import { Server, Socket } from 'socket.io';
 
+const TOURNAMENT_ROOM_PREFIX = 'tournament:';
+
 @Injectable()
 @UseGuards(SocketGuard) // SocketGuard handles authentication as well as roles
 @WebSocketGateway({
   cors: { origin: '*' },
   namespace: 'tmx',
 })
-export class TmxGateway {
+export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly tournamentStorageService: TournamentStorageService,
@@ -26,6 +31,41 @@ export class TmxGateway {
 
   @WebSocketServer()
   server?: Server;
+
+  handleConnection(client: Socket): void {
+    this.logger.debug(`Client connected: ${client.id}`);
+  }
+
+  handleDisconnect(client: Socket): void {
+    this.logger.debug(`Client disconnected: ${client.id}`);
+    // Socket.IO automatically removes the client from all rooms on disconnect
+  }
+
+  // ── Tournament room management ──
+
+  @SubscribeMessage('joinTournament')
+  @Roles([CLIENT, SUPER_ADMIN])
+  async joinTournament(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
+    const tournamentId = data?.tournamentId;
+    if (!tournamentId || typeof tournamentId !== 'string') return;
+
+    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
+    await client.join(room);
+    this.logger.debug(`Client ${client.id} joined room ${room}`);
+  }
+
+  @SubscribeMessage('leaveTournament')
+  @Roles([CLIENT, SUPER_ADMIN])
+  async leaveTournament(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
+    const tournamentId = data?.tournamentId;
+    if (!tournamentId || typeof tournamentId !== 'string') return;
+
+    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
+    await client.leave(room);
+    this.logger.debug(`Client ${client.id} left room ${room}`);
+  }
+
+  // ── Mutation handling with broadcast ──
 
   @SubscribeMessage('executionQueue')
   @Roles([CLIENT, SUPER_ADMIN])
@@ -48,6 +88,8 @@ export class TmxGateway {
           );
         } else {
           this.logger.debug(`${type} message successful: ${payload.userId}: ${methods}`);
+          // Broadcast approved mutations to other clients viewing the same tournament(s)
+          this.broadcastMutation(client, payload);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -58,6 +100,34 @@ export class TmxGateway {
     } else {
       this.logger.debug(`Not found: ${type}`);
     }
+  }
+
+  /**
+   * Broadcast an approved executionQueue to all other clients
+   * that have joined the affected tournament room(s).
+   */
+  private broadcastMutation(sender: Socket, payload: any): void {
+    const tournamentIds: string[] = payload?.tournamentIds ||
+      (payload?.tournamentId ? [payload.tournamentId] : []);
+    const methods = payload?.methods;
+    if (!methods?.length || !tournamentIds.length) return;
+
+    const broadcast = {
+      methods,
+      tournamentIds,
+      userId: payload?.userId,
+      timestamp: payload?.timestamp,
+    };
+
+    for (const tournamentId of tournamentIds) {
+      const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
+      // .to(room) sends to everyone in the room EXCEPT the sender
+      sender.to(room).emit('tournamentMutation', broadcast);
+    }
+
+    this.logger.debug(
+      `Broadcast ${methods.length} mutation(s) to rooms: ${tournamentIds.join(', ')} (excluding sender ${sender.id})`,
+    );
   }
 
   @SubscribeMessage('tmx')
