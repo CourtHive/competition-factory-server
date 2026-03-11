@@ -7,6 +7,7 @@ on:
       - 'src/stories/**'
       - '.storybook/**'
       - '.github/workflows/deploy-storybook.yml'
+      - 'README.md'
   workflow_dispatch:
 
 permissions:
