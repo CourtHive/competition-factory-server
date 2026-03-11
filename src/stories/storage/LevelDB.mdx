@@ -1,0 +1,58 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Storage/LevelDB Setup" />
+
+# LevelDB Setup
+
+LevelDB is the default storage backend. It uses `@gridspace/net-level-server` — a LevelDB instance exposed over a network protocol.
+
+## Starting the Server
+
+```bash
+pnpm hive-db
+```
+
+This starts the LevelDB network server on port 3838 (configurable via `DB_PORT`).
+
+> **Tip:** Run this in a separate terminal window — it needs to stay running while the server is active.
+
+## Configuration
+
+```env
+STORAGE_PROVIDER=leveldb   # or simply omit this line (leveldb is default)
+
+DB_HOST=localhost
+DB_PORT=3838
+DB_USER=admin
+DB_PASS=adminpass
+```
+
+## Data Location
+
+LevelDB stores data in a `data/` directory relative to the server root. This directory is created automatically on first run.
+
+## Advantages
+
+- **Zero setup** — no external database to install
+- **Fast** — local key-value store with minimal latency
+- **Simple** — no schema, no migrations
+
+## Limitations
+
+- **Single process** — only one server instance can connect at a time
+- **No SQL** — no ad-hoc queries, no joins, no aggregation
+- **Local only** — data lives on the same machine as the server
+
+## Troubleshooting
+
+**"Failed to connect to leveldb"**
+
+- Ensure `pnpm hive-db` is running in another terminal
+- Verify `DB_HOST` and `DB_PORT` match your `.env`
+- Check that port 3838 is not in use by another process
+
+**Data corruption**
+
+- Stop the server and LevelDB process
+- Delete the `data/` directory (this destroys all data)
+- Restart `pnpm hive-db`

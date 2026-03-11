@@ -1,0 +1,149 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Architecture/Provider Configuration" />
+
+# Provider Configuration
+
+Providers (organisations that host tournaments) can configure TMX behavior for their tournament directors. This covers branding (white labeling), feature toggles (what TDs can and cannot do), and policy enforcement (what formats/categories/draw types are permitted).
+
+## Architecture
+
+```
+Server-side (per provider)          Client-side
+┌─────────────────────┐            ┌──────────────────────┐
+│ ProviderConfig JSON │──login──→  │ providerConfig module│
+│  (stored in DB)     │            │  (runtime, read-only)│
+└─────────────────────┘            └──────────┬───────────┘
+                                              │
+                              ┌───────────────┼────────────────┐
+                              ▼               ▼                ▼
+                        UI surfaces     mutationRequest    policy defaults
+                        (show/hide)     (gate mutations)   (pre-populate)
+```
+
+The provider config is a JSON document stored server-side per provider and delivered to the client at login. It governs branding, restricts UI surfaces, and pre-populates policy defaults.
+
+## Config Structure
+
+```typescript
+interface ProviderConfig {
+  branding?: ProviderBranding;
+  permissions?: ProviderPermissions;
+  policies?: ProviderPolicyDefaults;
+  defaults?: ProviderDefaults;
+}
+```
+
+## Branding (White Labeling)
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Field</th><th style={{ textAlign: 'left' }}>Type</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>navbarLogoUrl</code></td><td><code>string</code></td><td>URL or data-URI for navbar logo (replaces "TMX" text)</td></tr>
+    <tr><td><code>navbarLogoAlt</code></td><td><code>string</code></td><td>Alt text for the logo</td></tr>
+    <tr><td><code>navbarLogoHeight</code></td><td><code>number</code></td><td>Max height in px (default: 32)</td></tr>
+    <tr><td><code>splashLogoUrl</code></td><td><code>string</code></td><td>Splash/login screen logo (replaces CourtHive hex)</td></tr>
+    <tr><td><code>appName</code></td><td><code>string</code></td><td>Application name in page title and nav bar (default: "TMX")</td></tr>
+    <tr><td><code>accentColor</code></td><td><code>string</code></td><td>CSS color value overriding the accent color</td></tr>
+  </tbody>
+</table>
+
+## Permissions
+
+Permissions are boolean flags that control what a tournament director can do. All default to `true` except where noted.
+
+### Participants
+
+- `canCreateCompetitors` — Add competitor participants
+- `canCreateOfficials` — Add official participants
+- `canDeleteParticipants` — Delete participants
+- `canImportParticipants` — Import from CSV/Google Sheets
+- `canEditParticipantDetails` — Edit participant details
+
+### Events
+
+- `canCreateEvents` — Create new events
+- `canDeleteEvents` — Delete events
+- `canModifyEventFormat` — Change matchUp format on events
+
+### Draws
+
+- `canCreateDraws` — Create new draws
+- `canDeleteDraws` — Delete draws
+- `canUseDraftPositioning` — Allow DRAFT creation method
+- `canUseManualPositioning` — Allow MANUAL creation method
+- `allowedDrawTypes` — Restrict draw types to this list (empty = all)
+- `allowedCreationMethods` — Restrict creation methods (empty = all)
+
+### Scheduling
+
+- `canModifySchedule` — Modify court schedules
+- `canUseBulkScheduling` — Use bulk scheduling mode
+
+### Venues
+
+- `canCreateVenues` — Add venues
+- `canDeleteVenues` — Delete venues
+- `canModifyCourtAvailability` — Edit court availability
+
+### Scoring
+
+- `canEnterScores` — Enter match scores
+- `canModifyCompletedScores` — Re-score completed matches (default: **false**)
+- `allowedScoringApproaches` — Restrict scoring UI approaches
+
+### Publishing
+
+- `canPublish` / `canUnpublish` — Publish/unpublish events
+
+### Settings
+
+- `canModifyTournamentDetails` — Edit tournament metadata
+- `canModifyPolicies` — Edit tournament policies
+- `canAccessProviderAdmin` — Access provider admin interface (default: **false**)
+
+## Defense in Depth
+
+Permissions are enforced at two levels:
+
+1. **UI hiding** — buttons and menu items are hidden when the permission is `false`
+2. **Mutation gating** — `mutationRequest()` checks permissions before executing, blocking even programmatic mutations
+
+## Server-Side Storage
+
+Provider config will be stored in the provider record:
+
+```typescript
+interface ProviderRecord {
+  organisationId: string;
+  organisationName: string;
+  // ... existing fields
+  tmxConfig?: ProviderConfig; // provider-specific configuration
+}
+```
+
+Delivered to the client via a REST endpoint after login: `GET /api/provider/:id/config`.
+
+## Testing (Dev Console)
+
+In development mode, the provider config is exposed on `window.dev.providerConfig`:
+
+```javascript
+// Apply a restrictive config
+dev.providerConfig.set({
+  branding: { appName: 'My Tennis Org' },
+  permissions: {
+    canCreateCompetitors: false,
+    canDeleteEvents: false,
+    allowedDrawTypes: ['SINGLE_ELIMINATION', 'ROUND_ROBIN'],
+  },
+});
+
+// Check a permission
+dev.providerConfig.isAllowed('canCreateCompetitors'); // false
+
+// Reset to defaults
+dev.providerConfig.reset();
+```

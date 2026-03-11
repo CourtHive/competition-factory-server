@@ -1,0 +1,106 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Authentication/Roles & Permissions" />
+
+# Roles & Permissions
+
+The server uses a role-based access control (RBAC) model. Users are assigned roles and fine-grained permissions at the user level, with provider-scoped authorization on top.
+
+## Roles
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Role</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>superadmin</code></td><td>Full system access — manage all users, providers, and tournaments</td></tr>
+    <tr><td><code>admin</code></td><td>Provider-level administration — manage users and tournaments within a provider</td></tr>
+    <tr><td><code>client</code></td><td>Tournament management — create, modify, fetch, and save tournaments</td></tr>
+    <tr><td><code>director</code></td><td>Tournament director — run tournaments assigned by a provider</td></tr>
+    <tr><td><code>developer</code></td><td>Development features and dev console access</td></tr>
+    <tr><td><code>score</code></td><td>Score entry only (<code>setMatchUpStatus</code>)</td></tr>
+    <tr><td><code>official</code></td><td>Match official functionality</td></tr>
+    <tr><td><code>generate</code></td><td>Generate tournament records (mock/test data)</td></tr>
+  </tbody>
+</table>
+
+## Permissions
+
+Fine-grained permissions complement roles:
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Permission</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>deleteTournament</code></td><td>Can delete tournament records from storage</td></tr>
+    <tr><td><code>editTennisId</code></td><td>Can modify participant tennis IDs</td></tr>
+    <tr><td><code>devMode</code></td><td>Enables development-mode features in the client</td></tr>
+  </tbody>
+</table>
+
+## Services
+
+Service flags control optional features:
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Service</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>tournamentProfile</code></td><td>Access to tournament profile/template features</td></tr>
+  </tbody>
+</table>
+
+## Access Control in TMX
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Feature</th><th style={{ textAlign: 'left' }}>Required Role</th><th style={{ textAlign: 'left' }}>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>System page (providers/users)</td><td><code>superadmin</code></td><td>Full system management</td></tr>
+    <tr><td>Admin page (policies/settings)</td><td><code>admin</code> or <code>superadmin</code></td><td>Provider-scoped</td></tr>
+    <tr><td>Tournament management</td><td><code>client</code></td><td>Standard operations</td></tr>
+    <tr><td>Score entry</td><td><code>score</code> or <code>client</code></td><td>Scoring mutations only</td></tr>
+    <tr><td>Impersonation</td><td><code>superadmin</code></td><td>Assume another provider's identity</td></tr>
+    <tr><td>Dev console</td><td><code>developer</code></td><td><code>window.dev</code> utilities</td></tr>
+  </tbody>
+</table>
+
+## Provider Scoping
+
+Users are associated with a provider (organisation). When logged in:
+- An `admin` can manage users and tournaments **within their provider only**
+- A `superadmin` can manage **all providers and users**
+- A `client` can access tournaments **published by their provider** or tournaments they own
+
+## Managing Roles
+
+```bash
+# Set roles for a user
+node src/scripts/admin-user.mjs set-roles \
+  --email user@example.com \
+  --roles admin,client,score
+
+# Demote to client-only
+node src/scripts/admin-user.mjs set-roles \
+  --email user@example.com \
+  --roles client
+```
+
+## JWT Token Structure
+
+On login, the server issues a JWT containing:
+
+```json
+{
+  "email": "user@example.com",
+  "roles": ["admin", "client"],
+  "permissions": { "deleteTournament": true },
+  "services": { "tournamentProfile": true },
+  "providerId": "uuid-of-provider"
+}
+```
+
+The token is valid for `JWT_VALIDITY` (default: 2 hours).

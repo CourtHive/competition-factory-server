@@ -1,0 +1,84 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Storage/Overview" />
+
+# Storage Architecture
+
+The server uses a pluggable storage abstraction, selected at startup via the `STORAGE_PROVIDER` environment variable.
+
+## Architecture
+
+```
+Controllers / Gateways
+        |
+    Services (FactoryService, AuthService, etc.)
+        |
+    TournamentStorageService   ← calendar + permission side-effects
+        |
+    Storage Interfaces         ← ITournamentStorage, IUserStorage, etc.
+        |
+    ┌───────────────┬───────────────┐
+    │   LevelDB     │  PostgreSQL   │
+    │   (default)   │  (new)        │
+    └───────────────┴───────────────┘
+```
+
+## Storage Interfaces
+
+The server defines 5 storage interfaces, each with a corresponding DI token:
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Interface</th><th style={{ textAlign: 'left' }}>Token</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>ITournamentStorage</code></td><td><code>TOURNAMENT_STORAGE</code></td><td>Tournament records (CRUD, search, calendar)</td></tr>
+    <tr><td><code>IUserStorage</code></td><td><code>USER_STORAGE</code></td><td>User accounts (auth, roles, permissions)</td></tr>
+    <tr><td><code>IProviderStorage</code></td><td><code>PROVIDER_STORAGE</code></td><td>Provider/organisation records</td></tr>
+    <tr><td><code>ICalendarStorage</code></td><td><code>CALENDAR_STORAGE</code></td><td>Published tournament calendars per provider</td></tr>
+    <tr><td><code>IAuthCodeStorage</code></td><td><code>AUTH_CODE_STORAGE</code></td><td>Invitation and password reset codes</td></tr>
+  </tbody>
+</table>
+
+## Storage Module
+
+`StorageModule` is a global NestJS module that provides all 5 interfaces via dependency injection. The backend implementation is selected once at startup — no runtime switching.
+
+```typescript
+// Inject storage in any service
+@Inject(TOURNAMENT_STORAGE)
+private readonly tournamentStorage: ITournamentStorage;
+```
+
+## Domain Side-Effects
+
+Write operations that involve domain logic (calendar updates, permission checks) go through `TournamentStorageService`, which wraps the raw `ITournamentStorage` interface. Read-only public queries use `ITournamentStorage` directly.
+
+This separation means that **adding a new storage backend only requires implementing the 5 raw interfaces** — no domain logic needs to be duplicated.
+
+## Supported Backends
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Backend</th><th style={{ textAlign: 'left' }}><code>STORAGE_PROVIDER</code></th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>LevelDB</td><td><code>leveldb</code> (default)</td><td>Key-value store via <code>@gridspace/net-level-client</code></td></tr>
+    <tr><td>PostgreSQL</td><td><code>postgres</code></td><td>JSONB document storage via <code>pg</code> (node-postgres)</td></tr>
+  </tbody>
+</table>
+
+## Key Files
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>src/storage/storage.module.ts</code></td><td>Global module with factory providers</td></tr>
+    <tr><td><code>src/storage/tournament-storage.service.ts</code></td><td>Facade with calendar + permission side-effects</td></tr>
+    <tr><td><code>src/storage/interfaces/</code></td><td>TypeScript interfaces for all 5 storage types</td></tr>
+    <tr><td><code>src/storage/leveldb/</code></td><td>LevelDB implementation</td></tr>
+    <tr><td><code>src/storage/postgres/</code></td><td>PostgreSQL implementation</td></tr>
+  </tbody>
+</table>

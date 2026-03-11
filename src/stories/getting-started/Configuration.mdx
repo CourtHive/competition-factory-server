@@ -1,0 +1,124 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Getting Started/Configuration" />
+
+# Configuration
+
+All configuration is via environment variables in the `.env` file. The server uses `dotenv` to load these at startup.
+
+> **Important:** `dotenv` does **not** override environment variables already set in your shell. If a variable like `PG_USER` is exported in your shell profile, that value takes precedence over `.env`.
+
+## Application
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Variable</th><th style={{ textAlign: 'left' }}>Default</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>APP_NAME</code></td><td><code>Competition Factory Server</code></td><td>Application name (logging, metadata)</td></tr>
+    <tr><td><code>APP_MODE</code></td><td><code>production</code></td><td><code>development</code> enables dev user and debug features</td></tr>
+    <tr><td><code>APP_PORT</code></td><td><code>8383</code></td><td>HTTP/WebSocket server port</td></tr>
+  </tbody>
+</table>
+
+## Authentication
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Variable</th><th style={{ textAlign: 'left' }}>Default</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>JWT_SECRET</code></td><td><em>(required)</em></td><td>Secret key for JWT signing. <strong>Must be changed from default.</strong></td></tr>
+    <tr><td><code>JWT_VALIDITY</code></td><td><code>2h</code></td><td>JWT token expiration (e.g., <code>2h</code>, <code>1d</code>, <code>30m</code>)</td></tr>
+  </tbody>
+</table>
+
+## Storage
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Variable</th><th style={{ textAlign: 'left' }}>Default</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>STORAGE_PROVIDER</code></td><td><code>leveldb</code></td><td>Storage backend: <code>leveldb</code> or <code>postgres</code></td></tr>
+  </tbody>
+</table>
+
+### LevelDB
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Variable</th><th style={{ textAlign: 'left' }}>Default</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>DB_HOST</code></td><td><code>localhost</code></td><td>LevelDB net-level-server host</td></tr>
+    <tr><td><code>DB_PORT</code></td><td><code>3838</code></td><td>LevelDB net-level-server port</td></tr>
+    <tr><td><code>DB_USER</code></td><td><code>admin</code></td><td>LevelDB authentication user</td></tr>
+    <tr><td><code>DB_PASS</code></td><td><code>adminpass</code></td><td>LevelDB authentication password</td></tr>
+  </tbody>
+</table>
+
+### PostgreSQL
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Variable</th><th style={{ textAlign: 'left' }}>Default</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>PG_HOST</code></td><td><code>localhost</code></td><td>PostgreSQL host</td></tr>
+    <tr><td><code>PG_PORT</code></td><td><code>5432</code></td><td>PostgreSQL port</td></tr>
+    <tr><td><code>PG_USER</code></td><td><code>courthive</code></td><td>PostgreSQL user (must match an existing role)</td></tr>
+    <tr><td><code>PG_PASSWORD</code></td><td><em>(empty)</em></td><td>PostgreSQL password (empty for local trust auth)</td></tr>
+    <tr><td><code>PG_DATABASE</code></td><td><code>courthive</code></td><td>PostgreSQL database name</td></tr>
+  </tbody>
+</table>
+
+## Redis (caching)
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Variable</th><th style={{ textAlign: 'left' }}>Default</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>REDIS_URL</code></td><td><code>redis://localhost:6379</code></td><td>Full Redis connection URL</td></tr>
+    <tr><td><code>REDIS_HOST</code></td><td><code>localhost</code></td><td>Redis host (used if <code>REDIS_URL</code> not set)</td></tr>
+    <tr><td><code>REDIS_PORT</code></td><td><code>6379</code></td><td>Redis port</td></tr>
+    <tr><td><code>REDIS_USERNAME</code></td><td><em>(empty)</em></td><td>Redis username (Redis 6+ ACL)</td></tr>
+    <tr><td><code>REDIS_PASSWORD</code></td><td><em>(empty)</em></td><td>Redis password</td></tr>
+    <tr><td><code>REDIS_TTL</code></td><td><code>28800000</code></td><td>Cache TTL in milliseconds (default: 8 hours)</td></tr>
+  </tbody>
+</table>
+
+## Email (Mailgun)
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Variable</th><th style={{ textAlign: 'left' }}>Default</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>MAILGUN_API_KEY</code></td><td><em>(empty)</em></td><td>Mailgun API key for sending invitation emails</td></tr>
+    <tr><td><code>MAILGUN_DOMAIN</code></td><td><em>(empty)</em></td><td>Mailgun sending domain (e.g., <code>m.courthive.com</code>)</td></tr>
+    <tr><td><code>MAILGUN_HOST</code></td><td><em>(empty)</em></td><td>Mailgun API host (e.g., <code>api.eu.mailgun.net</code> for EU region)</td></tr>
+  </tbody>
+</table>
+
+## Example `.env`
+
+```env
+APP_NAME='Competition Factory Server'
+APP_MODE='development'
+APP_PORT='8383'
+
+JWT_SECRET='replace-with-a-truly-random-string'
+JWT_VALIDITY='2h'
+
+STORAGE_PROVIDER=leveldb
+
+DB_HOST=localhost
+DB_PORT=3838
+DB_USER=admin
+DB_PASS=adminpass
+
+REDIS_URL=redis://localhost:6379
+REDIS_TTL=28800000
+```

@@ -1,0 +1,111 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Storage/PostgreSQL Setup" />
+
+# PostgreSQL Setup
+
+PostgreSQL provides robust, production-grade storage using JSONB document columns with denormalized fields for common queries.
+
+## 1. Install and Create Database
+
+```bash
+# macOS (Homebrew)
+brew install postgresql@17
+brew services start postgresql@17
+
+# Create the database
+createdb courthive
+```
+
+### Database Role
+
+By default the server connects as `PG_USER` (defaults to `courthive`). On a local dev machine, set `PG_USER` to your system user (`whoami`). For production, create a dedicated role:
+
+```bash
+psql -d postgres -c "CREATE ROLE courthive WITH LOGIN;"
+psql -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE courthive TO courthive;"
+# PostgreSQL 15+ also needs:
+psql -d courthive -c "GRANT ALL ON SCHEMA public TO courthive;"
+```
+
+## 2. Apply the Schema
+
+```bash
+psql -d courthive -f src/storage/postgres/migrations/001-initial-schema.sql
+```
+
+### Schema Overview
+
+```
+tournaments   — tournament_id (PK), provider_id, tournament_name,
+                start_date, end_date, data (JSONB)
+users         — email (PK), password, provider_id,
+                roles (JSONB), permissions (JSONB), data (JSONB)
+providers     — provider_id (PK), organisation_abbreviation,
+                organisation_name, data (JSONB)
+calendars     — provider_abbr (PK), provider (JSONB),
+                tournaments (JSONB array)
+reset_codes   — code (PK), email
+access_codes  — code (PK), email
+```
+
+## 3. Migrate from LevelDB (optional)
+
+If you have existing data in LevelDB:
+
+```bash
+# Preview what will be migrated (no writes)
+pnpm migrate:postgres:dry
+
+# Perform the migration
+pnpm migrate:postgres
+```
+
+The migration tool:
+- Reads **all** data from LevelDB (tournaments, users, providers, calendars, auth codes)
+- Writes into PostgreSQL using `INSERT ... ON CONFLICT DO UPDATE`
+- Is safe to run multiple times (idempotent)
+- Does **not** modify or delete anything in LevelDB
+
+## 4. Configure `.env`
+
+```env
+STORAGE_PROVIDER=postgres
+
+PG_HOST=localhost
+PG_PORT=5432
+PG_USER=courthive
+PG_PASSWORD=
+PG_DATABASE=courthive
+```
+
+## 5. Restart the Server
+
+```bash
+pnpm watch    # development
+pnpm start    # production
+```
+
+Clients are unaware of the storage backend — the same API is used regardless.
+
+## Rolling Back to LevelDB
+
+1. Set `STORAGE_PROVIDER=leveldb` in `.env` (or remove the line)
+2. Restart the server
+
+LevelDB data is untouched by the migration. Data written while using PostgreSQL will **not** be in LevelDB.
+
+## Troubleshooting
+
+**"Failed to connect to postgres"**
+
+- Check `PG_HOST`, `PG_PORT`, `PG_USER`, `PG_PASSWORD`, `PG_DATABASE` in `.env`
+- Verify PostgreSQL is running: `pg_isready`
+- Run `echo $PG_USER` to check for shell-exported overrides (dotenv won't override them)
+
+**"permission denied for schema public"**
+
+- PostgreSQL 15+ restricts `public` schema. Run:
+  ```bash
+  psql -d courthive -c "GRANT ALL ON SCHEMA public TO courthive;"
+  ```

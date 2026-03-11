@@ -40,7 +40,11 @@
     "admin:reset-password": "node src/scripts/admin-user.mjs reset-password",
     "migrate:postgres": "node src/scripts/migrate-to-postgres.mjs",
     "migrate:postgres:dry": "node src/scripts/migrate-to-postgres.mjs --dry-run --verbose",
-    "prepare": "husky"
+    "prepare": "husky",
+    "storybook": "storybook dev -p 6007",
+    "build-storybook": "storybook build",
+    "deploy-storybook": "gh-pages -d storybook-static",
+    "predeploy": "pnpm run build-storybook"
   },
   "dependencies": {
     "@gridspace/net-level": "0.2.6",
@@ -90,6 +94,8 @@
     "@nestjs/cli": "11.0.16",
     "@nestjs/schematics": "11.0.9",
     "@nestjs/testing": "11.1.16",
+    "@storybook/addon-docs": "^10.2.17",
+    "@storybook/html-vite": "^10.2.17",
     "@swc/cli": "0.8.0",
     "@swc/core": "1.15.18",
     "@types/express": "5.0.6",
@@ -103,6 +109,7 @@
     "eslint": "10.0.3",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.5",
+    "gh-pages": "^6.3.0",
     "globals": "^17.0.0",
     "husky": "^9.0.11",
     "jest": "30.3.0",
@@ -112,6 +119,7 @@
     "semver": "^7.6.2",
     "socket.io-client": "^4.8.3",
     "source-map-support": "0.5.21",
+    "storybook": "^10.2.17",
     "supertest": "7.2.2",
     "ts-jest": "29.4.6",
     "ts-loader": "9.5.4",

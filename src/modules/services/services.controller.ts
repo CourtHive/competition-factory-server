@@ -8,7 +8,7 @@ import { Services } from './services.service';
 @UseGuards(RolesGuard)
 @Controller('service')
 export class ServicesController {
-  constructor(private services: Services) {}
+  constructor(private readonly services: Services) {}
 
   @Post('tournamentdetails')
   @Roles([ADMIN, SUPER_ADMIN])

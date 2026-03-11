@@ -1,0 +1,84 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Architecture/WebSocket Gateway" />
+
+# WebSocket Gateway
+
+The server uses Socket.IO for real-time bidirectional communication with TMX clients. All tournament mutations, broadcasts, and notifications flow through the WebSocket gateway.
+
+## Namespace
+
+All TMX communication uses the `/tmx` Socket.IO namespace.
+
+```typescript
+// Client connection
+const socket = io('http://localhost:8383/tmx');
+```
+
+## Message Types
+
+### Client → Server
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Message Type</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>executionQueue</code></td><td>Execute tournament mutations (the primary mutation path)</td></tr>
+    <tr><td><code>fetchTournament</code></td><td>Request a tournament record by ID</td></tr>
+    <tr><td><code>saveTournament</code></td><td>Save/upload a tournament record</td></tr>
+    <tr><td><code>authenticate</code></td><td>Authenticate with JWT token</td></tr>
+  </tbody>
+</table>
+
+### Server → Client
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Message Type</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>ack</code></td><td>Acknowledge a mutation request (with <code>ackId</code>)</td></tr>
+    <tr><td><code>tournamentRecord</code></td><td>Deliver a requested tournament record</td></tr>
+    <tr><td><code>error</code></td><td>Error response</td></tr>
+    <tr><td><code>broadcast</code></td><td>Tournament changes broadcast to other connected clients</td></tr>
+  </tbody>
+</table>
+
+## Authentication Flow
+
+1. Client connects to `/tmx` namespace
+2. Client sends `authenticate` message with JWT token
+3. Server validates token, associates socket with user/provider
+4. Subsequent messages are authorized based on user roles
+
+## Mutation Acknowledgement
+
+Each mutation request includes an `ackId`. The server responds with an `ack` message containing:
+
+```json
+{
+  "ackId": "original-request-id",
+  "success": true,
+  "methods": [{ "method": "addEvent", "success": true }]
+}
+```
+
+The client waits for this `ack` before applying mutations locally, ensuring server-client consistency.
+
+## Broadcasting
+
+When a client modifies a tournament, the server broadcasts the changes to all other clients connected to the same tournament. This enables real-time collaboration between multiple tournament directors.
+
+## Key Files
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>src/modules/messaging/tmx/tmx.gateway.ts</code></td><td>NestJS WebSocket gateway (Socket.IO adapter)</td></tr>
+    <tr><td><code>src/modules/messaging/tmx/tmxMessages.ts</code></td><td>Message handler routing and business logic</td></tr>
+    <tr><td><code>src/modules/messaging/messaging.module.ts</code></td><td>NestJS module configuration</td></tr>
+  </tbody>
+</table>
