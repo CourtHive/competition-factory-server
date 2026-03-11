@@ -11,114 +11,50 @@
 
 ## Description
 
-Lightweight NestJS example server for testing client/server use cases with tods-competition-factory
+The **Competition Factory Server** is a production-ready backend for managing tennis and racket sport tournaments, built on [NestJS 11](https://nestjs.com/) and powered by the [tods-competition-factory](https://github.com/CourtHive/tods-competition-factory) engine. It implements the [TODS](https://itftennis.atlassian.net/wiki/spaces/TODS/overview) (Tennis Open Data Standards) data model — the ITF's open specification for representing tournament structures, participants, draws, scheduling, and results.
 
-## Installation
+The server provides a real-time WebSocket gateway (Socket.IO) for client-server mutation synchronization, a REST API for public tournament data, pluggable storage backends (LevelDB or PostgreSQL), Redis-backed caching, JWT authentication with role-based access control, and per-tournament concurrency locks to prevent lost updates from interleaved mutations.
 
-```bash
-$ pnpm install
-```
+It is designed to work with the [TMX](https://github.com/CourtHive/TMX) tournament management client as its primary frontend, but can serve any client that speaks its WebSocket protocol or REST endpoints.
 
-## Redis
+### Key Features
 
-Make sure you have [Redis](https://redis.io/docs/latest/operate/oss_and_stack/install/install-redis/install-redis-on-linux/) installed
+- **Real-time mutation sync** — Server-first architecture ensures data consistency; clients apply mutations locally only after server acknowledgment
+- **Pluggable storage** — Switch between LevelDB (default, zero-config) and PostgreSQL (JSONB) via a single environment variable
+- **Role-based access control** — JWT authentication with hierarchical roles (superadmin, admin, client) and provider-scoped permissions
+- **Per-tournament locking** — Async mutex with sorted acquisition prevents deadlocks and lost updates from concurrent requests
+- **Provider multi-tenancy** — Organizations (providers) manage their own tournaments, users, and calendars in isolation
+- **Factory engine integration** — All tournament business logic runs through the shared `tods-competition-factory`, ensuring consistency between client and server
+- **Redis caching** — Published tournament data, event data, and schedule info are cached for fast public access
 
-## .env file
+## Documentation
 
-Create an `.env` file in the root directory.
+Full setup instructions, architecture guides, and configuration reference are available in the interactive documentation:
 
-```txt
-APP_STORAGE='fileSystem' # 'levelDB' or 'fileSystem'
-APP_NAME='Competition Factory Server'
-APP_MODE='development' # 'production'
-APP_PORT=8383
+**[https://courthive.github.io/competition-factory-server/](https://courthive.github.io/competition-factory-server/)**
 
-JWT_SECRET='Replace this string with a truly random string'
-JWT_VALIDITY=2h
+The documentation covers:
 
-TRACKER_CACHE='cache'
+- **Getting Started** — Prerequisites, installation, and environment configuration
+- **Storage** — Pluggable storage architecture, LevelDB setup, PostgreSQL migration
+- **Authentication** — Admin account creation, roles and permissions, JWT structure
+- **Architecture** — Server modules, mutation flow, WebSocket gateway, provider configuration
 
-REDIS_TTL= 8 * 60 * 60 * 1000
-REDIS_HOST='localhost'
-REDIS_USERNAME=''
-REDIS_PASSWORD=''
-REDIS_PORT=6379
-
-DB_HOST=localhost
-DB_PORT=3838
-DB_USER=admin
-DB_PASS=adminpass
-
-MAILGUN_API_KEY='your-mailgun-api-key'
-MAILGUN_HOST='api.eu.mailgun.net'
-MAILGUN_DOMAIN='m.your.domain'
-```
-
-## Storage
-
-By default the server will store tournaments in the file system. In order to use `levelDB` to persist tournament records, `net-level-server` must be running.
+## Quick Start
 
 ```bash
-$ pnpm hive-db
+pnpm install
+pnpm watch        # development server with hot reload
 ```
 
-## Building the app
+See the [full documentation](https://courthive.github.io/competition-factory-server/) for Redis setup, environment configuration, storage options, and user creation.
+
+## Testing
 
 ```bash
-mkdir dist
-pnpm build
-pnpm pushbuild
+pnpm test          # run all tests
+pnpm test:watch    # watch mode
 ```
-
-## Running the app
-
-If you have PM2 installed:
-
-```bash
-pm2 start ecosystem.config.js
-```
-
-...otherwise...
-
-```bash
-# development
-$ pnpm start
-
-# watch mode
-$ pnpm watch
-
-# production mode
-$ pnpm start:prod
-```
-
-## Test
-
-```bash
-# unit tests
-$ pnpm test controller
-$ pnpm test factory
-$ pnpm test service
-
-# e2e tests
-$ pnpm test e2e
-
-# test coverage
-$ pnpm run test:cov
-```
-
-## Development User Creation
-
-In order for Tournaments to persist, you need to create a user that is backed by a 'provider'.
-
-If running in development, point a [TMX](https://github.com/CourtHive/TMX) frontend instance at your server, use the test user username: `axel@castle.com` password: `castle` to login.
-
-Create your provider (top right user icon/dropdown -> Create Provider), then create a user with that provider.
-
-The frontend will copy the invite link to your clipboard in order to complete that user, use that and complete your account.
-
-Logout of `axel@castle.com` and into your newly created account.
-
-Tournaments should now persist on the LevelDB/filesystem.
 
 ## Support
 
@@ -127,4 +63,4 @@ Tournaments should now persist on the LevelDB/filesystem.
 
 ## License
 
-The Competition Factory is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+The Competition Factory Server is [MIT licensed](LICENSE).
