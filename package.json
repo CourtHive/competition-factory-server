@@ -141,7 +141,7 @@
       "@scarf/scarf",
       "@swc/core",
       "classic-level",
-      "esbuild",
+      "core-js",
       "unrs-resolver"
     ]
   },
