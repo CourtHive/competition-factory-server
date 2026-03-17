@@ -2,9 +2,9 @@ module.exports = {
   apps: [
     {
       env: { NODE_ENV: 'production' },
-      script: 'dist/src/main.js',
+      script: 'build/src/main.js',
       name: 'Factory Server',
-      watch: ['dist'],
+      watch: false,
     },
     {
       name: 'hive-db',
