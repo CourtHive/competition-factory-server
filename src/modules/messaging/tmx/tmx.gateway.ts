@@ -50,7 +50,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // ── Tournament room management ──
 
   @SubscribeMessage('joinTournament')
-  @Roles([CLIENT, SUPER_ADMIN])
+  @Public()
   async joinTournament(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
     this.logger.log(`[room] joinTournament received from ${client.id} — data: ${JSON.stringify(data)}`);
     const tournamentId = data?.tournamentId;
@@ -66,7 +66,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('leaveTournament')
-  @Roles([CLIENT, SUPER_ADMIN])
+  @Public()
   async leaveTournament(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
     this.logger.log(`[room] leaveTournament received from ${client.id} — data: ${JSON.stringify(data)}`);
     const tournamentId = data?.tournamentId;
