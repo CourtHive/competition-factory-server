@@ -26,7 +26,7 @@ export class PostgresProviderStorage implements IProviderStorage {
 
   async getProviders(): Promise<{ key: string; value: any }[]> {
     const result = await this.pool.query(
-      'SELECT provider_id, organisation_abbreviation, organisation_name, data FROM providers',
+      'SELECT provider_id, organisation_abbreviation, organisation_name, data, last_access FROM providers',
     );
     return result.rows.map((row) => ({
       key: row.provider_id,
@@ -34,9 +34,14 @@ export class PostgresProviderStorage implements IProviderStorage {
         organisationId: row.provider_id,
         organisationAbbreviation: row.organisation_abbreviation,
         organisationName: row.organisation_name,
+        lastAccess: row.last_access,
         ...row.data,
       },
     }));
+  }
+
+  async updateLastAccess(providerId: string): Promise<void> {
+    await this.pool.query('UPDATE providers SET last_access = NOW() WHERE provider_id = $1', [providerId]);
   }
 
   async setProvider(providerId: string, provider: any): Promise<{ success: boolean }> {

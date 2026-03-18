@@ -30,6 +30,7 @@ describe('AuthService', () => {
 
     mockProviderStorage = {
       getProvider: jest.fn(),
+      updateLastAccess: jest.fn().mockResolvedValue(undefined),
     };
 
     mockAuthCodeStorage = {
@@ -40,6 +41,7 @@ describe('AuthService', () => {
 
     mockUserStorage = {
       update: jest.fn(),
+      updateLastAccess: jest.fn().mockResolvedValue(undefined),
     };
 
     authService = new AuthService(

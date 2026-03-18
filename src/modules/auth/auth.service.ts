@@ -34,6 +34,12 @@ export class AuthService {
       userDetails.provider = provider;
     }
 
+    // Track last access time for user and their provider
+    this.userStorage.updateLastAccess(email).catch(() => {});
+    if (user.providerId) {
+      this.providerStorage.updateLastAccess(user.providerId).catch(() => {});
+    }
+
     const payload = userDetails;
     const token = await this.jwtService.signAsync(payload, { expiresIn: '1d' });
     return { token };

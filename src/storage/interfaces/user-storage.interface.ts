@@ -6,4 +6,5 @@ export interface IUserStorage {
   update(email: string, data: any): Promise<{ success: boolean }>;
   remove(email: string): Promise<{ success: boolean }>;
   findAll(): Promise<{ success: boolean; users?: any[]; message?: string }>;
+  updateLastAccess(email: string): Promise<void>;
 }
