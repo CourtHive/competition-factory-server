@@ -1,7 +1,3 @@
-import {
-  MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer,
-  ConnectedSocket, OnGatewayConnection, OnGatewayDisconnect,
-} from '@nestjs/websockets';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
 import { Roles } from 'src/modules/auth/decorators/roles.decorator';
@@ -12,6 +8,15 @@ import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { tools } from 'tods-competition-factory';
 import { tmxMessages } from './tmxMessages';
 import { Server, Socket } from 'socket.io';
+import {
+  MessageBody,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+  ConnectedSocket,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+} from '@nestjs/websockets';
 
 const TOURNAMENT_ROOM_PREFIX = 'tournament:';
 
@@ -33,11 +38,12 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server?: Server;
 
   handleConnection(client: Socket): void {
-    this.logger.debug(`Client connected: ${client.id}`);
+    const hasAuth = !!client.handshake.headers.authorization;
+    this.logger.log(`[connect] Client ${client.id} connected (hasAuth: ${hasAuth})`);
   }
 
   handleDisconnect(client: Socket): void {
-    this.logger.debug(`Client disconnected: ${client.id}`);
+    this.logger.log(`[disconnect] Client ${client.id} disconnected`);
     // Socket.IO automatically removes the client from all rooms on disconnect
   }
 
@@ -46,23 +52,30 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('joinTournament')
   @Roles([CLIENT, SUPER_ADMIN])
   async joinTournament(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
+    this.logger.log(`[room] joinTournament received from ${client.id} — data: ${JSON.stringify(data)}`);
     const tournamentId = data?.tournamentId;
-    if (!tournamentId || typeof tournamentId !== 'string') return;
+    if (!tournamentId || typeof tournamentId !== 'string') {
+      this.logger.warn(`[room] joinTournament rejected — invalid tournamentId: ${JSON.stringify(data)}`);
+      return;
+    }
 
     const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
     await client.join(room);
-    this.logger.debug(`Client ${client.id} joined room ${room}`);
+    const roomMembers = await this.server?.in(room).fetchSockets();
+    this.logger.log(`[room] Client ${client.id} joined ${room} — room now has ${roomMembers?.length ?? '?'} member(s)`);
   }
 
   @SubscribeMessage('leaveTournament')
   @Roles([CLIENT, SUPER_ADMIN])
   async leaveTournament(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
+    this.logger.log(`[room] leaveTournament received from ${client.id} — data: ${JSON.stringify(data)}`);
     const tournamentId = data?.tournamentId;
     if (!tournamentId || typeof tournamentId !== 'string') return;
 
     const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
     await client.leave(room);
-    this.logger.debug(`Client ${client.id} left room ${room}`);
+    const roomMembers = await this.server?.in(room).fetchSockets();
+    this.logger.log(`[room] Client ${client.id} left ${room} — room now has ${roomMembers?.length ?? '?'} member(s)`);
   }
 
   // ── Mutation handling with broadcast ──
@@ -106,11 +119,13 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * Broadcast an approved executionQueue to all other clients
    * that have joined the affected tournament room(s).
    */
-  private broadcastMutation(sender: Socket, payload: any): void {
-    const tournamentIds: string[] = payload?.tournamentIds ||
-      (payload?.tournamentId ? [payload.tournamentId] : []);
+  private async broadcastMutation(sender: Socket, payload: any): Promise<void> {
+    const tournamentIds: string[] = payload?.tournamentIds || (payload?.tournamentId ? [payload.tournamentId] : []);
     const methods = payload?.methods;
-    if (!methods?.length || !tournamentIds.length) return;
+    if (!methods?.length || !tournamentIds.length) {
+      this.logger.warn(`[broadcast] skipped — methods: ${methods?.length}, tournamentIds: ${tournamentIds.length}`);
+      return;
+    }
 
     const broadcast = {
       methods,
@@ -121,12 +136,18 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     for (const tournamentId of tournamentIds) {
       const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
+      const roomMembers = await this.server?.in(room).fetchSockets();
+      const memberIds = roomMembers?.map((s) => s.id) ?? [];
+      this.logger.log(
+        `[broadcast] room ${room} has ${memberIds.length} member(s): [${memberIds.join(', ')}] — sender: ${sender.id}`,
+      );
       // .to(room) sends to everyone in the room EXCEPT the sender
       sender.to(room).emit('tournamentMutation', broadcast);
     }
 
-    this.logger.debug(
-      `Broadcast ${methods.length} mutation(s) to rooms: ${tournamentIds.join(', ')} (excluding sender ${sender.id})`,
+    const methodNames = tools.unique(methods.map((m) => m.method) ?? []).join('|');
+    this.logger.log(
+      `[broadcast] sent ${methods.length} mutation(s) [${methodNames}] to rooms: ${tournamentIds.join(', ')} (excluding sender ${sender.id})`,
     );
   }
 
@@ -141,7 +162,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @Roles([CLIENT, SUPER_ADMIN])
   async timestamp(@MessageBody() data: any): Promise<any> {
     this.logger.verbose(`client timestamp: ${data.timestamp}`);
-    return { event: 'timestamp', data: { timestamp: new Date().getTime() } }; // emit to client
+    return { event: 'timestamp', data: { timestamp: Date.now() } }; // emit to client
   }
 
   @SubscribeMessage('test')
