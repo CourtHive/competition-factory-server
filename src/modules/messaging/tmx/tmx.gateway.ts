@@ -1,11 +1,12 @@
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import { PublicGateway } from '../public/public.gateway';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
 import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/modules/auth/guards/socket.guard';
 import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
 import { Public } from '../../auth/decorators/public.decorator';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { tools } from 'tods-competition-factory';
+import { topicConstants, tools } from 'tods-competition-factory';
 import { tmxMessages } from './tmxMessages';
 import { Server, Socket } from 'socket.io';
 import {
@@ -30,6 +31,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly tournamentStorageService: TournamentStorageService,
+    private readonly publicGateway: PublicGateway,
   ) {}
 
   private readonly logger = new Logger(TmxGateway.name);
@@ -50,7 +52,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // ── Tournament room management ──
 
   @SubscribeMessage('joinTournament')
-  @Public()
+  @Roles([CLIENT, SUPER_ADMIN])
   async joinTournament(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
     this.logger.log(`[room] joinTournament received from ${client.id} — data: ${JSON.stringify(data)}`);
     const tournamentId = data?.tournamentId;
@@ -66,7 +68,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('leaveTournament')
-  @Public()
+  @Roles([CLIENT, SUPER_ADMIN])
   async leaveTournament(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
     this.logger.log(`[room] leaveTournament received from ${client.id} — data: ${JSON.stringify(data)}`);
     const tournamentId = data?.tournamentId;
@@ -101,8 +103,10 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
           );
         } else {
           this.logger.debug(`${type} message successful: ${payload.userId}: ${methods}`);
-          // Broadcast approved mutations to other clients viewing the same tournament(s)
+          // Broadcast approved mutations to other TMX clients viewing the same tournament(s)
           this.broadcastMutation(client, payload);
+          // Broadcast sanitized updates to public viewers
+          this.broadcastPublicNotices(payload, result.publicNotices);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -149,6 +153,57 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(
       `[broadcast] sent ${methods.length} mutation(s) [${methodNames}] to rooms: ${tournamentIds.join(', ')} (excluding sender ${sender.id})`,
     );
+  }
+
+  /**
+   * Sanitize factory notices and broadcast to public viewers via the /public namespace.
+   */
+  private broadcastPublicNotices(payload: any, publicNotices?: any[]): void {
+    if (!publicNotices?.length) return;
+
+    const tournamentIds: string[] = payload?.tournamentIds || (payload?.tournamentId ? [payload.tournamentId] : []);
+
+    // Group notices by tournamentId
+    const noticesByTournament = new Map<string, any[]>();
+    for (const notice of publicNotices) {
+      const tid = notice.tournamentId || tournamentIds[0];
+      if (!tid) continue;
+      if (!noticesByTournament.has(tid)) noticesByTournament.set(tid, []);
+      noticesByTournament.get(tid)!.push(notice);
+    }
+
+    for (const [tournamentId, notices] of noticesByTournament) {
+      // Collect matchUp updates
+      const matchUpNotices = notices.filter((n) => n.topic === topicConstants.MODIFY_MATCHUP);
+      // Collect position assignment updates (for participant advancement across structures)
+      const positionNotices = notices.filter((n) => n.topic === topicConstants.MODIFY_POSITION_ASSIGNMENTS);
+
+      if (matchUpNotices.length) {
+        this.publicGateway.broadcastPublicUpdate(tournamentId, {
+          type: 'matchUpUpdate',
+          tournamentId,
+          matchUps: matchUpNotices.map((n) => n.matchUp),
+          positionAssignments: positionNotices.map((n) => ({
+            assignments: n.positionAssignments,
+            structureId: n.structureId,
+            drawId: n.drawId,
+          })),
+        });
+      }
+
+      // Collect publish/unpublish changes (exclude matchUp and position topics)
+      const publishNotices = notices.filter(
+        (n) => n.topic !== topicConstants.MODIFY_MATCHUP && n.topic !== topicConstants.MODIFY_POSITION_ASSIGNMENTS,
+      );
+      for (const notice of publishNotices) {
+        this.publicGateway.broadcastPublicUpdate(tournamentId, {
+          type: 'publishChange',
+          tournamentId,
+          action: notice.topic,
+          eventId: notice.eventId,
+        });
+      }
+    }
   }
 
   @SubscribeMessage('tmx')
