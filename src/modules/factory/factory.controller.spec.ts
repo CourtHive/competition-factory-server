@@ -1,3 +1,5 @@
+import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
+import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
 import { FactoryController } from './factory.controller';
 import { StorageModule } from 'src/storage/storage.module';
 import { ConfigsModule } from 'src/config/config.module';
@@ -14,7 +16,7 @@ describe('FactoryController', () => {
 
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
-      imports: [AuthModule, UsersModule, ConfigsModule, CacheModule, StorageModule],
+      imports: [AuthModule, UsersModule, ConfigsModule, CacheModule, StorageModule, BroadcastModule],
       providers: [FactoryService, ConfigService],
       controllers: [FactoryController],
     }).compile();
@@ -57,13 +59,18 @@ describe('FactoryController', () => {
       getMatchUps: jest.fn().mockResolvedValue(mockResult),
     } as unknown as FactoryService;
 
+    const mockBroadcast = {
+      broadcastMutation: jest.fn(),
+      broadcastPublicNotices: jest.fn(),
+    } as unknown as TournamentBroadcastService;
+
     const mockCache = {
       get: jest.fn().mockResolvedValue(undefined),
       set: jest.fn(),
     } as unknown as any;
 
     beforeEach(() => {
-      mockController = new FactoryController(mockService, mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
       jest.clearAllMocks();
     });
 
@@ -106,6 +113,85 @@ describe('FactoryController', () => {
       const result = await mockController.getMatchUps(params);
       expect(mockService.getMatchUps).toHaveBeenCalledWith(params);
       expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('REST mutation broadcasting', () => {
+    let mockController: FactoryController;
+
+    const mockBroadcast = {
+      broadcastMutation: jest.fn(),
+      broadcastPublicNotices: jest.fn(),
+    } as unknown as TournamentBroadcastService;
+
+    const mockCache = {
+      get: jest.fn().mockResolvedValue(undefined),
+      set: jest.fn(),
+    } as unknown as any;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('broadcasts after successful executionQueue', async () => {
+      const publicNotices = [{ topic: 'MODIFY_MATCHUP', matchUp: { matchUpId: 'm1' } }];
+      const mockService = {
+        executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices }),
+      } as unknown as FactoryService;
+      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+
+      const eqd = {
+        tournamentIds: ['t1'],
+        methods: [{ method: 'setMatchUpStatus', params: {} }],
+      };
+      await mockController.executionQueue(eqd as any);
+
+      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(eqd);
+      expect(mockBroadcast.broadcastPublicNotices).toHaveBeenCalledWith(eqd, publicNotices);
+    });
+
+    it('does not broadcast after failed executionQueue', async () => {
+      const mockService = {
+        executionQueue: jest.fn().mockResolvedValue({ error: 'something failed' }),
+      } as unknown as FactoryService;
+      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+
+      const eqd = {
+        tournamentIds: ['t1'],
+        methods: [{ method: 'setMatchUpStatus', params: {} }],
+      };
+      await mockController.executionQueue(eqd as any);
+
+      expect(mockBroadcast.broadcastMutation).not.toHaveBeenCalled();
+      expect(mockBroadcast.broadcastPublicNotices).not.toHaveBeenCalled();
+    });
+
+    it('broadcasts after successful score', async () => {
+      const publicNotices = [{ topic: 'MODIFY_MATCHUP', matchUp: { matchUpId: 'm1' } }];
+      const mockService = {
+        score: jest.fn().mockResolvedValue({ success: true, publicNotices }),
+      } as unknown as FactoryService;
+      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+
+      const sms = { tournamentId: 't1', matchUpId: 'm1', drawId: 'd1' };
+      await mockController.scoreMatchUp(sms as any);
+
+      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(
+        expect.objectContaining({ tournamentIds: ['t1'] }),
+      );
+      expect(mockBroadcast.broadcastPublicNotices).toHaveBeenCalled();
+    });
+
+    it('does not broadcast after failed score', async () => {
+      const mockService = {
+        score: jest.fn().mockResolvedValue({ error: 'invalid score' }),
+      } as unknown as FactoryService;
+      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+
+      const sms = { tournamentId: 't1', matchUpId: 'm1', drawId: 'd1' };
+      await mockController.scoreMatchUp(sms as any);
+
+      expect(mockBroadcast.broadcastMutation).not.toHaveBeenCalled();
     });
   });
 });

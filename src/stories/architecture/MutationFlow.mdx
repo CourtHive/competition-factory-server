@@ -56,6 +56,21 @@ With `serverFirst: true` (default), the flow is:
 8. **Client** receives `ack`, applies same mutations locally via factory engine
 9. **Client** saves to IndexedDB
 
+## REST API Mutations
+
+External applications can submit mutations via `POST /factory` (authenticated with JWT). These mutations follow the same execution path (lock, fetch, execute, save) and now also broadcast to connected TMX clients and public viewers:
+
+```
+External App → POST /factory { methods, tournamentIds }
+  → FactoryController.executionQueue()
+    → server executes and saves
+    → broadcastService.broadcastMutation()     → /tmx clients notified
+    → broadcastService.broadcastPublicNotices() → /public viewers notified
+  ← HTTP 200 { success, results }
+```
+
+See [Public Notifications](?path=/docs/architecture-public-notifications--docs) for details on consuming updates from the `/public` namespace.
+
 ## Offline / Local-First Mode
 
 When disconnected from the server (or no provider configured):

@@ -1,9 +1,9 @@
-import { PublicModule } from '../public/public.module';
+import { BroadcastModule } from '../broadcast/broadcast.module';
 import { TmxGateway } from './tmx.gateway';
 import { Module } from '@nestjs/common';
 
 @Module({
-  imports: [PublicModule],
+  imports: [BroadcastModule],
   providers: [TmxGateway],
 })
 export class TmxModule {}

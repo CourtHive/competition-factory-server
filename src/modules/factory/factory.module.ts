@@ -1,3 +1,4 @@
+import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
 import { FactoryController } from './factory.controller';
 import { ConfigsModule } from 'src/config/config.module';
 import { FactoryService } from './factory.service';
@@ -8,6 +9,6 @@ import { Module } from '@nestjs/common';
   providers: [FactoryService, ConfigService],
   controllers: [FactoryController],
   exports: [FactoryService],
-  imports: [ConfigsModule],
+  imports: [ConfigsModule, BroadcastModule],
 })
 export class FactoryModule {}

@@ -1,12 +1,12 @@
+import { TournamentBroadcastService } from '../broadcast/tournament-broadcast.service';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
-import { PublicGateway } from '../public/public.gateway';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
 import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/modules/auth/guards/socket.guard';
 import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
 import { Public } from '../../auth/decorators/public.decorator';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { topicConstants, tools } from 'tods-competition-factory';
+import { tools } from 'tods-competition-factory';
 import { tmxMessages } from './tmxMessages';
 import { Server, Socket } from 'socket.io';
 import {
@@ -17,6 +17,7 @@ import {
   ConnectedSocket,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
 } from '@nestjs/websockets';
 
 const TOURNAMENT_ROOM_PREFIX = 'tournament:';
@@ -27,17 +28,22 @@ const TOURNAMENT_ROOM_PREFIX = 'tournament:';
   cors: { origin: '*' },
   namespace: 'tmx',
 })
-export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   constructor(
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly tournamentStorageService: TournamentStorageService,
-    private readonly publicGateway: PublicGateway,
+    private readonly broadcastService: TournamentBroadcastService,
   ) {}
 
   private readonly logger = new Logger(TmxGateway.name);
 
   @WebSocketServer()
   server?: Server;
+
+  afterInit(server: Server): void {
+    this.broadcastService.setTmxServer(server);
+    this.logger.log('TmxGateway initialized — broadcast service registered');
+  }
 
   handleConnection(client: Socket): void {
     const hasAuth = !!client.handshake.headers.authorization;
@@ -104,9 +110,9 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
         } else {
           this.logger.debug(`${type} message successful: ${payload.userId}: ${methods}`);
           // Broadcast approved mutations to other TMX clients viewing the same tournament(s)
-          this.broadcastMutation(client, payload);
+          this.broadcastService.broadcastMutation(payload, client);
           // Broadcast sanitized updates to public viewers
-          this.broadcastPublicNotices(payload, result.publicNotices);
+          this.broadcastService.broadcastPublicNotices(payload, result.publicNotices);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -116,93 +122,6 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     } else {
       this.logger.debug(`Not found: ${type}`);
-    }
-  }
-
-  /**
-   * Broadcast an approved executionQueue to all other clients
-   * that have joined the affected tournament room(s).
-   */
-  private async broadcastMutation(sender: Socket, payload: any): Promise<void> {
-    const tournamentIds: string[] = payload?.tournamentIds || (payload?.tournamentId ? [payload.tournamentId] : []);
-    const methods = payload?.methods;
-    if (!methods?.length || !tournamentIds.length) {
-      this.logger.warn(`[broadcast] skipped — methods: ${methods?.length}, tournamentIds: ${tournamentIds.length}`);
-      return;
-    }
-
-    const broadcast = {
-      methods,
-      tournamentIds,
-      userId: payload?.userId,
-      timestamp: payload?.timestamp,
-    };
-
-    for (const tournamentId of tournamentIds) {
-      const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
-      const roomMembers = await this.server?.in(room).fetchSockets();
-      const memberIds = roomMembers?.map((s) => s.id) ?? [];
-      this.logger.log(
-        `[broadcast] room ${room} has ${memberIds.length} member(s): [${memberIds.join(', ')}] — sender: ${sender.id}`,
-      );
-      // .to(room) sends to everyone in the room EXCEPT the sender
-      sender.to(room).emit('tournamentMutation', broadcast);
-    }
-
-    const methodNames = tools.unique(methods.map((m) => m.method) ?? []).join('|');
-    this.logger.log(
-      `[broadcast] sent ${methods.length} mutation(s) [${methodNames}] to rooms: ${tournamentIds.join(', ')} (excluding sender ${sender.id})`,
-    );
-  }
-
-  /**
-   * Sanitize factory notices and broadcast to public viewers via the /public namespace.
-   */
-  private broadcastPublicNotices(payload: any, publicNotices?: any[]): void {
-    if (!publicNotices?.length) return;
-
-    const tournamentIds: string[] = payload?.tournamentIds || (payload?.tournamentId ? [payload.tournamentId] : []);
-
-    // Group notices by tournamentId
-    const noticesByTournament = new Map<string, any[]>();
-    for (const notice of publicNotices) {
-      const tid = notice.tournamentId || tournamentIds[0];
-      if (!tid) continue;
-      if (!noticesByTournament.has(tid)) noticesByTournament.set(tid, []);
-      noticesByTournament.get(tid)!.push(notice);
-    }
-
-    for (const [tournamentId, notices] of noticesByTournament) {
-      // Collect matchUp updates
-      const matchUpNotices = notices.filter((n) => n.topic === topicConstants.MODIFY_MATCHUP);
-      // Collect position assignment updates (for participant advancement across structures)
-      const positionNotices = notices.filter((n) => n.topic === topicConstants.MODIFY_POSITION_ASSIGNMENTS);
-
-      if (matchUpNotices.length) {
-        this.publicGateway.broadcastPublicUpdate(tournamentId, {
-          type: 'matchUpUpdate',
-          tournamentId,
-          matchUps: matchUpNotices.map((n) => n.matchUp),
-          positionAssignments: positionNotices.map((n) => ({
-            assignments: n.positionAssignments,
-            structureId: n.structureId,
-            drawId: n.drawId,
-          })),
-        });
-      }
-
-      // Collect publish/unpublish changes (exclude matchUp and position topics)
-      const publishNotices = notices.filter(
-        (n) => n.topic !== topicConstants.MODIFY_MATCHUP && n.topic !== topicConstants.MODIFY_POSITION_ASSIGNMENTS,
-      );
-      for (const notice of publishNotices) {
-        this.publicGateway.broadcastPublicUpdate(tournamentId, {
-          type: 'publishChange',
-          tournamentId,
-          action: notice.topic,
-          eventId: notice.eventId,
-        });
-      }
     }
   }
 

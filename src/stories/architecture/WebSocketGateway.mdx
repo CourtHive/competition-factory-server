@@ -68,7 +68,12 @@ The client waits for this `ack` before applying mutations locally, ensuring serv
 
 ## Broadcasting
 
-When a client modifies a tournament, the server broadcasts the changes to all other clients connected to the same tournament. This enables real-time collaboration between multiple tournament directors.
+When a tournament is modified — whether by a TMX client via Socket.IO or an external app via the REST API — the server broadcasts changes through two channels:
+
+1. **`/tmx` namespace** — full methods array sent to other authenticated TMX clients in the tournament room (sender excluded)
+2. **`/public` namespace** — sanitized score/status payloads sent to all public viewers (no authentication required)
+
+Broadcasting is handled by `TournamentBroadcastService`, a shared service used by both `TmxGateway` and `FactoryController`. See [Public Notifications](?path=/docs/architecture-public-notifications--docs) for details on consuming public updates from external applications.
 
 ## Key Files
 
@@ -77,8 +82,10 @@ When a client modifies a tournament, the server broadcasts the changes to all ot
     <tr><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>src/modules/messaging/tmx/tmx.gateway.ts</code></td><td>NestJS WebSocket gateway (Socket.IO adapter)</td></tr>
+    <tr><td><code>src/modules/messaging/tmx/tmx.gateway.ts</code></td><td>Authenticated WebSocket gateway for TMX clients</td></tr>
     <tr><td><code>src/modules/messaging/tmx/tmxMessages.ts</code></td><td>Message handler routing and business logic</td></tr>
+    <tr><td><code>src/modules/messaging/public/public.gateway.ts</code></td><td>Unauthenticated public namespace for read-only viewers</td></tr>
+    <tr><td><code>src/modules/messaging/broadcast/tournament-broadcast.service.ts</code></td><td>Shared broadcast logic for both Socket.IO and REST mutation paths</td></tr>
     <tr><td><code>src/modules/messaging/messaging.module.ts</code></td><td>NestJS module configuration</td></tr>
   </tbody>
 </table>

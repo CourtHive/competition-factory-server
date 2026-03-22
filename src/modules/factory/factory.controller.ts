@@ -10,6 +10,7 @@ import { ExecutionQueueDto } from './dto/executionQueue.dto';
 import { GetEventDataDto } from './dto/getEventData.dto';
 import { GetMatchUpsDto } from './dto/getMatchUps.dto';
 
+import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
 import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param, Logger } from '@nestjs/common';
 import { ADMIN, CLIENT, GENERATE, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
 import { Public } from 'src/modules/auth/decorators/public.decorator';
@@ -24,6 +25,7 @@ import { FactoryService } from './factory.service';
 export class FactoryController {
   constructor(
     private readonly factoryService: FactoryService,
+    private readonly broadcastService: TournamentBroadcastService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
@@ -101,14 +103,28 @@ export class FactoryController {
   @Roles([SCORE, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   async scoreMatchUp(@Body() sms: SetMatchUpStatusDto) {
-    return await this.factoryService.score(sms, this.cacheManager);
+    const result = await this.factoryService.score(sms, this.cacheManager);
+    if (result?.success) {
+      const { publicNotices } = result;
+      const { tournamentId } = sms;
+      const payload = { tournamentIds: tournamentId ? [tournamentId] : [], methods: [{ method: 'setMatchUpStatus', params: sms }] };
+      this.broadcastService.broadcastMutation(payload);
+      this.broadcastService.broadcastPublicNotices(payload, publicNotices);
+    }
+    return result;
   }
 
   @Post()
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  executionQueue(@Body() eqd: ExecutionQueueDto) {
-    return this.factoryService.executionQueue(eqd, { cacheManager: this.cacheManager });
+  async executionQueue(@Body() eqd: ExecutionQueueDto) {
+    const result = await this.factoryService.executionQueue(eqd, { cacheManager: this.cacheManager });
+    if (result?.success) {
+      const { publicNotices } = result;
+      this.broadcastService.broadcastMutation(eqd);
+      this.broadcastService.broadcastPublicNotices(eqd, publicNotices);
+    }
+    return result;
   }
 
   @Post('fetch')
