@@ -8,7 +8,7 @@ export async function getTournamentInfo(
     tournamentId,
     withMatchUpStats,
     withStructureDetails,
-    usePublishState = true,
+    usePublishState,
     withVenueData,
   }: {
     tournamentId: string;

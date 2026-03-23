@@ -76,7 +76,7 @@ describe('FactoryController', () => {
 
     it('getTournamentInfo preserves service binding', async () => {
       const result = await mockController.getTournamentInfo('tid');
-      expect(mockService.getTournamentInfo).toHaveBeenCalledWith({ tournamentId: 'tid' });
+      expect(mockService.getTournamentInfo).toHaveBeenCalledWith({ tournamentId: 'tid', usePublishState: true });
       expect(result).toEqual(mockResult);
     });
 

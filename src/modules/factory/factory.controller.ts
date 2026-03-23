@@ -61,7 +61,7 @@ export class FactoryController {
   @Get('tournamentinfo/:tid')
   async getTournamentInfo(@Param('tid') tid) {
     const key = `gti|${tid}`;
-    return await this.cacheFx(key, (params) => this.factoryService.getTournamentInfo(params), { tournamentId: tid });
+    return await this.cacheFx(key, (params) => this.factoryService.getTournamentInfo(params), { tournamentId: tid, usePublishState: true });
   }
 
   @Public()
