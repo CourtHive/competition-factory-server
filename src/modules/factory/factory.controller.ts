@@ -67,7 +67,8 @@ export class FactoryController {
   @Public()
   @Post('tournamentinfo')
   async tournamentInfo(@Body() gti: GetTournamentInfoDto) {
-    const key = `gti|${gti.tournamentId}`;
+    const flags = [gti.withMatchUpStats && 'ms', gti.withStructureDetails && 'sd', gti.usePublishState && 'ps', gti.withVenueData && 'vd'].filter(Boolean).join('');
+    const key = `gti|${gti.tournamentId}|${flags}`;
     return await this.cacheFx(key, (params) => this.factoryService.getTournamentInfo(params), gti);
   }
 
