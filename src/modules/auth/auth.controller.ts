@@ -2,6 +2,7 @@ import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
 import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
+import { ModifyUserDto } from './dto/modifyUser.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
 import { SignInDto } from './dto/signIn.dto';
@@ -10,7 +11,7 @@ import { RemoveDto } from './dto/remove.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private readonly authService: AuthService) {}
 
   @Public()
   @Post('login')
@@ -23,6 +24,13 @@ export class AuthController {
   @Roles([ADMIN, SUPER_ADMIN])
   invite(@Body() invitation: InviteDto) {
     return this.authService.invite(invitation);
+  }
+
+  @Post('modify')
+  @Roles([SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  modify(@Body() params: ModifyUserDto) {
+    return this.authService.modifyUser(params);
   }
 
   @Post('remove')

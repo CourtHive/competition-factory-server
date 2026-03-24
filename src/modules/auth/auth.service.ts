@@ -6,10 +6,16 @@ import { hashPassword } from './helpers/hashPassword';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
 
-import { PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
-import { AUTH_CODE_STORAGE, type IAuthCodeStorage } from 'src/storage/interfaces';
-import { USER_STORAGE, type IUserStorage } from 'src/storage/interfaces';
+// constants and interfaces
 import { SUCCESS } from 'src/common/constants/app';
+import {
+  PROVIDER_STORAGE,
+  type IProviderStorage,
+  AUTH_CODE_STORAGE,
+  type IAuthCodeStorage,
+  USER_STORAGE,
+  type IUserStorage,
+} from 'src/storage/interfaces';
 
 @Injectable()
 export class AuthService {
@@ -107,6 +113,19 @@ export class AuthService {
     user.password = await hashPassword(newPassword);
     await this.userStorage.update(user.email, user);
     return { ...SUCCESS };
+  }
+
+  async modifyUser(params: { email: string; [key: string]: any }) {
+    const { email, ...updates } = params;
+    if (!email) return { error: 'Email is required' };
+
+    const user = await this.usersService.findOne(email);
+    if (!user) return { error: 'User not found' };
+
+    const merged = { ...user, ...updates };
+    await this.userStorage.update(email, merged);
+    const { password: _, ...safeUser } = merged;
+    return { success: true, user: safeUser };
   }
 
   async removeUser(params: any) {
