@@ -125,6 +125,22 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     }
   }
 
+  // ── Chat relay ──
+
+  @SubscribeMessage('chatMessage')
+  @Roles([CLIENT, SUPER_ADMIN])
+  async chatMessage(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
+    const tournamentId = data?.tournamentId;
+    if (!tournamentId || !data?.message) return;
+
+    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
+    client.to(room).emit('chatMessage', {
+      userName: data.userName,
+      message: data.message,
+      timestamp: Date.now(),
+    });
+  }
+
   @SubscribeMessage('tmx')
   @Roles([CLIENT, SUPER_ADMIN])
   async tmx(@MessageBody() data: any): Promise<any> {
