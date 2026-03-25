@@ -111,9 +111,7 @@ describe('setMatchUpStatus', () => {
     expect(result.error).toBeDefined();
   });
 
-  it('extracts tournamentId from top-level payload, not nested params', async () => {
-    // Verify the fix: tournamentId should come from the DTO top level
-    // This would have failed before the fix when tournamentId was looked up inside payload.params
+  it('extracts tournamentId from top-level DTO payload', async () => {
     let result: any = await setMatchUpStatus(
       {
         tournamentId: TOURNAMENT_ID,
@@ -129,7 +127,29 @@ describe('setMatchUpStatus', () => {
       undefined,
       mockStorage,
     );
-    // Should NOT get "No tournamentIds provided" error — the tournamentId was found
+    // Should NOT get "No tournamentIds provided" — tournamentId was found at top level
+    expect(result.error).not.toEqual('No tournamentIds provided');
+  });
+
+  it('supports legacy wrapper with params containing tournamentId', async () => {
+    let result: any = await setMatchUpStatus(
+      {
+        params: {
+          tournamentId: TOURNAMENT_ID,
+          drawId,
+          matchUpId: 'non-existent-matchup',
+          outcome: {
+            score: { sets: [{ side1Score: 6, side2Score: 0, winningSide: 1, setNumber: 1 }] },
+            matchUpFormat: 'SET3-S:6/TB7',
+            matchUpStatus: COMPLETED,
+            winningSide: 1,
+          },
+        },
+      },
+      undefined,
+      mockStorage,
+    );
+    // Should NOT get "No tournamentIds provided" — tournamentId found inside legacy params wrapper
     expect(result.error).not.toEqual('No tournamentIds provided');
   });
 });

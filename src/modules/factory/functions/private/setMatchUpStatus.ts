@@ -4,9 +4,10 @@ import { executionQueue } from './executionQueue';
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
 
 export async function setMatchUpStatus(payload: any, services: any, storage: TournamentStorageService) {
-  // The DTO has tournamentId at the top level, not nested inside params
-  const { ...params } = payload ?? {};
-  const tournamentId = params.tournamentId || payload?.tournamentId; // Legacy client may have tournamentId in params
+  // Support both DTO shape (tournamentId at top level) and legacy wrapper ({ params: { tournamentId, ... } })
+  const hasLegacyWrapper = payload?.params && !payload?.matchUpId;
+  const flat = hasLegacyWrapper ? payload.params : payload ?? {};
+  const { tournamentId, ...params } = flat;
   const methods = [{ method: 'setMatchUpStatus', params }];
   return await executionQueue({ tournamentId, methods }, services, storage);
 }
