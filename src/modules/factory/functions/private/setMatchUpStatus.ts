@@ -5,7 +5,8 @@ import type { TournamentStorageService } from 'src/storage/tournament-storage.se
 
 export async function setMatchUpStatus(payload: any, services: any, storage: TournamentStorageService) {
   // The DTO has tournamentId at the top level, not nested inside params
-  const { tournamentId, ...params } = payload ?? {};
+  const { ...params } = payload ?? {};
+  const tournamentId = params.tournamentId || payload?.tournamentId; // Legacy client may have tournamentId in params
   const methods = [{ method: 'setMatchUpStatus', params }];
   return await executionQueue({ tournamentId, methods }, services, storage);
 }

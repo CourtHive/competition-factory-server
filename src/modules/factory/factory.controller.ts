@@ -10,8 +10,8 @@ import { ExecutionQueueDto } from './dto/executionQueue.dto';
 import { GetEventDataDto } from './dto/getEventData.dto';
 import { GetMatchUpsDto } from './dto/getMatchUps.dto';
 
-import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
 import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param, Logger } from '@nestjs/common';
+import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
 import { ADMIN, CLIENT, GENERATE, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
 import { Public } from 'src/modules/auth/decorators/public.decorator';
 import { Roles } from 'src/modules/auth/decorators/roles.decorator';
@@ -61,13 +61,23 @@ export class FactoryController {
   @Get('tournamentinfo/:tid')
   async getTournamentInfo(@Param('tid') tid) {
     const key = `gti|${tid}`;
-    return await this.cacheFx(key, (params) => this.factoryService.getTournamentInfo(params), { tournamentId: tid, usePublishState: true });
+    return await this.cacheFx(key, (params) => this.factoryService.getTournamentInfo(params), {
+      tournamentId: tid,
+      usePublishState: true,
+    });
   }
 
   @Public()
   @Post('tournamentinfo')
   async tournamentInfo(@Body() gti: GetTournamentInfoDto) {
-    const flags = [gti.withMatchUpStats && 'ms', gti.withStructureDetails && 'sd', gti.usePublishState && 'ps', gti.withVenueData && 'vd'].filter(Boolean).join('');
+    const flags = [
+      gti.withMatchUpStats && 'ms',
+      gti.withStructureDetails && 'sd',
+      gti.usePublishState && 'ps',
+      gti.withVenueData && 'vd',
+    ]
+      .filter(Boolean)
+      .join('');
     const key = `gti|${gti.tournamentId}|${flags}`;
     return await this.cacheFx(key, (params) => this.factoryService.getTournamentInfo(params), gti);
   }
@@ -108,7 +118,10 @@ export class FactoryController {
     if (result?.success) {
       const { publicNotices } = result;
       const { tournamentId } = sms;
-      const payload = { tournamentIds: tournamentId ? [tournamentId] : [], methods: [{ method: 'setMatchUpStatus', params: sms }] };
+      const payload = {
+        tournamentIds: tournamentId ? [tournamentId] : [],
+        methods: [{ method: 'setMatchUpStatus', params: sms }],
+      };
       this.broadcastService.broadcastMutation(payload);
       this.broadcastService.broadcastPublicNotices(payload, publicNotices);
     }
