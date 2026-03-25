@@ -24,4 +24,7 @@ export class SetMatchUpStatusDto {
 
   @ApiPropertyOptional()
   schedule?: any;
+
+  @ApiPropertyOptional()
+  params?: any;
 }

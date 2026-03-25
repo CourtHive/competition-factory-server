@@ -117,10 +117,10 @@ export class FactoryController {
     const result = await this.factoryService.score(sms, this.cacheManager);
     if (result?.success) {
       const { publicNotices } = result;
-      const { tournamentId } = sms;
+      const tournamentId = sms.tournamentId || sms.params?.tournamentId;
       const payload = {
         tournamentIds: tournamentId ? [tournamentId] : [],
-        methods: [{ method: 'setMatchUpStatus', params: sms }],
+        methods: [{ method: 'setMatchUpStatus', params: sms.params || sms }],
       };
       this.broadcastService.broadcastMutation(payload);
       this.broadcastService.broadcastPublicNotices(payload, publicNotices);
