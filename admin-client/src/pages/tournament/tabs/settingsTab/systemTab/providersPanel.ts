@@ -1,12 +1,11 @@
 import { createSearchFilter } from 'components/tables/common/filters/createSearchFilter';
+import { setActiveProvider } from 'services/provider/providerState';
 import { editProviderModal } from 'components/modals/editProvider';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { inviteModal } from 'components/modals/inviteUser';
 import { destroyTable } from 'pages/tournament/destroyTable';
 import { context } from 'services/context';
 import { t } from 'i18n';
-
-import { TMX_TOURNAMENTS } from 'constants/tmxConstants';
 
 const PROVIDER_LIST_TABLE = 'systemProviderListTable';
 const PROVIDER_USERS_TABLE = 'systemProviderUsersTable';
@@ -130,12 +129,12 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
   impersonateBtn.className = 'btn-impersonate';
   impersonateBtn.textContent = t('system.impersonate');
   impersonateBtn.addEventListener('click', () => {
-    context.provider = provider._raw?.value || {
+    setActiveProvider(provider._raw?.value || {
       organisationName: provider.organisationName,
       organisationAbbreviation: provider.organisationAbbreviation,
       organisationId: provider.organisationId,
-    };
-    context.router?.navigate(`/${TMX_TOURNAMENTS}/${provider.organisationAbbreviation}`);
+    });
+    context.router?.navigate('/admin');
   });
 
   const editBtn = document.createElement('button');

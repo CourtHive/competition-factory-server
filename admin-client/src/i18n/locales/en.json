@@ -1723,5 +1723,27 @@
     "defaultLanguage": "Default Language",
     "publishParticipants": "Publish Participants",
     "country": "Country"
+  },
+
+  "admin": {
+    "abbreviation": "Abbreviation",
+    "providerId": "Provider ID",
+    "impersonating": "Impersonating this provider",
+    "tournaments": "Tournaments",
+    "noTournaments": "No tournaments found",
+    "tournamentName": "Tournament",
+    "startDate": "Start",
+    "endDate": "End",
+    "calendarLoadError": "Could not load calendar",
+    "policyDefinitions": "Policy Definitions",
+    "policyEditorComingSoon": "Policy editor coming soon.",
+    "quickActions": "Quick Actions",
+    "manageProviders": "Manage Providers",
+    "manageUsers": "Manage Users",
+    "backToSystem": "Back to System",
+    "noProviderSelected": "No Provider Selected",
+    "selectProviderHint": "Select a provider from the System page to view their admin dashboard.",
+    "dashboard": "Dashboard",
+    "providerDashboardComingSoon": "Provider dashboard coming soon."
   }
 }

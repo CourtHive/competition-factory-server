@@ -51,6 +51,8 @@ export class FactoryService {
   }
 
   async generateTournamentRecord(params, user) {
+    const validUser = checkUser({ user });
+    if (!validUser) return { error: 'Invalid user' };
     const { tournamentRecord, tournamentRecords } = await gen(params, user);
     this.tournamentStorageService.saveTournamentRecords({ tournamentRecords });
     return { tournamentRecord, success: true };
