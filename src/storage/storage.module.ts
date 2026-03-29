@@ -6,18 +6,21 @@ import { USER_STORAGE } from './interfaces/user-storage.interface';
 import { PROVIDER_STORAGE } from './interfaces/provider-storage.interface';
 import { CALENDAR_STORAGE } from './interfaces/calendar-storage.interface';
 import { AUTH_CODE_STORAGE } from './interfaces/auth-code-storage.interface';
+import { SANCTIONING_STORAGE } from './interfaces/sanctioning-storage.interface';
 
 import { LeveldbTournamentStorage } from './leveldb/leveldb-tournament.storage';
 import { LeveldbUserStorage } from './leveldb/leveldb-user.storage';
 import { LeveldbProviderStorage } from './leveldb/leveldb-provider.storage';
 import { LeveldbCalendarStorage } from './leveldb/leveldb-calendar.storage';
 import { LeveldbAuthCodeStorage } from './leveldb/leveldb-auth-code.storage';
+import { LeveldbSanctioningStorage } from './leveldb/leveldb-sanctioning.storage';
 
 import { PostgresTournamentStorage } from './postgres/postgres-tournament.storage';
 import { PostgresUserStorage } from './postgres/postgres-user.storage';
 import { PostgresProviderStorage } from './postgres/postgres-provider.storage';
 import { PostgresCalendarStorage } from './postgres/postgres-calendar.storage';
 import { PostgresAuthCodeStorage } from './postgres/postgres-auth-code.storage';
+// Note: PostgresSanctioningStorage will be added when Postgres implementation is ready
 import { PG_POOL, getPostgresConfig } from './postgres/postgres.config';
 
 import { TournamentStorageService } from './tournament-storage.service';
@@ -81,6 +84,13 @@ const authCodeStorageProvider = makeStorageProvider(
   PostgresAuthCodeStorage,
 );
 
+// Sanctioning storage — LevelDB only for now (Postgres stub uses LevelDB)
+const sanctioningStorageProvider = makeStorageProvider(
+  SANCTIONING_STORAGE,
+  LeveldbSanctioningStorage,
+  LeveldbSanctioningStorage,
+);
+
 @Global()
 @Module({
   providers: [
@@ -90,6 +100,7 @@ const authCodeStorageProvider = makeStorageProvider(
     providerStorageProvider,
     calendarStorageProvider,
     authCodeStorageProvider,
+    sanctioningStorageProvider,
     TournamentStorageService,
   ],
   exports: [
@@ -98,6 +109,7 @@ const authCodeStorageProvider = makeStorageProvider(
     PROVIDER_STORAGE,
     CALENDAR_STORAGE,
     AUTH_CODE_STORAGE,
+    SANCTIONING_STORAGE,
     TournamentStorageService,
   ],
 })

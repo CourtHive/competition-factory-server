@@ -8,6 +8,7 @@ import { ConfigsModule } from '../../config/config.module';
 import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
 import { AppController } from './app.controller';
+import { SanctioningModule } from '../sanctioning/sanctioning.module';
 import { AuthModule } from '../auth/auth.module';
 import { AppService } from './app.service';
 import { Module } from '@nestjs/common';
@@ -24,6 +25,7 @@ import { join } from 'path';
     ConfigsModule,
     UsersModule,
     CacheModule,
+    SanctioningModule,
     AuthModule,
   ],
   controllers: [AppController],
