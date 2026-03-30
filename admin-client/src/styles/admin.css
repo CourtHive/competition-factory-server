@@ -154,6 +154,116 @@ body {
   pointer-events: auto;
 }
 
+/* ===== Buttons ===== */
+
+.btn-invite,
+.btn-action {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #fff;
+  background: var(--tmx-accent-blue, #4a90d9);
+  transition: opacity 0.15s;
+}
+.btn-invite:hover,
+.btn-action:hover {
+  opacity: 0.85;
+}
+
+.btn-edit {
+  padding: 6px 14px;
+  border: 1px solid var(--tmx-border-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--tmx-text-primary);
+  background: var(--tmx-bg-secondary);
+  transition: border-color 0.15s;
+}
+.btn-edit:hover {
+  border-color: var(--tmx-accent-blue);
+}
+
+.btn-impersonate {
+  padding: 6px 14px;
+  border: 1px solid var(--tmx-accent-orange, #f5a623);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--tmx-accent-orange, #f5a623);
+  background: transparent;
+  transition: background 0.15s;
+}
+.btn-impersonate:hover {
+  background: var(--tmx-accent-orange, #f5a623);
+  color: #fff;
+}
+
+/* ===== Form Inputs (dark mode) ===== */
+
+select,
+input[type="text"],
+input[type="date"],
+input[type="number"],
+input[type="email"],
+textarea {
+  background: var(--tmx-bg-elevated, #fff);
+  color: var(--tmx-text-primary, #363636);
+  border-color: var(--tmx-border-primary, #ddd);
+}
+
+/* ===== Tabulator Dark Mode Overrides ===== */
+
+.tabulator {
+  background: var(--tmx-tab-bg, #fff);
+  border-color: var(--tmx-tab-border, #ddd);
+  color: var(--tmx-tab-text, #363636);
+}
+
+.tabulator .tabulator-header {
+  background: var(--tmx-tab-header-bg, #f5f5f5);
+  border-color: var(--tmx-tab-border, #ddd);
+  color: var(--tmx-tab-text, #363636);
+}
+
+.tabulator .tabulator-header .tabulator-col {
+  background: var(--tmx-tab-header-bg, #f5f5f5);
+  border-color: var(--tmx-tab-border, #ddd);
+}
+
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row {
+  background: var(--tmx-tab-bg, #fff);
+  color: var(--tmx-tab-text, #363636);
+  border-color: var(--tmx-tab-border, #ddd);
+}
+
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row:nth-child(even) {
+  background: var(--tmx-tab-row-alt-bg, #fafafa);
+}
+
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row:hover {
+  background: var(--tmx-tab-row-hover-bg, #f0f0f0);
+  cursor: pointer;
+}
+
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row.tabulator-selected {
+  background: var(--tmx-accent-blue-bg, rgba(74, 144, 217, 0.15));
+}
+
+.tabulator .tabulator-row .tabulator-cell {
+  border-color: var(--tmx-tab-border, #ddd);
+}
+
+.tabulator .tabulator-tableholder .tabulator-placeholder span {
+  color: var(--tmx-text-secondary, #666);
+  font-size: 0.9rem;
+}
+
 /* ===== Quick Actions ===== */
 
 .quick-actions-list {

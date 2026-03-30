@@ -1,6 +1,6 @@
-import { getCalendar } from 'services/apis/servicesApi';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { destroyTable } from 'pages/tournament/destroyTable';
+import { getCalendar } from 'services/apis/servicesApi';
 import { context } from 'services/context';
 import { t } from 'i18n';
 
@@ -74,7 +74,8 @@ function renderCalendarPanel(grid: HTMLElement, provider: ProviderValue): void {
 
   getCalendar({ providerAbbr: provider.organisationAbbreviation }).then(
     (res: any) => {
-      const entries = res?.data?.calendar || [];
+      const raw = res?.data?.calendar;
+      const entries = Array.isArray(raw) ? raw : [];
 
       destroyTable({ anchorId: CALENDAR_TABLE });
 
@@ -119,10 +120,16 @@ function renderQuickActionsPanel(grid: HTMLElement, isSuperAdmin?: boolean): voi
 
   const actions: string[] = [];
   if (isSuperAdmin) {
-    actions.push(`<div class="quick-action" id="qa-system-providers"><i class="fa-solid fa-server"></i> ${t('admin.manageProviders')}</div>`);
-    actions.push(`<div class="quick-action" id="qa-system-users"><i class="fa-solid fa-users"></i> ${t('admin.manageUsers')}</div>`);
+    actions.push(
+      `<div class="quick-action" id="qa-system-providers"><i class="fa-solid fa-server"></i> ${t('admin.manageProviders')}</div>`,
+    );
+    actions.push(
+      `<div class="quick-action" id="qa-system-users"><i class="fa-solid fa-users"></i> ${t('admin.manageUsers')}</div>`,
+    );
   }
-  actions.push(`<div class="quick-action" id="qa-back-system"><i class="fa-solid fa-arrow-left"></i> ${t('admin.backToSystem')}</div>`);
+  actions.push(
+    `<div class="quick-action" id="qa-back-system"><i class="fa-solid fa-arrow-left"></i> ${t('admin.backToSystem')}</div>`,
+  );
 
   panel.innerHTML = `
     <h3><i class="fa-solid fa-bolt"></i> ${t('admin.quickActions')}</h3>
@@ -133,8 +140,12 @@ function renderQuickActionsPanel(grid: HTMLElement, isSuperAdmin?: boolean): voi
 
   // Wire click handlers after appending to DOM
   setTimeout(() => {
-    document.getElementById('qa-system-providers')?.addEventListener('click', () => context.router?.navigate('/system/providers'));
-    document.getElementById('qa-system-users')?.addEventListener('click', () => context.router?.navigate('/system/users'));
+    document
+      .getElementById('qa-system-providers')
+      ?.addEventListener('click', () => context.router?.navigate('/system/providers'));
+    document
+      .getElementById('qa-system-users')
+      ?.addEventListener('click', () => context.router?.navigate('/system/users'));
     document.getElementById('qa-back-system')?.addEventListener('click', () => context.router?.navigate('/system'));
   }, 0);
 }

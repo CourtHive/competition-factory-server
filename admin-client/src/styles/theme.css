@@ -29,6 +29,7 @@ html {
 
   /* Accents */
   --tmx-accent-blue: #4a90d9;
+  --tmx-accent-blue-bg: rgba(74, 144, 217, 0.12);
   --tmx-accent-green: #48c774;
   --tmx-accent-purple: #b86bff;
   --tmx-accent-red: #ff6b6b;
@@ -124,6 +125,7 @@ html {
 
   /* Accents */
   --tmx-accent-blue: #5b9bd5;
+  --tmx-accent-blue-bg: rgba(91, 155, 213, 0.18);
   --tmx-accent-green: #5cb878;
   --tmx-accent-purple: #c88aff;
   --tmx-accent-red: #ff8a8a;

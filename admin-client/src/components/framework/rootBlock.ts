@@ -59,7 +59,7 @@ function createNavbar(): HTMLDivElement {
   block.innerHTML = `<div id='dnav'>
     <div class="navbar-item" style="display: flex; flex-wrap: nowrap">
       <div id="provider" style="display: flex; flex-direction: column">
-        <div style="font-size: .6em">CF Admin</div>
+        <div style="font-size: .6em">CMX</div>
       </div>
       <div style="padding-left: 1em" id="pageTitle"> </div>
     </div>
@@ -67,6 +67,7 @@ function createNavbar(): HTMLDivElement {
       <i id='h-system' class="home-nav-icon fa-solid fa-server" title="System"></i>
       <i id='h-admin' class="home-nav-icon fa-solid fa-shield-halved" title="Admin"></i>
       <i id='h-sanctioning' class="home-nav-icon fa-solid fa-stamp" title="Sanctioning"></i>
+      <i id='h-stop-impersonating' class="home-nav-icon fa-solid fa-xmark" title="Stop impersonating" style="display:none; color: var(--tmx-accent-orange, #f5a623);"></i>
     </div>
     <div class="navbar-item" style="font-size: 1em; display: flex; align-items: center; gap: 2px;">
       <i id="themeToggle" style="cursor: pointer; padding: 0 .4em; opacity: 0.7;" class="fa-solid fa-moon" title="Toggle theme"></i>
