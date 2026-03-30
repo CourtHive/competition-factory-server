@@ -40,6 +40,14 @@ export default [
     },
   },
   {
+    files: ['admin-client/**/*.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
+  },
+  {
     files: ['**/*.mjs'],
     languageOptions: {
       globals: {
