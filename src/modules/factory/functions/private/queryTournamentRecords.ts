@@ -16,5 +16,9 @@ export async function queryTournamentRecords(payload, storage: ITournamentStorag
   queryEngine.setState(result.tournamentRecords);
 
   const { method, params } = payload;
+  if (typeof queryEngine[method] !== 'function') {
+    Logger.error(`queryEngine method not found: ${method}`);
+    return { error: `Unknown query method: ${method}` };
+  }
   return queryEngine[method](params);
 }
