@@ -1,12 +1,11 @@
 import { createSearchFilter } from 'components/tables/common/filters/createSearchFilter';
+import { setActiveProvider, clearActiveProvider } from 'services/provider/providerState';
 import { editProviderModal } from 'components/modals/editProvider';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
-import { inviteModal } from 'components/modals/inviteUser';
 import { destroyTable } from 'pages/tournament/destroyTable';
+import { inviteModal } from 'components/modals/inviteUser';
 import { context } from 'services/context';
 import { t } from 'i18n';
-
-import { TMX_TOURNAMENTS } from 'constants/tmxConstants';
 
 const PROVIDER_LIST_TABLE = 'systemProviderListTable';
 const PROVIDER_USERS_TABLE = 'systemProviderUsersTable';
@@ -28,7 +27,8 @@ export function renderProvidersPanel({ container, providers, users, onRefresh }:
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
   searchInput.placeholder = t('system.searchProviders');
-  searchInput.style.cssText = 'padding: 6px 10px; border: 1px solid var(--tmx-border-primary); border-radius: 4px; font-size: 0.85rem; min-width: 200px; background: var(--tmx-bg-elevated, #fff); color: var(--tmx-text-primary, #363636);';
+  searchInput.style.cssText =
+    'padding: 6px 10px; border: 1px solid var(--tmx-border-primary); border-radius: 4px; font-size: 0.85rem; min-width: 200px; background: var(--tmx-bg-elevated, #fff); color: var(--tmx-text-primary, #363636);';
 
   const toolbarActions = document.createElement('div');
   toolbarActions.className = 'toolbar-actions';
@@ -88,8 +88,17 @@ export function renderProvidersPanel({ container, providers, users, onRefresh }:
   table.on('rowSelectionChanged', (_data, rows) => {
     const selected = rows?.[0]?.getData();
     if (selected) {
+      // Auto-set as active provider on selection
+      setActiveProvider(
+        selected._raw?.value || {
+          organisationName: selected.organisationName,
+          organisationAbbreviation: selected.organisationAbbreviation,
+          organisationId: selected.organisationId,
+        },
+      );
       renderProviderDetail({ detailPane, provider: selected, providers, users, onRefresh });
     } else {
+      clearActiveProvider();
       detailPane.innerHTML = `<div class="system-no-selection">${t('system.selectProvider')}</div>`;
     }
   });
@@ -130,12 +139,14 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
   impersonateBtn.className = 'btn-impersonate';
   impersonateBtn.textContent = t('system.impersonate');
   impersonateBtn.addEventListener('click', () => {
-    context.provider = provider._raw?.value || {
-      organisationName: provider.organisationName,
-      organisationAbbreviation: provider.organisationAbbreviation,
-      organisationId: provider.organisationId,
-    };
-    context.router?.navigate(`/${TMX_TOURNAMENTS}/${provider.organisationAbbreviation}`);
+    setActiveProvider(
+      provider._raw?.value || {
+        organisationName: provider.organisationName,
+        organisationAbbreviation: provider.organisationAbbreviation,
+        organisationId: provider.organisationId,
+      },
+    );
+    context.router?.navigate('/admin');
   });
 
   const editBtn = document.createElement('button');

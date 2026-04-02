@@ -1,8 +1,8 @@
 import { generateTournamentRecord } from '../../../../services/fileSystem/generateTournamentRecord';
 import { removeTournamentRecords } from '../../../../services/fileSystem/removeTournamentRecords';
 import { queryTournamentRecords } from './queryTournamentRecords';
-import { TEST } from '../../../../common/constants/test';
 import fileStorage from '../../../../services/fileSystem';
+import { TEST } from '../../../../common/constants/test';
 import { executionQueue } from './executionQueue';
 import 'dotenv/config';
 
@@ -20,13 +20,18 @@ const queryStorage = fileStorage as unknown as ITournamentStorage;
 const venueId = 'venue-01';
 const courtId = 'court-01';
 
+const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
+
 describe('addVenue and addCourt via executionQueue', () => {
   beforeAll(async () => {
     await removeTournamentRecords({ tournamentId: TEST });
 
-    let result: any = await generateTournamentRecord({
-      tournamentAttributes: { tournamentId: TEST },
-    });
+    let result: any = await generateTournamentRecord(
+      {
+        tournamentAttributes: { tournamentId: TEST },
+      },
+      testUser,
+    );
     expect(result.success).toEqual(true);
   });
 

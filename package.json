@@ -32,6 +32,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/jest/bin/jest --runInBand",
     "check-types": "tsc --noEmit",
     "hive-db": "net-level-server",
@@ -83,7 +86,7 @@
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "socket.io": "4.8.3",
-    "tods-competition-factory": "2.4.6-beta.36",
+    "tods-competition-factory": "link:../factory",
     "tods-tmx-classic-converter": "3.0.5",
     "tslib": "^2.6.2"
   },
@@ -94,6 +97,7 @@
     "@nestjs/cli": "11.0.16",
     "@nestjs/schematics": "11.0.9",
     "@nestjs/testing": "11.1.17",
+    "@playwright/test": "^1.58.2",
     "@storybook/addon-docs": "^10.2.17",
     "@storybook/html-vite": "^10.2.17",
     "@swc/cli": "0.8.0",
@@ -161,6 +165,10 @@
       "<rootDir>"
     ],
     "rootDir": "./",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/e2e/"
+    ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"

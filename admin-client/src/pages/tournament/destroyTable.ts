@@ -13,9 +13,4 @@ export function destroyTables(): void {
       delete context.tables[key];
     }
   }
-
-  while ((context.collectionTables || []).length) {
-    const table = context.collectionTables?.pop();
-    table?.destroy();
-  }
 }

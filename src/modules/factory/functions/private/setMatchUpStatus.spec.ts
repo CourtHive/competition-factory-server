@@ -19,6 +19,8 @@ const mockStorage = {
 
 const TOURNAMENT_ID = 'test-score';
 
+const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
+
 describe('setMatchUpStatus', () => {
   let drawId: string;
   let matchUpId: string;
@@ -26,10 +28,13 @@ describe('setMatchUpStatus', () => {
   beforeAll(async () => {
     await removeTournamentRecords({ tournamentId: TOURNAMENT_ID });
 
-    const genResult = await generateTournamentRecord({
-      tournamentAttributes: { tournamentId: TOURNAMENT_ID },
-      drawProfiles: [{ drawSize: 4 }],
-    });
+    const genResult = await generateTournamentRecord(
+      {
+        tournamentAttributes: { tournamentId: TOURNAMENT_ID },
+        drawProfiles: [{ drawSize: 4 }],
+      },
+      testUser,
+    );
     expect(genResult.success).toEqual(true);
 
     // Extract a valid matchUpId and drawId from the generated record

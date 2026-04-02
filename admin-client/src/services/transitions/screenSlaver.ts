@@ -1,137 +1,55 @@
 /**
- * Screen state management for main content areas.
- * Controls visibility of splash, content, tournaments, calendar, templates, policies views.
- * Manages switching between home nav bar and tournament nav bar.
+ * Screen state management for admin app content areas.
+ * Controls visibility of the admin and system page containers.
  */
-import {
-  NONE,
-  SPLASH,
-  TMX_CONTENT,
-  TMX_TOURNAMENTS,
-  TMX_TOPOLOGY,
-  TMX_TEMPLATES,
-  TMX_POLICIES,
-  TMX_SETTINGS,
-  TMX_ADMIN,
-  TMX_SYSTEM,
-} from 'constants/tmxConstants';
+import { NONE, TMX_ADMIN, TMX_SYSTEM, TMX_SANCTIONING } from 'constants/tmxConstants';
 
 let content: string | undefined;
 
-const HOME_CONTEXT_PAGES = [TMX_TOURNAMENTS, TMX_TEMPLATES, TMX_POLICIES, TMX_SETTINGS];
-const TOURNAMENT_CONTEXT_PAGES = [TMX_CONTENT, TMX_TOPOLOGY];
+const PAGE_IDS = [TMX_SYSTEM, TMX_ADMIN, TMX_SANCTIONING];
 
 function selectDisplay(which: string): void {
-  setState(TMX_CONTENT, which);
-  setState(SPLASH, which);
-  setState(TMX_TOURNAMENTS, which);
-  setState(TMX_TOPOLOGY, which);
-  setState(TMX_ADMIN, which);
-  setState(TMX_SYSTEM, which);
-  setState(TMX_TEMPLATES, which);
-  setState(TMX_POLICIES, which);
-  setState(TMX_SETTINGS, which);
-
-  const trnynav = document.getElementById('trnynav');
-  const homenav = document.getElementById('homenav');
-  const dnav = document.getElementById('dnav');
-
-  const allManagedPages = [...HOME_CONTEXT_PAGES, ...TOURNAMENT_CONTEXT_PAGES, TMX_ADMIN, TMX_SYSTEM];
-  if (allManagedPages.includes(which)) {
-    if (dnav) dnav.style.display = '';
-
-    if (TOURNAMENT_CONTEXT_PAGES.includes(which)) {
-      if (trnynav) trnynav.style.display = '';
-      if (homenav) homenav.style.display = NONE;
-    } else if (HOME_CONTEXT_PAGES.includes(which)) {
-      if (trnynav) trnynav.style.display = NONE;
-      if (homenav) homenav.style.display = '';
-    } else {
-      // Admin/System: hide both nav bars
-      if (trnynav) trnynav.style.display = NONE;
-      if (homenav) homenav.style.display = NONE;
-    }
-  } else if (dnav) {
-    // Splash or unknown: hide entire dnav
-    dnav.style.display = NONE;
+  for (const id of PAGE_IDS) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = id === which ? 'flex' : 'none';
   }
-}
 
-function isActive(id: string): boolean {
-  const docnode = document.getElementById(id);
-  return docnode?.style.display !== 'flex';
-}
-
-function setState(id: string, which: string): void {
-  const display = id === which;
-  const docnode = document.getElementById(id);
-  if (docnode) docnode.style.display = display ? 'flex' : 'none';
+  // Update homenav active states
+  const systemIcon = document.getElementById('h-system');
+  const adminIcon = document.getElementById('h-admin');
+  if (systemIcon) {
+    systemIcon.classList.toggle('active', which === TMX_SYSTEM);
+  }
+  if (adminIcon) {
+    adminIcon.classList.toggle('active', which === TMX_ADMIN);
+  }
+  const sanctioningIcon = document.getElementById('h-sanctioning');
+  if (sanctioningIcon) {
+    sanctioningIcon.classList.toggle('active', which === TMX_SANCTIONING);
+  }
 }
 
 export const contentEquals = (what?: string): boolean => {
   return what ? what === content : !!content;
 };
-export const showSplash = (): void => {
-  const dnav = document.getElementById('dnav');
-  if (dnav) dnav.style.display = NONE;
-  content = SPLASH;
-  selectDisplay(SPLASH);
-};
-export const showContent = (what: string): void => {
-  content = what;
-  selectDisplay(TMX_CONTENT);
-};
-export const showTMXtournaments = (): void => {
-  const tournamentElement = document.getElementById('pageTitle');
-  if (tournamentElement) {
-    tournamentElement.innerHTML = `<div class='tmx-title'>Tournaments</div>`;
-  }
-  content = TMX_TOURNAMENTS;
-  selectDisplay(content);
-};
-export const showTopology = (): void => {
-  content = TMX_TOPOLOGY;
-  selectDisplay(content);
-};
-export const showTMXtemplates = (): void => {
-  const tournamentElement = document.getElementById('pageTitle');
-  if (tournamentElement) {
-    tournamentElement.innerHTML = `<div class='tmx-title'>Templates</div>`;
-  }
-  content = TMX_TEMPLATES;
-  selectDisplay(content);
-};
-export const showTMXpolicies = (): void => {
-  const tournamentElement = document.getElementById('pageTitle');
-  if (tournamentElement) {
-    tournamentElement.innerHTML = `<div class='tmx-title'>Policies</div>`;
-  }
-  content = TMX_POLICIES;
-  selectDisplay(content);
-};
-export const showTMXsettings = (): void => {
-  const tournamentElement = document.getElementById('pageTitle');
-  if (tournamentElement) {
-    tournamentElement.innerHTML = `<div class='tmx-title'>Settings</div>`;
-  }
-  content = TMX_SETTINGS;
-  selectDisplay(content);
-};
+
 export const showTMXadmin = (): void => {
-  const tournamentElement = document.getElementById('pageTitle');
-  if (tournamentElement) {
-    tournamentElement.innerHTML = `<div class='tmx-title'>Admin</div>`;
-  }
+  const titleEl = document.getElementById('pageTitle');
+  if (titleEl) titleEl.textContent = 'Admin';
   content = TMX_ADMIN;
   selectDisplay(content);
 };
+
+export const showTMXsanctioning = (): void => {
+  const titleEl = document.getElementById('pageTitle');
+  if (titleEl) titleEl.textContent = 'Sanctioning';
+  content = TMX_SANCTIONING;
+  selectDisplay(content);
+};
+
 export const showTMXsystem = (): void => {
-  const tournamentElement = document.getElementById('pageTitle');
-  if (tournamentElement) {
-    tournamentElement.innerHTML = `<div class='tmx-title'>System</div>`;
-  }
+  const titleEl = document.getElementById('pageTitle');
+  if (titleEl) titleEl.textContent = 'System';
   content = TMX_SYSTEM;
   selectDisplay(content);
 };
-export const splashActive = (): boolean => isActive(SPLASH);
-export const contentActive = (): boolean => isActive(TMX_CONTENT);

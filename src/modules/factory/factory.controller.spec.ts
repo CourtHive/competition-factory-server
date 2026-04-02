@@ -2,14 +2,16 @@ import { TournamentBroadcastService } from '../messaging/broadcast/tournament-br
 import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
 import { FactoryController } from './factory.controller';
 import { StorageModule } from 'src/storage/storage.module';
-import { ConfigsModule } from 'src/config/config.module';
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigsModule } from 'src/config/config.module';
 import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
 import { FactoryService } from './factory.service';
 import { AuthModule } from '../auth/auth.module';
 import { TEST } from 'src/common/constants/test';
 import { ConfigService } from '@nestjs/config';
+
+const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
 
 describe('FactoryController', () => {
   let factoryController: FactoryController;
@@ -33,7 +35,7 @@ describe('FactoryController', () => {
   });
 
   it('can generate a tournament record', async () => {
-    const result = await factoryController.generateTournamentRecord({ tournamentId: TEST });
+    const result = await factoryController.generateTournamentRecord({ tournamentId: TEST }, testUser);
     expect(result.success).toEqual(true);
   });
 
@@ -43,7 +45,7 @@ describe('FactoryController', () => {
   });
 
   it('can generate a tournamentRecord and query for it', async () => {
-    const result = await factoryController.generateTournamentRecord({ tournamentAttributes: { tournamentId: TEST } });
+    const result = await factoryController.generateTournamentRecord({ tournamentAttributes: { tournamentId: TEST } }, testUser);
     expect(result.tournamentRecord.tournamentId).toBe(TEST);
   });
 
