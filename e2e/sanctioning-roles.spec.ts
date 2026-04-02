@@ -28,13 +28,13 @@ test.describe('Role-Based Access — API Level', () => {
     const sanctioningId = createResult?.sanctioningRecord?.sanctioningId;
 
     // Submit first (this is a CLIENT method — should work)
-    const submitResult = await api.execute(sanctioningId, 'submitApplication', {});
+    await api.execute(sanctioningId, 'submitApplication', {});
     // Note: may succeed or fail depending on auth setup — the point is the
     // reviewer method check below
 
     // approveApplication is a REVIEWER_METHOD — should be rejected for CLIENT
     // (This test will only fully work when auth is wired with proper role tokens)
-    const approveResult = await api.execute(sanctioningId, 'approveApplication', {});
+    await api.execute(sanctioningId, 'approveApplication', {});
     // Expected: either 403 or error indicating reviewer role required
   });
 

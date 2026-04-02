@@ -1,7 +1,7 @@
 import { generateTournamentRecord } from '../../../../services/fileSystem/generateTournamentRecord';
 import { removeTournamentRecords } from '../../../../services/fileSystem/removeTournamentRecords';
-import { getTournamentInfo } from './getTournamentInfo';
 import fileStorage from '../../../../services/fileSystem';
+import { getTournamentInfo } from './getTournamentInfo';
 import 'dotenv/config';
 
 import type { ITournamentStorage } from 'src/storage/interfaces';
@@ -9,13 +9,18 @@ import type { ITournamentStorage } from 'src/storage/interfaces';
 const storage = fileStorage as unknown as ITournamentStorage;
 const TEST_TID = 'test-epixodic-tournament-info';
 
+const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
+
 describe('getTournamentInfo for epixodic', () => {
   beforeAll(async () => {
     await removeTournamentRecords({ tournamentId: TEST_TID });
-    const result = await generateTournamentRecord({
-      tournamentAttributes: { tournamentId: TEST_TID },
-      drawProfiles: [{ drawSize: 8 }, { drawSize: 16 }],
-    });
+    const result = await generateTournamentRecord(
+      {
+        tournamentAttributes: { tournamentId: TEST_TID },
+        drawProfiles: [{ drawSize: 8 }, { drawSize: 16 }],
+      },
+      testUser,
+    );
     expect(result.success).toEqual(true);
   });
 

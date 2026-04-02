@@ -1,8 +1,8 @@
 import { generateTournamentRecord } from '../../../../services/fileSystem/generateTournamentRecord';
 import { removeTournamentRecords } from '../../../../services/fileSystem/removeTournamentRecords';
 import { factoryConstants } from 'tods-competition-factory';
-import { TEST } from '../../../../common/constants/test';
 import fileStorage from '../../../../services/fileSystem';
+import { TEST } from '../../../../common/constants/test';
 import { executionQueue } from './executionQueue';
 import 'dotenv/config';
 
@@ -15,6 +15,8 @@ const mockStorage = {
   modifyProviderCalendar: () => Promise.resolve({ success: true }),
 } as unknown as TournamentStorageService;
 
+const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
+
 describe('executionQueue', () => {
   it('can generate a tournamentRecord', async () => {
     // FIRST: remove any existing tournamentRecord with this tournamentId
@@ -22,10 +24,13 @@ describe('executionQueue', () => {
     expect(result.success).toEqual(true);
 
     // SECOND: generate a tournamentRecord with this tournamentId and persist to storage
-    result = await generateTournamentRecord({
-      tournamentAttributes: { tournamentId: TEST },
-      drawProfiles: [{ drawSize: 16 }],
-    });
+    result = await generateTournamentRecord(
+      {
+        tournamentAttributes: { tournamentId: TEST },
+        drawProfiles: [{ drawSize: 16 }],
+      },
+      testUser,
+    );
     expect(result.success).toEqual(true);
 
     const payload = {
