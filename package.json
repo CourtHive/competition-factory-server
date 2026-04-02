@@ -165,6 +165,10 @@
       "<rootDir>"
     ],
     "rootDir": "./",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/e2e/"
+    ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
