@@ -124,7 +124,7 @@ export class AuthService {
 
     const merged = { ...user, ...updates };
     await this.userStorage.update(email, merged);
-    const { password: _, ...safeUser } = merged;
+    const { password: _, ...safeUser } = merged; // eslint-disable-line @typescript-eslint/no-unused-vars
     return { success: true, user: safeUser };
   }
 
