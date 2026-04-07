@@ -94,7 +94,7 @@
     "@commitlint/cli": "^20.0.0",
     "@commitlint/config-conventional": "^20.0.0",
     "@eslint/js": "^10.0.1",
-    "@nestjs/cli": "11.0.17",
+    "@nestjs/cli": "11.0.18",
     "@nestjs/schematics": "11.0.10",
     "@nestjs/testing": "11.1.18",
     "@playwright/test": "^1.58.2",
