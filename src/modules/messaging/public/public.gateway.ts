@@ -109,6 +109,18 @@ export class PublicGateway implements OnGatewayConnection, OnGatewayDisconnect, 
   }
 
   /**
+   * Broadcast a compact PublicLivePayload to all public clients in a
+   * tournament room. Called by PublicLiveBroadcaster (registered as a
+   * callback consumer in ConsumerRegistryService) on every projector
+   * dispatch — i.e. after every successful bolt-history upsert.
+   */
+  broadcastLiveScore(tournamentId: string, payload: any): void {
+    if (!tournamentId || !payload) return;
+    const room = PUBLIC_ROOM_PREFIX + tournamentId;
+    this.server?.to(room).emit('liveScore', payload);
+  }
+
+  /**
    * Periodic summary of connected public clients and active tournament rooms.
    */
   private async logMetricsSummary(): Promise<void> {

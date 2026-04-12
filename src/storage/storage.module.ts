@@ -1,11 +1,15 @@
+import { BOLT_HISTORY_REPORTING } from './interfaces/bolt-history-reporting.interface';
 import { OFFICIATING_STORAGE } from './interfaces/officiating-storage.interface';
 import { SANCTIONING_STORAGE } from './interfaces/sanctioning-storage.interface';
+import { BOLT_HISTORY_STORAGE } from './interfaces/bolt-history.interface';
 import { TOURNAMENT_STORAGE } from './interfaces/tournament-storage.interface';
 import { AUTH_CODE_STORAGE } from './interfaces/auth-code-storage.interface';
 import { PROVIDER_STORAGE } from './interfaces/provider-storage.interface';
 import { CALENDAR_STORAGE } from './interfaces/calendar-storage.interface';
 import { USER_STORAGE } from './interfaces/user-storage.interface';
 
+import { LeveldbBoltHistoryReportingStorage } from './leveldb/leveldb-bolt-history-reporting.storage';
+import { LeveldbBoltHistoryStorage } from './leveldb/leveldb-bolt-history.storage';
 import { LeveldbTournamentStorage } from './leveldb/leveldb-tournament.storage';
 import { LeveldbSanctioningStorage } from './leveldb/leveldb-sanctioning.storage';
 import { LeveldbOfficiatingStorage } from './leveldb/leveldb-officiating.storage';
@@ -14,6 +18,8 @@ import { LeveldbProviderStorage } from './leveldb/leveldb-provider.storage';
 import { LeveldbAuthCodeStorage } from './leveldb/leveldb-auth-code.storage';
 import { LeveldbUserStorage } from './leveldb/leveldb-user.storage';
 
+import { PostgresBoltHistoryReportingStorage } from './postgres/postgres-bolt-history-reporting.storage';
+import { PostgresBoltHistoryStorage } from './postgres/postgres-bolt-history.storage';
 import { PostgresTournamentStorage } from './postgres/postgres-tournament.storage';
 import { PostgresProviderStorage } from './postgres/postgres-provider.storage';
 import { PostgresCalendarStorage } from './postgres/postgres-calendar.storage';
@@ -99,6 +105,18 @@ const sanctioningStorageProvider = makeStorageProvider(
   LeveldbSanctioningStorage,
 );
 
+const boltHistoryStorageProvider = makeStorageProvider(
+  BOLT_HISTORY_STORAGE,
+  LeveldbBoltHistoryStorage,
+  PostgresBoltHistoryStorage,
+);
+
+const boltHistoryReportingProvider = makeStorageProvider(
+  BOLT_HISTORY_REPORTING,
+  LeveldbBoltHistoryReportingStorage,
+  PostgresBoltHistoryReportingStorage,
+);
+
 @Global()
 @Module({
   providers: [
@@ -110,6 +128,8 @@ const sanctioningStorageProvider = makeStorageProvider(
     authCodeStorageProvider,
     officiatingStorageProvider,
     sanctioningStorageProvider,
+    boltHistoryStorageProvider,
+    boltHistoryReportingProvider,
     TournamentStorageService,
   ],
   exports: [
@@ -120,6 +140,8 @@ const sanctioningStorageProvider = makeStorageProvider(
     AUTH_CODE_STORAGE,
     OFFICIATING_STORAGE,
     SANCTIONING_STORAGE,
+    BOLT_HISTORY_STORAGE,
+    BOLT_HISTORY_REPORTING,
     TournamentStorageService,
   ],
 })

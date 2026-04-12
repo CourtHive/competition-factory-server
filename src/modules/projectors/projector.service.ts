@@ -1,0 +1,129 @@
+import { buildVideoBoardPayload } from './transforms/video-board.transform';
+import { buildPublicLivePayload } from './transforms/public-live.transform';
+import { buildScorebugPayload } from './transforms/scorebug.transform';
+import {
+  ConsumerEndpoint,
+  ConsumerRegistryService,
+  HttpConsumerEndpoint,
+  isCallbackConsumer,
+} from './consumer-registry.service';
+import { ScorebugTickService } from './scorebug-tick.service';
+import { BoltHistoryDocument } from './types/bolt-history-document';
+import { Injectable, Logger } from '@nestjs/common';
+
+const MAX_DISPATCH_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 200;
+
+@Injectable()
+export class ProjectorService {
+  private readonly logger = new Logger(ProjectorService.name);
+  private readonly sequencesByMatchUp = new Map<string, number>();
+
+  constructor(
+    private readonly registry: ConsumerRegistryService,
+    private readonly scorebugTickService: ScorebugTickService,
+  ) {}
+
+  async project(document: BoltHistoryDocument): Promise<void> {
+    if (!document?.tieMatchUpId) {
+      this.logger.warn('project() called without tieMatchUpId — skipping');
+      return;
+    }
+
+    const scorebugConsumers = this.registry.list('scorebug').filter((c) => c.enabled);
+    const videoBoardConsumers = this.registry.list('video-board').filter((c) => c.enabled);
+    const publicLiveConsumers = this.registry.list('public-live').filter((c) => c.enabled);
+
+    if (scorebugConsumers.length > 0) {
+      const payload = buildScorebugPayload(document);
+      for (const consumer of scorebugConsumers) {
+        void this.dispatch(consumer, payload);
+      }
+    }
+
+    if (videoBoardConsumers.length > 0) {
+      const sequence = this.nextSequence(document.tieMatchUpId);
+      const payload = buildVideoBoardPayload(document, sequence);
+      for (const consumer of videoBoardConsumers) {
+        void this.dispatch(consumer, payload);
+      }
+    }
+
+    if (publicLiveConsumers.length > 0) {
+      const payload = buildPublicLivePayload(document);
+      for (const consumer of publicLiveConsumers) {
+        void this.dispatch(consumer, payload);
+      }
+    }
+
+    // Update the per-matchUp sub-second clock tick stream. The tick service
+    // decides whether to start, restart, or stop based on the document state.
+    // It runs orthogonally to the event dispatches above — score events fire
+    // here, sub-second clock ticks fire from inside the tick service on its
+    // own setInterval cadence.
+    this.scorebugTickService.notifyDocumentUpdate(document);
+  }
+
+  private nextSequence(matchUpId: string): number {
+    const next = (this.sequencesByMatchUp.get(matchUpId) ?? 0) + 1;
+    this.sequencesByMatchUp.set(matchUpId, next);
+    return next;
+  }
+
+  private async dispatch(consumer: ConsumerEndpoint, payload: unknown): Promise<void> {
+    if (isCallbackConsumer(consumer)) {
+      return this.dispatchCallback(consumer, payload);
+    }
+    return this.dispatchHttp(consumer, payload);
+  }
+
+  private async dispatchCallback(
+    consumer: { id: string; kind: string; callback: (payload: unknown) => void | Promise<void> },
+    payload: unknown,
+  ): Promise<void> {
+    try {
+      await consumer.callback(payload);
+    } catch (err) {
+      this.logger.error(
+        `callback dispatch to ${consumer.kind} consumer ${consumer.id} threw: ${
+          (err as Error)?.message ?? err
+        }`,
+      );
+    }
+  }
+
+  private async dispatchHttp(consumer: HttpConsumerEndpoint, payload: unknown): Promise<void> {
+    let attempt = 0;
+    let lastError: unknown;
+    while (attempt < MAX_DISPATCH_ATTEMPTS) {
+      attempt += 1;
+      try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (consumer.authHeader) headers.Authorization = consumer.authHeader;
+        const response = await fetch(consumer.url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return;
+      } catch (err) {
+        lastError = err;
+        if (attempt < MAX_DISPATCH_ATTEMPTS) {
+          await this.delay(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+        }
+      }
+    }
+    this.logger.error(
+      `dispatch to ${consumer.kind} consumer ${consumer.id} failed after ${MAX_DISPATCH_ATTEMPTS} attempts: ${
+        (lastError as Error)?.message ?? lastError
+      }`,
+    );
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+}

@@ -1,3 +1,4 @@
+import { buildPublicLivePayloadFromMatchUp } from 'src/modules/projectors/transforms/public-live-from-matchup.transform';
 import { PublicGateway } from '../public/public.gateway';
 import { Injectable, Logger } from '@nestjs/common';
 import { topicConstants, tools } from 'tods-competition-factory';
@@ -71,6 +72,23 @@ export class TournamentBroadcastService {
   }
 
   /**
+   * Broadcast a bolt-history document update to TMX clients in the affected tournament room.
+   * Used by BoltHistoryService after a successful upsert so live scoreboards refresh.
+   */
+  broadcastBoltHistory(tournamentId: string, document: any): void {
+    if (!this.tmxServer) {
+      this.logger.warn('[broadcast] tmxServer not available — skipping boltHistoryUpdated broadcast');
+      return;
+    }
+    if (!tournamentId) {
+      this.logger.warn('[broadcast] boltHistoryUpdated skipped — missing tournamentId');
+      return;
+    }
+    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
+    this.tmxServer.to(room).emit('boltHistoryUpdated', { tournamentId, document });
+  }
+
+  /**
    * Sanitize factory notices and broadcast to public viewers via the /public namespace.
    */
   broadcastPublicNotices(payload: any, publicNotices?: any[]): void {
@@ -102,6 +120,19 @@ export class TournamentBroadcastService {
             drawId: n.drawId,
           })),
         });
+
+        // Phase 1.5: also emit a compact `liveScore` per matchUp so
+        // courthive-public's existing liveScore handler picks them up
+        // for non-INTENNSE formats. The bolt-history pipeline already
+        // emits liveScore for INTENNSE matchUps via the projector
+        // module's public-live consumer. This is the parallel path for
+        // every other format the factory engine touches.
+        for (const notice of matchUpNotices) {
+          const payload = buildPublicLivePayloadFromMatchUp(notice.matchUp, tournamentId);
+          if (payload) {
+            this.publicGateway.broadcastLiveScore(tournamentId, payload);
+          }
+        }
       }
 
       const publishNotices = notices.filter(

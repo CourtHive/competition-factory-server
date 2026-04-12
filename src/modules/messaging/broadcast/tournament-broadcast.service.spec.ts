@@ -4,12 +4,12 @@ import { topicConstants } from 'tods-competition-factory';
 
 describe('TournamentBroadcastService', () => {
   let service: TournamentBroadcastService;
-  let publicGateway: { broadcastPublicUpdate: jest.Mock };
+  let publicGateway: { broadcastPublicUpdate: jest.Mock; broadcastLiveScore: jest.Mock };
   let mockServer: { to: jest.Mock; in: jest.Mock };
   let mockSocket: { id: string; to: jest.Mock };
 
   beforeEach(() => {
-    publicGateway = { broadcastPublicUpdate: jest.fn() };
+    publicGateway = { broadcastPublicUpdate: jest.fn(), broadcastLiveScore: jest.fn() };
     service = new TournamentBroadcastService(publicGateway as unknown as PublicGateway);
 
     // Mock Socket.IO server — server.to(room).emit() and server.in(room).fetchSockets()
@@ -179,6 +179,117 @@ describe('TournamentBroadcastService', () => {
         tournamentId: 't1',
         matchUps: [{ matchUpId: 'm1' }],
         positionAssignments: [{ assignments: [{ drawPosition: 1 }], structureId: 's1', drawId: 'd1' }],
+      });
+    });
+
+    describe('Phase 1.5 — liveScore for non-INTENNSE matchUps', () => {
+      it('emits broadcastLiveScore alongside broadcastPublicUpdate for each matchUp notice', () => {
+        const payload = { tournamentIds: ['t1'] };
+        const publicNotices = [
+          {
+            topic: topicConstants.MODIFY_MATCHUP,
+            tournamentId: 't1',
+            matchUp: {
+              matchUpId: 'm1',
+              matchUpFormat: 'SET3-S:6/TB7',
+              sides: [
+                { sideNumber: 1, participant: { participantName: 'Alice' } },
+                { sideNumber: 2, participant: { participantName: 'Bob' } },
+              ],
+              score: { sets: [{ side1Score: 6, side2Score: 4 }] },
+            },
+          },
+        ];
+
+        service.broadcastPublicNotices(payload, publicNotices);
+
+        expect(publicGateway.broadcastLiveScore).toHaveBeenCalledTimes(1);
+        const [tid, livePayload] = publicGateway.broadcastLiveScore.mock.calls[0];
+        expect(tid).toBe('t1');
+        expect(livePayload.matchUpId).toBe('m1');
+        expect(livePayload.tournamentId).toBe('t1');
+        expect(livePayload.format).toBe('STANDARD');
+        expect(livePayload.status).toBe('in_progress');
+        expect(livePayload.side1.playerName).toBe('Alice');
+        expect(livePayload.side1.setScores).toEqual([6]);
+        expect(livePayload.side2.setScores).toEqual([4]);
+      });
+
+      it('emits one broadcastLiveScore call per matchUp when multiple matchUps are in the same notice batch', () => {
+        const payload = { tournamentIds: ['t1'] };
+        const publicNotices = [
+          {
+            topic: topicConstants.MODIFY_MATCHUP,
+            tournamentId: 't1',
+            matchUp: { matchUpId: 'm1', sides: [], score: { sets: [] } },
+          },
+          {
+            topic: topicConstants.MODIFY_MATCHUP,
+            tournamentId: 't1',
+            matchUp: { matchUpId: 'm2', sides: [], score: { sets: [] } },
+          },
+          {
+            topic: topicConstants.MODIFY_MATCHUP,
+            tournamentId: 't1',
+            matchUp: { matchUpId: 'm3', sides: [], score: { sets: [] } },
+          },
+        ];
+
+        service.broadcastPublicNotices(payload, publicNotices);
+
+        expect(publicGateway.broadcastLiveScore).toHaveBeenCalledTimes(3);
+        const matchUpIds = publicGateway.broadcastLiveScore.mock.calls.map(([, p]) => p.matchUpId);
+        expect(matchUpIds.sort()).toEqual(['m1', 'm2', 'm3']);
+      });
+
+      it('does not emit broadcastLiveScore when there are no matchUp notices', () => {
+        const payload = { tournamentIds: ['t1'] };
+        const publicNotices = [
+          { topic: topicConstants.PUBLISH_EVENT, tournamentId: 't1', eventId: 'e1' },
+        ];
+
+        service.broadcastPublicNotices(payload, publicNotices);
+
+        expect(publicGateway.broadcastLiveScore).not.toHaveBeenCalled();
+      });
+
+      it('emits broadcastLiveScore per tournament when notices span multiple tournaments', () => {
+        const payload = { tournamentIds: ['t1', 't2'] };
+        const publicNotices = [
+          {
+            topic: topicConstants.MODIFY_MATCHUP,
+            tournamentId: 't1',
+            matchUp: { matchUpId: 'm1', sides: [], score: { sets: [] } },
+          },
+          {
+            topic: topicConstants.MODIFY_MATCHUP,
+            tournamentId: 't2',
+            matchUp: { matchUpId: 'm2', sides: [], score: { sets: [] } },
+          },
+        ];
+
+        service.broadcastPublicNotices(payload, publicNotices);
+
+        expect(publicGateway.broadcastLiveScore).toHaveBeenCalledTimes(2);
+        expect(publicGateway.broadcastLiveScore).toHaveBeenCalledWith('t1', expect.objectContaining({ matchUpId: 'm1' }));
+        expect(publicGateway.broadcastLiveScore).toHaveBeenCalledWith('t2', expect.objectContaining({ matchUpId: 'm2' }));
+      });
+
+      it('skips matchUps that the transform rejects (e.g. missing matchUpId)', () => {
+        const payload = { tournamentIds: ['t1'] };
+        const publicNotices = [
+          {
+            topic: topicConstants.MODIFY_MATCHUP,
+            tournamentId: 't1',
+            matchUp: { sides: [], score: { sets: [] } }, // no matchUpId
+          },
+        ];
+
+        service.broadcastPublicNotices(payload, publicNotices);
+
+        expect(publicGateway.broadcastLiveScore).not.toHaveBeenCalled();
+        // The publicUpdate batch still fires even though the live transform rejects
+        expect(publicGateway.broadcastPublicUpdate).toHaveBeenCalled();
       });
     });
   });
