@@ -14,7 +14,7 @@ globalState.setGlobalSubscriptions({
 });
 asyncGlobalState.createInstanceState(); // is there only one instance of asyncGlobalState?
 
-export function getMutationEngine(services?) {
+export function getMutationEngine(services?, publicNotices?: any[]) {
   const engineAsync = asyncEngine();
   const clearCache = (tournamentId) => {
     if (!tournamentId || typeof tournamentId !== 'string') return;
@@ -27,6 +27,42 @@ export function getMutationEngine(services?) {
   };
   globalState.setSubscriptions({
     subscriptions: {
+      [topicConstants.MODIFY_MATCHUP]: (params) => {
+        for (const item of params) {
+          clearCache(item.tournamentId);
+          const matchUp = item?.matchUp;
+          if (!matchUp || !publicNotices) continue;
+          publicNotices.push({
+            topic: topicConstants.MODIFY_MATCHUP,
+            tournamentId: item.tournamentId,
+            matchUp: {
+              matchUpStatus: matchUp.matchUpStatus,
+              drawPositions: matchUp.drawPositions,
+              winningSide: matchUp.winningSide,
+              matchUpId: matchUp.matchUpId,
+              score: matchUp.score,
+            },
+          });
+        }
+      },
+      [topicConstants.MODIFY_POSITION_ASSIGNMENTS]: (params) => {
+        for (const item of params) {
+          // Clear event data cache using the eventId from position assignment notices
+          if (item.tournamentId && item.eventId) {
+            const eventDataKey = `ged|${item.tournamentId}|${item.eventId}`;
+            services?.cacheManager?.del(eventDataKey);
+          }
+          clearCache(item.tournamentId);
+          publicNotices?.push({
+            topic: topicConstants.MODIFY_POSITION_ASSIGNMENTS,
+            positionAssignments: item.positionAssignments,
+            tournamentId: item.tournamentId,
+            structureId: item.structureId,
+            eventId: item.eventId,
+            drawId: item.drawId,
+          });
+        }
+      },
       [topicConstants.PUBLISH_EVENT]: (params) => {
         if (Array.isArray(params)) {
           for (const item of params) {
@@ -35,6 +71,11 @@ export function getMutationEngine(services?) {
               services?.cacheManager?.set(key, item.eventData, 60 * 3 * 1000); // 3 minutes
             }
             clearCache(item.tournamentId);
+            publicNotices?.push({
+              topic: topicConstants.PUBLISH_EVENT,
+              tournamentId: item.tournamentId,
+              eventId: item.eventData?.eventInfo?.eventId,
+            });
           }
         }
       },
@@ -45,6 +86,11 @@ export function getMutationEngine(services?) {
             services?.cacheManager?.del(eventDataKey);
           }
           clearCache(item.tournamentId);
+          publicNotices?.push({
+            topic: topicConstants.UNPUBLISH_EVENT,
+            tournamentId: item.tournamentId,
+            eventId: item.eventId,
+          });
         }
       },
       [topicConstants.UNPUBLISH_ORDER_OF_PLAY]: (params) => {
@@ -54,21 +100,37 @@ export function getMutationEngine(services?) {
             services?.cacheManager?.del(key);
           }
           clearCache(item.tournamentId);
+          publicNotices?.push({
+            topic: topicConstants.UNPUBLISH_ORDER_OF_PLAY,
+            tournamentId: item.tournamentId,
+          });
         }
       },
       [topicConstants.PUBLISH_ORDER_OF_PLAY]: (params) => {
         for (const item of params) {
           clearCache(item.tournamentId);
+          publicNotices?.push({
+            topic: topicConstants.PUBLISH_ORDER_OF_PLAY,
+            tournamentId: item.tournamentId,
+          });
         }
       },
       [topicConstants.PUBLISH_PARTICIPANTS]: (params) => {
         for (const item of params) {
           clearCache(item.tournamentId);
+          publicNotices?.push({
+            topic: topicConstants.PUBLISH_PARTICIPANTS,
+            tournamentId: item.tournamentId,
+          });
         }
       },
       [topicConstants.UNPUBLISH_PARTICIPANTS]: (params) => {
         for (const item of params) {
           clearCache(item.tournamentId);
+          publicNotices?.push({
+            topic: topicConstants.UNPUBLISH_PARTICIPANTS,
+            tournamentId: item.tournamentId,
+          });
         }
       },
       [topicConstants.UNPUBLISH_TOURNAMENT]: (params) => {

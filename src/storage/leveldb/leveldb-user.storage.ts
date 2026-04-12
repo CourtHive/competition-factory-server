@@ -31,4 +31,12 @@ export class LeveldbUserStorage implements IUserStorage {
     if (!users) return { success: false, message: 'No users found' };
     return { ...SUCCESS, users: users as any[] };
   }
+
+  async updateLastAccess(email: string): Promise<void> {
+    const user = await this.findOne(email);
+    if (user) {
+      user.lastAccess = new Date().toISOString();
+      await netLevel.set(BASE_USER, { key: email, value: user });
+    }
+  }
 }

@@ -11,6 +11,8 @@ import type { ITournamentStorage } from 'src/storage/interfaces';
 
 const storage = fileStorage as unknown as ITournamentStorage;
 
+const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
+
 describe('queryTournamentRecords', () => {
   it('can query a tournamentRecord', async () => {
     // FIRST: remove any existing tournamentRecord with this tournamentId
@@ -18,10 +20,13 @@ describe('queryTournamentRecords', () => {
     expect(result.success).toEqual(true);
 
     // SECOND: generate a tournamentRecord with this tournamentId and persist to storage
-    result = await generateTournamentRecord({
-      tournamentAttributes: { tournamentId: TEST },
-      drawProfiles: [{ drawSize: 16 }],
-    });
+    result = await generateTournamentRecord(
+      {
+        tournamentAttributes: { tournamentId: TEST },
+        drawProfiles: [{ drawSize: 16 }],
+      },
+      testUser,
+    );
     expect(result.success).toEqual(true);
 
     // THIRD: execute a directive on the tournamentRecord

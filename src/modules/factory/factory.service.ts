@@ -1,4 +1,6 @@
+import { generateTournamentRecord as gen } from './helpers/generateTournamentRecord';
 import { queryTournamentRecords } from './functions/private/queryTournamentRecords';
+import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { allTournamentMatchUps } from './functions/private/allTournamentMatchUps';
 import { executionQueue as eq } from './functions/private/executionQueue';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
@@ -6,13 +8,12 @@ import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
 import { checkEngineError } from '../../common/errors/engineError';
 import { checkProvider } from './helpers/checkProvider';
 import { askEngine } from 'tods-competition-factory';
+import { Inject, Injectable } from '@nestjs/common';
 import { checkUser } from './helpers/checkUser';
 import publicQueries from './functions/public';
-import { Inject, Injectable } from '@nestjs/common';
 
-import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+// types and interfaces
 import { TOURNAMENT_STORAGE, type ITournamentStorage } from 'src/storage/interfaces';
-import { generateTournamentRecord as gen } from './helpers/generateTournamentRecord';
 
 @Injectable()
 export class FactoryService {
@@ -50,6 +51,8 @@ export class FactoryService {
   }
 
   async generateTournamentRecord(params, user) {
+    const validUser = checkUser({ user });
+    if (!validUser) return { error: 'Invalid user' };
     const { tournamentRecord, tournamentRecords } = await gen(params, user);
     this.tournamentStorageService.saveTournamentRecords({ tournamentRecords });
     return { tournamentRecord, success: true };
@@ -72,8 +75,23 @@ export class FactoryService {
     return await this.tournamentStorageService.saveTournamentRecords(params);
   }
 
-  async getTournamentInfo({ tournamentId }: { tournamentId: string }) {
-    return await publicQueries.getTournamentInfo({ tournamentId }, this.tournamentStorage);
+  async getTournamentInfo({
+    tournamentId,
+    withMatchUpStats,
+    withStructureDetails,
+    usePublishState,
+    withVenueData,
+  }: {
+    tournamentId: string;
+    withMatchUpStats?: boolean;
+    withStructureDetails?: boolean;
+    usePublishState?: boolean;
+    withVenueData?: boolean;
+  }) {
+    return await publicQueries.getTournamentInfo(
+      { tournamentId, withMatchUpStats, withStructureDetails, usePublishState, withVenueData },
+      this.tournamentStorage,
+    );
   }
 
   async getEventData({

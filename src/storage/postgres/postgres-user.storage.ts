@@ -59,7 +59,9 @@ export class PostgresUserStorage implements IUserStorage {
   }
 
   async findAll(): Promise<{ success: boolean; users?: any[]; message?: string }> {
-    const result = await this.pool.query('SELECT email, provider_id, roles, permissions, data FROM users');
+    const result = await this.pool.query(
+      'SELECT email, provider_id, roles, permissions, data, last_access FROM users',
+    );
     if (!result.rows.length) return { success: false, message: 'No users found' };
     const users = result.rows.map((row) => ({
       key: row.email,
@@ -68,9 +70,14 @@ export class PostgresUserStorage implements IUserStorage {
         providerId: row.provider_id,
         roles: row.roles,
         permissions: row.permissions,
+        lastAccess: row.last_access,
         ...row.data,
       },
     }));
     return { ...SUCCESS, users };
+  }
+
+  async updateLastAccess(email: string): Promise<void> {
+    await this.pool.query('UPDATE users SET last_access = NOW() WHERE email = $1', [email]);
   }
 }

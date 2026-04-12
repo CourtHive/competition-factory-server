@@ -1,0 +1,256 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Architecture/Public Notifications" />
+
+# Public Notifications
+
+The server exposes a **read-only, unauthenticated** Socket.IO namespace at `/public` that any application can connect to for real-time tournament updates. No JWT or login is required.
+
+## How It Works
+
+1. **Connect** to the `/public` namespace
+2. **Join a tournament room** by emitting `joinTournament` with `{ tournamentId }`
+3. **Listen** for `publicUpdate` events — the server pushes these whenever a mutation occurs (score changes, draw position changes, publish/unpublish events)
+4. **Leave** by emitting `leaveTournament` or simply disconnecting
+
+```
+External App                         Server (/public namespace)
+    │                                        │
+    ├── connect ──────────────────────────►   │
+    │                                        │
+    ├── emit('joinTournament', { tid }) ──►   │  joins room public:tournament:{tid}
+    │                                        │
+    │   ◄── 'publicUpdate' { matchUps } ──   │  triggered by any mutation
+    │   ◄── 'publicUpdate' { publish } ───   │  (Socket.IO, REST, or external app)
+    │                                        │
+    ├── emit('leaveTournament', { tid }) ─►   │
+    │                                        │
+```
+
+## What Triggers Notifications
+
+Public notifications are emitted after **any** successful mutation, regardless of origin:
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Mutation Origin</th><th style={{ textAlign: 'left' }}>Entry Point</th><th style={{ textAlign: 'left' }}>Broadcasts to /public?</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>TMX client</td><td>Socket.IO <code>/tmx</code> namespace</td><td>Yes</td></tr>
+    <tr><td>External app (REST)</td><td><code>POST /factory</code></td><td>Yes</td></tr>
+    <tr><td>External scoring app</td><td><code>POST /factory/score</code></td><td>Yes</td></tr>
+  </tbody>
+</table>
+
+## Event Payloads
+
+All updates arrive as `publicUpdate` events. Two payload types are emitted:
+
+### matchUpUpdate
+
+Emitted when scores change or participants advance across structures.
+
+```json
+{
+  "type": "matchUpUpdate",
+  "tournamentId": "tournament-uuid",
+  "matchUps": [
+    {
+      "matchUpId": "mu-uuid",
+      "matchUpStatus": "COMPLETED",
+      "winningSide": 1,
+      "score": { "scoreStringSide1": "6-3 6-4" },
+      "drawPositions": [1, 2]
+    }
+  ],
+  "positionAssignments": [
+    {
+      "drawId": "draw-uuid",
+      "structureId": "struct-uuid",
+      "assignments": [
+        { "drawPosition": 1, "participantId": "p-uuid" }
+      ]
+    }
+  ]
+}
+```
+
+### publishChange
+
+Emitted when an event, order of play, or participant list is published or unpublished.
+
+```json
+{
+  "type": "publishChange",
+  "tournamentId": "tournament-uuid",
+  "action": "PUBLISH_EVENT",
+  "eventId": "event-uuid"
+}
+```
+
+Possible `action` values:
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Action</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>PUBLISH_EVENT</code></td><td>Event draw/results made public</td></tr>
+    <tr><td><code>UNPUBLISH_EVENT</code></td><td>Event draw/results removed from public view</td></tr>
+    <tr><td><code>PUBLISH_ORDER_OF_PLAY</code></td><td>Schedule/order of play published</td></tr>
+    <tr><td><code>UNPUBLISH_ORDER_OF_PLAY</code></td><td>Schedule removed from public view</td></tr>
+    <tr><td><code>PUBLISH_PARTICIPANTS</code></td><td>Participant list published</td></tr>
+    <tr><td><code>UNPUBLISH_PARTICIPANTS</code></td><td>Participant list removed from public view</td></tr>
+  </tbody>
+</table>
+
+## Client Examples
+
+### JavaScript / TypeScript
+
+```typescript
+import { io } from 'socket.io-client';
+
+const socket = io('https://courthive.net/public', {
+  reconnectionDelay: 1000,
+  reconnectionAttempts: Infinity,
+});
+
+socket.on('connect', () => {
+  console.log('Connected:', socket.id);
+  socket.emit('joinTournament', { tournamentId: 'your-tournament-id' });
+});
+
+socket.on('publicUpdate', (data) => {
+  if (data.type === 'matchUpUpdate') {
+    // data.matchUps — array of changed matchUps with scores/status
+    // data.positionAssignments — participant movements across structures
+    console.log('Score update:', data.matchUps);
+  } else if (data.type === 'publishChange') {
+    // data.action — PUBLISH_EVENT, UNPUBLISH_EVENT, etc.
+    // data.eventId — which event changed
+    console.log('Publish change:', data.action, data.eventId);
+  }
+});
+
+// Reconnect handling — re-join room after reconnect
+socket.on('disconnect', () => console.log('Disconnected'));
+```
+
+### Python
+
+```python
+import socketio
+
+sio = socketio.Client()
+
+@sio.event(namespace='/public')
+def connect():
+    print('Connected')
+    sio.emit('joinTournament', {'tournamentId': 'your-id'}, namespace='/public')
+
+@sio.on('publicUpdate', namespace='/public')
+def on_update(data):
+    if data.get('type') == 'matchUpUpdate':
+        for match_up in data.get('matchUps', []):
+            print(f"MatchUp {match_up['matchUpId']}: {match_up.get('matchUpStatus')}")
+    elif data.get('type') == 'publishChange':
+        print(f"Publish: {data['action']} for event {data.get('eventId')}")
+
+sio.connect('https://courthive.net', namespaces=['/public'])
+sio.wait()
+```
+
+### curl (connection test)
+
+Socket.IO uses WebSockets, so `curl` cannot receive live updates. To verify the server is running and the namespace is reachable:
+
+```bash
+curl -s 'http://localhost:8383/public/socket.io/?EIO=4&transport=polling'
+```
+
+A successful response begins with `0{...}` containing the Socket.IO handshake.
+
+## Key Design Points
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Aspect</th><th style={{ textAlign: 'left' }}>Detail</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Authentication</td><td>None required — the <code>/public</code> namespace is open by design</td></tr>
+    <tr><td>Direction</td><td>Read-only — clients receive updates but cannot send mutations</td></tr>
+    <tr><td>Scope</td><td>Room-based — you only receive updates for tournaments you have joined</td></tr>
+    <tr><td>Reconnection</td><td>Re-emit <code>joinTournament</code> on reconnect to rejoin the room</td></tr>
+    <tr><td>Data sanitization</td><td>Only publicly-visible fields are broadcast (scores, status, positions, publish state)</td></tr>
+    <tr><td>Multiple tournaments</td><td>A single client can join multiple tournament rooms simultaneously</td></tr>
+    <tr><td>CORS</td><td>All origins accepted (<code>cors: &#123; origin: '*' &#125;</code>)</td></tr>
+  </tbody>
+</table>
+
+## Usage Metrics
+
+Set `PUBLIC_METRICS_LOG=true` in your `.env` to enable structured logging of all public namespace activity. This is useful for understanding how many viewers are watching tournaments in real time.
+
+### Environment Variables
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Variable</th><th style={{ textAlign: 'left' }}>Default</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>PUBLIC_METRICS_LOG</code></td><td><code>false</code></td><td>Enable detailed public namespace logging</td></tr>
+    <tr><td><code>PUBLIC_METRICS_INTERVAL</code></td><td><code>60000</code></td><td>Milliseconds between periodic summary logs</td></tr>
+  </tbody>
+</table>
+
+### Log Output
+
+When enabled, the following structured log entries are emitted:
+
+```
+# On each client connect
+[PublicGateway] [metrics:connect] id=abc123 ip=192.168.1.50 origin=https://example.com ua=Mozilla/5.0...
+
+# On each room join
+[PublicGateway] [metrics:join] id=abc123 tournament=tid-001 roomSize=3
+
+# On each room leave
+[PublicGateway] [metrics:leave] id=abc123 tournament=tid-001 roomSize=2
+
+# On disconnect
+[PublicGateway] [metrics:disconnect] id=abc123
+
+# Periodic summary (every PUBLIC_METRICS_INTERVAL ms)
+[PublicGateway] [metrics:summary] totalClients=12 activeRooms=3 rooms: tid-001=5 tid-002=4 tid-003=3
+```
+
+These logs can be parsed by any log aggregation tool (CloudWatch, Datadog, ELK, etc.) to build dashboards for peak concurrent viewers, popular tournaments, and geographic distribution.
+
+## Comparison: /tmx vs /public Namespace
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}></th><th style={{ textAlign: 'left' }}>/tmx</th><th style={{ textAlign: 'left' }}>/public</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Authentication</td><td>JWT required</td><td>None</td></tr>
+    <tr><td>Can send mutations</td><td>Yes</td><td>No</td></tr>
+    <tr><td>Receives mutation broadcast</td><td>Yes (full methods array)</td><td>Yes (sanitized payloads only)</td></tr>
+    <tr><td>Room prefix</td><td><code>tournament:</code></td><td><code>public:tournament:</code></td></tr>
+    <tr><td>Typical consumer</td><td>TMX client (tournament director)</td><td>Public scoreboards, mobile apps, third-party integrations</td></tr>
+  </tbody>
+</table>
+
+## Key Files
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>src/modules/messaging/public/public.gateway.ts</code></td><td>Public namespace gateway — room management and <code>broadcastPublicUpdate()</code></td></tr>
+    <tr><td><code>src/modules/messaging/broadcast/tournament-broadcast.service.ts</code></td><td>Shared broadcast service — sanitizes factory notices into public payloads</td></tr>
+    <tr><td><code>src/modules/factory/engines/getMutationEngine.ts</code></td><td>Engine subscriptions that collect public notices during mutations</td></tr>
+  </tbody>
+</table>

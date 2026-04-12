@@ -20,4 +20,12 @@ export class LeveldbProviderStorage implements IProviderStorage {
     await netLevel.set(BASE_PROVIDER, { key: providerId, value: provider });
     return { ...SUCCESS };
   }
+
+  async updateLastAccess(providerId: string): Promise<void> {
+    const provider = await this.getProvider(providerId);
+    if (provider) {
+      provider.lastAccess = new Date().toISOString();
+      await netLevel.set(BASE_PROVIDER, { key: providerId, value: provider });
+    }
+  }
 }

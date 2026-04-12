@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
+import sonarjs from 'eslint-plugin-sonarjs';
 import globals from 'globals';
 
 export default [
@@ -25,9 +26,11 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tseslint,
+      sonarjs: sonarjs,
     },
     rules: {
       ...tseslint.configs.recommended.rules,
+      'sonarjs/cognitive-complexity': ['warn', 30],
       '@typescript-eslint/interface-name-prefix': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
@@ -37,6 +40,14 @@ export default [
       'no-empty': 'warn',
       'no-prototype-builtins': 'off',
       'preserve-caught-error': 'off',
+    },
+  },
+  {
+    files: ['admin-client/**/*.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
     },
   },
   {

@@ -4,4 +4,5 @@ export interface IProviderStorage {
   getProvider(providerId: string): Promise<any | null>;
   getProviders(): Promise<{ key: string; value: any }[]>;
   setProvider(providerId: string, provider: any): Promise<{ success: boolean }>;
+  updateLastAccess(providerId: string): Promise<void>;
 }

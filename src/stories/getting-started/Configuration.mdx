@@ -89,6 +89,20 @@ All configuration is via environment variables in the `.env` file. The server us
   </tbody>
 </table>
 
+## Public Metrics
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Variable</th><th style={{ textAlign: 'left' }}>Default</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>PUBLIC_METRICS_LOG</code></td><td><code>false</code></td><td>Set to <code>true</code> to enable detailed logging of public namespace connections, room joins/leaves, and periodic usage summaries</td></tr>
+    <tr><td><code>PUBLIC_METRICS_INTERVAL</code></td><td><code>60000</code></td><td>Interval in milliseconds between periodic metrics summaries (default: 1 minute)</td></tr>
+  </tbody>
+</table>
+
+When enabled, the server logs structured entries for each connect, disconnect, join, and leave event on the `/public` namespace, including client IP, user-agent, and origin. A periodic summary reports total connected clients and per-tournament room occupancy. See [Public Notifications](?path=/docs/architecture-public-notifications--docs) for details.
+
 ## Email (Mailgun)
 
 <table>

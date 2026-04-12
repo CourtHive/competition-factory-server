@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: courthive-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PG_USER:-courthive}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-courthive}
+      POSTGRES_DB: ${PG_DATABASE:-courthive}
+    ports:
+      - '${PG_PORT:-5432}:5432'
+    volumes:
+      - courthive-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${PG_USER:-courthive}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:8-alpine
+    container_name: courthive-redis
+    restart: unless-stopped
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # The competition-factory-server itself is normally run via `pnpm watch` or
+  # `pnpm start` so the developer keeps fast feedback. Uncomment the block
+  # below if you want a containerised server (e.g. on the arena Mac mini for
+  # production deploys).
+  #
+  # competition-factory-server:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: competition-factory-server
+  #   restart: unless-stopped
+  #   environment:
+  #     APP_PORT: '8383'
+  #     STORAGE_PROVIDER: postgres
+  #     INSTANCE_ROLE: local
+  #     LOCAL_VENUE_ID: ${LOCAL_VENUE_ID:-arena-dev-00}
+  #     CLOUD_RELAY_URL: ${CLOUD_RELAY_URL:-}
+  #     CLOUD_RELAY_API_KEY: ${CLOUD_RELAY_API_KEY:-}
+  #     PG_HOST: postgres
+  #     REDIS_HOST: redis
+  #   ports:
+  #     - '8383:8383'
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+
+volumes:
+  courthive-pg-data:

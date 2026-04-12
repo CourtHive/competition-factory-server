@@ -18,3 +18,6 @@ export const BASE_TOURNAMENT = 'tournamentRecord';
 export const BASE_EVENT = 'tournamentEvent';
 export const BASE_CALENDAR = 'calendar';
 export const BASE_MATCHUP = 'matchUp';
+
+// Bolt scoring history (per-tieMatchUp INTENNSE scoring documents)
+export const BASE_BOLT_HISTORY = 'boltHistory';

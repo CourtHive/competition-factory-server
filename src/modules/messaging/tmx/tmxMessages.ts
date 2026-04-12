@@ -12,12 +12,13 @@ export const tmxMessages = {
 
     try {
       const result = await executionQueue(payload, services, storage);
+      const { publicNotices, ...mutationResult } = result;
 
-      const response = result.error
-        ? { ackId, error: result.error, ...(result.tournamentIds && { tournamentIds: result.tournamentIds }) }
-        : { ackId, success: result.success };
+      const response = mutationResult.error
+        ? { ackId, error: mutationResult.error, ...(mutationResult.tournamentIds && { tournamentIds: mutationResult.tournamentIds }) }
+        : { ackId, success: mutationResult.success };
       client.emit('ack', response);
-      return response;
+      return { ...response, publicNotices };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       logger.error(`Unexpected error in executionQueue message: ${message}`);

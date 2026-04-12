@@ -11,7 +11,12 @@ client/
 scratch/
 
 # only ignore the cache at the root level
-/cache/ 
+/cache/
+
+# Playwright
+e2e/.auth/
+playwright-report/
+test-results/
 
 # IDE - VSCode
 .vscode/*

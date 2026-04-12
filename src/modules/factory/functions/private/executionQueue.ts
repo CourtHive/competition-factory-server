@@ -16,15 +16,28 @@ export async function executionQueue(payload: any, services?: any, storage?: Tou
   if (!storage) return { error: 'Storage not provided' };
 
   try {
-    return await withTournamentLock(tournamentIds, async () => {
+    const publicNotices: any[] = [];
+    // Collect cache keys to clear AFTER save to avoid race condition
+    // where an HTTP read repopulates the cache with stale data between
+    // cache-clear (during mutation) and save (after mutation).
+    const cacheKeysToDelete: string[] = [];
+    const deferredClearCache = {
+      del: (key: string) => cacheKeysToDelete.push(key),
+      set: services?.cacheManager?.set?.bind(services.cacheManager),
+    };
+
+    const mutationResult = await withTournamentLock(tournamentIds, async () => {
       const result: any = await storage.fetchTournamentRecords({ tournamentIds });
       if (result.error) return result;
 
-      const mutationEngine = getMutationEngine({ ...services, tournamentStorageService: storage });
+      const mutationEngine = getMutationEngine(
+        { ...services, cacheManager: deferredClearCache, tournamentStorageService: storage },
+        publicNotices,
+      );
       mutationEngine.setState(result.tournamentRecords);
-      const mutationResult = await mutationEngine.executionQueue(methods, rollbackOnError);
+      const innerResult = await mutationEngine.executionQueue(methods, rollbackOnError);
 
-      if (mutationResult.success) {
+      if (innerResult.success) {
         const mutatedTournamentRecords: any = mutationEngine.getState().tournamentRecords;
         const updateResult = await storage.saveTournamentRecords({
           tournamentRecords: mutatedTournamentRecords,
@@ -34,8 +47,16 @@ export async function executionQueue(payload: any, services?: any, storage?: Tou
         }
       }
 
-      return mutationResult;
+      // Now that save is complete, flush deferred cache deletions
+      for (const key of cacheKeysToDelete) {
+        services?.cacheManager?.del(key);
+      }
+
+      return innerResult;
     });
+
+    Logger.debug(`[executionQueue] publicNotices: ${publicNotices.length}`);
+    return { ...mutationResult, publicNotices };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     Logger.error(`executionQueue exception for tournaments [${tournamentIds.join(', ')}]: ${message}`);

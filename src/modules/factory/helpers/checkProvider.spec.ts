@@ -68,13 +68,43 @@ describe('checkProvider', () => {
     expect(result).toBe(false);
   });
 
-  it('returns false when user only has providerIds array (code checks providerId)', () => {
-    // Note: checkProvider line 7 only uses user.providerId, not user.providerIds
+  it('supports providerIds array — matches any provider in the array', () => {
     const result = checkProvider({
       tournamentRecords: {
         t1: { parentOrganisation: { organisationId: 'p1' } },
       },
       user: { roles: ['admin'], providerIds: ['p1', 'p2'] },
+    });
+    expect(result).toBe(true);
+  });
+
+  it('supports providerIds array — fails when provider not in array', () => {
+    const result = checkProvider({
+      tournamentRecords: {
+        t1: { parentOrganisation: { organisationId: 'p3' } },
+      },
+      user: { roles: ['admin'], providerIds: ['p1', 'p2'] },
+    });
+    expect(result).toBe(false);
+  });
+
+  it('supports providerIds array — allows tournaments for different providers the user owns', () => {
+    const result = checkProvider({
+      tournamentRecords: {
+        t1: { parentOrganisation: { organisationId: 'p1' } },
+        t2: { parentOrganisation: { organisationId: 'p2' } },
+      },
+      user: { roles: ['admin'], providerIds: ['p1', 'p2'] },
+    });
+    expect(result).toBe(true);
+  });
+
+  it('returns false when user has no providerId or providerIds', () => {
+    const result = checkProvider({
+      tournamentRecords: {
+        t1: { parentOrganisation: { organisationId: 'p1' } },
+      },
+      user: { roles: ['client'] },
     });
     expect(result).toBe(false);
   });
