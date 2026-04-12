@@ -61,7 +61,7 @@
     "@nestjs/platform-express": "11.1.18",
     "@nestjs/platform-socket.io": "11.1.18",
     "@nestjs/serve-static": "5.0.4",
-    "@nestjs/swagger": "11.2.6",
+    "@nestjs/swagger": "11.2.7",
     "@nestjs/websockets": "11.1.18",
     "@next/env": "16.2.3",
     "axios": "^1.6.8",
