@@ -26,5 +26,6 @@
     "skipLibCheck": true,
     "strict": true,
     "types": ["node", "jest", "express", "supertest"]
-  }
+  },
+  "exclude": ["node_modules", "dist", "build", "admin-client", "e2e"]
 }

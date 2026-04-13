@@ -26,6 +26,7 @@ import {
 } from '@nestjs/websockets';
 
 const TOURNAMENT_ROOM_PREFIX = 'tournament:';
+const ADMIN_CHAT_MONITOR_ROOM = 'admin:chatMonitor';
 
 @Injectable()
 @UseGuards(SocketGuard) // SocketGuard handles authentication as well as roles
@@ -181,11 +182,81 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     if (!tournamentId || !data?.message) return;
 
     const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
-    client.to(room).emit('chatMessage', {
+    const payload = {
       userName: data.userName,
       message: data.message,
       timestamp: Date.now(),
+    };
+
+    // Relay to other clients in the tournament room
+    client.to(room).emit('chatMessage', payload);
+
+    // Also relay to the admin chat monitor room so super-admins can see
+    // all chat across all providers/tournaments in real time.
+    this.server?.to(ADMIN_CHAT_MONITOR_ROOM).emit('adminChatFeed', {
+      ...payload,
+      tournamentId,
+      providerId: data.providerId,
+      providerAbbr: data.providerAbbr,
+      tournamentName: data.tournamentName,
     });
+  }
+
+  // ── Admin chat monitor (SUPER_ADMIN only) ──
+
+  /**
+   * Super-admin joins the global chat monitor room to receive all chat
+   * messages across all tournaments and providers.
+   */
+  @SubscribeMessage('joinChatMonitor')
+  @Roles([SUPER_ADMIN])
+  async joinChatMonitor(@ConnectedSocket() client: Socket): Promise<void> {
+    await client.join(ADMIN_CHAT_MONITOR_ROOM);
+    this.logger.log(`[chat-monitor] ${client.id} joined admin chat monitor`);
+  }
+
+  @SubscribeMessage('leaveChatMonitor')
+  @Roles([SUPER_ADMIN])
+  async leaveChatMonitor(@ConnectedSocket() client: Socket): Promise<void> {
+    await client.leave(ADMIN_CHAT_MONITOR_ROOM);
+    this.logger.log(`[chat-monitor] ${client.id} left admin chat monitor`);
+  }
+
+  /**
+   * Super-admin sends a message into a specific tournament room from the
+   * chat monitor. The message appears as a regular chatMessage to all
+   * clients in that tournament room.
+   */
+  @SubscribeMessage('adminChatReply')
+  @Roles([SUPER_ADMIN])
+  async adminChatReply(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
+    const tournamentId = data?.tournamentId;
+    if (!tournamentId || !data?.message) return;
+
+    const verifiedUser = client.data?.user;
+    const userName = data.userName || verifiedUser?.email || 'Admin';
+
+    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
+    const payload = {
+      userName,
+      message: data.message,
+      timestamp: Date.now(),
+      isAdmin: true,
+    };
+
+    // Send to the tournament room (all clients including the admin if they're in that room)
+    this.server?.to(room).emit('chatMessage', payload);
+
+    // Also echo back to the monitor room so other monitoring admins see it
+    this.server?.to(ADMIN_CHAT_MONITOR_ROOM).emit('adminChatFeed', {
+      ...payload,
+      tournamentId,
+      providerId: data.providerId,
+      providerAbbr: data.providerAbbr,
+      tournamentName: data.tournamentName,
+    });
+
+    this.logger.log(`[chat-monitor] admin reply to ${tournamentId}: ${data.message.substring(0, 50)}`);
   }
 
   @SubscribeMessage('tmx')
