@@ -139,7 +139,8 @@
   },
   "pnpm": {
     "overrides": {
-      "serve-static@<2": ">=2.2.0"
+      "serve-static@<2": ">=2.2.0",
+      "tods-competition-factory": "link:../factory"
     },
     "ignoredBuiltDependencies": [
       "@nestjs/core",
