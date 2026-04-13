@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { TOURNAMENT_STORAGE, type ITournamentStorage } from './interfaces/tournament-storage.interface';
 import { PROVIDER_STORAGE, type IProviderStorage } from './interfaces/provider-storage.interface';
 import { CALENDAR_STORAGE, type ICalendarStorage } from './interfaces/calendar-storage.interface';
+import { CREATED_BY_USER_ID } from 'src/modules/factory/helpers/checkTournamentAccess';
 
 import { getCalendarEntry } from 'src/helpers/getCalendarEntry';
 import { SUCCESS } from 'src/common/constants/app';
@@ -41,12 +42,24 @@ export class TournamentStorageService {
 
   // --- Writes with side-effects ---
 
-  async saveTournamentRecord({ tournamentRecord }: { tournamentRecord: any }) {
+  /**
+   * Save a tournament record with domain side-effects.
+   *
+   * @param opts.userId - The UUID of the saving user. On first save (no
+   *   existing createdByUserId extension), stamps the extension so the
+   *   access-control helper can trace tournament ownership.
+   */
+  async saveTournamentRecord({ tournamentRecord, userId }: { tournamentRecord: any; userId?: string }) {
     const key = tournamentRecord?.tournamentId;
     if (!key) return { error: 'Invalid tournamentRecord' };
 
     const providerId = tournamentRecord.parentOrganisation?.organisationId;
     if (!providerId && key !== TEST) return { error: 'Missing providerId' };
+
+    // Stamp createdByUserId on first save if a userId is available
+    if (userId) {
+      this.stampCreatedBy(tournamentRecord, userId);
+    }
 
     if (providerId) {
       await this.addToOrUpdateCalendar({ providerId, tournamentRecord });
@@ -55,11 +68,14 @@ export class TournamentStorageService {
     return this.tournamentStorage.saveTournamentRecord({ tournamentRecord });
   }
 
-  async saveTournamentRecords(params: { tournamentRecords?: Record<string, any>; tournamentRecord?: any }) {
+  async saveTournamentRecords(params: { tournamentRecords?: Record<string, any>; tournamentRecord?: any; userId?: string }) {
     const tournamentRecords = this.extractTournamentRecords(params);
 
     for (const tournamentId of Object.keys(tournamentRecords)) {
-      const result: any = await this.saveTournamentRecord({ tournamentRecord: tournamentRecords[tournamentId] });
+      const result: any = await this.saveTournamentRecord({
+        tournamentRecord: tournamentRecords[tournamentId],
+        userId: params.userId,
+      });
       if (result.error) return result;
     }
 
@@ -171,6 +187,19 @@ export class TournamentStorageService {
     const key = provider?.organisationAbbreviation;
     if (key) await this.calendarStorage.setCalendar(key, { provider, tournaments });
     return { ...SUCCESS };
+  }
+
+  /**
+   * Write the createdByUserId extension if not already present.
+   * Only stamps on the FIRST save — subsequent saves preserve the original creator.
+   */
+  private stampCreatedBy(tournamentRecord: any, userId: string): void {
+    if (!tournamentRecord || !userId) return;
+    tournamentRecord.extensions ??= [];
+    const existing = tournamentRecord.extensions.find((ext) => ext?.name === CREATED_BY_USER_ID);
+    if (!existing) {
+      tournamentRecord.extensions.push({ name: CREATED_BY_USER_ID, value: userId });
+    }
   }
 
   private extractTournamentRecords(params: any) {

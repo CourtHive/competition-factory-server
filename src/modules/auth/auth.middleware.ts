@@ -1,5 +1,7 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Inject, Injectable, NestMiddleware } from '@nestjs/common';
 
+import { USER_PROVIDER_STORAGE, type IUserProviderStorage } from 'src/storage/interfaces';
+import { buildUserContext } from './helpers/buildUserContext';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 
@@ -8,6 +10,7 @@ export class AuthMiddleware implements NestMiddleware {
   constructor(
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
+    @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
   ) {}
 
   async use(req, _res, next: () => void): Promise<void> {
@@ -30,7 +33,15 @@ export class AuthMiddleware implements NestMiddleware {
     }
 
     if (jwtPayload?.email != null) {
-      req.user = await this.usersService.findOne(jwtPayload.email);
+      const user = await this.usersService.findOne(jwtPayload.email);
+      req.user = user;
+
+      // Hydrate the multi-provider UserContext from user_providers.
+      // This runs on every authenticated request so role changes take
+      // effect immediately without forced re-login.
+      if (user) {
+        req.userContext = await buildUserContext(user, this.userProviderStorage);
+      }
     }
 
     next();

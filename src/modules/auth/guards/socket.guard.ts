@@ -36,6 +36,9 @@ export class SocketGuard implements CanActivate {
         const roles = this.reflector.get(Roles, context.getHandler());
         const hasRole = !roles || !!user.roles?.find((role) => !!roles.find((item) => item === role));
         context.switchToHttp().getRequest().user = user;
+        // Also store on the socket's data so gateway handlers can access the
+        // verified user identity without reaching into the HTTP context.
+        client.data.user = user;
         return hasRole ? resolve(true) : reject(new Error('Unauthorized access'));
       });
     } catch (exception) {

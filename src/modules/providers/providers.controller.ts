@@ -1,4 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { UserCtx, type UserContext } from '../auth/decorators/user-context.decorator';
 import { ADMIN, CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
 import { ModifyProviderDto } from './dto/modifyProvider.dto';
 import { Public } from '../auth/decorators/public.decorator';
@@ -14,11 +15,24 @@ import { RolesGuard } from '../auth/guards/role.guard';
 export class ProvidersController {
   constructor(private providers: ProvidersService) {}
 
+  /** Public calendar — used by courthive-public and epixodic. Unchanged. */
   @Public()
   @Post('calendar')
   @HttpCode(HttpStatus.OK)
   getCalendar(@Body() providerAbbr: GetCalendarDto) {
     return this.providers.getCalendar(providerAbbr);
+  }
+
+  /**
+   * Authenticated multi-provider calendar — used by TMX.
+   * Returns one filtered calendar per provider the user is associated with.
+   * Optional body.providerAbbr to scope to a single provider.
+   */
+  @Post('my-calendars')
+  @Roles([CLIENT, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  getMyCalendars(@Body() body: { providerAbbr?: string }, @UserCtx() ctx: UserContext) {
+    return this.providers.getMyCalendars(body, ctx);
   }
 
   @Post('checkcalendars')

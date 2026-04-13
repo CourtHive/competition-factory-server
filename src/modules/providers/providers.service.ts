@@ -1,9 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { tools } from 'tods-competition-factory';
 
-import { PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
+import { PROVIDER_STORAGE, type IProviderStorage, ASSIGNMENT_STORAGE, type IAssignmentStorage } from 'src/storage/interfaces';
 import { CALENDAR_STORAGE, type ICalendarStorage } from 'src/storage/interfaces';
+import { scopeCalendarForUser } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import type { UserContext } from 'src/modules/auth/decorators/user-context.decorator';
 import { SUCCESS } from 'src/common/constants/app';
 
 @Injectable()
@@ -11,6 +13,7 @@ export class ProvidersService {
   constructor(
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     @Inject(CALENDAR_STORAGE) private readonly calendarStorage: ICalendarStorage,
+    @Inject(ASSIGNMENT_STORAGE) private readonly assignmentStorage: IAssignmentStorage,
     private readonly tournamentStorageService: TournamentStorageService,
   ) {}
 
@@ -18,6 +21,64 @@ export class ProvidersService {
     const calendar = await this.calendarStorage.getCalendar(providerAbbr);
     if (!calendar) return { success: false, message: 'No calendar found' };
     return { ...SUCCESS, calendar };
+  }
+
+  /**
+   * Authenticated multi-provider calendar for TMX.
+   *
+   * For each provider the user is associated with (via user_providers),
+   * fetches that provider's calendar and filters it through the access-
+   * control helper. Returns an array of per-provider calendars so TMX
+   * can render a unified multi-provider tournaments table.
+   */
+  async getMyCalendars(params: { providerAbbr?: string }, userContext: UserContext) {
+    // Resolve the user's assigned tournament IDs (for DIRECTOR scoping)
+    let assignedIds = new Set<string>();
+    try {
+      const rows = await this.assignmentStorage.findByUserId(userContext.userId);
+      assignedIds = new Set(rows.map((r) => r.tournamentId));
+    } catch {
+      // assignment storage may throw on LevelDB — graceful fallback
+    }
+
+    // Determine which provider abbreviations to fetch
+    const allProviders = await this.providerStorage.getProviders();
+    const providerAbbrMap: Record<string, string> = {}; // providerId → providerAbbr
+    for (const { key, value } of allProviders ?? []) {
+      const pid = key || value?.organisationId;
+      const abbr = value?.organisationAbbreviation;
+      if (pid && abbr) providerAbbrMap[pid] = abbr;
+    }
+
+    // For super-admin with a specific providerAbbr filter, scope to that
+    const targetAbbrs: string[] = [];
+    if (params.providerAbbr) {
+      targetAbbrs.push(params.providerAbbr);
+    } else if (userContext.isSuperAdmin) {
+      // Super admin with no filter: return all provider calendars
+      targetAbbrs.push(...Object.values(providerAbbrMap));
+    } else {
+      for (const pid of userContext.providerIds) {
+        const abbr = providerAbbrMap[pid];
+        if (abbr) targetAbbrs.push(abbr);
+      }
+    }
+
+    // Fetch + scope each calendar
+    const calendars: any[] = [];
+    for (const abbr of targetAbbrs) {
+      const calendar = await this.calendarStorage.getCalendar(abbr);
+      if (!calendar) continue;
+
+      const filtered = scopeCalendarForUser(calendar.tournaments ?? [], userContext, assignedIds);
+      calendars.push({
+        providerAbbr: abbr,
+        provider: calendar.provider,
+        tournaments: filtered,
+      });
+    }
+
+    return { ...SUCCESS, calendars };
   }
 
   async getProvider({ providerId }) {

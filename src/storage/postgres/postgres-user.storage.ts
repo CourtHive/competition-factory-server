@@ -11,12 +11,13 @@ export class PostgresUserStorage implements IUserStorage {
 
   async findOne(email: string): Promise<any | null> {
     const result = await this.pool.query(
-      'SELECT email, password, provider_id, roles, permissions, data FROM users WHERE email = $1',
+      'SELECT user_id, email, password, provider_id, roles, permissions, data FROM users WHERE email = $1',
       [email],
     );
     if (!result.rows.length) return null;
     const row = result.rows[0];
     return {
+      userId: row.user_id,
       email: row.email,
       password: row.password,
       providerId: row.provider_id,
@@ -60,12 +61,13 @@ export class PostgresUserStorage implements IUserStorage {
 
   async findAll(): Promise<{ success: boolean; users?: any[]; message?: string }> {
     const result = await this.pool.query(
-      'SELECT email, provider_id, roles, permissions, data, last_access FROM users',
+      'SELECT user_id, email, provider_id, roles, permissions, data, last_access FROM users',
     );
     if (!result.rows.length) return { success: false, message: 'No users found' };
     const users = result.rows.map((row) => ({
       key: row.email,
       value: {
+        userId: row.user_id,
         email: row.email,
         providerId: row.provider_id,
         roles: row.roles,

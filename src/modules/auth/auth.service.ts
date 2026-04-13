@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { VALID_GLOBAL_ROLES, VALID_PROVIDER_ROLES } from 'src/common/constants/roles';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { createUniqueKey } from './helpers/createUniqueKey';
 import { UsersService } from '../users/users.service';
@@ -16,6 +17,8 @@ import {
   USER_STORAGE,
   type IUserStorage,
 } from 'src/storage/interfaces';
+
+const ALLOWED_ROLE_SET = new Set([...VALID_GLOBAL_ROLES, ...VALID_PROVIDER_ROLES, 'admin', 'official', 'director']);
 
 @Injectable()
 export class AuthService {
@@ -54,6 +57,13 @@ export class AuthService {
   async invite(invitation: any) {
     const email = invitation?.email ?? '';
     if (!email) return { error: 'Email is required' };
+
+    // Validate roles against the whitelist — reject unknown role strings
+    const requestedRoles: string[] = invitation?.roles ?? [];
+    const invalidRoles = requestedRoles.filter((r) => !ALLOWED_ROLE_SET.has(r));
+    if (invalidRoles.length) {
+      return { error: `Invalid role(s): ${invalidRoles.join(', ')}` };
+    }
 
     const user = await this.usersService.findOne(email);
     if (user?.email) return { error: 'Existing user' };

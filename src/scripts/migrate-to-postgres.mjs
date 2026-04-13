@@ -335,6 +335,38 @@ async function migrateAccessCodes(pool) {
   return migrated;
 }
 
+async function backfillUserProviders(pool) {
+  logSection('User Providers (backfill)');
+
+  if (!pool) {
+    console.log('  Skipped (dry-run: SQL backfill requires live pool)');
+    return 0;
+  }
+
+  // Mirrors migration 006-backfill-user-providers.sql but runs AFTER users
+  // have been inserted by migrateUsers() — necessary because migration 006
+  // executes at schema-creation time (before data migration) against an
+  // empty users table.
+  const result = await pool.query(`
+    INSERT INTO user_providers (user_id, provider_id, provider_role)
+    SELECT
+      u.user_id,
+      u.provider_id,
+      CASE
+        WHEN u.roles @> '"admin"'::jsonb THEN 'PROVIDER_ADMIN'
+        ELSE 'DIRECTOR'
+      END
+    FROM users u
+    WHERE u.provider_id IS NOT NULL
+      AND u.provider_id != ''
+    ON CONFLICT (user_id, provider_id) DO NOTHING
+  `);
+
+  const count = result.rowCount ?? 0;
+  console.log(`  Backfilled: ${count} user-provider association(s)`);
+  return count;
+}
+
 // --- Main ---
 
 async function main() {
@@ -377,6 +409,7 @@ async function main() {
     totals.calendars = await migrateCalendars(pool);
     totals.resetCodes = await migrateResetCodes(pool);
     totals.accessCodes = await migrateAccessCodes(pool);
+    totals.userProviders = await backfillUserProviders(pool);
   } catch (err) {
     console.error('\nMigration failed:', err.message);
     console.error(err.stack);

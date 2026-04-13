@@ -1,5 +1,6 @@
 import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
 import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
+import { AssignmentsService } from './assignments.service';
 import { FactoryController } from './factory.controller';
 import { StorageModule } from 'src/storage/storage.module';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -19,7 +20,7 @@ describe('FactoryController', () => {
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       imports: [AuthModule, UsersModule, ConfigsModule, CacheModule, StorageModule, BroadcastModule],
-      providers: [FactoryService, ConfigService],
+      providers: [FactoryService, AssignmentsService, ConfigService],
       controllers: [FactoryController],
     }).compile();
 

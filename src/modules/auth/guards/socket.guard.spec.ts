@@ -27,6 +27,7 @@ describe('SocketGuard', () => {
     const client = {
       handshake: { headers: { authorization: authHeader } },
       emit: (event: string, data: any) => emittedEvents.push({ event, data }),
+      data: {} as any,
     };
 
     const context = {

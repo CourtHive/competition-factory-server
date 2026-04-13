@@ -1,3 +1,4 @@
+import { CREATED_BY_USER_ID } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { queryGovernor } from 'tods-competition-factory';
 
 export function getCalendarEntry({ tournamentRecord }) {
@@ -9,10 +10,18 @@ export function getCalendarEntry({ tournamentRecord }) {
       resource.resourceType === 'URL' && resource.resourceSubType === 'IMAGE' && resource.name === 'tournamentImage',
   )?.identifier;
 
+  // Project the creator's UUID into the calendar entry so the
+  // authenticated /provider/my-calendars endpoint can filter by
+  // ownership without loading full tournament records.
+  const createdByUserId = (tournamentRecord.extensions ?? []).find(
+    (ext) => ext?.name === CREATED_BY_USER_ID,
+  )?.value;
+
   return {
     searchText: tournamentName.toLowerCase(),
     tournamentId,
     providerId,
+    createdByUserId,
     tournament: {
       ...tournamentInfo,
       startDate: new Date(startDate).toISOString().split('T')[0],

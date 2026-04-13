@@ -1,4 +1,5 @@
 import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
+import { AssignmentsService } from './assignments.service';
 import { FactoryController } from './factory.controller';
 import { StorageModule } from 'src/storage/storage.module';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -14,7 +15,7 @@ describe('AppService', () => {
   beforeAll(async () => {
     app = await Test.createTestingModule({
       imports: [AuthModule, UsersModule, CacheModule, StorageModule, BroadcastModule],
-      providers: [FactoryService, ConfigService],
+      providers: [FactoryService, AssignmentsService, ConfigService],
       controllers: [FactoryController],
     }).compile();
   });
