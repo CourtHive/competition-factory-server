@@ -8,11 +8,13 @@ import { ASSIGNMENT_STORAGE } from './interfaces/assignment-storage.interface';
 import { AUTH_CODE_STORAGE } from './interfaces/auth-code-storage.interface';
 import { PROVIDER_STORAGE } from './interfaces/provider-storage.interface';
 import { CALENDAR_STORAGE } from './interfaces/calendar-storage.interface';
+import { AUDIT_STORAGE } from './interfaces/audit-storage.interface';
 import { USER_STORAGE } from './interfaces/user-storage.interface';
 
 import { LeveldbBoltHistoryReportingStorage } from './leveldb/leveldb-bolt-history-reporting.storage';
 import { LeveldbUserProviderStorage } from './leveldb/leveldb-user-provider.storage';
 import { LeveldbBoltHistoryStorage } from './leveldb/leveldb-bolt-history.storage';
+import { LeveldbAuditStorage } from './leveldb/leveldb-audit.storage';
 import { LeveldbTournamentStorage } from './leveldb/leveldb-tournament.storage';
 import { LeveldbSanctioningStorage } from './leveldb/leveldb-sanctioning.storage';
 import { LeveldbOfficiatingStorage } from './leveldb/leveldb-officiating.storage';
@@ -24,6 +26,7 @@ import { LeveldbUserStorage } from './leveldb/leveldb-user.storage';
 
 import { PostgresBoltHistoryReportingStorage } from './postgres/postgres-bolt-history-reporting.storage';
 import { PostgresUserProviderStorage } from './postgres/postgres-user-provider.storage';
+import { PostgresAuditStorage } from './postgres/postgres-audit.storage';
 import { PostgresBoltHistoryStorage } from './postgres/postgres-bolt-history.storage';
 import { PostgresTournamentStorage } from './postgres/postgres-tournament.storage';
 import { PostgresAssignmentStorage } from './postgres/postgres-assignment.storage';
@@ -138,6 +141,12 @@ const assignmentStorageProvider = makeStorageProvider(
   PostgresAssignmentStorage,
 );
 
+const auditStorageProvider = makeStorageProvider(
+  AUDIT_STORAGE,
+  LeveldbAuditStorage,
+  PostgresAuditStorage,
+);
+
 @Global()
 @Module({
   providers: [
@@ -154,6 +163,7 @@ const assignmentStorageProvider = makeStorageProvider(
     boltHistoryReportingProvider,
     userProviderStorageProvider,
     assignmentStorageProvider,
+    auditStorageProvider,
     TournamentStorageService,
   ],
   exports: [
@@ -168,6 +178,7 @@ const assignmentStorageProvider = makeStorageProvider(
     BOLT_HISTORY_REPORTING,
     USER_PROVIDER_STORAGE,
     ASSIGNMENT_STORAGE,
+    AUDIT_STORAGE,
     TournamentStorageService,
   ],
 })

@@ -2,6 +2,7 @@ import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
 import { AssignmentsController } from './assignments.controller';
 import { AssignmentsService } from './assignments.service';
 import { FactoryController } from './factory.controller';
+import { AuditModule } from '../audit/audit.module';
 import { ConfigsModule } from 'src/config/config.module';
 import { FactoryService } from './factory.service';
 import { ConfigService } from '@nestjs/config';
@@ -11,6 +12,6 @@ import { Module } from '@nestjs/common';
   providers: [FactoryService, AssignmentsService, ConfigService],
   controllers: [FactoryController, AssignmentsController],
   exports: [FactoryService, AssignmentsService],
-  imports: [ConfigsModule, BroadcastModule],
+  imports: [ConfigsModule, BroadcastModule, AuditModule],
 })
 export class FactoryModule {}

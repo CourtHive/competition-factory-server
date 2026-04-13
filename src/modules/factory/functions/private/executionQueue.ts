@@ -3,8 +3,14 @@ import { getMutationEngine } from '../../engines/getMutationEngine';
 import { Logger } from '@nestjs/common';
 
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import type { AuditService } from 'src/modules/audit/audit.service';
 
-export async function executionQueue(payload: any, services?: any, storage?: TournamentStorageService): Promise<any> {
+export async function executionQueue(
+  payload: any,
+  services?: any,
+  storage?: TournamentStorageService,
+  auditService?: AuditService,
+): Promise<any> {
   const { methods = [], rollbackOnError } = payload ?? {};
   const tournamentIds = payload?.tournamentIds || (payload?.tournamentId && [payload.tournamentId]) || [];
 
@@ -50,6 +56,20 @@ export async function executionQueue(payload: any, services?: any, storage?: Tou
       // Now that save is complete, flush deferred cache deletions
       for (const key of cacheKeysToDelete) {
         services?.cacheManager?.del(key);
+      }
+
+      // AUDIT HOOK: record the mutation after save completes, inside the lock.
+      // Fail-soft: audit errors are logged but never block the ack.
+      if (auditService) {
+        auditService.recordMutation({
+          tournamentIds,
+          userId: payload?.userId,
+          userEmail: payload?.userEmail,
+          source: payload?.source ?? 'tmx',
+          methods: methods.map((m: any) => ({ method: m.method, params: m.params })),
+          status: innerResult.success ? 'applied' : innerResult.error ? 'rejected' : 'partial',
+          errorCode: innerResult.error ? String(innerResult.error) : undefined,
+        }).catch((err) => Logger.error(`Audit hook failed: ${err.message}`, 'executionQueue'));
       }
 
       return innerResult;

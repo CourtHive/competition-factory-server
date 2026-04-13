@@ -85,6 +85,7 @@ export class TournamentStorageService {
   async removeTournamentRecords(
     params: { tournamentIds?: string[]; tournamentId?: string; providerId?: string },
     user?: any,
+    auditService?: any,
   ) {
     const tournamentIds: string[] =
       params?.tournamentIds ?? ([params?.tournamentId].filter(Boolean) as string[]);
@@ -93,6 +94,24 @@ export class TournamentStorageService {
 
     for (const tournamentId of tournamentIds) {
       if (!user?.permissions || user.permissions.includes('deleteTournament') || user.roles?.includes('superadmin')) {
+        // Record the deletion in the audit trail BEFORE removing the record.
+        // Fail-soft: audit errors don't block the deletion.
+        if (auditService?.recordDeletion) {
+          try {
+            const existing: any = await this.tournamentStorage.findTournamentRecord({ tournamentId });
+            const record = existing?.tournamentRecords?.[tournamentId] ?? existing?.tournamentRecord;
+            await auditService.recordDeletion({
+              tournamentId,
+              tournamentName: record?.tournamentName,
+              providerId: record?.parentOrganisation?.organisationId ?? providerId,
+              userId: user?.userId,
+              userEmail: user?.email,
+            });
+          } catch {
+            // Audit failure is non-blocking
+          }
+        }
+
         await this.tournamentStorage.removeTournamentRecords({ tournamentIds: [tournamentId] });
         if (providerId) {
           await this.removeFromCalendar({ providerId, tournamentId });

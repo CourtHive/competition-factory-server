@@ -47,6 +47,7 @@ describe('MigrationRunnerService', () => {
         { name: '005-add-user-providers.sql' },
         { name: '006-backfill-user-providers.sql' },
         { name: '007-add-tournament-assignments.sql' },
+        { name: '008-add-audit-log.sql' },
       ]},
     ];
     service = new MigrationRunnerService(mockPool);

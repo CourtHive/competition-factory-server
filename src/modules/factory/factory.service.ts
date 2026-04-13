@@ -8,6 +8,7 @@ import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
 import { checkEngineError } from '../../common/errors/engineError';
 import { AssignmentsService } from './assignments.service';
+import { AuditService } from '../audit/audit.service';
 import { checkProvider } from './helpers/checkProvider';
 import { askEngine } from 'tods-competition-factory';
 import { Inject, Injectable } from '@nestjs/common';
@@ -23,6 +24,7 @@ export class FactoryService {
   constructor(
     private readonly tournamentStorageService: TournamentStorageService,
     private readonly assignmentsService: AssignmentsService,
+    private readonly auditService: AuditService,
     @Inject(TOURNAMENT_STORAGE) private readonly tournamentStorage: ITournamentStorage,
   ) {}
 
@@ -32,7 +34,7 @@ export class FactoryService {
   }
 
   async executionQueue(params, services) {
-    const result = await eq(params, services, this.tournamentStorageService);
+    const result = await eq(params, services, this.tournamentStorageService, this.auditService);
     checkEngineError(result);
     return result;
   }
@@ -82,7 +84,7 @@ export class FactoryService {
   }
 
   async removeTournamentRecords(params, user) {
-    return await this.tournamentStorageService.removeTournamentRecords(params, user);
+    return await this.tournamentStorageService.removeTournamentRecords(params, user, this.auditService);
   }
 
   async saveTournamentRecords(params, user, userContext?: UserContext) {

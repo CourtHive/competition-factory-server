@@ -14,6 +14,11 @@ export {
   type TournamentAssignmentRow,
 } from './assignment-storage.interface';
 export {
+  AUDIT_STORAGE,
+  type IAuditStorage,
+  type AuditRow,
+} from './audit-storage.interface';
+export {
   BOLT_HISTORY_STORAGE,
   VERSION_CONFLICT,
   type IBoltHistoryStorage,

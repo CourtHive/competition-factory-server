@@ -1,6 +1,7 @@
 import { OfficiatingModule } from '../officiating/officiating.module';
 import { BoltHistoryModule } from '../bolt-history/bolt-history.module';
 import { SanctioningModule } from '../sanctioning/sanctioning.module';
+import { AuditModule } from '../audit/audit.module';
 import { isModuleEnabled } from '../../config/server-profile';
 import { MessagingModule } from '../messaging/messaging.module';
 import { ProvidersModule } from '../providers/providers.module';
@@ -29,7 +30,7 @@ const coreModules = [
 
 // Tournament modules — loaded for 'tournament' and 'full' profiles
 const tournamentModules = isModuleEnabled('tournament')
-  ? [FactoryModule, MessagingModule, ProvidersModule, CacheModule, BoltHistoryModule]
+  ? [FactoryModule, MessagingModule, ProvidersModule, CacheModule, BoltHistoryModule, AuditModule]
   : [];
 
 // Provider modules — loaded for 'provider' and 'full' profiles
