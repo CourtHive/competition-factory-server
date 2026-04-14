@@ -101,7 +101,7 @@
     "@storybook/addon-docs": "^10.2.17",
     "@storybook/html-vite": "^10.2.17",
     "@swc/cli": "0.8.1",
-    "@swc/core": "1.15.24",
+    "@swc/core": "1.15.26",
     "@types/express": "5.0.6",
     "@types/jest": "30.0.0",
     "@types/node": "25.6.0",
