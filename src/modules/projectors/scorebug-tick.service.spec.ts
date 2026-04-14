@@ -218,6 +218,98 @@ describe('ScorebugTickService', () => {
     });
   });
 
+  describe('penalty box extrapolation', () => {
+    it('extrapolates penalty box countdown timers downward', async () => {
+      registry.register({
+        id: 'expression',
+        kind: 'scorebug',
+        url: 'http://example.test/scorebug',
+        enabled: true,
+      });
+      service.notifyDocumentUpdate({
+        ...buildMidBoltHistory(),
+        penaltyBoxSnapshots: {
+          charlie: { remainingMs: 120000, sideNumber: 1, participantName: 'Charlie' },
+        },
+      });
+
+      jest.advanceTimersByTime(2000);
+      await Promise.resolve();
+
+      const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+      const body = JSON.parse(lastCall[1].body);
+      expect(body.penaltyBox).toBeDefined();
+      expect(body.penaltyBox.charlie.remainingMs).toBeLessThanOrEqual(118000);
+      expect(body.penaltyBox.charlie.remainingMs).toBeGreaterThanOrEqual(117000);
+      expect(body.penaltyBox.charlie.sideNumber).toBe(1);
+      expect(body.penaltyBox.charlie.participantName).toBe('Charlie');
+    });
+
+    it('clamps penalty box countdown at zero', async () => {
+      registry.register({
+        id: 'expression',
+        kind: 'scorebug',
+        url: 'http://example.test/scorebug',
+        enabled: true,
+      });
+      service.notifyDocumentUpdate({
+        ...buildMidBoltHistory(),
+        penaltyBoxSnapshots: {
+          charlie: { remainingMs: 100, sideNumber: 2 },
+        },
+      });
+
+      jest.advanceTimersByTime(250);
+      await Promise.resolve();
+
+      const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+      const body = JSON.parse(lastCall[1].body);
+      expect(body.penaltyBox.charlie.remainingMs).toBe(0);
+    });
+
+    it('omits penaltyBox when no snapshots exist', async () => {
+      registry.register({
+        id: 'expression',
+        kind: 'scorebug',
+        url: 'http://example.test/scorebug',
+        enabled: true,
+      });
+      service.notifyDocumentUpdate(buildMidBoltHistory());
+
+      jest.advanceTimersByTime(250);
+      await Promise.resolve();
+
+      const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+      const body = JSON.parse(lastCall[1].body);
+      expect(body.penaltyBox).toBeUndefined();
+    });
+
+    it('includes multiple penalized players from both sides', async () => {
+      registry.register({
+        id: 'expression',
+        kind: 'scorebug',
+        url: 'http://example.test/scorebug',
+        enabled: true,
+      });
+      service.notifyDocumentUpdate({
+        ...buildMidBoltHistory(),
+        penaltyBoxSnapshots: {
+          alice: { remainingMs: 60000, sideNumber: 1, participantName: 'Alice' },
+          bob: { remainingMs: 90000, sideNumber: 2, participantName: 'Bob' },
+        },
+      });
+
+      jest.advanceTimersByTime(250);
+      await Promise.resolve();
+
+      const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+      const body = JSON.parse(lastCall[1].body);
+      expect(Object.keys(body.penaltyBox)).toHaveLength(2);
+      expect(body.penaltyBox.alice.sideNumber).toBe(1);
+      expect(body.penaltyBox.bob.sideNumber).toBe(2);
+    });
+  });
+
   describe('player clock extrapolation', () => {
     it('accrues additional time on on-court players, leaves benched players alone', async () => {
       registry.register({
