@@ -7,7 +7,7 @@ import {
   PROVISIONER_PROVIDER_STORAGE,
   type IProvisionerProviderStorage,
 } from 'src/storage/interfaces';
-import { CLIENT } from 'src/common/constants/roles';
+import { CLIENT, GENERATE, SCORE } from 'src/common/constants/roles';
 import type { UserContext } from '../auth/decorators/user-context.decorator';
 
 const PROV_PREFIX = 'prov_';
@@ -101,7 +101,7 @@ export class ProvisionerMiddleware implements NestMiddleware {
         req.user = {
           userId: `provisioner:${key.provisionerId}`,
           email: `provisioner@${provisionerName}`,
-          roles: [CLIENT],
+          roles: [CLIENT, GENERATE, SCORE],
           providerId,
         };
 
@@ -109,7 +109,7 @@ export class ProvisionerMiddleware implements NestMiddleware {
           userId: `provisioner:${key.provisionerId}`,
           email: `provisioner@${provisionerName}`,
           isSuperAdmin: false,
-          globalRoles: [CLIENT],
+          globalRoles: [CLIENT, GENERATE, SCORE],
           providerRoles: { [providerId]: 'PROVIDER_ADMIN' },
           providerIds: [providerId],
         } satisfies UserContext;
