@@ -17,7 +17,7 @@ import publicQueries from './functions/public';
 
 // types and interfaces
 import type { UserContext } from 'src/modules/auth/decorators/user-context.decorator';
-import { TOURNAMENT_STORAGE, type ITournamentStorage } from 'src/storage/interfaces';
+import { TOURNAMENT_STORAGE, type ITournamentStorage, TOURNAMENT_PROVISIONER_STORAGE, type ITournamentProvisionerStorage } from 'src/storage/interfaces';
 
 @Injectable()
 export class FactoryService {
@@ -26,6 +26,7 @@ export class FactoryService {
     private readonly assignmentsService: AssignmentsService,
     private readonly auditService: AuditService,
     @Inject(TOURNAMENT_STORAGE) private readonly tournamentStorage: ITournamentStorage,
+    @Inject(TOURNAMENT_PROVISIONER_STORAGE) private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
   ) {}
 
   getVersion(): any {
@@ -34,7 +35,7 @@ export class FactoryService {
   }
 
   async executionQueue(params, services) {
-    const result = await eq(params, services, this.tournamentStorageService, this.auditService);
+    const result = await eq(params, services, this.tournamentStorageService, this.auditService, this.tournamentProvisionerStorage);
     checkEngineError(result);
     return result;
   }
