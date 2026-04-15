@@ -1,3 +1,4 @@
+import { ProvisionerModule } from '../provisioner/provisioner.module';
 import { OfficiatingModule } from '../officiating/officiating.module';
 import { BoltHistoryModule } from '../bolt-history/bolt-history.module';
 import { SanctioningModule } from '../sanctioning/sanctioning.module';
@@ -30,7 +31,7 @@ const coreModules = [
 
 // Tournament modules — loaded for 'tournament' and 'full' profiles
 const tournamentModules = isModuleEnabled('tournament')
-  ? [FactoryModule, MessagingModule, ProvidersModule, CacheModule, BoltHistoryModule, AuditModule]
+  ? [FactoryModule, MessagingModule, ProvidersModule, CacheModule, BoltHistoryModule, AuditModule, ProvisionerModule]
   : [];
 
 // Provider modules — loaded for 'provider' and 'full' profiles

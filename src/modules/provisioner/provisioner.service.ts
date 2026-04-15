@@ -1,0 +1,313 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { randomBytes, createHash } from 'crypto';
+
+import {
+  PROVISIONER_STORAGE,
+  type IProvisionerStorage,
+  PROVISIONER_API_KEY_STORAGE,
+  type IProvisionerApiKeyStorage,
+  PROVISIONER_PROVIDER_STORAGE,
+  type IProvisionerProviderStorage,
+  PROVIDER_STORAGE,
+  type IProviderStorage,
+  SSO_IDENTITY_STORAGE,
+  type ISsoIdentityStorage,
+  USER_STORAGE,
+  type IUserStorage,
+  USER_PROVIDER_STORAGE,
+  type IUserProviderStorage,
+} from 'src/storage/interfaces';
+
+const PROV_KEY_PREFIX = 'prov_sk_live_';
+
+@Injectable()
+export class ProvisionerService {
+  constructor(
+    @Inject(PROVISIONER_STORAGE) private readonly provisionerStorage: IProvisionerStorage,
+    @Inject(PROVISIONER_API_KEY_STORAGE) private readonly apiKeyStorage: IProvisionerApiKeyStorage,
+    @Inject(PROVISIONER_PROVIDER_STORAGE) private readonly providerAssocStorage: IProvisionerProviderStorage,
+    @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
+    @Inject(SSO_IDENTITY_STORAGE) private readonly ssoIdentityStorage: ISsoIdentityStorage,
+    @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
+    @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
+  ) {}
+
+  // ── Provisioner CRUD (SUPER_ADMIN) ──
+
+  async createProvisioner(params: { name: string; config?: Record<string, any> }) {
+    const existing = await this.provisionerStorage.findByName(params.name);
+    if (existing) return { error: 'Provisioner name already exists' };
+
+    const provisioner = await this.provisionerStorage.create({
+      name: params.name,
+      isActive: true,
+      config: params.config ?? {},
+    });
+    return { success: true, provisioner };
+  }
+
+  async listProvisioners() {
+    const provisioners = await this.provisionerStorage.findAll();
+    return { success: true, provisioners };
+  }
+
+  async getProvisioner(provisionerId: string) {
+    const provisioner = await this.provisionerStorage.getProvisioner(provisionerId);
+    if (!provisioner) return { error: 'Provisioner not found' };
+    return { success: true, provisioner };
+  }
+
+  async updateProvisioner(provisionerId: string, data: { name?: string; isActive?: boolean; config?: Record<string, any> }) {
+    return this.provisionerStorage.update(provisionerId, data);
+  }
+
+  async deactivateProvisioner(provisionerId: string) {
+    return this.provisionerStorage.deactivate(provisionerId);
+  }
+
+  // ── API Key management (SUPER_ADMIN) ──
+
+  async generateApiKey(provisionerId: string, label?: string) {
+    const provisioner = await this.provisionerStorage.getProvisioner(provisionerId);
+    if (!provisioner) return { error: 'Provisioner not found' };
+
+    // Generate a cryptographically random API key
+    const rawKey = PROV_KEY_PREFIX + randomBytes(32).toString('hex');
+    const keyHash = createHash('sha256').update(rawKey).digest('hex');
+
+    const keyRow = await this.apiKeyStorage.create({
+      provisionerId,
+      apiKeyHash: keyHash,
+      label,
+      isActive: true,
+    });
+
+    // Return plaintext key ONCE — it's never stored or retrievable again
+    return { success: true, keyId: keyRow.keyId, apiKey: rawKey, label: keyRow.label };
+  }
+
+  async listApiKeys(provisionerId: string) {
+    const keys = await this.apiKeyStorage.listByProvisioner(provisionerId);
+    // Strip hashes from response — return metadata only
+    return {
+      success: true,
+      keys: keys.map((k) => ({
+        keyId: k.keyId,
+        provisionerId: k.provisionerId,
+        label: k.label,
+        isActive: k.isActive,
+        lastUsedAt: k.lastUsedAt,
+        createdAt: k.createdAt,
+        expiresAt: k.expiresAt,
+      })),
+    };
+  }
+
+  async revokeApiKey(keyId: string) {
+    return this.apiKeyStorage.revoke(keyId);
+  }
+
+  // ── Provider association (SUPER_ADMIN + Provisioner) ──
+
+  async associateProvider(provisionerId: string, providerId: string, relationship: 'owner' | 'subsidiary', grantedBy?: string) {
+    const provider = await this.providerStorage.getProvider(providerId);
+    if (!provider) return { error: 'Provider not found' };
+
+    return this.providerAssocStorage.associate(provisionerId, providerId, relationship, grantedBy);
+  }
+
+  async disassociateProvider(provisionerId: string, providerId: string) {
+    return this.providerAssocStorage.disassociate(provisionerId, providerId);
+  }
+
+  // ── Provider CRUD (Provisioner) ──
+
+  async createProvider(provisionerId: string, params: { organisationAbbreviation: string; organisationName: string; providerConfig?: Record<string, any> }) {
+    // Check abbreviation uniqueness
+    const existing = await this.providerStorage.getProviders();
+    const conflict = existing.find((p) => p.value?.organisationAbbreviation === params.organisationAbbreviation);
+    if (conflict) return { error: 'organisationAbbreviation already exists', code: 'ABBREVIATION_EXISTS' };
+
+    // Generate provider ID
+    const providerId = crypto.randomUUID();
+
+    await this.providerStorage.setProvider(providerId, {
+      organisationId: providerId,
+      organisationAbbreviation: params.organisationAbbreviation,
+      organisationName: params.organisationName,
+      providerConfig: params.providerConfig ?? {},
+    });
+
+    // Auto-associate as owner
+    await this.providerAssocStorage.associate(provisionerId, providerId, 'owner');
+
+    return { success: true, providerId, organisationAbbreviation: params.organisationAbbreviation };
+  }
+
+  async listProviders(provisionerId: string) {
+    const allProviders = await this.providerStorage.getProviders();
+    const associations = await this.providerAssocStorage.findByProvisioner(provisionerId);
+    const assocMap = new Map(associations.map((a) => [a.providerId, a.relationship]));
+
+    const providers = allProviders.map((p) => {
+      const relationship = assocMap.get(p.key) ?? null;
+      const managed = relationship !== null;
+      return {
+        providerId: p.key,
+        organisationAbbreviation: p.value?.organisationAbbreviation,
+        organisationName: p.value?.organisationName,
+        managed,
+        relationship,
+        ...(managed ? { providerConfig: p.value?.providerConfig ?? {} } : {}),
+        inactive: p.value?.inactive ?? false,
+      };
+    });
+
+    return { providers };
+  }
+
+  async getProviderDetail(provisionerId: string, providerId: string) {
+    const provider = await this.providerStorage.getProvider(providerId);
+    if (!provider) return { error: 'Provider not found', code: 'PROVIDER_NOT_FOUND' };
+
+    const relationship = await this.providerAssocStorage.getRelationship(provisionerId, providerId);
+    const managed = relationship !== null;
+
+    return {
+      providerId: provider.organisationId ?? providerId,
+      organisationAbbreviation: provider.organisationAbbreviation,
+      organisationName: provider.organisationName,
+      managed,
+      relationship,
+      ...(managed ? { providerConfig: provider.providerConfig ?? {} } : {}),
+      inactive: provider.inactive ?? false,
+    };
+  }
+
+  async updateProviderConfig(providerId: string, params: { providerConfig?: Record<string, any>; organisationName?: string; inactive?: boolean }) {
+    const provider = await this.providerStorage.getProvider(providerId);
+    if (!provider) return { error: 'Provider not found', code: 'PROVIDER_NOT_FOUND' };
+
+    const updated = { ...provider };
+    if (params.providerConfig !== undefined) updated.providerConfig = params.providerConfig;
+    if (params.organisationName !== undefined) updated.organisationName = params.organisationName;
+    if (params.inactive !== undefined) updated.inactive = params.inactive;
+
+    return this.providerStorage.setProvider(providerId, updated);
+  }
+
+  // ── SSO User management (Provisioner) ──
+
+  async createSsoUser(provisionerId: string, params: {
+    providerId: string;
+    externalId: string;
+    email: string;
+    phone?: string;
+    providerRole: string;
+    ssoProvider: string;
+  }) {
+    // Check provider is managed
+    const relationship = await this.providerAssocStorage.getRelationship(provisionerId, params.providerId);
+    if (!relationship) return { error: 'Provider not managed by this provisioner', code: 'PROVIDER_NOT_MANAGED' };
+
+    // Check for existing SSO identity
+    const existingSso = await this.ssoIdentityStorage.findByExternalId(params.ssoProvider, params.externalId);
+    if (existingSso) return { error: 'SSO identity already exists for this provider', code: 'SSO_IDENTITY_EXISTS' };
+
+    // Check for existing email
+    const existingUser = await this.userStorage.findOne(params.email);
+    if (existingUser) return { error: 'Email already registered', code: 'EMAIL_EXISTS' };
+
+    // Create user with no password (SSO-only)
+    const createResult = await this.userStorage.create({
+      email: params.email,
+      password: '',  // SSO-only users have no password
+    });
+    if (!createResult) return { error: 'Failed to create user' };
+
+    // Get the created user to retrieve userId
+    const user = await this.userStorage.findOne(params.email);
+    const userId = user?.userId ?? user?.user_id;
+    if (!userId) return { error: 'User created but userId not found' };
+
+    // Create SSO identity mapping
+    await this.ssoIdentityStorage.create({
+      userId,
+      ssoProvider: params.ssoProvider,
+      externalId: params.externalId,
+      phone: params.phone,
+      email: params.email,
+    });
+
+    // Associate user with provider
+    await this.userProviderStorage.upsert({
+      userId,
+      providerId: params.providerId,
+      providerRole: params.providerRole,
+    });
+
+    return {
+      success: true,
+      userId,
+      email: params.email,
+      providerRole: params.providerRole,
+      providerId: params.providerId,
+    };
+  }
+
+  async listProviderUsers(provisionerId: string, providerId: string) {
+    const relationship = await this.providerAssocStorage.getRelationship(provisionerId, providerId);
+    if (!relationship) return { error: 'Provider not managed by this provisioner', code: 'PROVIDER_NOT_MANAGED' };
+
+    const userProviders = await this.userProviderStorage.findByProviderId(providerId);
+
+    const users = await Promise.all(
+      userProviders.map(async (up) => {
+        const ssoIdentities = await this.ssoIdentityStorage.findByUserId(up.userId);
+        const sso = ssoIdentities[0]; // Primary SSO identity
+        return {
+          userId: up.userId,
+          email: up.email,
+          providerRole: up.providerRole,
+          ssoProvider: sso?.ssoProvider,
+          externalId: sso?.externalId,
+        };
+      }),
+    );
+
+    return { users };
+  }
+
+  // ── Subsidiary management (Provisioner owner) ──
+
+  async grantSubsidiary(ownerProvisionerId: string, providerId: string, targetProvisionerId: string) {
+    const target = await this.provisionerStorage.getProvisioner(targetProvisionerId);
+    if (!target) return { error: 'Target provisioner not found' };
+
+    return this.providerAssocStorage.associate(targetProvisionerId, providerId, 'subsidiary', ownerProvisionerId);
+  }
+
+  async revokeSubsidiary(providerId: string, targetProvisionerId: string) {
+    return this.providerAssocStorage.disassociate(targetProvisionerId, providerId);
+  }
+
+  async listSubsidiaries(providerId: string) {
+    const associations = await this.providerAssocStorage.findByProvider(providerId);
+    const subsidiaries = associations
+      .filter((a) => a.relationship === 'subsidiary')
+      .map((a) => ({
+        provisionerId: a.provisionerId,
+        grantedAt: a.createdAt,
+      }));
+
+    // Enrich with provisioner names
+    const enriched = await Promise.all(
+      subsidiaries.map(async (s) => {
+        const prov = await this.provisionerStorage.getProvisioner(s.provisionerId);
+        return { ...s, name: prov?.name ?? 'unknown' };
+      }),
+    );
+
+    return { subsidiaries: enriched };
+  }
+}
