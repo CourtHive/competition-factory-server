@@ -21,6 +21,8 @@ export interface ScorebugClockTick {
   serveClockMs: number;    // current extrapolated remaining time
   /** Optional per-player clocks, for sports that track on-court time. */
   playerClocks?: Record<string, { remainingMs: number; isOnCourt: boolean }>;
+  /** Optional penalty box countdown timers, keyed by participantId. */
+  penaltyBox?: Record<string, { remainingMs: number; sideNumber: 1 | 2; participantName?: string }>;
   /** ISO timestamp at the moment this tick was generated. */
   generatedAt: string;
 }

@@ -130,6 +130,7 @@ export class ScorebugTickService implements OnModuleDestroy {
       boltClockMs,
       serveClockMs,
       playerClocks: this.buildPlayerClocks(ticker.document, elapsedMs),
+      penaltyBox: this.buildPenaltyBox(ticker.document, elapsedMs),
       generatedAt: new Date().toISOString(),
     };
 
@@ -159,6 +160,26 @@ export class ScorebugTickService implements OnModuleDestroy {
       out[participantId] = { remainingMs: accruedMs, isOnCourt: snapshot.isOnCourt };
     }
     return out;
+  }
+
+  private buildPenaltyBox(
+    document: BoltHistoryDocument,
+    elapsedMs: number,
+  ): Record<string, { remainingMs: number; sideNumber: 1 | 2; participantName?: string }> | undefined {
+    const snapshots = document.penaltyBoxSnapshots;
+    if (!snapshots || typeof snapshots !== 'object') return undefined;
+    const out: Record<string, { remainingMs: number; sideNumber: 1 | 2; participantName?: string }> = {};
+    let hasEntries = false;
+    for (const [participantId, snapshot] of Object.entries(snapshots)) {
+      const remainingMs = Math.max(0, snapshot.remainingMs - elapsedMs);
+      out[participantId] = {
+        remainingMs,
+        sideNumber: snapshot.sideNumber,
+        participantName: snapshot.participantName,
+      };
+      hasEntries = true;
+    }
+    return hasEntries ? out : undefined;
   }
 
   private async dispatchTick(tick: ScorebugClockTick): Promise<void> {
