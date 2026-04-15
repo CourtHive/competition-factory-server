@@ -16,6 +16,10 @@ import {
   type IUserStorage,
   USER_PROVIDER_STORAGE,
   type IUserProviderStorage,
+  ASSIGNMENT_STORAGE,
+  type IAssignmentStorage,
+  TOURNAMENT_PROVISIONER_STORAGE,
+  type ITournamentProvisionerStorage,
 } from 'src/storage/interfaces';
 
 const PROV_KEY_PREFIX = 'prov_sk_live_';
@@ -30,6 +34,8 @@ export class ProvisionerService {
     @Inject(SSO_IDENTITY_STORAGE) private readonly ssoIdentityStorage: ISsoIdentityStorage,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
+    @Inject(ASSIGNMENT_STORAGE) private readonly assignmentStorage: IAssignmentStorage,
+    @Inject(TOURNAMENT_PROVISIONER_STORAGE) private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
   ) {}
 
   // ── Provisioner CRUD (SUPER_ADMIN) ──
@@ -309,5 +315,88 @@ export class ProvisionerService {
     );
 
     return { subsidiaries: enriched };
+  }
+
+  // ── Tournament assignments (Provisioner) ──
+
+  async grantAssignment(provisionerId: string, params: {
+    tournamentId: string;
+    userEmail: string;
+    providerId: string;
+    role?: string;
+  }) {
+    const { tournamentId, userEmail, providerId, role } = params;
+
+    // Verify provisioner manages this provider
+    const relationship = await this.providerAssocStorage.getRelationship(provisionerId, providerId);
+    if (!relationship) return { error: 'Provider not managed by this provisioner', code: 'PROVIDER_NOT_MANAGED' };
+
+    // Subsidiary check: can only assign to own tournaments
+    if (relationship === 'subsidiary') {
+      const ownership = await this.tournamentProvisionerStorage.getByTournament(tournamentId);
+      if (ownership?.provisionerId !== provisionerId) {
+        return { error: 'Subsidiary provisioners can only assign users to their own tournaments', code: 'TOURNAMENT_NOT_OWNED' };
+      }
+    }
+
+    // Resolve user
+    const user = await this.userStorage.findOne(userEmail);
+    if (!user) return { error: 'User not found', code: 'USER_NOT_FOUND' };
+    const userId = user.userId ?? user.user_id;
+    if (!userId) return { error: 'User has no UUID' };
+
+    // Verify user is associated with the provider
+    const association = await this.userProviderStorage.findOne(userId, providerId);
+    if (!association) return { error: 'User is not associated with this provider', code: 'USER_NOT_IN_PROVIDER' };
+
+    const row = {
+      tournamentId,
+      userId,
+      providerId,
+      assignmentRole: role || 'DIRECTOR',
+      grantedBy: null as any, // provisioner-originated: no user grantor
+    };
+
+    await this.assignmentStorage.grant(row);
+    return { success: true, assignment: { ...row, email: userEmail } };
+  }
+
+  async revokeAssignment(provisionerId: string, params: {
+    tournamentId: string;
+    userEmail: string;
+    providerId: string;
+  }) {
+    const { tournamentId, userEmail, providerId } = params;
+
+    const relationship = await this.providerAssocStorage.getRelationship(provisionerId, providerId);
+    if (!relationship) return { error: 'Provider not managed by this provisioner', code: 'PROVIDER_NOT_MANAGED' };
+
+    if (relationship === 'subsidiary') {
+      const ownership = await this.tournamentProvisionerStorage.getByTournament(tournamentId);
+      if (ownership?.provisionerId !== provisionerId) {
+        return { error: 'Subsidiary provisioners can only manage their own tournaments', code: 'TOURNAMENT_NOT_OWNED' };
+      }
+    }
+
+    const user = await this.userStorage.findOne(userEmail);
+    if (!user) return { error: 'User not found', code: 'USER_NOT_FOUND' };
+    const userId = user.userId ?? user.user_id;
+
+    await this.assignmentStorage.revoke(tournamentId, userId);
+    return { success: true };
+  }
+
+  async listAssignments(provisionerId: string, params: { tournamentId?: string; providerId: string }) {
+    const { tournamentId, providerId } = params;
+
+    const relationship = await this.providerAssocStorage.getRelationship(provisionerId, providerId);
+    if (!relationship) return { error: 'Provider not managed by this provisioner', code: 'PROVIDER_NOT_MANAGED' };
+
+    if (tournamentId) {
+      const assignments = await this.assignmentStorage.findByTournamentId(tournamentId);
+      return { success: true, assignments };
+    }
+
+    return { success: true, assignments: [] };
   }
 }

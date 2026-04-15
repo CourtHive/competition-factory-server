@@ -87,4 +87,33 @@ export class ProvisionerController {
   async revokeSubsidiary(@Param('providerId') providerId: string, @Param('provisionerId') provisionerId: string) {
     return this.provisionerService.revokeSubsidiary(providerId, provisionerId);
   }
+
+  // ── Tournament assignments ──
+
+  @Post('assignments/grant')
+  @HttpCode(HttpStatus.OK)
+  async grantAssignment(@Req() req: any, @Body() body: {
+    tournamentId: string;
+    userEmail: string;
+    providerId: string;
+    role?: string;
+  }) {
+    return this.provisionerService.grantAssignment(req.provisioner.provisionerId, body);
+  }
+
+  @Post('assignments/revoke')
+  @HttpCode(HttpStatus.OK)
+  async revokeAssignment(@Req() req: any, @Body() body: {
+    tournamentId: string;
+    userEmail: string;
+    providerId: string;
+  }) {
+    return this.provisionerService.revokeAssignment(req.provisioner.provisionerId, body);
+  }
+
+  @Post('assignments/list')
+  @HttpCode(HttpStatus.OK)
+  async listAssignments(@Req() req: any, @Body() body: { tournamentId?: string; providerId: string }) {
+    return this.provisionerService.listAssignments(req.provisioner.provisionerId, body);
+  }
 }
