@@ -1,5 +1,10 @@
+import { PROVISIONER_PROVIDER_STORAGE } from './interfaces/provisioner-provider-storage.interface';
+import { TOURNAMENT_PROVISIONER_STORAGE } from './interfaces/tournament-provisioner-storage.interface';
+import { PROVISIONER_API_KEY_STORAGE } from './interfaces/provisioner-api-key-storage.interface';
 import { BOLT_HISTORY_REPORTING } from './interfaces/bolt-history-reporting.interface';
 import { USER_PROVIDER_STORAGE } from './interfaces/user-provider-storage.interface';
+import { PROVISIONER_STORAGE } from './interfaces/provisioner-storage.interface';
+import { SSO_IDENTITY_STORAGE } from './interfaces/sso-identity-storage.interface';
 import { OFFICIATING_STORAGE } from './interfaces/officiating-storage.interface';
 import { SANCTIONING_STORAGE } from './interfaces/sanctioning-storage.interface';
 import { BOLT_HISTORY_STORAGE } from './interfaces/bolt-history.interface';
@@ -12,7 +17,12 @@ import { AUDIT_STORAGE } from './interfaces/audit-storage.interface';
 import { USER_STORAGE } from './interfaces/user-storage.interface';
 
 import { LeveldbBoltHistoryReportingStorage } from './leveldb/leveldb-bolt-history-reporting.storage';
+import { LeveldbProvisionerProviderStorage } from './leveldb/leveldb-provisioner-provider.storage';
+import { LeveldbTournamentProvisionerStorage } from './leveldb/leveldb-tournament-provisioner.storage';
+import { LeveldbProvisionerApiKeyStorage } from './leveldb/leveldb-provisioner-api-key.storage';
 import { LeveldbUserProviderStorage } from './leveldb/leveldb-user-provider.storage';
+import { LeveldbProvisionerStorage } from './leveldb/leveldb-provisioner.storage';
+import { LeveldbSsoIdentityStorage } from './leveldb/leveldb-sso-identity.storage';
 import { LeveldbBoltHistoryStorage } from './leveldb/leveldb-bolt-history.storage';
 import { LeveldbAuditStorage } from './leveldb/leveldb-audit.storage';
 import { LeveldbTournamentStorage } from './leveldb/leveldb-tournament.storage';
@@ -25,7 +35,12 @@ import { LeveldbAuthCodeStorage } from './leveldb/leveldb-auth-code.storage';
 import { LeveldbUserStorage } from './leveldb/leveldb-user.storage';
 
 import { PostgresBoltHistoryReportingStorage } from './postgres/postgres-bolt-history-reporting.storage';
+import { PostgresProvisionerProviderStorage } from './postgres/postgres-provisioner-provider.storage';
+import { PostgresTournamentProvisionerStorage } from './postgres/postgres-tournament-provisioner.storage';
+import { PostgresProvisionerApiKeyStorage } from './postgres/postgres-provisioner-api-key.storage';
 import { PostgresUserProviderStorage } from './postgres/postgres-user-provider.storage';
+import { PostgresProvisionerStorage } from './postgres/postgres-provisioner.storage';
+import { PostgresSsoIdentityStorage } from './postgres/postgres-sso-identity.storage';
 import { PostgresAuditStorage } from './postgres/postgres-audit.storage';
 import { PostgresBoltHistoryStorage } from './postgres/postgres-bolt-history.storage';
 import { PostgresTournamentStorage } from './postgres/postgres-tournament.storage';
@@ -147,6 +162,36 @@ const auditStorageProvider = makeStorageProvider(
   PostgresAuditStorage,
 );
 
+const provisionerStorageProvider = makeStorageProvider(
+  PROVISIONER_STORAGE,
+  LeveldbProvisionerStorage,
+  PostgresProvisionerStorage,
+);
+
+const provisionerApiKeyStorageProvider = makeStorageProvider(
+  PROVISIONER_API_KEY_STORAGE,
+  LeveldbProvisionerApiKeyStorage,
+  PostgresProvisionerApiKeyStorage,
+);
+
+const provisionerProviderStorageProvider = makeStorageProvider(
+  PROVISIONER_PROVIDER_STORAGE,
+  LeveldbProvisionerProviderStorage,
+  PostgresProvisionerProviderStorage,
+);
+
+const tournamentProvisionerStorageProvider = makeStorageProvider(
+  TOURNAMENT_PROVISIONER_STORAGE,
+  LeveldbTournamentProvisionerStorage,
+  PostgresTournamentProvisionerStorage,
+);
+
+const ssoIdentityStorageProvider = makeStorageProvider(
+  SSO_IDENTITY_STORAGE,
+  LeveldbSsoIdentityStorage,
+  PostgresSsoIdentityStorage,
+);
+
 @Global()
 @Module({
   providers: [
@@ -164,6 +209,11 @@ const auditStorageProvider = makeStorageProvider(
     userProviderStorageProvider,
     assignmentStorageProvider,
     auditStorageProvider,
+    provisionerStorageProvider,
+    provisionerApiKeyStorageProvider,
+    provisionerProviderStorageProvider,
+    tournamentProvisionerStorageProvider,
+    ssoIdentityStorageProvider,
     TournamentStorageService,
   ],
   exports: [
@@ -179,6 +229,11 @@ const auditStorageProvider = makeStorageProvider(
     USER_PROVIDER_STORAGE,
     ASSIGNMENT_STORAGE,
     AUDIT_STORAGE,
+    PROVISIONER_STORAGE,
+    PROVISIONER_API_KEY_STORAGE,
+    PROVISIONER_PROVIDER_STORAGE,
+    TOURNAMENT_PROVISIONER_STORAGE,
+    SSO_IDENTITY_STORAGE,
     TournamentStorageService,
   ],
 })
