@@ -34,6 +34,12 @@ export class AuthService {
   async signIn(email: string, clearTextPassword: string) {
     if (!email) throw new UnauthorizedException();
     const user = await this.usersService.findOne(email);
+
+    // SSO-only users have empty password — reject direct login
+    if (user && !user.password) {
+      throw new UnauthorizedException('This account uses SSO login. Please log in through your organization.');
+    }
+
     const { password, ...userDetails } = user ?? {};
     const passwordMatch =
       user && (password === clearTextPassword || (await bcrypt.compare(clearTextPassword, user?.password)));

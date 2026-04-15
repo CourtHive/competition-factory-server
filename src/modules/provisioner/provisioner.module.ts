@@ -3,10 +3,12 @@ import { ProvisionerMiddleware } from './provisioner.middleware';
 import { AdminProvisionerController } from './admin-provisioner.controller';
 import { ProvisionerController } from './provisioner.controller';
 import { ProvisionerService } from './provisioner.service';
+import { SsoTokenService } from './sso-token.service';
+import { SsoController } from './sso.controller';
 
 @Module({
-  controllers: [AdminProvisionerController, ProvisionerController],
-  providers: [ProvisionerService],
+  controllers: [AdminProvisionerController, ProvisionerController, SsoController],
+  providers: [ProvisionerService, SsoTokenService],
 })
 export class ProvisionerModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
