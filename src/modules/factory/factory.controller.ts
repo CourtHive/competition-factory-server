@@ -57,7 +57,10 @@ export class FactoryController {
     return this.factoryService.getVersion();
   }
 
-  @Public()
+  // Not @Public() — the assistant context surfaces events, venues, and
+  // schedule state that are not restricted to publish state. Only the
+  // standard tournamentInfo reads (which respect usePublishState) are
+  // intended for unauthenticated access.
   @Get('assistant-context/:tid')
   async getAssistantContext(@Param('tid') tid) {
     const key = `gac|${tid}`;
