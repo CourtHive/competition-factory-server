@@ -109,6 +109,10 @@ export class FactoryService {
     return await this.tournamentStorageService.saveTournamentRecords({ ...params, userId });
   }
 
+  async getAssistantContext({ tournamentId }: { tournamentId: string }) {
+    return await publicQueries.getAssistantContext({ tournamentId }, this.tournamentStorage);
+  }
+
   async getTournamentInfo({
     tournamentId,
     withMatchUpStats,

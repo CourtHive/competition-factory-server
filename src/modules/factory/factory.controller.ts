@@ -58,6 +58,15 @@ export class FactoryController {
   }
 
   @Public()
+  @Get('assistant-context/:tid')
+  async getAssistantContext(@Param('tid') tid) {
+    const key = `gac|${tid}`;
+    return await this.cacheFx(key, (params) => this.factoryService.getAssistantContext(params), {
+      tournamentId: tid,
+    });
+  }
+
+  @Public()
   @Get('tournamentinfo/:tid')
   async getTournamentInfo(@Param('tid') tid) {
     const key = `gti|${tid}`;
