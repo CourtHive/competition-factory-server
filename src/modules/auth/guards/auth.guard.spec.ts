@@ -54,6 +54,25 @@ describe('AuthGuard', () => {
     await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
   });
 
+  it('allows access when request.provisioner is already set (provisioner middleware)', async () => {
+    const request: any = {
+      headers: { authorization: 'Bearer prov_sk_live_testkey' },
+      provisioner: { provisionerId: 'p1', name: 'IONSport' },
+    };
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+
+    const context = {
+      getHandler: () => ({}),
+      getClass: () => ({}),
+      switchToHttp: () => ({
+        getRequest: () => request,
+      }),
+    } as any;
+
+    const result = await guard.canActivate(context);
+    expect(result).toBe(true);
+  });
+
   it('allows access and sets user for valid JWT', async () => {
     const payload = { email: 'test@test.com', roles: ['admin'] };
     const token = jwtService.sign(payload, { secret: 'test-secret' });

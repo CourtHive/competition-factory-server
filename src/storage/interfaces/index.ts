@@ -31,3 +31,28 @@ export {
   type PlayerPointStats,
   type TournamentLeader,
 } from './bolt-history-reporting.interface';
+export {
+  PROVISIONER_STORAGE,
+  type IProvisionerStorage,
+  type ProvisionerRow,
+} from './provisioner-storage.interface';
+export {
+  PROVISIONER_API_KEY_STORAGE,
+  type IProvisionerApiKeyStorage,
+  type ProvisionerApiKeyRow,
+} from './provisioner-api-key-storage.interface';
+export {
+  PROVISIONER_PROVIDER_STORAGE,
+  type IProvisionerProviderStorage,
+  type ProvisionerProviderRow,
+} from './provisioner-provider-storage.interface';
+export {
+  TOURNAMENT_PROVISIONER_STORAGE,
+  type ITournamentProvisionerStorage,
+  type TournamentProvisionerRow,
+} from './tournament-provisioner-storage.interface';
+export {
+  SSO_IDENTITY_STORAGE,
+  type ISsoIdentityStorage,
+  type SsoIdentityRow,
+} from './sso-identity-storage.interface';

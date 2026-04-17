@@ -3,6 +3,7 @@ import { getMutationEngine } from '../../engines/getMutationEngine';
 import { Logger } from '@nestjs/common';
 
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import type { ITournamentProvisionerStorage } from 'src/storage/interfaces';
 import type { AuditService } from 'src/modules/audit/audit.service';
 
 export async function executionQueue(
@@ -10,6 +11,7 @@ export async function executionQueue(
   services?: any,
   storage?: TournamentStorageService,
   auditService?: AuditService,
+  tournamentProvisionerStorage?: ITournamentProvisionerStorage,
 ): Promise<any> {
   const { methods = [], rollbackOnError } = payload ?? {};
   const tournamentIds = payload?.tournamentIds || (payload?.tournamentId && [payload.tournamentId]) || [];
@@ -58,6 +60,22 @@ export async function executionQueue(
         services?.cacheManager?.del(key);
       }
 
+      // PROVISIONER HOOK: stamp tournament_provisioner mapping and
+      // parentOrganisation.extensions when a provisioner creates a tournament.
+      // Fail-soft: errors are logged but never block the ack.
+      if (innerResult.success && payload?.provisioner?.provisionerId && tournamentProvisionerStorage) {
+        const hasNewTournament = methods.some((m: any) => m.method === 'newTournamentRecord');
+        if (hasNewTournament) {
+          stampProvisionerOrigin({
+            tournamentIds,
+            provisioner: payload.provisioner,
+            tournamentProvisionerStorage,
+            mutationEngine,
+            storage,
+          });
+        }
+      }
+
       // AUDIT HOOK: record the mutation after save completes, inside the lock.
       // Fail-soft: audit errors are logged but never block the ack.
       if (auditService) {
@@ -65,7 +83,7 @@ export async function executionQueue(
           tournamentIds,
           userId: payload?.userId,
           userEmail: payload?.userEmail,
-          source: payload?.source ?? 'tmx',
+          source: payload?.auditSource?.type === 'provisioner' ? 'provisioner' : payload?.source ?? 'tmx',
           methods: methods.map((m: any) => ({ method: m.method, params: m.params })),
           status: innerResult.success ? 'applied' : innerResult.error ? 'rejected' : 'partial',
           errorCode: innerResult.error ? String(innerResult.error) : undefined,
@@ -82,4 +100,54 @@ export async function executionQueue(
     Logger.error(`executionQueue exception for tournaments [${tournamentIds.join(', ')}]: ${message}`);
     return { error: message, tournamentIds };
   }
+}
+
+/** Fire-and-forget: stamp tournament_provisioner table + parentOrganisation extension. */
+function stampProvisionerOrigin({
+  tournamentIds,
+  provisioner,
+  tournamentProvisionerStorage,
+  mutationEngine,
+  storage,
+}: {
+  tournamentIds: string[];
+  provisioner: { provisionerId: string; providerId: string; provisionerName?: string };
+  tournamentProvisionerStorage: ITournamentProvisionerStorage;
+  mutationEngine: any;
+  storage: TournamentStorageService;
+}) {
+  const { provisionerId, providerId } = provisioner;
+
+  // Insert relational mapping rows
+  for (const tid of tournamentIds) {
+    tournamentProvisionerStorage.create({ tournamentId: tid, provisionerId, providerId }).catch((err) =>
+      Logger.error(`Provisioner stamp failed for ${tid}: ${err.message}`, 'executionQueue'),
+    );
+  }
+
+  // Stamp provisionerOrigin extension on parentOrganisation
+  const mutatedRecords: any = mutationEngine.getState().tournamentRecords;
+  for (const tid of tournamentIds) {
+    const record = mutatedRecords?.[tid];
+    if (!record?.parentOrganisation) continue;
+
+    const extensions = record.parentOrganisation.extensions ?? [];
+    const ext = {
+      name: 'provisionerOrigin',
+      value: { provisionerId, provisionerName: provisioner.provisionerName, createdAt: new Date().toISOString() },
+    };
+    const idx = extensions.findIndex((e: any) => e.name === 'provisionerOrigin');
+    if (idx >= 0) {
+      extensions[idx] = ext;
+    } else {
+      extensions.push(ext);
+    }
+    record.parentOrganisation.extensions = extensions;
+  }
+
+  // Re-save with the extension stamped
+  const resaveRecords: any = mutationEngine.getState().tournamentRecords;
+  storage.saveTournamentRecords({ tournamentRecords: resaveRecords }).catch((err) =>
+    Logger.error(`Provisioner extension re-save failed: ${err.message}`, 'executionQueue'),
+  );
 }

@@ -10,7 +10,7 @@ import { ExecutionQueueDto } from './dto/executionQueue.dto';
 import { GetEventDataDto } from './dto/getEventData.dto';
 import { GetMatchUpsDto } from './dto/getMatchUps.dto';
 
-import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param, Logger } from '@nestjs/common';
+import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param, Logger, Req } from '@nestjs/common';
 import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
 import { ADMIN, CLIENT, GENERATE, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
 import { Public } from 'src/modules/auth/decorators/public.decorator';
@@ -55,6 +55,18 @@ export class FactoryController {
   @Get('version')
   getVersion(): { version: string } {
     return this.factoryService.getVersion();
+  }
+
+  // Not @Public() — the assistant context surfaces events, venues, and
+  // schedule state that are not restricted to publish state. Only the
+  // standard tournamentInfo reads (which respect usePublishState) are
+  // intended for unauthenticated access.
+  @Get('assistant-context/:tid')
+  async getAssistantContext(@Param('tid') tid) {
+    const key = `gac|${tid}`;
+    return await this.cacheFx(key, (params) => this.factoryService.getAssistantContext(params), {
+      tournamentId: tid,
+    });
   }
 
   @Public()
@@ -131,8 +143,15 @@ export class FactoryController {
   @Post()
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  async executionQueue(@Body() eqd: ExecutionQueueDto) {
-    const result = await this.factoryService.executionQueue(eqd, { cacheManager: this.cacheManager });
+  async executionQueue(@Body() eqd: ExecutionQueueDto, @Req() req: any) {
+    // Thread provisioner context so executionQueue can stamp tournament ownership
+    const provisioner = req.provisioner
+      ? { provisionerId: req.provisioner.provisionerId, providerId: req.headers?.['x-provider-id'] }
+      : undefined;
+    const result = await this.factoryService.executionQueue(
+      { ...eqd, provisioner, auditSource: req.auditSource },
+      { cacheManager: this.cacheManager },
+    );
     if (result?.success) {
       const { publicNotices } = result;
       this.broadcastService.broadcastMutation(eqd);

@@ -148,7 +148,8 @@ describe('FactoryController', () => {
         tournamentIds: ['t1'],
         methods: [{ method: 'setMatchUpStatus', params: {} }],
       };
-      await mockController.executionQueue(eqd as any);
+      const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
+      await mockController.executionQueue(eqd as any, mockReq);
 
       expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(eqd);
       expect(mockBroadcast.broadcastPublicNotices).toHaveBeenCalledWith(eqd, publicNotices);
@@ -164,7 +165,8 @@ describe('FactoryController', () => {
         tournamentIds: ['t1'],
         methods: [{ method: 'setMatchUpStatus', params: {} }],
       };
-      await mockController.executionQueue(eqd as any);
+      const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
+      await mockController.executionQueue(eqd as any, mockReq);
 
       expect(mockBroadcast.broadcastMutation).not.toHaveBeenCalled();
       expect(mockBroadcast.broadcastPublicNotices).not.toHaveBeenCalled();
