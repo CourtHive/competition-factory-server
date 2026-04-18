@@ -37,20 +37,7 @@ module.exports = {
         VIDEO_BOARD_UDP_TARGET: process.env.VIDEO_BOARD_UDP_TARGET || '',
       },
     },
-    {
-      name: 'TMX Assistant',
-      script: 'tmx-assistant/dist/index.js',
-      watch: false,
-      env: {
-        NODE_ENV: 'production',
-        PORT: process.env.ASSISTANT_PORT || '3200',
-        OLLAMA_URL: process.env.OLLAMA_URL || 'http://localhost:11434',
-        OLLAMA_MODEL: process.env.OLLAMA_MODEL || 'llama3.1',
-        FACTORY_SERVER_URL: process.env.FACTORY_SERVER_URL || 'http://localhost:8383',
-        SQLITE_PATH: process.env.ASSISTANT_SQLITE_PATH || './data/assistant-conversations.db',
-        JWT_SECRET: process.env.JWT_SECRET || '',
-        RATE_LIMIT_PER_MINUTE: process.env.ASSISTANT_RATE_LIMIT || '10',
-      },
-    },
+    // TMX Assistant runs from its own repo with its own ecosystem.config.cjs.
+    // Managed by mentat-push-tmx-assistant.sh, NOT by this file.
   ],
 };

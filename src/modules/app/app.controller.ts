@@ -1,14 +1,12 @@
 import { Public } from '../auth/decorators/public.decorator';
-import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
+import { Controller, Get, Redirect } from '@nestjs/common';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
-
   @Get()
   @Public()
-  factoryServer(): any {
-    return this.appService.factoryServer();
+  @Redirect('https://courthive.com', 301)
+  factoryServer(): void {
+    // 301 permanent redirect — courthive.net root → courthive.com
   }
 }

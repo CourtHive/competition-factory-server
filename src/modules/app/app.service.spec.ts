@@ -18,11 +18,10 @@ describe('AppService', () => {
   });
 
   describe('factoryServer', () => {
-    it('should return "Factory server"', () => {
+    it('should be a redirect (void return — NestJS @Redirect handles the response)', () => {
       const appController = app.get(AppController);
-      expect(appController.factoryServer()).toStrictEqual({
-        message: 'Factory server',
-      });
+      // @Redirect decorator handles the 301; the method body returns void
+      expect(appController.factoryServer()).toBeUndefined();
     });
   });
 });
