@@ -6,6 +6,7 @@ import { allTournamentMatchUps } from './functions/private/allTournamentMatchUps
 import { executionQueue as eq } from './functions/private/executionQueue';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
+import { validateTournamentRecord, ValidationLevel } from './helpers/validateTournamentRecord';
 import { MutationMirrorService } from '../tournament-sync/mutation-mirror.service';
 import { checkEngineError } from '../../common/errors/engineError';
 import { AssignmentsService } from './assignments.service';
@@ -106,6 +107,19 @@ export class FactoryService {
     const tournamentRecords = getTournamentRecords(params);
     const allowUser = checkProvider({ tournamentRecords, user, userContext });
     if (!allowUser) return { error: 'User not allowed' };
+
+    // Validate each tournament record before persisting
+    const level: ValidationLevel = params.validate === 'deep' ? 'L3' : 'L2';
+    for (const tid of Object.keys(tournamentRecords)) {
+      const result = validateTournamentRecord(tournamentRecords[tid], level);
+      if (!result.valid) {
+        return {
+          error: `Tournament record ${tid} failed validation`,
+          validationErrors: result.errors,
+          validationWarnings: result.warnings,
+        };
+      }
+    }
 
     // Per-tournament mutation gate (behind feature flag)
     if (userContext) {
