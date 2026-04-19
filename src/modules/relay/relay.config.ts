@@ -37,6 +37,15 @@ export class RelayConfig {
     return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 5000;
   }
 
+  // Local-only: upstream factory-server URL for tournament import + mutation mirror
+  get upstreamServerUrl(): string | undefined {
+    return process.env.UPSTREAM_SERVER_URL?.trim() || undefined;
+  }
+
+  get upstreamApiKey(): string | undefined {
+    return process.env.UPSTREAM_API_KEY?.trim() || undefined;
+  }
+
   // Cloud-only: parses VENUE_API_KEYS env var into a map of venueId -> apiKey.
   // Format: "venue-1:abc123,venue-2:def456"
   get venueApiKeys(): Map<string, string> {

@@ -19,7 +19,7 @@
     "jwt-decode": "^4.0.0",
     "navigo": "^8.11.1",
     "tabulator-tables": "^6.3.1",
-    "tods-competition-factory": "^2.4.0"
+    "tods-competition-factory": "^3.0.1"
   },
   "devDependencies": {
     "@storybook/addon-essentials": "^8.6.14",

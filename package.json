@@ -37,7 +37,6 @@
     "test:e2e:headed": "playwright test --headed",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/jest/bin/jest --runInBand",
     "check-types": "tsc --noEmit",
-    "hive-db": "net-level-server",
     "admin:list": "node src/scripts/admin-user.mjs list",
     "admin:create": "node src/scripts/admin-user.mjs create",
     "admin:reset-password": "node src/scripts/admin-user.mjs reset-password",
@@ -86,7 +85,7 @@
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "socket.io": "4.8.3",
-    "tods-competition-factory": "^2.4.6-beta.43",
+    "tods-competition-factory": "^3.0.1",
     "tods-tmx-classic-converter": "3.0.5",
     "tslib": "^2.6.2"
   },

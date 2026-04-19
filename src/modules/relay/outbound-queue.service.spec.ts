@@ -1,34 +1,81 @@
-jest.mock('src/services/levelDB/netLevel', () => {
-  const store = new Map<string, any>();
-  return {
-    __esModule: true,
-    default: {
-      get: jest.fn(async (_base: string, { key }: { key: string }) => store.get(key) ?? null),
-      set: jest.fn(async (_base: string, { key, value }: { key: string; value: any }) => {
-        store.set(key, value);
-        return { success: true };
-      }),
-      delete: jest.fn(async (_base: string, { key }: { key: string }) => {
-        store.delete(key);
-        return { success: true };
-      }),
-      list: jest.fn(async () =>
-        Array.from(store.entries()).map(([key, value]) => ({ key, value })),
-      ),
-      __reset: () => store.clear(),
-    },
-  };
-});
-
-import netLevelMock from 'src/services/levelDB/netLevel';
 import { OutboundQueueService } from './outbound-queue.service';
+import { QueueEntry } from './types/queue-entry';
+
+// In-memory queue simulating the Postgres table
+let rows: QueueEntry[] = [];
+let nextSeq = 1;
+
+const mockPool = {
+  query: jest.fn(async (sql: string, params?: any[]) => {
+    const text = sql.replace(/\s+/g, ' ').trim();
+
+    if (text.includes('CREATE TABLE')) {
+      return { rows: [] };
+    }
+
+    if (text.includes('INSERT INTO outbound_relay_queue')) {
+      const entry: QueueEntry = {
+        sequence: nextSeq++,
+        venueId: params![0],
+        kind: params![1],
+        matchUpId: params![2],
+        payload: JSON.parse(params![3]),
+        createdAt: new Date().toISOString(),
+        attempts: 0,
+      };
+      rows.push(entry);
+      return { rows: [entry] };
+    }
+
+    if (text.includes('SELECT COUNT')) {
+      return { rows: [{ count: rows.length }] };
+    }
+
+    if (text.includes('SELECT sequence')) {
+      const limit = params![0];
+      return { rows: rows.slice(0, limit).map(entryToRow) };
+    }
+
+    if (text.includes('DELETE FROM outbound_relay_queue')) {
+      const seqs: number[] = params![0];
+      rows = rows.filter((e) => !seqs.includes(e.sequence));
+      return { rows: [] };
+    }
+
+    if (text.includes('UPDATE outbound_relay_queue')) {
+      const entry = rows.find((e) => e.sequence === params![0]);
+      if (entry) {
+        entry.attempts += 1;
+        entry.lastError = params![1];
+      }
+      return { rows: [] };
+    }
+
+    return { rows: [] };
+  }),
+};
+
+function entryToRow(e: QueueEntry) {
+  return {
+    sequence: e.sequence,
+    venue_id: e.venueId,
+    kind: e.kind,
+    match_up_id: e.matchUpId,
+    payload: e.payload,
+    created_at: e.createdAt,
+    attempts: e.attempts,
+    last_error: e.lastError ?? null,
+  };
+}
 
 describe('OutboundQueueService', () => {
   let queue: OutboundQueueService;
 
   beforeEach(() => {
-    (netLevelMock as any).__reset();
-    queue = new OutboundQueueService();
+    rows = [];
+    nextSeq = 1;
+    jest.clearAllMocks();
+    queue = new OutboundQueueService(mockPool as any);
   });
 
   it('assigns monotonically increasing sequences', async () => {

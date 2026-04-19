@@ -1,3 +1,4 @@
+import { TournamentSyncModule } from '../tournament-sync/tournament-sync.module';
 import { ProvisionerModule } from '../provisioner/provisioner.module';
 import { OfficiatingModule } from '../officiating/officiating.module';
 import { BoltHistoryModule } from '../bolt-history/bolt-history.module';
@@ -31,7 +32,7 @@ const coreModules = [
 
 // Tournament modules — loaded for 'tournament' and 'full' profiles
 const tournamentModules = isModuleEnabled('tournament')
-  ? [FactoryModule, MessagingModule, ProvidersModule, CacheModule, BoltHistoryModule, AuditModule, ProvisionerModule]
+  ? [FactoryModule, MessagingModule, ProvidersModule, CacheModule, BoltHistoryModule, AuditModule, ProvisionerModule, TournamentSyncModule.forRoot()]
   : [];
 
 // Provider modules — loaded for 'provider' and 'full' profiles

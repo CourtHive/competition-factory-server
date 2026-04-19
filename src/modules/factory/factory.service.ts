@@ -6,12 +6,13 @@ import { allTournamentMatchUps } from './functions/private/allTournamentMatchUps
 import { executionQueue as eq } from './functions/private/executionQueue';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
+import { MutationMirrorService } from '../tournament-sync/mutation-mirror.service';
 import { checkEngineError } from '../../common/errors/engineError';
 import { AssignmentsService } from './assignments.service';
 import { AuditService } from '../audit/audit.service';
 import { checkProvider } from './helpers/checkProvider';
 import { askEngine } from 'tods-competition-factory';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional, Logger } from '@nestjs/common';
 import { checkUser } from './helpers/checkUser';
 import publicQueries from './functions/public';
 
@@ -27,6 +28,7 @@ export class FactoryService {
     private readonly auditService: AuditService,
     @Inject(TOURNAMENT_STORAGE) private readonly tournamentStorage: ITournamentStorage,
     @Inject(TOURNAMENT_PROVISIONER_STORAGE) private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
+    @Optional() private readonly mutationMirror?: MutationMirrorService,
   ) {}
 
   getVersion(): any {
@@ -37,6 +39,16 @@ export class FactoryService {
   async executionQueue(params, services) {
     const result = await eq(params, services, this.tournamentStorageService, this.auditService, this.tournamentProvisionerStorage);
     checkEngineError(result);
+
+    // Fire-and-forget: mirror successful mutations to upstream
+    if (result?.success && this.mutationMirror) {
+      const tournamentIds = params?.tournamentIds || (params?.tournamentId && [params.tournamentId]) || [];
+      const methods = params?.methods ?? params?.executionQueue ?? [];
+      this.mutationMirror.enqueue({ tournamentIds, methods }).catch((err) =>
+        Logger.error(`Mutation mirror enqueue failed: ${err.message}`, 'FactoryService'),
+      );
+    }
+
     return result;
   }
 

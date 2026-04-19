@@ -16,24 +16,6 @@ import { CALENDAR_STORAGE } from './interfaces/calendar-storage.interface';
 import { AUDIT_STORAGE } from './interfaces/audit-storage.interface';
 import { USER_STORAGE } from './interfaces/user-storage.interface';
 
-import { LeveldbBoltHistoryReportingStorage } from './leveldb/leveldb-bolt-history-reporting.storage';
-import { LeveldbProvisionerProviderStorage } from './leveldb/leveldb-provisioner-provider.storage';
-import { LeveldbTournamentProvisionerStorage } from './leveldb/leveldb-tournament-provisioner.storage';
-import { LeveldbProvisionerApiKeyStorage } from './leveldb/leveldb-provisioner-api-key.storage';
-import { LeveldbUserProviderStorage } from './leveldb/leveldb-user-provider.storage';
-import { LeveldbProvisionerStorage } from './leveldb/leveldb-provisioner.storage';
-import { LeveldbSsoIdentityStorage } from './leveldb/leveldb-sso-identity.storage';
-import { LeveldbBoltHistoryStorage } from './leveldb/leveldb-bolt-history.storage';
-import { LeveldbAuditStorage } from './leveldb/leveldb-audit.storage';
-import { LeveldbTournamentStorage } from './leveldb/leveldb-tournament.storage';
-import { LeveldbSanctioningStorage } from './leveldb/leveldb-sanctioning.storage';
-import { LeveldbOfficiatingStorage } from './leveldb/leveldb-officiating.storage';
-import { LeveldbAssignmentStorage } from './leveldb/leveldb-assignment.storage';
-import { LeveldbCalendarStorage } from './leveldb/leveldb-calendar.storage';
-import { LeveldbProviderStorage } from './leveldb/leveldb-provider.storage';
-import { LeveldbAuthCodeStorage } from './leveldb/leveldb-auth-code.storage';
-import { LeveldbUserStorage } from './leveldb/leveldb-user.storage';
-
 import { PostgresBoltHistoryReportingStorage } from './postgres/postgres-bolt-history-reporting.storage';
 import { PostgresProvisionerProviderStorage } from './postgres/postgres-provisioner-provider.storage';
 import { PostgresTournamentProvisionerStorage } from './postgres/postgres-tournament-provisioner.storage';
@@ -41,6 +23,8 @@ import { PostgresProvisionerApiKeyStorage } from './postgres/postgres-provisione
 import { PostgresUserProviderStorage } from './postgres/postgres-user-provider.storage';
 import { PostgresProvisionerStorage } from './postgres/postgres-provisioner.storage';
 import { PostgresSsoIdentityStorage } from './postgres/postgres-sso-identity.storage';
+import { PostgresSanctioningStorage } from './postgres/postgres-sanctioning.storage';
+import { PostgresOfficiatingStorage } from './postgres/postgres-officiating.storage';
 import { PostgresAuditStorage } from './postgres/postgres-audit.storage';
 import { PostgresBoltHistoryStorage } from './postgres/postgres-bolt-history.storage';
 import { PostgresTournamentStorage } from './postgres/postgres-tournament.storage';
@@ -49,7 +33,6 @@ import { PostgresProviderStorage } from './postgres/postgres-provider.storage';
 import { PostgresCalendarStorage } from './postgres/postgres-calendar.storage';
 import { PostgresAuthCodeStorage } from './postgres/postgres-auth-code.storage';
 import { PostgresUserStorage } from './postgres/postgres-user.storage';
-// Note: PostgresSanctioningStorage will be added when Postgres implementation is ready
 import { MigrationRunnerService } from './postgres/migration-runner.service';
 import { PG_POOL, getPostgresConfig } from './postgres/postgres.config';
 
@@ -57,140 +40,36 @@ import { TournamentStorageService } from './tournament-storage.service';
 import { Global, Module } from '@nestjs/common';
 import { Pool } from 'pg';
 
-type StorageProvider = 'leveldb' | 'postgres';
-
-function getStorageProvider(): StorageProvider {
-  return (process.env.STORAGE_PROVIDER as StorageProvider) || 'leveldb';
-}
-
-// Postgres Pool — only created when provider is 'postgres'
 const pgPoolProvider = {
   provide: PG_POOL,
-  useFactory: () => {
-    if (getStorageProvider() !== 'postgres') return null;
-    return new Pool(getPostgresConfig());
-  },
+  useFactory: () => new Pool(getPostgresConfig()),
 };
 
-function makeStorageProvider(token: symbol, leveldbClass: any, postgresClass: any) {
+function makeStorageProvider(token: symbol, storageClass: any) {
   return {
     provide: token,
-    useFactory: (pool?: Pool) => {
-      const provider = getStorageProvider();
-      if (provider === 'postgres') {
-        return new postgresClass(pool);
-      }
-      return new leveldbClass();
-    },
+    useFactory: (pool: Pool) => new storageClass(pool),
     inject: [PG_POOL],
   };
 }
 
-const tournamentStorageProvider = makeStorageProvider(
-  TOURNAMENT_STORAGE,
-  LeveldbTournamentStorage,
-  PostgresTournamentStorage,
-);
-
-const userStorageProvider = makeStorageProvider(
-  USER_STORAGE,
-  LeveldbUserStorage,
-  PostgresUserStorage,
-);
-
-const providerStorageProvider = makeStorageProvider(
-  PROVIDER_STORAGE,
-  LeveldbProviderStorage,
-  PostgresProviderStorage,
-);
-
-const calendarStorageProvider = makeStorageProvider(
-  CALENDAR_STORAGE,
-  LeveldbCalendarStorage,
-  PostgresCalendarStorage,
-);
-
-const authCodeStorageProvider = makeStorageProvider(
-  AUTH_CODE_STORAGE,
-  LeveldbAuthCodeStorage,
-  PostgresAuthCodeStorage,
-);
-
-// Officiating storage — LevelDB only for now (Postgres stub uses LevelDB)
-const officiatingStorageProvider = makeStorageProvider(
-  OFFICIATING_STORAGE,
-  LeveldbOfficiatingStorage,
-  LeveldbOfficiatingStorage,
-);
-
-// Sanctioning storage — LevelDB only for now (Postgres stub uses LevelDB)
-const sanctioningStorageProvider = makeStorageProvider(
-  SANCTIONING_STORAGE,
-  LeveldbSanctioningStorage,
-  LeveldbSanctioningStorage,
-);
-
-const boltHistoryStorageProvider = makeStorageProvider(
-  BOLT_HISTORY_STORAGE,
-  LeveldbBoltHistoryStorage,
-  PostgresBoltHistoryStorage,
-);
-
-const boltHistoryReportingProvider = makeStorageProvider(
-  BOLT_HISTORY_REPORTING,
-  LeveldbBoltHistoryReportingStorage,
-  PostgresBoltHistoryReportingStorage,
-);
-
-// user_providers and tournament_assignments are Postgres-only features.
-// The LevelDB stubs throw on every call so misconfigured deployments fail loudly.
-const userProviderStorageProvider = makeStorageProvider(
-  USER_PROVIDER_STORAGE,
-  LeveldbUserProviderStorage,
-  PostgresUserProviderStorage,
-);
-
-const assignmentStorageProvider = makeStorageProvider(
-  ASSIGNMENT_STORAGE,
-  LeveldbAssignmentStorage,
-  PostgresAssignmentStorage,
-);
-
-const auditStorageProvider = makeStorageProvider(
-  AUDIT_STORAGE,
-  LeveldbAuditStorage,
-  PostgresAuditStorage,
-);
-
-const provisionerStorageProvider = makeStorageProvider(
-  PROVISIONER_STORAGE,
-  LeveldbProvisionerStorage,
-  PostgresProvisionerStorage,
-);
-
-const provisionerApiKeyStorageProvider = makeStorageProvider(
-  PROVISIONER_API_KEY_STORAGE,
-  LeveldbProvisionerApiKeyStorage,
-  PostgresProvisionerApiKeyStorage,
-);
-
-const provisionerProviderStorageProvider = makeStorageProvider(
-  PROVISIONER_PROVIDER_STORAGE,
-  LeveldbProvisionerProviderStorage,
-  PostgresProvisionerProviderStorage,
-);
-
-const tournamentProvisionerStorageProvider = makeStorageProvider(
-  TOURNAMENT_PROVISIONER_STORAGE,
-  LeveldbTournamentProvisionerStorage,
-  PostgresTournamentProvisionerStorage,
-);
-
-const ssoIdentityStorageProvider = makeStorageProvider(
-  SSO_IDENTITY_STORAGE,
-  LeveldbSsoIdentityStorage,
-  PostgresSsoIdentityStorage,
-);
+const tournamentStorageProvider = makeStorageProvider(TOURNAMENT_STORAGE, PostgresTournamentStorage);
+const userStorageProvider = makeStorageProvider(USER_STORAGE, PostgresUserStorage);
+const providerStorageProvider = makeStorageProvider(PROVIDER_STORAGE, PostgresProviderStorage);
+const calendarStorageProvider = makeStorageProvider(CALENDAR_STORAGE, PostgresCalendarStorage);
+const authCodeStorageProvider = makeStorageProvider(AUTH_CODE_STORAGE, PostgresAuthCodeStorage);
+const officiatingStorageProvider = makeStorageProvider(OFFICIATING_STORAGE, PostgresOfficiatingStorage);
+const sanctioningStorageProvider = makeStorageProvider(SANCTIONING_STORAGE, PostgresSanctioningStorage);
+const boltHistoryStorageProvider = makeStorageProvider(BOLT_HISTORY_STORAGE, PostgresBoltHistoryStorage);
+const boltHistoryReportingProvider = makeStorageProvider(BOLT_HISTORY_REPORTING, PostgresBoltHistoryReportingStorage);
+const userProviderStorageProvider = makeStorageProvider(USER_PROVIDER_STORAGE, PostgresUserProviderStorage);
+const assignmentStorageProvider = makeStorageProvider(ASSIGNMENT_STORAGE, PostgresAssignmentStorage);
+const auditStorageProvider = makeStorageProvider(AUDIT_STORAGE, PostgresAuditStorage);
+const provisionerStorageProvider = makeStorageProvider(PROVISIONER_STORAGE, PostgresProvisionerStorage);
+const provisionerApiKeyStorageProvider = makeStorageProvider(PROVISIONER_API_KEY_STORAGE, PostgresProvisionerApiKeyStorage);
+const provisionerProviderStorageProvider = makeStorageProvider(PROVISIONER_PROVIDER_STORAGE, PostgresProvisionerProviderStorage);
+const tournamentProvisionerStorageProvider = makeStorageProvider(TOURNAMENT_PROVISIONER_STORAGE, PostgresTournamentProvisionerStorage);
+const ssoIdentityStorageProvider = makeStorageProvider(SSO_IDENTITY_STORAGE, PostgresSsoIdentityStorage);
 
 @Global()
 @Module({
@@ -217,6 +96,7 @@ const ssoIdentityStorageProvider = makeStorageProvider(
     TournamentStorageService,
   ],
   exports: [
+    PG_POOL,
     TOURNAMENT_STORAGE,
     USER_STORAGE,
     PROVIDER_STORAGE,
