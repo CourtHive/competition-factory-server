@@ -15,7 +15,7 @@ import { t } from 'i18n';
  * Strips a trailing '/' from pathname so a root-mounted app produces
  * `https://host/#/invite/<code>` instead of `https://host//#/invite/<code>`.
  */
-function buildInviteUrl(inviteCode: string): string {
+export function buildInviteUrl(inviteCode: string): string {
   const { origin, pathname } = globalThis.location;
   const base = pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
   return `${origin}${base}/#/${INVITE}/${inviteCode}`;

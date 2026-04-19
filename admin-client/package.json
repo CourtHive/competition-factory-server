@@ -9,7 +9,9 @@
     "check-types": "tsc --noEmit",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6007",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "animate.css": "^4.1.1",
@@ -26,8 +28,10 @@
     "@storybook/blocks": "^8.6.14",
     "@storybook/html": "^10.0.0",
     "@storybook/html-vite": "^10.0.0",
+    "happy-dom": "^20.8.3",
     "storybook": "^10.0.0",
     "typescript": "^6.0.0",
-    "vite": "^8.0.0"
+    "vite": "^8.0.0",
+    "vitest": "^4.0.16"
   }
 }
