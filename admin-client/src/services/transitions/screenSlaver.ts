@@ -2,11 +2,11 @@
  * Screen state management for admin app content areas.
  * Controls visibility of the admin and system page containers.
  */
-import { NONE, TMX_ADMIN, TMX_SYSTEM, TMX_SANCTIONING } from 'constants/tmxConstants';
+import { NONE, TMX_ADMIN, TMX_SYSTEM, TMX_SANCTIONING, TMX_SYNC } from 'constants/tmxConstants';
 
 let content: string | undefined;
 
-const PAGE_IDS = [TMX_SYSTEM, TMX_ADMIN, TMX_SANCTIONING];
+const PAGE_IDS = [TMX_SYSTEM, TMX_ADMIN, TMX_SANCTIONING, TMX_SYNC];
 
 function selectDisplay(which: string): void {
   for (const id of PAGE_IDS) {
@@ -26,6 +26,10 @@ function selectDisplay(which: string): void {
   const sanctioningIcon = document.getElementById('h-sanctioning');
   if (sanctioningIcon) {
     sanctioningIcon.classList.toggle('active', which === TMX_SANCTIONING);
+  }
+  const syncIcon = document.getElementById('h-sync');
+  if (syncIcon) {
+    syncIcon.classList.toggle('active', which === TMX_SYNC);
   }
 }
 
@@ -51,5 +55,12 @@ export const showTMXsystem = (): void => {
   const titleEl = document.getElementById('pageTitle');
   if (titleEl) titleEl.textContent = 'System';
   content = TMX_SYSTEM;
+  selectDisplay(content);
+};
+
+export const showTMXsync = (): void => {
+  const titleEl = document.getElementById('pageTitle');
+  if (titleEl) titleEl.textContent = 'Tournament Sync';
+  content = TMX_SYNC;
   selectDisplay(content);
 };

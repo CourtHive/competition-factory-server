@@ -24,6 +24,10 @@ export const USERS_TAB = 'users';
 export const TMX_SANCTIONING = 'tmxSanctioning';
 export const SANCTIONING = 'sanctioning';
 
+// Tournament Sync
+export const TMX_SYNC = 'tmxSync';
+export const SYNC = 'sync';
+
 // Navigation targets
 export const INVITE = 'invite';
 export const TOURNAMENT_SETTINGS = 'tournamentSettings';
