@@ -24,6 +24,15 @@ module.exports = {
         VIDEO_BOARD_UDP_TARGET: process.env.VIDEO_BOARD_UDP_TARGET || '',
       },
     },
+    {
+      name: 'Audit Worker',
+      script: 'audit-worker/dist/index.js',
+      watch: false,
+      env: {
+        NODE_ENV: 'production',
+        AUDIT_WORKER_PORT: process.env.AUDIT_WORKER_PORT || '8385',
+      },
+    },
     // TMX Assistant runs from its own repo with its own ecosystem.config.cjs.
     // Managed by mentat-push-tmx-assistant.sh, NOT by this file.
   ],
