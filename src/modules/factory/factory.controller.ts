@@ -190,8 +190,26 @@ export class FactoryController {
 
   @Post('save')
   @Roles([CLIENT, ADMIN, SUPER_ADMIN])
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.ACCEPTED)
   saveTournamentRecords(@Body() std: SaveTournamentRecordsDto, @User() user?: any) {
     return this.factoryService.saveTournamentRecords(std, user);
+  }
+
+  @Get('save-status/:saveId')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  getSaveStatus(@Param('saveId') saveId: string) {
+    return this.factoryService.getSaveStatus(saveId);
+  }
+
+  @Post('internal/commit-save')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  async commitSave(@Body() body: { saveId: string }, @Req() req: any) {
+    const internalKey = process.env.INTERNAL_API_KEY;
+    const providedKey = req.headers['x-internal-key'];
+    if (!internalKey || providedKey !== internalKey) {
+      return { error: 'Unauthorized' };
+    }
+    return this.factoryService.commitSave(body.saveId);
   }
 }

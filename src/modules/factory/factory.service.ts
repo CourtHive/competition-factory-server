@@ -6,8 +6,9 @@ import { allTournamentMatchUps } from './functions/private/allTournamentMatchUps
 import { executionQueue as eq } from './functions/private/executionQueue';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
-import { validateTournamentRecord, ValidationLevel } from './helpers/validateTournamentRecord';
+import { insertPendingSave, getPendingSaveStatus, getPendingSaveData, updatePendingSaveStatus } from './helpers/pendingSaves';
 import { MutationMirrorService } from '../tournament-sync/mutation-mirror.service';
+import { PG_POOL } from 'src/storage/postgres/postgres.config';
 import { checkEngineError } from '../../common/errors/engineError';
 import { AssignmentsService } from './assignments.service';
 import { AuditService } from '../audit/audit.service';
@@ -29,6 +30,7 @@ export class FactoryService {
     private readonly auditService: AuditService,
     @Inject(TOURNAMENT_STORAGE) private readonly tournamentStorage: ITournamentStorage,
     @Inject(TOURNAMENT_PROVISIONER_STORAGE) private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
+    @Inject(PG_POOL) private readonly pgPool: any,
     @Optional() private readonly mutationMirror?: MutationMirrorService,
   ) {}
 
@@ -102,26 +104,13 @@ export class FactoryService {
   }
 
   async saveTournamentRecords(params, user, userContext?: UserContext) {
-    const validUser = checkUser({ user }); // don't attempt save if user doesn't have providerId
+    const validUser = checkUser({ user });
     if (!validUser) return { error: 'Invalid user' };
     const tournamentRecords = getTournamentRecords(params);
     const allowUser = checkProvider({ tournamentRecords, user, userContext });
     if (!allowUser) return { error: 'User not allowed' };
 
-    // Validate each tournament record before persisting
-    const level: ValidationLevel = params.validate === 'deep' ? 'L3' : 'L2';
-    for (const tid of Object.keys(tournamentRecords)) {
-      const result = validateTournamentRecord(tournamentRecords[tid], level);
-      if (!result.valid) {
-        return {
-          error: `Tournament record ${tid} failed validation`,
-          validationErrors: result.errors,
-          validationWarnings: result.warnings,
-        };
-      }
-    }
-
-    // Per-tournament mutation gate (behind feature flag)
+    // Per-tournament mutation gate
     if (userContext) {
       const assignedIds = await this.assignmentsService.getAssignedTournamentIds(userContext.userId);
       for (const tid of Object.keys(tournamentRecords)) {
@@ -131,8 +120,39 @@ export class FactoryService {
       }
     }
 
-    const userId = userContext?.userId;
-    return await this.tournamentStorageService.saveTournamentRecords({ ...params, userId });
+    // Write to pending_saves — audit-worker validates and commits asynchronously
+    const validationLevel = params.validate === 'deep' ? 'L3' : 'L2';
+    const saveIds: string[] = [];
+    for (const tid of Object.keys(tournamentRecords)) {
+      const saveId = await insertPendingSave(this.pgPool, {
+        tournamentId: tid,
+        tournamentData: tournamentRecords[tid],
+        userId: userContext?.userId,
+        userEmail: user?.email,
+        providerId: user?.providerId,
+        validationLevel,
+      });
+      saveIds.push(saveId);
+    }
+
+    return { saveIds, status: 'pending', message: 'Validation in progress' };
+  }
+
+  async getSaveStatus(saveId: string) {
+    return await getPendingSaveStatus(this.pgPool, saveId);
+  }
+
+  async commitSave(saveId: string) {
+    const data = await getPendingSaveData(this.pgPool, saveId);
+    if (!data) return { error: 'Save not found' };
+
+    const tournamentId = data.tournamentId;
+    const result = await this.tournamentStorageService.saveTournamentRecords({
+      tournamentRecords: { [tournamentId]: data },
+    });
+
+    await updatePendingSaveStatus(this.pgPool, saveId, 'accepted');
+    return result;
   }
 
   async getAssistantContext({ tournamentId }: { tournamentId: string }) {

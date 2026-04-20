@@ -59,6 +59,44 @@ export async function upsertSummary(pool: pg.Pool, summary: AuditSummary): Promi
   );
 }
 
+// --- Pending saves queries ---
+
+export type PendingSaveRow = {
+  save_id: string;
+  tournament_id: string;
+  user_id?: string;
+  user_email?: string;
+  provider_id?: string;
+  status: string;
+  validation_level: string;
+  tournament_data: any;
+  errors: string[];
+  warnings: string[];
+};
+
+export async function getPendingRows(pool: pg.Pool): Promise<PendingSaveRow[]> {
+  const result = await pool.query(
+    `UPDATE pending_saves SET status = 'validating'
+     WHERE save_id IN (SELECT save_id FROM pending_saves WHERE status = 'pending' ORDER BY created_at LIMIT 10 FOR UPDATE SKIP LOCKED)
+     RETURNING *`,
+  );
+  return result.rows;
+}
+
+export async function markSaveResult(
+  pool: pg.Pool,
+  saveId: string,
+  status: 'accepted' | 'rejected',
+  errors: string[],
+  warnings: string[],
+): Promise<void> {
+  const committedClause = status === 'accepted' ? ', committed_at = NOW()' : '';
+  await pool.query(
+    `UPDATE pending_saves SET status = $1, errors = $2, warnings = $3, validated_at = NOW()${committedClause} WHERE save_id = $4`,
+    [status, JSON.stringify(errors), JSON.stringify(warnings), saveId],
+  );
+}
+
 export async function getSummary(pool: pg.Pool, tournamentId: string, reportType: string): Promise<AuditSummary | null> {
   const result = await pool.query(
     'SELECT * FROM audit_summary WHERE tournament_id = $1 AND report_type = $2',

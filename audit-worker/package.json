@@ -9,9 +9,11 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
+    "axios": "^1.13.0",
     "dotenv": "^17.0.0",
     "express": "^5.1.0",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "tods-competition-factory": "^3.0.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
