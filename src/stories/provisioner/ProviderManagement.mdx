@@ -1,0 +1,159 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Provisioner/Provider Management" />
+
+# Provider Management
+
+Provisioners can create, list, update, and manage provider organisations. A provider is the organisational unit that owns tournaments and users.
+
+## Endpoints
+
+### List Providers
+
+```http
+GET /provisioner/providers
+Authorization: Bearer prov_sk_live_...
+```
+
+Returns all providers visible to this provisioner, with relationship metadata:
+
+```json
+{
+  "providers": [
+    {
+      "providerId": "uuid",
+      "organisationAbbreviation": "USTA",
+      "organisationName": "United States Tennis Association",
+      "managed": true,
+      "relationship": "owner",
+      "providerConfig": { "region": "us" },
+      "inactive": false
+    },
+    {
+      "providerId": "uuid",
+      "organisationAbbreviation": "OTHER",
+      "organisationName": "Other Org",
+      "managed": false,
+      "relationship": null,
+      "inactive": false
+    }
+  ]
+}
+```
+
+### Get Provider Detail
+
+```http
+GET /provisioner/providers/:providerId
+Authorization: Bearer prov_sk_live_...
+```
+
+Returns full detail for a single provider including `providerConfig` (only if managed).
+
+### Create Provider
+
+```http
+POST /provisioner/providers
+Authorization: Bearer prov_sk_live_...
+Content-Type: application/json
+
+{
+  "organisationAbbreviation": "NZT",
+  "organisationName": "New Zealand Tennis",
+  "providerConfig": { "region": "nz", "timezone": "Pacific/Auckland" }
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "success": true,
+  "providerId": "generated-uuid",
+  "organisationAbbreviation": "NZT"
+}
+```
+
+**Behavior:**
+- Abbreviation must be unique across all providers
+- The creating provisioner is automatically associated as `owner`
+- `providerConfig` is optional (defaults to `{}`)
+
+**Error codes:**
+- `ABBREVIATION_EXISTS` — abbreviation already taken
+
+### Update Provider
+
+```http
+PUT /provisioner/providers/:providerId
+Authorization: Bearer prov_sk_live_...
+X-Provider-Id: <providerId>
+
+{
+  "organisationName": "Updated Name",
+  "providerConfig": { "region": "nz", "features": ["scheduling"] },
+  "inactive": false
+}
+```
+
+**Requires:** `ProvisionerOwnerGuard` — only the owning provisioner can update configuration.
+
+All fields are optional — only provided fields are updated.
+
+## Relationships
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Relationship</th><th style={{ textAlign: 'left' }}>Can Do</th><th style={{ textAlign: 'left' }}>Cannot Do</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>owner</code></td><td>Update config, grant subsidiaries, manage all users/tournaments</td><td>—</td></tr>
+    <tr><td><code>subsidiary</code></td><td>Create users, assign to own tournaments</td><td>Update config, grant subsidiaries, assign to non-owned tournaments</td></tr>
+  </tbody>
+</table>
+
+## Subsidiary Management
+
+Owners can grant other provisioners subsidiary access to their providers.
+
+### Grant Subsidiary
+
+```http
+POST /provisioner/providers/:providerId/subsidiaries
+Authorization: Bearer prov_sk_live_...
+X-Provider-Id: <providerId>
+
+{ "provisionerId": "target-provisioner-uuid" }
+```
+
+### List Subsidiaries
+
+```http
+GET /provisioner/providers/:providerId/subsidiaries
+Authorization: Bearer prov_sk_live_...
+X-Provider-Id: <providerId>
+```
+
+**Response:**
+
+```json
+{
+  "subsidiaries": [
+    {
+      "provisionerId": "uuid",
+      "name": "Regional Club System",
+      "grantedAt": "2026-04-10T12:00:00Z"
+    }
+  ]
+}
+```
+
+### Revoke Subsidiary
+
+```http
+DELETE /provisioner/providers/:providerId/subsidiaries/:provisionerId
+Authorization: Bearer prov_sk_live_...
+X-Provider-Id: <providerId>
+```
+
+All subsidiary endpoints require `ProvisionerOwnerGuard`.

@@ -1,0 +1,87 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Provisioner/Authentication" />
+
+# Provisioner Authentication
+
+Provisioners authenticate using API keys with the prefix `prov_sk_live_`. Authentication is handled by `ProvisionerMiddleware` which runs before NestJS guards.
+
+## API Key Format
+
+```
+prov_sk_live_<64-character-hex-string>
+```
+
+- Generated from 32 cryptographically random bytes
+- Only returned **once** at creation time — never stored in plaintext
+- Stored as a SHA-256 hash for lookup
+
+## Authentication Flow
+
+```
+1. Client sends:  Authorization: Bearer prov_sk_live_abc123...
+2. Middleware detects `prov_` prefix
+3. SHA-256(key) → lookup in PROVISIONER_API_KEY_STORAGE
+4. If found and active:
+   • Sets request.provisioner = { provisionerId, name, config, keyId, keyLabel }
+   • Sets request.auditSource = { type: 'provisioner', ... }
+   • Updates lastUsedAt (fire-and-forget)
+5. If X-Provider-Id header present:
+   • Validates provisioner↔provider relationship
+   • Sets request.provisionerRelationship = 'owner' | 'subsidiary'
+   • Injects synthetic user context for downstream compatibility
+6. AuthGuard sees request.provisioner → skips JWT verification
+```
+
+## Guards
+
+Three guards enforce authorization at the endpoint level:
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Guard</th><th style={{ textAlign: 'left' }}>Requirement</th><th style={{ textAlign: 'left' }}>Used On</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>ProvisionerGuard</code></td><td><code>request.provisioner</code> must exist</td><td>All provisioner endpoints</td></tr>
+    <tr><td><code>ProvisionerProviderGuard</code></td><td><code>X-Provider-Id</code> header + valid relationship</td><td>Provider-scoped operations</td></tr>
+    <tr><td><code>ProvisionerOwnerGuard</code></td><td>Relationship must be <code>'owner'</code></td><td>Config updates, subsidiary grants</td></tr>
+  </tbody>
+</table>
+
+## Synthetic User Context
+
+When `X-Provider-Id` is set and the relationship is valid, the middleware injects a synthetic user so downstream services work without modification:
+
+```typescript
+request.user = {
+  userId: 'provisioner:<provisionerId>',
+  email: 'provisioner@<provisionerName>',
+  roles: ['client', 'generate', 'score'],
+  providerId: '<X-Provider-Id>',
+};
+
+request.userContext = {
+  userId: 'provisioner:<provisionerId>',
+  email: 'provisioner@<provisionerName>',
+  isSuperAdmin: false,
+  globalRoles: ['client', 'generate', 'score'],
+  providerRoles: { '<providerId>': 'PROVIDER_ADMIN' },
+  providerIds: ['<providerId>'],
+};
+```
+
+## Security Properties
+
+- **No plaintext storage** — API keys are SHA-256 hashed before persistence
+- **Exact-match lookup** — SHA-256 (not bcrypt) enables O(1) key resolution
+- **Audit trail** — every request sets `request.auditSource` with provisioner identity
+- **Fire-and-forget tracking** — `lastUsedAt` updates don't block request processing
+- **Graceful degradation** — if storage is unavailable, falls through to AuthGuard (401)
+
+## Example Request
+
+```bash
+curl -X GET https://api.courthive.com/provisioner/providers \
+  -H "Authorization: Bearer prov_sk_live_a1b2c3d4e5f6..." \
+  -H "X-Provider-Id: 550e8400-e29b-41d4-a716-446655440000"
+```

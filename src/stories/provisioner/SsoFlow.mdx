@@ -1,0 +1,160 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Provisioner/SSO Flow" />
+
+# Single Sign-On (SSO) Flow
+
+The SSO system enables seamless user handoff from a provisioner's external platform into TMX without requiring the user to create separate credentials.
+
+## Sequence Diagram
+
+```
+┌──────────────┐     ┌──────────────┐     ┌───────────┐     ┌─────────┐
+│   External   │     │  CourtHive   │     │   Redis   │     │   TMX   │
+│   Platform   │     │   Server     │     │           │     │ Client  │
+└──────┬───────┘     └──────┬───────┘     └─────┬─────┘     └────┬────┘
+       │                    │                   │                 │
+       │  1. POST /auth/sso/generate            │                 │
+       │  { externalId, ssoProvider, providerId }│                 │
+       │───────────────────►│                   │                 │
+       │                    │  2. SET sso:token:<uuid>            │
+       │                    │──────────────────►│                 │
+       │                    │     (TTL 60s)     │                 │
+       │  3. { token, expiresIn: 60 }           │                 │
+       │◄───────────────────│                   │                 │
+       │                    │                   │                 │
+       │  4. Redirect user to TMX with ?sso_token=<token>        │
+       │─────────────────────────────────────────────────────────►│
+       │                    │                   │                 │
+       │                    │  5. POST /auth/sso/login-with-token │
+       │                    │     { token }                       │
+       │                    │◄────────────────────────────────────│
+       │                    │  6. GETDEL sso:token:<uuid>         │
+       │                    │──────────────────►│                 │
+       │                    │     (atomic consume)                │
+       │                    │◄──────────────────│                 │
+       │                    │                   │                 │
+       │                    │  7. Resolve user, build JWT         │
+       │                    │                   │                 │
+       │                    │  8. { accessToken, user }           │
+       │                    │────────────────────────────────────►│
+       │                    │                   │                 │
+```
+
+## Endpoints
+
+### Generate SSO Token
+
+```http
+POST /auth/sso/generate
+Authorization: Bearer prov_sk_live_...
+Content-Type: application/json
+
+{
+  "externalId": "ext-12345",
+  "ssoProvider": "federation-idp",
+  "providerId": "provider-uuid"
+}
+```
+
+**Response:**
+
+```json
+{
+  "token": "550e8400-e29b-41d4-a716-446655440000",
+  "expiresIn": 60
+}
+```
+
+**Prerequisites:**
+- Provisioner must have a valid API key
+- The user must already exist (created via `POST /provisioner/users`)
+- The SSO identity must exist for the given `ssoProvider` + `externalId`
+
+**Error responses:**
+- `"externalId, ssoProvider, and providerId are required"` — missing fields
+- `"SSO identity not found — create the user first via POST /provisioner/users"` — user doesn't exist
+
+### Exchange Token for JWT
+
+```http
+POST /auth/sso/login-with-token
+Content-Type: application/json
+
+{
+  "token": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+This is a **public endpoint** — the token itself is the authentication proof.
+
+**Response:**
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "user": {
+    "userId": "user-uuid",
+    "email": "player@example.com",
+    "providerIds": ["provider-uuid"],
+    "providerRoles": { "provider-uuid": "DIRECTOR" }
+  }
+}
+```
+
+**Error responses:**
+- `"Token is required"` — missing token field
+- `"Token expired or not found"` — token already consumed or past 60s TTL
+- `"User not found for SSO identity"` — identity exists but user record missing
+- `"User record not found"` — user lookup failed
+
+## Security Properties
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Property</th><th style={{ textAlign: 'left' }}>Implementation</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>One-time use</strong></td><td>Redis <code>GETDEL</code> atomically consumes the token — no replay possible</td></tr>
+    <tr><td><strong>Short TTL</strong></td><td>60-second expiry regardless of consumption</td></tr>
+    <tr><td><strong>No shared secrets</strong></td><td>Token is a UUID generated server-side — not derived from user credentials</td></tr>
+    <tr><td><strong>Atomic consumption</strong></td><td><code>GETDEL</code> prevents race conditions between concurrent requests</td></tr>
+    <tr><td><strong>Graceful failure</strong></td><td>If Redis is unavailable, SSO is disabled (throws error) — does not fall back to insecure mode</td></tr>
+  </tbody>
+</table>
+
+## Token Storage
+
+Tokens are stored in Redis with the key pattern:
+
+```
+sso:token:<uuid> → JSON { externalId, ssoProvider, providerId, provisionerId }
+```
+
+- TTL: 60 seconds (configurable via `SSO_TOKEN_TTL_SECONDS`)
+- Requires a dedicated Redis connection (not cache-manager) to support `GETDEL`
+- Connection established on module init; failure is logged as warning
+
+## Integration Example
+
+```typescript
+// 1. Provisioner backend generates an SSO token
+const response = await fetch('https://api.courthive.com/auth/sso/generate', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer prov_sk_live_abc123...',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    externalId: user.federationId,
+    ssoProvider: 'my-federation',
+    providerId: 'my-provider-uuid',
+  }),
+});
+const { token } = await response.json();
+
+// 2. Redirect user to TMX with the token
+window.location.href = `https://tmx.courthive.com/#/sso?token=${token}`;
+
+// 3. TMX client exchanges token (handled automatically by TMX auth module)
+```

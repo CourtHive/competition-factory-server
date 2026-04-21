@@ -53,6 +53,8 @@ describe('MigrationRunnerService', () => {
         { name: '011-add-mutation-mirror-queue.sql' },
         { name: '012-add-outbound-relay-queue.sql' },
         { name: '013-add-officiating-sanctioning.sql' },
+        { name: '014-add-audit-summary.sql' },
+        { name: '015-add-pending-saves.sql' },
       ]},
     ];
     service = new MigrationRunnerService(mockPool);

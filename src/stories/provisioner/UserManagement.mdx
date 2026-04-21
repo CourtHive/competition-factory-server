@@ -1,0 +1,108 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Provisioner/User Management" />
+
+# User Management
+
+Provisioners create and manage SSO users — users who authenticate via the provisioner's external identity system rather than a local password.
+
+## Create SSO User
+
+```http
+POST /provisioner/users
+Authorization: Bearer prov_sk_live_...
+Content-Type: application/json
+
+{
+  "providerId": "provider-uuid",
+  "externalId": "ext-12345",
+  "email": "player@example.com",
+  "phone": "+1-555-0100",
+  "providerRole": "DIRECTOR",
+  "ssoProvider": "federation-idp"
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "success": true,
+  "userId": "generated-uuid",
+  "email": "player@example.com",
+  "providerRole": "DIRECTOR",
+  "providerId": "provider-uuid"
+}
+```
+
+**What happens internally:**
+
+1. Validates the provisioner manages the specified provider
+2. Checks no existing SSO identity for this `ssoProvider` + `externalId`
+3. Checks email is not already registered
+4. Creates user record with **empty password** (SSO-only — cannot log in with password)
+5. Creates SSO identity mapping (`ssoProvider` + `externalId` → `userId`)
+6. Associates user with the provider via `user_providers` join table
+
+**Error codes:**
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Code</th><th style={{ textAlign: 'left' }}>Cause</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>PROVIDER_NOT_MANAGED</code></td><td>The provisioner has no relationship to the specified provider</td></tr>
+    <tr><td><code>SSO_IDENTITY_EXISTS</code></td><td>An identity with this <code>ssoProvider</code> + <code>externalId</code> already exists</td></tr>
+    <tr><td><code>EMAIL_EXISTS</code></td><td>The email is already registered (SSO or password user)</td></tr>
+  </tbody>
+</table>
+
+## List Provider Users
+
+```http
+GET /provisioner/users?providerId=<provider-uuid>
+Authorization: Bearer prov_sk_live_...
+```
+
+**Response:**
+
+```json
+{
+  "users": [
+    {
+      "userId": "uuid",
+      "email": "player@example.com",
+      "providerRole": "DIRECTOR",
+      "ssoProvider": "federation-idp",
+      "externalId": "ext-12345"
+    }
+  ]
+}
+```
+
+**Error codes:**
+- `PROVIDER_NOT_MANAGED` — the provisioner doesn't manage this provider
+- Returns `{ error: 'providerId query parameter required' }` if query param is missing
+
+## Field Reference
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Field</th><th style={{ textAlign: 'left' }}>Required</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>providerId</code></td><td>Yes</td><td>The provider this user belongs to</td></tr>
+    <tr><td><code>externalId</code></td><td>Yes</td><td>User's unique ID in the external system</td></tr>
+    <tr><td><code>email</code></td><td>Yes</td><td>Globally unique email address</td></tr>
+    <tr><td><code>ssoProvider</code></td><td>Yes</td><td>Identifier for the external identity provider (e.g., <code>"federation-idp"</code>)</td></tr>
+    <tr><td><code>providerRole</code></td><td>Yes</td><td>Role within the provider (e.g., <code>"DIRECTOR"</code>, <code>"OFFICIAL"</code>)</td></tr>
+    <tr><td><code>phone</code></td><td>No</td><td>Phone number (stored in SSO identity record)</td></tr>
+  </tbody>
+</table>
+
+## SSO User Properties
+
+- **No password**: SSO users have an empty password hash — they cannot authenticate via the standard login endpoint
+- **Identity-driven**: Authentication happens through the SSO token flow (see SSO documentation)
+- **Provider-scoped**: Each user is associated with one or more providers via `user_providers`
+- **Email uniqueness**: Enforced globally — an email can only exist once across all providers

@@ -1,0 +1,142 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Provisioner/Tournament Assignments" />
+
+# Tournament Assignments
+
+Provisioners assign users to tournaments, granting them specific roles (e.g., director, official) for that tournament. This controls who can manage which tournaments within a provider.
+
+## Endpoints
+
+### Grant Assignment
+
+```http
+POST /provisioner/assignments/grant
+Authorization: Bearer prov_sk_live_...
+Content-Type: application/json
+
+{
+  "tournamentId": "tournament-uuid",
+  "userEmail": "director@example.com",
+  "providerId": "provider-uuid",
+  "role": "DIRECTOR"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "assignment": {
+    "tournamentId": "tournament-uuid",
+    "userId": "user-uuid",
+    "providerId": "provider-uuid",
+    "assignmentRole": "DIRECTOR",
+    "grantedBy": null,
+    "email": "director@example.com"
+  }
+}
+```
+
+**Behavior:**
+- `role` defaults to `"DIRECTOR"` if omitted
+- `grantedBy` is `null` for provisioner-originated grants (no human grantor)
+- Validates user exists and is associated with the specified provider
+
+### Revoke Assignment
+
+```http
+POST /provisioner/assignments/revoke
+Authorization: Bearer prov_sk_live_...
+Content-Type: application/json
+
+{
+  "tournamentId": "tournament-uuid",
+  "userEmail": "director@example.com",
+  "providerId": "provider-uuid"
+}
+```
+
+**Response:**
+
+```json
+{ "success": true }
+```
+
+### List Assignments
+
+```http
+POST /provisioner/assignments/list
+Authorization: Bearer prov_sk_live_...
+Content-Type: application/json
+
+{
+  "tournamentId": "tournament-uuid",
+  "providerId": "provider-uuid"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "assignments": [
+    {
+      "tournamentId": "tournament-uuid",
+      "userId": "user-uuid",
+      "providerId": "provider-uuid",
+      "assignmentRole": "DIRECTOR",
+      "grantedBy": null
+    }
+  ]
+}
+```
+
+If `tournamentId` is omitted, returns an empty assignments array.
+
+## Authorization Rules
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Relationship</th><th style={{ textAlign: 'left' }}>Can Grant/Revoke</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>owner</code></td><td>Any tournament within the provider</td></tr>
+    <tr><td><code>subsidiary</code></td><td>Only tournaments owned by this provisioner (checked via <code>TOURNAMENT_PROVISIONER_STORAGE</code>)</td></tr>
+  </tbody>
+</table>
+
+## Validation Chain
+
+For both grant and revoke operations:
+
+1. **Provider relationship** — provisioner must manage the provider (`PROVIDER_NOT_MANAGED`)
+2. **Subsidiary scope** (if subsidiary) — tournament must be owned by this provisioner (`TOURNAMENT_NOT_OWNED`)
+3. **User resolution** — user must exist by email (`USER_NOT_FOUND`)
+4. **Provider association** — user must be in the provider's `user_providers` table (`USER_NOT_IN_PROVIDER`)
+
+## Error Codes
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Code</th><th style={{ textAlign: 'left' }}>Cause</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>PROVIDER_NOT_MANAGED</code></td><td>Provisioner has no relationship to the specified provider</td></tr>
+    <tr><td><code>TOURNAMENT_NOT_OWNED</code></td><td>Subsidiary provisioner tried to assign to a tournament it doesn't own</td></tr>
+    <tr><td><code>USER_NOT_FOUND</code></td><td>No user with this email exists</td></tr>
+    <tr><td><code>USER_NOT_IN_PROVIDER</code></td><td>User exists but is not associated with the specified provider</td></tr>
+  </tbody>
+</table>
+
+## Typical Workflow
+
+```
+1. Provisioner creates user:      POST /provisioner/users
+2. Tournament created in TMX:     (via factory mutations)
+3. Provisioner assigns director:   POST /provisioner/assignments/grant
+4. Director logs in via SSO:       POST /auth/sso/generate → login-with-token
+5. Director sees tournament:       TMX checks assignment for access
+```
