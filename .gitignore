@@ -1,0 +1,57 @@
+
+# Ignore
+node_modules/
+scratch/
+/storage/
+data/
+*.un~
+.*.un~
+
+client/
+scratch/
+
+# only ignore the cache at the root level
+/cache/
+
+# Playwright
+e2e/.auth/
+playwright-report/
+test-results/
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# tsc
+*.tsbuildinfo
+
+# CodeRush
+.cr/
+
+# test
+coverage/
+/storage/
+
+# eslint
+.eslintcache
+
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Local
+.env
+dist
+build
+.webpack
+
+# Storybook
+storybook-static/
+
+# Admin client build output
+admin-client/dist/
+admin-client/node_modules/

@@ -1,0 +1,6 @@
+{
+  "config": {
+    "MD036": false,
+  },
+  "ignores": ["**/node_modules/**", "dist/**", "build/**", "**/.git/**"],
+}
