@@ -6,6 +6,7 @@ import { mocksEngine } from 'tods-competition-factory';
 import request from 'supertest';
 
 import { AppModule } from '../../modules/app/app.module';
+import { saveAndCommit } from '../helpers/saveAndCommit';
 import { TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
 
 jest.setTimeout(120_000);
@@ -106,12 +107,7 @@ describe('Mutex Stress Test — E2E WebSocket', () => {
       });
       tournamentRecord.parentOrganisation = { organisationId: 'mutex-stress-org' };
 
-      const saveRes = await request(server)
-        .post('/factory/save')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ tournamentRecord })
-        .expect(200);
-      expect(saveRes.body.success).toEqual(true);
+      await saveAndCommit(server, token, tournamentRecord);
     }
   });
 

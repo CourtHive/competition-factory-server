@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { mocksEngine } from 'tods-competition-factory';
 import request from 'supertest';
 
+import { saveAndCommit } from 'src/tests/helpers/saveAndCommit';
 import { TEST, TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
 
 describe('FactoryService', () => {
@@ -52,11 +53,7 @@ describe('FactoryService', () => {
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       tournamentAttributes: { tournamentId: TEST },
     });
-    await request(app.getHttpServer())
-      .post('/factory/save')
-      .set('Authorization', 'Bearer ' + token)
-      .send({ tournamentRecord })
-      .expect(200);
+    await saveAndCommit(app.getHttpServer(), token, tournamentRecord);
 
     const result = await request(app.getHttpServer())
       .post('/factory')

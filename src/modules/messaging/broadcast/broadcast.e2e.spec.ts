@@ -12,6 +12,8 @@ import { INestApplication } from '@nestjs/common';
 import { io, Socket } from 'socket.io-client';
 import request from 'supertest';
 
+import { saveAndCommit } from 'src/tests/helpers/saveAndCommit';
+
 // constants
 import { TEST, TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
 
@@ -47,11 +49,7 @@ describe('REST → Socket.IO broadcast', () => {
       drawProfiles,
       tournamentAttributes: { tournamentId: TEST },
     });
-    await request(httpServer)
-      .post('/factory/save')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ tournamentRecord })
-      .expect(200);
+    await saveAndCommit(httpServer, token, tournamentRecord);
   });
 
   afterAll(async () => {

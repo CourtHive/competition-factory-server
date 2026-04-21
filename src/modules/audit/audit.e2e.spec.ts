@@ -17,6 +17,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { mocksEngine } from 'tods-competition-factory';
 import request from 'supertest';
 
+import { saveAndCommit } from 'src/tests/helpers/saveAndCommit';
 import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
 
 const AUDIT_TOURNAMENT_ID = `audit-e2e-${Date.now()}`;
@@ -72,12 +73,7 @@ describe('Audit Trail E2E', () => {
       },
     });
 
-    const saveResult = await request(app.getHttpServer())
-      .post('/factory/save')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ tournamentRecord })
-      .expect(200);
-    expect(saveResult.body.success).toBe(true);
+    await saveAndCommit(app.getHttpServer(), token, tournamentRecord);
 
     // Execute a mutation via the REST executionQueue
     const eqResult = await request(app.getHttpServer())
