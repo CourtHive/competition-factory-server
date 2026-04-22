@@ -55,3 +55,6 @@ storybook-static/
 # Admin client build output
 admin-client/dist/
 admin-client/node_modules/
+
+# Staged by mentat-push-server.sh during deploy
+score-relay/
