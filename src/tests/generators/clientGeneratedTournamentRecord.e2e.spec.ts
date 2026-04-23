@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { mocksEngine, factoryConstants } from 'tods-competition-factory';
+import { saveAndCommit } from '../helpers/saveAndCommit';
 import { TEST, TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
 
 const { SINGLES } = factoryConstants.eventConstants;
@@ -49,23 +50,15 @@ describe('ClientGeneratedTournamentRecord', () => {
 
     expect(tournamentRecord.events.length).toEqual(1);
 
+    await saveAndCommit(app.getHttpServer(), token, tournamentRecord);
+
     result = await request(app.getHttpServer())
-      .post('/factory/save')
+      .post('/factory/fetch')
       .set('Authorization', 'Bearer ' + token)
-      .send({ tournamentRecord })
+      .send({ tournamentId })
       .expect(200);
     expect(result.body.success).toEqual(true);
-
-    // save is async, so we need to wait a bit before fetching
-    setTimeout(async () => {
-      result = await request(app.getHttpServer())
-        .post('/factory/fetch')
-        .set('Authorization', 'Bearer ' + token)
-        .send({ tournamentId })
-        .expect(200);
-      expect(result.body.success).toEqual(true);
-      expect(result.body.fetched).toEqual(1);
-    }, 1000);
+    expect(result.body.fetched).toEqual(1);
   });
 
   afterAll(async () => {

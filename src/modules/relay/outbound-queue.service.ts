@@ -1,13 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import netLevel from 'src/services/levelDB/netLevel';
+import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import { Pool } from 'pg';
 
+import { PG_POOL } from 'src/storage/postgres/postgres.config';
 import { QueueEntry, QueueEntryKind } from './types/queue-entry';
-
-// Local namespace constant — kept inline (not in src/services/levelDB/constants.ts)
-// to avoid editing a file other waves may also be touching. Promote to the constants
-// file in a follow-up if desired.
-const CLOUD_RELAY_QUEUE_NAMESPACE = 'cloudRelayQueue';
-const SEQUENCE_KEY = '__seq';
 
 export interface EnqueueArgs {
   venueId: string;
@@ -17,71 +12,84 @@ export interface EnqueueArgs {
 }
 
 @Injectable()
-export class OutboundQueueService {
+export class OutboundQueueService implements OnModuleInit {
+  private readonly logger = new Logger(OutboundQueueService.name);
+
+  constructor(@Optional() @Inject(PG_POOL) private readonly pool?: Pool) {}
+
+  async onModuleInit(): Promise<void> {
+    if (!this.pool) {
+      this.logger.warn('OutboundQueueService: no Postgres pool — queue operations will be no-ops');
+      return;
+    }
+    await this.ensureTable();
+  }
+
   async enqueue(args: EnqueueArgs): Promise<void> {
-    const sequence = await this.nextSequence();
-    const entry: QueueEntry = {
-      sequence,
-      venueId: args.venueId,
-      kind: args.kind,
-      matchUpId: args.matchUpId,
-      payload: args.payload,
-      createdAt: new Date().toISOString(),
-      attempts: 0,
-    };
-    await netLevel.set(CLOUD_RELAY_QUEUE_NAMESPACE, { key: entryKey(sequence), value: entry });
+    if (!this.pool) return;
+    await this.pool.query(
+      `INSERT INTO outbound_relay_queue (venue_id, kind, match_up_id, payload) VALUES ($1, $2, $3, $4)`,
+      [args.venueId, args.kind, args.matchUpId, JSON.stringify(args.payload)],
+    );
   }
 
   async peek(limit: number): Promise<QueueEntry[]> {
-    const entries = await this.loadAll();
-    return entries.slice(0, Math.max(0, limit));
+    if (!this.pool) return [];
+    const result = await this.pool.query(
+      `SELECT sequence, venue_id, kind, match_up_id, payload, created_at, attempts, last_error
+       FROM outbound_relay_queue ORDER BY sequence LIMIT $1`,
+      [Math.max(0, limit)],
+    );
+    return result.rows.map(rowToEntry);
   }
 
   async ack(sequences: number[]): Promise<void> {
-    for (const sequence of sequences) {
-      await netLevel.delete(CLOUD_RELAY_QUEUE_NAMESPACE, { key: entryKey(sequence) });
-    }
+    if (!this.pool || sequences.length === 0) return;
+    await this.pool.query(
+      'DELETE FROM outbound_relay_queue WHERE sequence = ANY($1::bigint[])',
+      [sequences],
+    );
   }
 
   async nack(sequence: number, error: string): Promise<void> {
-    const stored = (await netLevel.get(CLOUD_RELAY_QUEUE_NAMESPACE, {
-      key: entryKey(sequence),
-    })) as QueueEntry | undefined | null;
-    if (!stored) return;
-    stored.attempts += 1;
-    stored.lastError = error;
-    await netLevel.set(CLOUD_RELAY_QUEUE_NAMESPACE, { key: entryKey(sequence), value: stored });
+    if (!this.pool) return;
+    await this.pool.query(
+      `UPDATE outbound_relay_queue SET attempts = attempts + 1, last_error = $2 WHERE sequence = $1`,
+      [sequence, error],
+    );
   }
 
   async depth(): Promise<number> {
-    const entries = await this.loadAll();
-    return entries.length;
+    if (!this.pool) return 0;
+    const result = await this.pool.query('SELECT COUNT(*)::int AS count FROM outbound_relay_queue');
+    return result.rows[0].count;
   }
 
-  private async nextSequence(): Promise<number> {
-    const current = (await netLevel.get(CLOUD_RELAY_QUEUE_NAMESPACE, {
-      key: SEQUENCE_KEY,
-    })) as { value: number } | number | undefined | null;
-    const currentNumber = typeof current === 'number' ? current : (current?.value ?? 0);
-    const next = currentNumber + 1;
-    await netLevel.set(CLOUD_RELAY_QUEUE_NAMESPACE, { key: SEQUENCE_KEY, value: next });
-    return next;
-  }
-
-  private async loadAll(): Promise<QueueEntry[]> {
-    const raw = (await netLevel.list(CLOUD_RELAY_QUEUE_NAMESPACE, { all: true })) as
-      | { key: string; value: any }[]
-      | undefined;
-    const entries: QueueEntry[] = (raw ?? [])
-      .filter((row) => row?.key !== SEQUENCE_KEY)
-      .map((row) => row.value as QueueEntry)
-      .filter((entry): entry is QueueEntry => Boolean(entry?.sequence));
-    entries.sort((a, b) => a.sequence - b.sequence);
-    return entries;
+  private async ensureTable(): Promise<void> {
+    await this.pool!.query(`
+      CREATE TABLE IF NOT EXISTS outbound_relay_queue (
+        sequence       BIGSERIAL PRIMARY KEY,
+        venue_id       TEXT NOT NULL,
+        kind           TEXT NOT NULL,
+        match_up_id    TEXT NOT NULL,
+        payload        JSONB NOT NULL DEFAULT '{}',
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        attempts       INTEGER NOT NULL DEFAULT 0,
+        last_error     TEXT
+      )
+    `);
   }
 }
 
-function entryKey(sequence: number): string {
-  // Zero-padded so a string sort would also produce sequence order if needed.
-  return `entry-${sequence.toString().padStart(16, '0')}`;
+function rowToEntry(row: any): QueueEntry {
+  return {
+    sequence: Number(row.sequence),
+    venueId: row.venue_id,
+    kind: row.kind as QueueEntryKind,
+    matchUpId: row.match_up_id,
+    payload: row.payload,
+    createdAt: row.created_at?.toISOString?.() ?? row.created_at,
+    attempts: row.attempts,
+    lastError: row.last_error ?? undefined,
+  };
 }

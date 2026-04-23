@@ -9,19 +9,6 @@ module.exports = {
       watch: false,
     },
     {
-      name: 'hive-db',
-      script: 'node_modules/@gridspace/net-level/lib/server.js',
-      args: 'net-level-server --host=0.0.0.0',
-      watch: false,
-      env: {
-        NODE_ENV: 'production',
-        DB_HOST: process.env.DB_HOST || '0.0.0.0',
-        DB_PORT: process.env.DB_PORT || '3838',
-        DB_USER: process.env.DB_USER || 'admin',
-        DB_PASS: process.env.DB_PASS || 'adminpass',
-      },
-    },
-    {
       name: 'Score Relay',
       script: 'score-relay/dist/server.js',
       watch: false,
@@ -38,19 +25,15 @@ module.exports = {
       },
     },
     {
-      name: 'TMX Assistant',
-      script: 'tmx-assistant/dist/index.js',
+      name: 'Audit Worker',
+      script: 'audit-worker/dist/index.js',
       watch: false,
       env: {
         NODE_ENV: 'production',
-        PORT: process.env.ASSISTANT_PORT || '3200',
-        OLLAMA_URL: process.env.OLLAMA_URL || 'http://localhost:11434',
-        OLLAMA_MODEL: process.env.OLLAMA_MODEL || 'llama3.1',
-        FACTORY_SERVER_URL: process.env.FACTORY_SERVER_URL || 'http://localhost:8383',
-        SQLITE_PATH: process.env.ASSISTANT_SQLITE_PATH || './data/assistant-conversations.db',
-        JWT_SECRET: process.env.JWT_SECRET || '',
-        RATE_LIMIT_PER_MINUTE: process.env.ASSISTANT_RATE_LIMIT || '10',
+        AUDIT_WORKER_PORT: process.env.AUDIT_WORKER_PORT || '8385',
       },
     },
+    // TMX Assistant runs from its own repo with its own ecosystem.config.cjs.
+    // Managed by mentat-push-tmx-assistant.sh, NOT by this file.
   ],
 };

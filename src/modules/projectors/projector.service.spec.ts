@@ -1,18 +1,15 @@
 import { ConsumerRegistryService } from './consumer-registry.service';
-import { ScorebugTickService } from './scorebug-tick.service';
 import { ProjectorService } from './projector.service';
 import { buildMidBoltHistory } from './fixtures/sample-bolt-history';
 
 describe('ProjectorService', () => {
   let registry: ConsumerRegistryService;
-  let tickService: jest.Mocked<ScorebugTickService>;
   let projector: ProjectorService;
   let fetchMock: jest.Mock;
 
   beforeEach(() => {
     registry = new ConsumerRegistryService();
-    tickService = { notifyDocumentUpdate: jest.fn() } as any;
-    projector = new ProjectorService(registry, tickService);
+    projector = new ProjectorService(registry);
     fetchMock = jest.fn(async () => ({ ok: true, status: 200 }) as any);
     (globalThis as any).fetch = fetchMock;
   });
@@ -108,12 +105,6 @@ describe('ProjectorService', () => {
   it('skips when document has no tieMatchUpId', async () => {
     await projector.project({} as any);
     expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it('notifies the scorebug tick service of every document update', async () => {
-    const doc = buildMidBoltHistory();
-    await projector.project(doc);
-    expect(tickService.notifyDocumentUpdate).toHaveBeenCalledWith(doc);
   });
 
   describe('callback consumers (public-live)', () => {

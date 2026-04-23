@@ -3,11 +3,12 @@ import { renderSanctioningWizard } from 'pages/sanctioning/renderSanctioningWiza
 import { renderSanctioningDetail } from 'pages/sanctioning/renderSanctioningDetail';
 import { renderSystemPage } from 'pages/system/renderSystemPage';
 import { renderAdminPage } from 'pages/admin/renderAdminPage';
+import { renderSyncPage } from 'pages/sync/renderSyncPage';
 import { getLoginState } from 'services/authentication/loginState';
 import { context } from 'services/context';
 import Navigo from 'navigo';
 
-import { SUPER_ADMIN, SYSTEM, SANCTIONING, NONE } from 'constants/tmxConstants';
+import { SUPER_ADMIN, SYSTEM, SANCTIONING, SYNC, NONE } from 'constants/tmxConstants';
 
 export function routeAdmin(): void {
   const router = new Navigo('/', { hash: true });
@@ -17,9 +18,11 @@ export function routeAdmin(): void {
   const systemIcon = document.getElementById('h-system');
   const adminIcon = document.getElementById('h-admin');
   const sanctioningIcon = document.getElementById('h-sanctioning');
+  const syncIcon = document.getElementById('h-sync');
   if (systemIcon) systemIcon.addEventListener('click', () => router.navigate(`/${SYSTEM}`));
   if (adminIcon) adminIcon.addEventListener('click', () => router.navigate('/admin'));
   if (sanctioningIcon) sanctioningIcon.addEventListener('click', () => router.navigate(`/${SANCTIONING}`));
+  if (syncIcon) syncIcon.addEventListener('click', () => router.navigate(`/${SYNC}`));
 
   router.hooks({
     before(done) {
@@ -63,6 +66,16 @@ export function routeAdmin(): void {
     renderSanctioningDashboard();
   });
 
+  // Tournament Sync route (superadmin only)
+  router.on(`/${SYNC}`, () => {
+    const state = getLoginState();
+    if (!state?.roles?.includes(SUPER_ADMIN)) {
+      router.navigate('/admin');
+      return;
+    }
+    renderSyncPage();
+  });
+
   router.on('/', () => {
     const state = getLoginState();
     if (state?.roles?.includes(SUPER_ADMIN)) {
@@ -86,5 +99,9 @@ function updateNavVisibility(): void {
   const systemIcon = document.getElementById('h-system');
   if (systemIcon) {
     systemIcon.style.display = isSuperAdmin ? '' : NONE;
+  }
+  const hSync = document.getElementById('h-sync');
+  if (hSync) {
+    hSync.style.display = isSuperAdmin ? '' : NONE;
   }
 }

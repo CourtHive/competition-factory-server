@@ -2,7 +2,7 @@
  * Root application block for the admin client.
  * Creates navbar, main content area with page containers.
  */
-import { NONE, TMX_ADMIN, TMX_SYSTEM, TMX_SANCTIONING, TMX_DRAWER } from 'constants/tmxConstants';
+import { NONE, TMX_ADMIN, TMX_SYSTEM, TMX_SANCTIONING, TMX_SYNC, TMX_DRAWER } from 'constants/tmxConstants';
 
 const flexColFlexGrow = 'flexcol flexgrow';
 
@@ -32,6 +32,13 @@ export function rootBlock(): HTMLElement {
   sanctioning.style.display = NONE;
   sanctioning.id = TMX_SANCTIONING;
   main.appendChild(sanctioning);
+
+  // Tournament Sync page container
+  const sync = document.createElement('div');
+  sync.className = flexColFlexGrow;
+  sync.style.display = NONE;
+  sync.id = TMX_SYNC;
+  main.appendChild(sync);
 
   // Drawer
   const drawer = document.createElement('section');
@@ -67,6 +74,7 @@ function createNavbar(): HTMLDivElement {
       <i id='h-system' class="home-nav-icon fa-solid fa-server" title="System"></i>
       <i id='h-admin' class="home-nav-icon fa-solid fa-shield-halved" title="Admin"></i>
       <i id='h-sanctioning' class="home-nav-icon fa-solid fa-stamp" title="Sanctioning"></i>
+      <i id='h-sync' class="home-nav-icon fa-solid fa-arrows-rotate" title="Tournament Sync"></i>
       <i id='h-stop-impersonating' class="home-nav-icon fa-solid fa-xmark" title="Stop impersonating" style="display:none; color: var(--tmx-accent-orange, #f5a623);"></i>
     </div>
     <div class="navbar-item" style="font-size: 1em; display: flex; align-items: center; gap: 2px;">

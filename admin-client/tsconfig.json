@@ -4,6 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "ignoreDeprecations": "6.0",
     "baseUrl": "src/",
     "strict": false,
     "noImplicitAny": false,

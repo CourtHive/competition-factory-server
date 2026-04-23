@@ -1,7 +1,6 @@
 import { PublicLiveBroadcaster } from './public-live-broadcaster.service';
 import { ConsumerRegistryService } from './consumer-registry.service';
 import { ConsumerBootstrap } from './consumer-bootstrap.service';
-import { ScorebugTickService } from './scorebug-tick.service';
 import { PublicModule } from '../messaging/public/public.module';
 import { ProjectorService } from './projector.service';
 import { Module } from '@nestjs/common';
@@ -11,10 +10,9 @@ import { Module } from '@nestjs/common';
   providers: [
     ConsumerRegistryService,
     ConsumerBootstrap,
-    ScorebugTickService,
     ProjectorService,
     PublicLiveBroadcaster,
   ],
-  exports: [ConsumerRegistryService, ProjectorService, ScorebugTickService],
+  exports: [ConsumerRegistryService, ProjectorService],
 })
 export class ProjectorsModule {}

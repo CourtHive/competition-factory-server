@@ -1,0 +1,95 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Provisioner/Overview" />
+
+# Provisioner System
+
+The Provisioner is a **machine-to-machine (M2M)** integration layer that enables external platforms to manage providers, users, and tournament assignments programmatically. It bridges external identity systems with the CourtHive tournament platform.
+
+## Key Concepts
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Concept</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Provisioner</strong></td><td>An M2M entity (e.g., a national federation's platform) that manages one or more providers via API keys</td></tr>
+    <tr><td><strong>Provider</strong></td><td>An organisation in CourtHive that owns tournaments and users</td></tr>
+    <tr><td><strong>API Key</strong></td><td>Bearer token (<code>prov_sk_live_*</code>) used for authentication — SHA-256 hashed at rest</td></tr>
+    <tr><td><strong>SSO Token</strong></td><td>One-time token (60s TTL) that exchanges for a JWT, enabling seamless user handoff</td></tr>
+    <tr><td><strong>Relationship</strong></td><td><code>owner</code> (full control) or <code>subsidiary</code> (scoped to own tournaments)</td></tr>
+  </tbody>
+</table>
+
+## Architecture
+
+```
+External Platform (Federation, Club System)
+  │
+  │  API Key: prov_sk_live_<hex>
+  ▼
+┌──────────────────────────────────────────────────┐
+│  ProvisionerMiddleware                            │
+│  • Detects prov_* Bearer tokens                  │
+│  • SHA-256 hash → lookup in storage              │
+│  • Sets request.provisioner + synthetic user     │
+│  • Validates X-Provider-Id if present            │
+└──────────────────────────────────────────────────┘
+  │
+  ├─► ProvisionerController (/provisioner/*)
+  │     • Provider CRUD
+  │     • User management
+  │     • Tournament assignments
+  │     • Subsidiary management
+  │
+  ├─► SsoController (/auth/sso/*)
+  │     • Token generation
+  │     • Token → JWT exchange
+  │
+  └─► AdminProvisionerController (/admin/provisioners/*)
+        • Provisioner CRUD (SUPER_ADMIN only)
+        • API key lifecycle
+        • Provider association
+```
+
+## Typical Integration Flow
+
+1. **Super admin** creates a provisioner and generates an API key via `/admin/provisioners`
+2. **Provisioner** creates a provider (organisation) via `POST /provisioner/providers`
+3. **Provisioner** creates SSO users via `POST /provisioner/users`
+4. **Provisioner** assigns users to tournaments via `POST /provisioner/assignments/grant`
+5. **User handoff**: provisioner generates SSO token → redirects user to TMX → TMX exchanges token for JWT
+
+## Storage Dependencies
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>DI Token</th><th style={{ textAlign: 'left' }}>Interface</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>PROVISIONER_STORAGE</code></td><td><code>IProvisionerStorage</code></td><td>Provisioner entity CRUD</td></tr>
+    <tr><td><code>PROVISIONER_API_KEY_STORAGE</code></td><td><code>IProvisionerApiKeyStorage</code></td><td>API key hash storage and lookup</td></tr>
+    <tr><td><code>PROVISIONER_PROVIDER_STORAGE</code></td><td><code>IProvisionerProviderStorage</code></td><td>Provisioner ↔ provider associations</td></tr>
+    <tr><td><code>SSO_IDENTITY_STORAGE</code></td><td><code>ISsoIdentityStorage</code></td><td>External identity → userId mapping</td></tr>
+    <tr><td><code>ASSIGNMENT_STORAGE</code></td><td><code>IAssignmentStorage</code></td><td>Tournament → user assignments</td></tr>
+    <tr><td><code>TOURNAMENT_PROVISIONER_STORAGE</code></td><td><code>ITournamentProvisionerStorage</code></td><td>Tournament ownership by provisioner</td></tr>
+  </tbody>
+</table>
+
+## Source Files
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>src/modules/provisioner/provisioner.controller.ts</code></td><td>Provisioner-native REST endpoints</td></tr>
+    <tr><td><code>src/modules/provisioner/admin-provisioner.controller.ts</code></td><td>Super-admin provisioner management</td></tr>
+    <tr><td><code>src/modules/provisioner/sso.controller.ts</code></td><td>SSO token generation and exchange</td></tr>
+    <tr><td><code>src/modules/provisioner/provisioner.service.ts</code></td><td>Business logic for all provisioner operations</td></tr>
+    <tr><td><code>src/modules/provisioner/provisioner.middleware.ts</code></td><td>API key detection and authentication</td></tr>
+    <tr><td><code>src/modules/provisioner/provisioner.guard.ts</code></td><td>Guards: ProvisionerGuard, ProvisionerProviderGuard, ProvisionerOwnerGuard</td></tr>
+    <tr><td><code>src/modules/provisioner/sso-token.service.ts</code></td><td>Redis-backed one-time token management</td></tr>
+    <tr><td><code>src/modules/provisioner/provisioner.module.ts</code></td><td>NestJS module definition</td></tr>
+  </tbody>
+</table>

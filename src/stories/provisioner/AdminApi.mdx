@@ -1,0 +1,177 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Provisioner/Admin API" />
+
+# Admin Provisioner API
+
+The admin API (`/admin/provisioners`) is used by super administrators to manage provisioner entities and their API keys. All endpoints require JWT authentication with the `SUPER_ADMIN` role.
+
+## Provisioner Lifecycle
+
+### Create Provisioner
+
+```http
+POST /admin/provisioners
+Authorization: Bearer <jwt>
+Content-Type: application/json
+
+{
+  "name": "National Federation Platform",
+  "config": { "region": "us", "maxProviders": 10 }
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "success": true,
+  "provisioner": {
+    "provisionerId": "generated-uuid",
+    "name": "National Federation Platform",
+    "isActive": true,
+    "config": { "region": "us", "maxProviders": 10 }
+  }
+}
+```
+
+Names must be unique. `config` is optional (defaults to `{}`).
+
+### List Provisioners
+
+```http
+GET /admin/provisioners
+Authorization: Bearer <jwt>
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "provisioners": [
+    { "provisionerId": "uuid", "name": "...", "isActive": true, "config": {} }
+  ]
+}
+```
+
+### Get Provisioner
+
+```http
+GET /admin/provisioners/:id
+Authorization: Bearer <jwt>
+```
+
+### Update Provisioner
+
+```http
+PUT /admin/provisioners/:id
+Authorization: Bearer <jwt>
+Content-Type: application/json
+
+{
+  "name": "Updated Name",
+  "isActive": false,
+  "config": { "region": "eu" }
+}
+```
+
+All fields are optional. Setting `isActive: false` deactivates the provisioner — all API keys become non-functional.
+
+## API Key Management
+
+### Generate API Key
+
+```http
+POST /admin/provisioners/:id/keys
+Authorization: Bearer <jwt>
+Content-Type: application/json
+
+{ "label": "Production Key" }
+```
+
+**Response (201):**
+
+```json
+{
+  "success": true,
+  "keyId": "key-uuid",
+  "apiKey": "prov_sk_live_a1b2c3d4e5f6...",
+  "label": "Production Key"
+}
+```
+
+> **The `apiKey` value is returned ONCE.** It is never stored in plaintext and cannot be retrieved again. Store it securely.
+
+### List API Keys
+
+```http
+GET /admin/provisioners/:id/keys
+Authorization: Bearer <jwt>
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "keys": [
+    {
+      "keyId": "key-uuid",
+      "provisionerId": "provisioner-uuid",
+      "label": "Production Key",
+      "isActive": true,
+      "lastUsedAt": "2026-04-19T14:30:00Z",
+      "createdAt": "2026-04-01T09:00:00Z",
+      "expiresAt": null
+    }
+  ]
+}
+```
+
+Note: key hashes are never returned — only metadata.
+
+### Revoke API Key
+
+```http
+DELETE /admin/provisioners/:id/keys/:keyId
+Authorization: Bearer <jwt>
+```
+
+Immediately invalidates the key. Any in-flight requests using this key will fail on the next middleware check.
+
+## Provider Association
+
+Manually associate or disassociate providers from a provisioner. This is an alternative to the provisioner creating providers via `POST /provisioner/providers` (which auto-associates as owner).
+
+### Associate Provider
+
+```http
+POST /admin/provisioners/:id/providers
+Authorization: Bearer <jwt>
+Content-Type: application/json
+
+{
+  "providerId": "provider-uuid",
+  "relationship": "owner"
+}
+```
+
+`relationship` must be `"owner"` or `"subsidiary"`.
+
+### Disassociate Provider
+
+```http
+DELETE /admin/provisioners/:id/providers/:providerId
+Authorization: Bearer <jwt>
+```
+
+## Setup Checklist
+
+A typical provisioner onboarding:
+
+1. **Create provisioner** — `POST /admin/provisioners`
+2. **Generate API key** — `POST /admin/provisioners/:id/keys` (save the returned key)
+3. **Associate provider** — `POST /admin/provisioners/:id/providers` (or let the provisioner create one)
+4. **Share API key** — provide to the external platform's integration team
+5. **Test** — external platform calls `GET /provisioner/providers` to verify access

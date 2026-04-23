@@ -15,9 +15,9 @@ describe('Static Files', () => {
     await app.init();
   });
 
-  it('/GET /', async () => {
-    const result = await request(app.getHttpServer()).get('/').expect(200);
-    expect(result.body).toEqual({ message: 'Factory server' });
+  it('/GET / redirects to courthive.com', async () => {
+    const result = await request(app.getHttpServer()).get('/').expect(301);
+    expect(result.headers.location).toBe('https://courthive.com');
   });
 
   afterAll(async () => {

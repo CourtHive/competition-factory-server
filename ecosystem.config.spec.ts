@@ -35,9 +35,14 @@ describe('ecosystem.config.js', () => {
     expect(config.apps.length).toBeGreaterThan(0);
   });
 
-  it('includes the core three apps (Factory Server, hive-db, Score Relay)', () => {
+  it('includes the core apps (Factory Server, Score Relay)', () => {
     const names = config.apps.map((a) => a.name);
-    expect(names).toEqual(expect.arrayContaining(['Factory Server', 'hive-db', 'Score Relay']));
+    expect(names).toEqual(expect.arrayContaining(['Factory Server', 'Score Relay']));
+  });
+
+  it('does not include hive-db (LevelDB removed)', () => {
+    const names = config.apps.map((a) => a.name);
+    expect(names).not.toContain('hive-db');
   });
 
   describe('Factory Server', () => {
@@ -46,22 +51,6 @@ describe('ecosystem.config.js', () => {
       expect(app).toBeDefined();
       expect(app?.script).toBe('build/src/main.js');
       expect(app?.watch).toBe(false);
-    });
-  });
-
-  describe('hive-db', () => {
-    it('runs the net-level server with DB env vars', () => {
-      const app = config.apps.find((a) => a.name === 'hive-db');
-      expect(app).toBeDefined();
-      expect(app?.script).toContain('net-level');
-      expect(app?.env).toEqual(
-        expect.objectContaining({
-          DB_HOST: expect.any(String),
-          DB_PORT: expect.any(String),
-          DB_USER: expect.any(String),
-          DB_PASS: expect.any(String),
-        }),
-      );
     });
   });
 
