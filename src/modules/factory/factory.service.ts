@@ -120,22 +120,27 @@ export class FactoryService {
       }
     }
 
-    // Write to pending_saves — audit-worker validates and commits asynchronously
-    const validationLevel = params.validate === 'deep' ? 'L3' : 'L2';
-    const saveIds: string[] = [];
-    for (const tid of Object.keys(tournamentRecords)) {
-      const saveId = await insertPendingSave(this.pgPool, {
-        tournamentId: tid,
-        tournamentData: tournamentRecords[tid],
-        userId: userContext?.userId,
-        userEmail: user?.email,
-        providerId: user?.providerId,
-        validationLevel,
-      });
-      saveIds.push(saveId);
+    // Save directly — tournament must be available immediately for
+    // subsequent executionQueue mutations from the client.
+    const userId = userContext?.userId;
+    const result = await this.tournamentStorageService.saveTournamentRecords({ tournamentRecords, userId });
+
+    // Additionally queue for async validation if requested
+    if (params.validate) {
+      const validationLevel = params.validate === 'deep' ? 'L3' : 'L2';
+      for (const tid of Object.keys(tournamentRecords)) {
+        insertPendingSave(this.pgPool, {
+          tournamentId: tid,
+          tournamentData: tournamentRecords[tid],
+          userId: userContext?.userId,
+          userEmail: user?.email,
+          providerId: user?.providerId,
+          validationLevel,
+        }).catch((err) => Logger.error(`Failed to queue validation for ${tid}: ${err.message}`, 'FactoryService'));
+      }
     }
 
-    return { saveIds, status: 'pending', message: 'Validation in progress' };
+    return result;
   }
 
   async getSaveStatus(saveId: string) {

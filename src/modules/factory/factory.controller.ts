@@ -190,7 +190,7 @@ export class FactoryController {
 
   @Post('save')
   @Roles([CLIENT, ADMIN, SUPER_ADMIN])
-  @HttpCode(HttpStatus.ACCEPTED)
+  @HttpCode(HttpStatus.OK)
   saveTournamentRecords(@Body() std: SaveTournamentRecordsDto, @User() user?: any) {
     return this.factoryService.saveTournamentRecords(std, user);
   }
