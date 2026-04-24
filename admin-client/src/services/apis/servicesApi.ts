@@ -62,3 +62,15 @@ export async function sendTournament({ tournamentRecord }: { tournamentRecord: a
 export async function removeTournament({ providerId, tournamentId }: { providerId: string; tournamentId: string }) {
   return await baseApi.post('/factory/remove', { providerId, tournamentId });
 }
+
+export async function adminResetPassword({ email, newPassword }: { email: string; newPassword?: string }) {
+  return await baseApi.post('/auth/admin-reset-password', { email, newPassword });
+}
+
+export async function calendarAudit({ providerAbbr }: { providerAbbr: string }) {
+  return await baseApi.post('/provider/calendar-audit', { providerAbbr });
+}
+
+export async function getTournamentInfo({ tournamentId }: { tournamentId: string }) {
+  return await baseApi.post('/factory/tournamentinfo', { tournamentId, withMatchUpStats: true });
+}

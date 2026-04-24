@@ -301,7 +301,15 @@
     "inviteCopied": "Invite link copied to clipboard",
     "confirmRemoveUser": "Remove User",
     "removeUserConfirm": "Are you sure you want to remove",
-    "searchProviders": "Search providers..."
+    "searchProviders": "Search providers...",
+    "lastAccess": "Last Access",
+    "resetPassword": "Reset Password",
+    "resetPasswordTitle": "Reset Password",
+    "newPassword": "New Password",
+    "generatePassword": "Generate",
+    "passwordCopied": "Password copied to clipboard",
+    "passwordReset": "Password reset successfully",
+    "passwordResetError": "Failed to reset password"
   },
 
   "round_names": {
@@ -1744,6 +1752,23 @@
     "noProviderSelected": "No Provider Selected",
     "selectProviderHint": "Select a provider from the System page to view their admin dashboard.",
     "dashboard": "Dashboard",
-    "providerDashboardComingSoon": "Provider dashboard coming soon."
+    "providerDashboardComingSoon": "Provider dashboard coming soon.",
+    "runAudit": "Run Audit",
+    "auditClean": "All {{total}} calendar entries verified in storage",
+    "auditWarning": "{{missing}} of {{total}} calendar entries missing from storage",
+    "auditError": "Calendar audit failed",
+    "tournamentDetail": "Tournament Detail",
+    "selectTournament": "Select a tournament from the calendar to view details.",
+    "loadingTournament": "Loading tournament info...",
+    "tournamentNotFound": "Tournament info not available.",
+    "tournamentLoadError": "Could not load tournament info.",
+    "tournamentMissingFromStorage": "This tournament exists in the calendar but not in storage.",
+    "participants": "Participants",
+    "venues": "Venues",
+    "event": "Event",
+    "type": "Type",
+    "entries": "Entries",
+    "draws": "Draws",
+    "noEvents": "No events"
   }
 }

@@ -56,6 +56,16 @@ describe('Audit Trail E2E', () => {
   });
 
   afterAll(async () => {
+    // Clean up test provider and its calendar
+    if (providerId) {
+      const { PROVIDER_STORAGE } = await import('src/storage/interfaces');
+      const providerStorage = app.get(PROVIDER_STORAGE);
+      await providerStorage.removeProvider(providerId);
+
+      const { CALENDAR_STORAGE } = await import('src/storage/interfaces');
+      const calendarStorage = app.get(CALENDAR_STORAGE);
+      await calendarStorage.setCalendar(AUDIT_PROVIDER_ABBR, { provider: {}, tournaments: [] });
+    }
     await app.close();
   });
 

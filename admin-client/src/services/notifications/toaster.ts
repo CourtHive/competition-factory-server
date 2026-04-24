@@ -49,16 +49,21 @@ const defaults: Partial<ToastOptions> = {
   opacity: 1,
 };
 
-const generateStyle = (position: string, offsetTop: number, offsetBottom: number, offsetLeft: number, offsetRight: number): string => {
-  const parts = position.split('-');
-  const left = parts.includes(LEFT) && `left:${offsetLeft}`;
-  const right = parts.includes(RIGHT) && `right:${offsetRight}`;
-  const top = parts.includes('top') && `top:${offsetTop}`;
-  const bottom = parts.includes('bottom') && `bottom:${offsetBottom}`;
+const generateStyle = (
+  position: string,
+  offsetTop: number,
+  offsetBottom: number,
+  offsetLeft: number,
+  offsetRight: number,
+): string => {
+  const parts = new Set(position.split('-'));
+  const left = parts.has(LEFT) && `left:${offsetLeft}`;
+  const right = parts.has(RIGHT) && `right:${offsetRight}`;
+  const top = parts.has('top') && `top:${offsetTop}`;
+  const bottom = parts.has('bottom') && `bottom:${offsetBottom}`;
   const alignItems =
-    `align-items: ` + ((parts.includes('left') && 'flex-start') || (parts.includes('right') && 'flex-end') || CENTER);
-  const textAlign =
-    `text-align: ` + ((parts.includes('left') && 'left') || (parts.includes('right') && 'right') || CENTER);
+    `align-items: ` + ((parts.has('left') && 'flex-start') || (parts.has('right') && 'flex-end') || CENTER);
+  const textAlign = `text-align: ` + ((parts.has('left') && 'left') || (parts.has('right') && 'right') || CENTER);
 
   return [left, right, top, bottom, alignItems, textAlign].filter(Boolean).join(';');
 };
@@ -69,7 +74,7 @@ function getContainer(options: ToastOptions): HTMLElement {
   const container = document.createElement('div');
   container.style.cssText =
     'position: fixed; display: flex; flex-direction: column; width:100%; z-index: 9999; pointer-events: none;padding:15px;' +
-    generateStyle(options.position!, options.offsetTop!, options.offsetBottom!, options.offsetLeft!, options.offsetRight!);
+    generateStyle(options.position, options.offsetTop, options.offsetBottom, options.offsetLeft, options.offsetRight);
   (options.appendTo || document.body).appendChild(container);
   containers.position = container;
   return container;
@@ -82,10 +87,8 @@ export function toast(params: ToastOptions): { error?: string } | void {
   const toastElement = createToast(options);
 
   if (options.onlyOne) {
-    let child = container.lastElementChild;
-    while (child) {
-      container.removeChild(child);
-      child = container.lastElementChild;
+    while (container.lastElementChild) {
+      container.lastElementChild.remove();
     }
   }
 
@@ -104,7 +107,7 @@ function createToast(options: ToastOptions): { element: HTMLElement } {
   }
 
   element.style.cssText = `display:inline-flex;width:auto;pointer-events:auto;white-space:pre-wrap;opacity:${options.opacity};${
-    !options.dismissible ? 'padding: 1.25rem, 1.5rem;' : ''
+    options.dismissible ? '' : 'padding: 1.25rem, 1.5rem;'
   }`;
 
   const classes = ['notification'];
@@ -123,7 +126,7 @@ function createToast(options: ToastOptions): { element: HTMLElement } {
     const dismissButton = document.createElement('button');
     dismissButton.className = 'delete';
     dismissButton.addEventListener('click', () => cleanUp(options.onClose));
-    element.insertAdjacentElement('afterbegin', dismissButton);
+    element.prepend(dismissButton);
   }
 
   const container = document.createElement('div');
@@ -140,7 +143,7 @@ function createToast(options: ToastOptions): { element: HTMLElement } {
     actionButton.style.cssText = 'margin-left: 1em;';
     actionButton.className = options.type === 'is-danger' ? 'button is-light' : 'button';
     actionButton.innerHTML = options.action.text || 'OK';
-    actionButton.addEventListener('click', options.action.onClick!);
+    actionButton.addEventListener('click', options.action.onClick);
     container.appendChild(actionButton);
   }
 
@@ -149,7 +152,7 @@ function createToast(options: ToastOptions): { element: HTMLElement } {
   return { element };
 
   function cleanUp(onClose?: () => void) {
-    if (isFunction(onClose)) onClose!();
+    if (isFunction(onClose)) onClose();
     if (options?.animate?.out) {
       element.classList.add(`animate__${options.animate.out}`);
       endAnimation(() => {

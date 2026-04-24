@@ -2,7 +2,7 @@
  * Screen state management for admin app content areas.
  * Controls visibility of the admin and system page containers.
  */
-import { NONE, TMX_ADMIN, TMX_SYSTEM, TMX_SANCTIONING, TMX_SYNC } from 'constants/tmxConstants';
+import { TMX_ADMIN, TMX_SYSTEM, TMX_SANCTIONING, TMX_SYNC } from 'constants/tmxConstants';
 
 let content: string | undefined;
 

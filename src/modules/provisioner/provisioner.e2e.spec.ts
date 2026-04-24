@@ -35,6 +35,12 @@ describe('Provisioner E2E', () => {
   });
 
   afterAll(async () => {
+    // Clean up test provider
+    if (providerId) {
+      const { PROVIDER_STORAGE } = await import('src/storage/interfaces');
+      const providerStorage = app.get(PROVIDER_STORAGE);
+      await providerStorage.removeProvider(providerId);
+    }
     await app.close();
   });
 

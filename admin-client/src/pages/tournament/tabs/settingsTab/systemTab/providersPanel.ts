@@ -1,9 +1,11 @@
+import { resetPasswordModal } from 'components/modals/resetPasswordModal';
 import { createSearchFilter } from 'components/tables/common/filters/createSearchFilter';
 import { setActiveProvider, clearActiveProvider } from 'services/provider/providerState';
 import { editProviderModal } from 'components/modals/editProvider';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { destroyTable } from 'pages/tournament/destroyTable';
 import { inviteModal } from 'components/modals/inviteUser';
+import { tmxToast } from 'services/notifications/tmxToast';
 import { context } from 'services/context';
 import { t } from 'i18n';
 
@@ -196,7 +198,18 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
   // Associated users
   const assocSection = document.createElement('div');
   assocSection.className = 'system-associated-users';
-  assocSection.innerHTML = `<h4>${t('system.associatedUsers')}</h4>`;
+
+  const assocHeader = document.createElement('div');
+  assocHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;';
+  assocHeader.innerHTML = `<h4 style="margin: 0;">${t('system.associatedUsers')}</h4>`;
+
+  const resetPwBtn = document.createElement('button');
+  resetPwBtn.className = 'btn-impersonate';
+  resetPwBtn.style.fontSize = '0.75rem';
+  resetPwBtn.textContent = t('system.resetPassword');
+  assocHeader.appendChild(resetPwBtn);
+
+  assocSection.appendChild(assocHeader);
 
   const assocTableEl = document.createElement('div');
   assocTableEl.id = PROVIDER_USERS_TABLE;
@@ -216,8 +229,9 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
 
   destroyTable({ anchorId: PROVIDER_USERS_TABLE });
 
-  new Tabulator(assocTableEl, {
+  const assocTable = new Tabulator(assocTableEl, {
     placeholder: t('system.noUsersForProvider'),
+    selectableRows: 1,
     layout: 'fitColumns',
     maxHeight: 300,
     columns: [
@@ -238,5 +252,18 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
       },
     ],
     data: filteredUsers,
+  });
+
+  resetPwBtn.addEventListener('click', () => {
+    const rows = assocTable.getSelectedRows();
+    const selected = rows?.[0]?.getData();
+    if (!selected) {
+      tmxToast({ message: t('system.selectUserFirst'), intent: 'is-warning' });
+      return;
+    }
+    resetPasswordModal({
+      email: selected.email,
+      displayName: `${selected.firstName} ${selected.lastName}`.trim() || selected.email,
+    });
   });
 }

@@ -51,6 +51,13 @@ export class AuthController {
     return this.authService.removeUser(params);
   }
 
+  @Post('admin-reset-password')
+  @Roles([SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  adminResetPassword(@Body() body: { email: string; newPassword?: string }) {
+    return this.authService.adminResetPassword(body.email, body.newPassword);
+  }
+
   @Post('allusers')
   @Roles([SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)

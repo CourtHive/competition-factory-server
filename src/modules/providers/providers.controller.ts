@@ -13,7 +13,7 @@ import { RolesGuard } from '../auth/guards/role.guard';
 @UseGuards(RolesGuard)
 @Controller('provider')
 export class ProvidersController {
-  constructor(private providers: ProvidersService) {}
+  constructor(private readonly providers: ProvidersService) {}
 
   /** Public calendar — used by courthive-public and epixodic. Unchanged. */
   @Public()
@@ -40,6 +40,13 @@ export class ProvidersController {
   @HttpCode(HttpStatus.OK)
   checkCalendars() {
     return this.providers.checkCalendars();
+  }
+
+  @Post('calendar-audit')
+  @Roles([SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  calendarAudit(@Body() body: { providerAbbr: string }) {
+    return this.providers.calendarAudit(body);
   }
 
   @Post('allproviders')

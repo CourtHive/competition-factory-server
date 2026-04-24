@@ -16,20 +16,16 @@ export function renderEventsStep(container: HTMLElement, wizardState: any): void
   const addBtn = document.createElement('button');
   addBtn.textContent = '+ Add Event';
   addBtn.className = 'btn-invite';
-  addBtn.style.cssText = 'padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; color: #fff; font-size: 0.85em;';
-  addBtn.addEventListener('click', () => openEventModal(formData, container, wizardState));
+  addBtn.style.cssText =
+    'padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; color: #fff; font-size: 0.85em;';
+  addBtn.addEventListener('click', () => openEventModal(formData, container));
 
   header.appendChild(title);
   header.appendChild(addBtn);
   wrapper.appendChild(header);
 
   // Events list
-  if (!formData.events?.length) {
-    const empty = document.createElement('div');
-    empty.textContent = 'No events added yet. Click "+ Add Event" to begin.';
-    empty.style.cssText = 'padding: 24px; text-align: center; color: var(--tmx-text-tertiary, #999); border: 2px dashed var(--tmx-border-primary, #ddd); border-radius: 8px;';
-    wrapper.appendChild(empty);
-  } else {
+  if (formData.events?.length) {
     const table = document.createElement('table');
     table.style.cssText = 'width: 100%; border-collapse: collapse; max-width: 900px;';
 
@@ -63,24 +59,31 @@ export function renderEventsStep(container: HTMLElement, wizardState: any): void
       const removeBtn = document.createElement('button');
       removeBtn.textContent = 'Remove';
       removeBtn.className = 'btn-remove';
-      removeBtn.style.cssText = 'padding: 4px 10px; border: none; border-radius: 4px; cursor: pointer; color: #fff; font-size: 0.8em;';
+      removeBtn.style.cssText =
+        'padding: 4px 10px; border: none; border-radius: 4px; cursor: pointer; color: #fff; font-size: 0.8em;';
       removeBtn.addEventListener('click', () => {
         formData.events.splice(i, 1);
         updateWizardFormData({ events: formData.events });
         renderEventsStep(container, getWizardState());
       });
 
-      tr.querySelector('td:last-child')!.appendChild(removeBtn);
+      tr.querySelector('td:last-child').appendChild(removeBtn);
       tbody.appendChild(tr);
     }
     table.appendChild(tbody);
     wrapper.appendChild(table);
+  } else {
+    const empty = document.createElement('div');
+    empty.textContent = 'No events added yet. Click "+ Add Event" to begin.';
+    empty.style.cssText =
+      'padding: 24px; text-align: center; color: var(--tmx-text-tertiary, #999); border: 2px dashed var(--tmx-border-primary, #ddd); border-radius: 8px;';
+    wrapper.appendChild(empty);
   }
 
   container.appendChild(wrapper);
 }
 
-function openEventModal(formData: any, parentContainer: HTMLElement, wizardState: any) {
+function openEventModal(formData: any, parentContainer: HTMLElement) {
   const fields: Record<string, HTMLInputElement | HTMLSelectElement> = {};
 
   const content = document.createElement('div');
@@ -91,7 +94,12 @@ function openEventModal(formData: any, parentContainer: HTMLElement, wizardState
     { key: 'eventType', label: 'Event Type', type: 'select', options: ['SINGLES', 'DOUBLES', 'TEAM'] },
     { key: 'gender', label: 'Gender', type: 'select', options: ['', 'MALE', 'FEMALE', 'MIXED', 'ANY'] },
     { key: 'drawSize', label: 'Draw Size', type: 'number' },
-    { key: 'drawType', label: 'Draw Type', type: 'select', options: ['', 'SINGLE_ELIMINATION', 'ROUND_ROBIN', 'FEED_IN_CHAMPIONSHIP', 'COMPASS'] },
+    {
+      key: 'drawType',
+      label: 'Draw Type',
+      type: 'select',
+      options: ['', 'SINGLE_ELIMINATION', 'ROUND_ROBIN', 'FEED_IN_CHAMPIONSHIP', 'COMPASS'],
+    },
     { key: 'matchUpFormat', label: 'Match Format', type: 'text', placeholder: 'e.g., SET3-S:6/TB7' },
   ];
 
@@ -117,7 +125,8 @@ function openEventModal(formData: any, parentContainer: HTMLElement, wizardState
       input.type = def.type || 'text';
       if (def.placeholder) input.placeholder = def.placeholder;
     }
-    input.style.cssText = 'width: 100%; padding: 6px; border: 1px solid var(--tmx-border-primary, #ddd); border-radius: 4px; box-sizing: border-box;';
+    input.style.cssText =
+      'width: 100%; padding: 6px; border: 1px solid var(--tmx-border-primary, #ddd); border-radius: 4px; box-sizing: border-box;';
 
     fields[def.key] = input;
     wrapper.appendChild(label);
@@ -137,7 +146,7 @@ function openEventModal(formData: any, parentContainer: HTMLElement, wizardState
           const newEvent: any = {};
           for (const [key, input] of Object.entries(fields)) {
             const val = input.value;
-            if (val) newEvent[key] = key === 'drawSize' ? parseInt(val) : val;
+            if (val) newEvent[key] = key === 'drawSize' ? Number.parseInt(val, 10) : val;
           }
           if (!newEvent.eventName || !newEvent.eventType) return;
 
@@ -147,7 +156,7 @@ function openEventModal(formData: any, parentContainer: HTMLElement, wizardState
 
           // Re-render events step
           const container = parentContainer;
-          while (container.firstChild) container.removeChild(container.firstChild);
+          while (container.firstChild) container.firstChild.remove();
           renderEventsStep(container, getWizardState());
         },
       },

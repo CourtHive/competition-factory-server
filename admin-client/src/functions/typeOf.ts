@@ -1,4 +1,4 @@
-export function isFunction(fx: any): fx is Function {
+export function isFunction(fx: any): fx is (...args: any[]) => any {
   return typeof fx === 'function';
 }
 export function isString(item: any): item is string {

@@ -51,24 +51,17 @@ export function validateL1(tournamentRecord: any): ValidationResult {
  * Loads the record into a syncEngine instance and verifies
  * events, participants, and draws are queryable.
  */
-export function validateL2(tournamentRecord: any): ValidationResult {
-  const l1 = validateL1(tournamentRecord);
-  if (!l1.valid) return l1;
-
+function validateEngineRoundTrip(engine: any, tournamentRecord: any): { errors: string[]; bail: boolean } {
   const errors: string[] = [];
-  const warnings: string[] = [];
-  const engine = syncEngine;
-  engine.reset();
-
   try {
     const stateResult = engine.setState(tournamentRecord);
     if (stateResult?.error) {
       errors.push(`Engine setState failed: ${JSON.stringify(stateResult.error)}`);
-      return { valid: false, errors, warnings };
+      return { errors, bail: true };
     }
   } catch (err) {
     errors.push(`Engine setState threw: ${(err as Error).message}`);
-    return { valid: false, errors, warnings };
+    return { errors, bail: true };
   }
 
   try {
@@ -80,66 +73,95 @@ export function validateL2(tournamentRecord: any): ValidationResult {
     errors.push(`Engine getTournament threw: ${(err as Error).message}`);
   }
 
-  // Validate events are queryable
+  return { errors, bail: false };
+}
+
+function validateEvents(engine: any, events: any[]): string[] {
+  const errors: string[] = [];
+  try {
+    const eventsResult = engine.getEvents();
+    if (eventsResult?.error) {
+      errors.push(`Engine getEvents failed: ${JSON.stringify(eventsResult.error)}`);
+    }
+  } catch (err) {
+    errors.push(`Event query threw: ${(err as Error).message}`);
+  }
+
+  for (const event of events) {
+    if (!event.eventId) errors.push('Event missing eventId');
+    if (!event.eventType) errors.push(`Event ${event.eventId ?? '?'} missing eventType`);
+
+    for (const dd of event.drawDefinitions ?? []) {
+      if (!dd.drawId) errors.push(`DrawDefinition missing drawId in event ${event.eventId}`);
+    }
+  }
+
+  return errors;
+}
+
+function validateParticipants(engine: any, participants: any[]): string[] {
+  const errors: string[] = [];
+  for (const p of participants) {
+    if (!p.participantId) errors.push('Participant missing participantId');
+    if (!p.participantType) errors.push(`Participant ${p.participantId ?? '?'} missing participantType`);
+  }
+
+  try {
+    const participantsResult = engine.getParticipants();
+    if (participantsResult?.error) {
+      errors.push(`Engine getParticipants failed: ${JSON.stringify(participantsResult.error)}`);
+    }
+  } catch (err) {
+    errors.push(`Participant query threw: ${(err as Error).message}`);
+  }
+
+  return errors;
+}
+
+function validateEntryReferences(events: any[], participants: any[]): string[] {
+  const errors: string[] = [];
+  const participantIds = new Set(participants.map((p: any) => p.participantId));
+
+  for (const event of events) {
+    for (const entry of event.entries ?? []) {
+      if (entry.participantId && !participantIds.has(entry.participantId)) {
+        errors.push(`Entry in event ${event.eventId} references unknown participantId ${entry.participantId}`);
+      }
+    }
+  }
+
+  return errors;
+}
+
+export function validateL2(tournamentRecord: any): ValidationResult {
+  const l1 = validateL1(tournamentRecord);
+  if (!l1.valid) return l1;
+
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const engine = syncEngine;
+  engine.reset();
+
+  const roundTrip = validateEngineRoundTrip(engine, tournamentRecord);
+  errors.push(...roundTrip.errors);
+  if (roundTrip.bail) return { valid: false, errors, warnings };
+
   if (tournamentRecord.events?.length) {
-    try {
-      const eventsResult = engine.getEvents();
-      if (eventsResult?.error) {
-        errors.push(`Engine getEvents failed: ${JSON.stringify(eventsResult.error)}`);
-      }
-    } catch (err) {
-      errors.push(`Event query threw: ${(err as Error).message}`);
-    }
-
-    for (const event of tournamentRecord.events) {
-      if (!event.eventId) errors.push('Event missing eventId');
-      if (!event.eventType) errors.push(`Event ${event.eventId ?? '?'} missing eventType`);
-
-      if (event.drawDefinitions?.length) {
-        for (const dd of event.drawDefinitions) {
-          if (!dd.drawId) errors.push(`DrawDefinition missing drawId in event ${event.eventId}`);
-        }
-      }
-    }
+    errors.push(...validateEvents(engine, tournamentRecord.events));
   }
 
-  // Validate participants
   if (tournamentRecord.participants?.length) {
-    for (const p of tournamentRecord.participants) {
-      if (!p.participantId) errors.push('Participant missing participantId');
-      if (!p.participantType) errors.push(`Participant ${p.participantId ?? '?'} missing participantType`);
-    }
-
-    try {
-      const participantsResult = engine.getParticipants();
-      if (participantsResult?.error) {
-        errors.push(`Engine getParticipants failed: ${JSON.stringify(participantsResult.error)}`);
-      }
-    } catch (err) {
-      errors.push(`Participant query threw: ${(err as Error).message}`);
-    }
+    errors.push(...validateParticipants(engine, tournamentRecord.participants));
   }
 
-  // Validate venues
-  if (tournamentRecord.venues?.length) {
-    for (const v of tournamentRecord.venues) {
-      if (!v.venueId) errors.push('Venue missing venueId');
-    }
+  for (const v of tournamentRecord.venues ?? []) {
+    if (!v.venueId) errors.push('Venue missing venueId');
   }
 
-  // Cross-reference: event entries reference valid participantIds
   if (tournamentRecord.events?.length && tournamentRecord.participants?.length) {
-    const participantIds = new Set(tournamentRecord.participants.map((p: any) => p.participantId));
-    for (const event of tournamentRecord.events) {
-      for (const entry of event.entries ?? []) {
-        if (entry.participantId && !participantIds.has(entry.participantId)) {
-          errors.push(`Entry in event ${event.eventId} references unknown participantId ${entry.participantId}`);
-        }
-      }
-    }
+    errors.push(...validateEntryReferences(tournamentRecord.events, tournamentRecord.participants));
   }
 
-  // parentOrganisation: warn if missing (needed for provider scoping)
   if (!tournamentRecord.parentOrganisation) {
     warnings.push('parentOrganisation is missing — tournament will not be scoped to a provider');
   }

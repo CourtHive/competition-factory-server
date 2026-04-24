@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { io, Socket } from 'socket.io-client';
 import { mocksEngine } from 'tods-competition-factory';
@@ -83,7 +83,7 @@ describe('Mutex Stress Test — E2E WebSocket', () => {
 
     const server = app.getHttpServer();
     const address = server.address();
-    port = typeof address === 'string' ? parseInt(address, 10) : address.port;
+    port = typeof address === 'string' ? Number.parseInt(address, 10) : address.port;
 
     // Authenticate
     const loginRes = await request(server)
@@ -97,10 +97,7 @@ describe('Mutex Stress Test — E2E WebSocket', () => {
     // Create and save test tournaments
     for (const tournamentId of [TOURNAMENT_A, TOURNAMENT_B]) {
       // Remove any leftover from previous runs
-      await request(server)
-        .post('/factory/remove')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ tournamentId });
+      await request(server).post('/factory/remove').set('Authorization', `Bearer ${token}`).send({ tournamentId });
 
       const { tournamentRecord } = mocksEngine.generateTournamentRecord({
         tournamentAttributes: { tournamentId },
@@ -266,10 +263,7 @@ describe('Mutex Stress Test — E2E WebSocket', () => {
       ],
     };
 
-    const [r1, r2] = await Promise.all([
-      sendExecutionQueue(s1, payloadAB),
-      sendExecutionQueue(s2, payloadBA),
-    ]);
+    const [r1, r2] = await Promise.all([sendExecutionQueue(s1, payloadAB), sendExecutionQueue(s2, payloadBA)]);
 
     expect(r1.success).toBeDefined();
     expect(r1.error).toBeUndefined();

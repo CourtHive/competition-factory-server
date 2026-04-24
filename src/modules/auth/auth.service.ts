@@ -131,6 +131,17 @@ export class AuthService {
     return { ...SUCCESS };
   }
 
+  async adminResetPassword(email: string, newPassword?: string) {
+    if (!email) return { error: 'Email is required' };
+    const user = await this.usersService.findOne(email);
+    if (!user) return { error: 'User not found' };
+
+    const password = newPassword || createUniqueKey().slice(0, 12);
+    user.password = await hashPassword(password);
+    await this.userStorage.update(email, user);
+    return { ...SUCCESS, password };
+  }
+
   async modifyUser(params: { email: string; [key: string]: any }) {
     const { email, ...updates } = params;
     if (!email) return { error: 'Email is required' };

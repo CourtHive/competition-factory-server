@@ -1,3 +1,4 @@
+import { resetPasswordModal } from 'components/modals/resetPasswordModal';
 import { createSearchFilter } from 'components/tables/common/filters/createSearchFilter';
 import { confirmModal } from 'components/modals/baseModal/baseModal';
 import { editUserModal } from 'components/modals/editUserModal';
@@ -55,12 +56,17 @@ export function renderUsersPanel({ container, providers, users, onRefresh }: Ren
   editBtn.className = 'btn-edit';
   editBtn.textContent = t('system.editUser');
 
+  const resetPwBtn = document.createElement('button');
+  resetPwBtn.className = 'btn-impersonate';
+  resetPwBtn.textContent = t('system.resetPassword');
+
   const removeBtn = document.createElement('button');
   removeBtn.className = 'btn-remove';
   removeBtn.textContent = t('system.removeUser');
 
   toolbarActions.appendChild(inviteBtn);
   toolbarActions.appendChild(editBtn);
+  toolbarActions.appendChild(resetPwBtn);
   toolbarActions.appendChild(removeBtn);
 
   toolbar.appendChild(searchInput);
@@ -149,6 +155,19 @@ export function renderUsersPanel({ container, providers, users, onRefresh }: Ren
       user: selected._raw?.value || selected,
       providers,
       callback: () => onRefresh(),
+    });
+  });
+
+  // Reset password button
+  resetPwBtn.addEventListener('click', () => {
+    const selected = getSelectedUser();
+    if (!selected) {
+      tmxToast({ message: t('system.selectUserFirst'), intent: 'is-warning' });
+      return;
+    }
+    resetPasswordModal({
+      email: selected.email,
+      displayName: `${selected.firstName} ${selected.lastName}`.trim() || selected.email,
     });
   });
 

@@ -18,7 +18,7 @@ export function parseCtsTournament({ tournamentId, doc }) {
   const { startDate } = tournamentRecord;
 
   const firstHeader = doc.querySelector('h3');
-  const relevantNodes = firstHeader && firstHeader.parentNode.childNodes;
+  const relevantNodes = firstHeader?.parentNode.childNodes;
   if (relevantNodes) {
     const participants: any = [];
     let sectionType;
@@ -53,15 +53,12 @@ function getSectionType(header) {
 
 function getTournamentDetails({ tournamentId, category, keyValue, indexValue }) {
   const { text: dates } = keyValue['Datum:'] || {};
-  const month = dates
-    .split('.')
-    .filter((f) => f)
-    .reverse()[0];
+  const month = dates.split('.').filter(Boolean).reverse()[0];
   const start_day = dates.split('.')[0];
   const end_day = dates
     .split('.')
     .reduce((p, c) => (c.indexOf('-') == 0 ? c : p), undefined)
-    .replace(/^\D+/g, '');
+    .replaceAll(/^\D+/g, '');
   const year = new Date().getFullYear();
   const startDate = `${year}-${month}-${start_day}`;
   const endDate = `${year}-${month}-${end_day}`;
@@ -70,7 +67,6 @@ function getTournamentDetails({ tournamentId, category, keyValue, indexValue }) 
   const { text: ballType } = keyValue['Míče:'] || {};
   const { text: drawSize } = keyValue['Počet účastníků:'] || {};
 
-  // const { text: location } = keyValue['Místo konání:'] || {};
   const { text: organizationName } = keyValue['Pořadatel:'] || {};
   const { text: telephone } = keyValue['Tel. (1):'] || {};
   const { text: email } = keyValue['E-mail:'] || {};
@@ -82,13 +78,13 @@ function getTournamentDetails({ tournamentId, category, keyValue, indexValue }) 
   let surfaceCategory;
   const { text: courts_surface } = keyValue['Dvorců + povrch:'] || {};
   if (courts_surface) {
-    if (courts_surface.toLowerCase().indexOf('antuka') >= 0) surfaceCategory = 'CLAY';
-    if (courts_surface.toLowerCase().indexOf('bergo') >= 0) surfaceCategory = 'HARD';
-    if (courts_surface.toLowerCase().indexOf('sol') >= 0) surfaceCategory = 'HART';
-    if (courts_surface.toLowerCase().indexOf('beton') >= 0) surfaceCategory = 'HARD';
-    if (courts_surface.toLowerCase().indexOf('akryl') >= 0) surfaceCategory = 'HARD';
-    if (courts_surface.toLowerCase().indexOf('tráva') >= 0) surfaceCategory = 'GRASS';
-    if (courts_surface.toLowerCase().indexOf('supreme') >= 0) surfaceCategory = 'CLAY';
+    if (courts_surface.toLowerCase().includes('antuka')) surfaceCategory = 'CLAY';
+    if (courts_surface.toLowerCase().includes('bergo')) surfaceCategory = 'HARD';
+    if (courts_surface.toLowerCase().includes('sol')) surfaceCategory = 'HART';
+    if (courts_surface.toLowerCase().includes('beton')) surfaceCategory = 'HARD';
+    if (courts_surface.toLowerCase().includes('akryl')) surfaceCategory = 'HARD';
+    if (courts_surface.toLowerCase().includes('tráva')) surfaceCategory = 'GRASS';
+    if (courts_surface.toLowerCase().includes('supreme')) surfaceCategory = 'CLAY';
   }
 
   const categories = [category];
@@ -162,7 +158,7 @@ function getParticipant(row, sectionType, category, gender, startDate) {
       Object.assign(participant.person, { standardGivenName, standardFamilyName });
 
       const a = col.querySelector('a');
-      if (a && a.rawAttrs) {
+      if (a?.rawAttrs) {
         const id = a.rawAttrs.split('"').join('');
         const participantId = `CZE${id.split('/').reverse()[0]}`;
         participant.participantId = participantId;
@@ -211,5 +207,5 @@ function getParticipant(row, sectionType, category, gender, startDate) {
 }
 
 function numeric(value) {
-  return value && !isNaN(value) ? parseInt(value.toString().slice(-4)) : undefined;
+  return value && !Number.isNaN(value) ? Number.parseInt(value.toString().slice(-4), 10) : undefined;
 }

@@ -1,12 +1,19 @@
+import { scopeCalendarForUser } from 'src/modules/factory/helpers/checkTournamentAccess';
+import type { UserContext } from 'src/modules/auth/decorators/user-context.decorator';
+import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { tools } from 'tods-competition-factory';
 
-import { PROVIDER_STORAGE, type IProviderStorage, ASSIGNMENT_STORAGE, type IAssignmentStorage } from 'src/storage/interfaces';
-import { CALENDAR_STORAGE, type ICalendarStorage } from 'src/storage/interfaces';
-import { scopeCalendarForUser } from 'src/modules/factory/helpers/checkTournamentAccess';
-import { TournamentStorageService } from 'src/storage/tournament-storage.service';
-import type { UserContext } from 'src/modules/auth/decorators/user-context.decorator';
+// constants and interfaces
 import { SUCCESS } from 'src/common/constants/app';
+import {
+  CALENDAR_STORAGE,
+  PROVIDER_STORAGE,
+  type IProviderStorage,
+  ASSIGNMENT_STORAGE,
+  type IAssignmentStorage,
+  type ICalendarStorage,
+} from 'src/storage/interfaces';
 
 @Injectable()
 export class ProvidersService {
@@ -101,6 +108,25 @@ export class ProvidersService {
     const tournamentIds = await this.tournamentStorageService.listTournamentIds();
     const missingTournamentIds = tournamentIds?.filter((id) => !calendarTournamentIds?.includes(id));
     return { ...SUCCESS, missingTournamentIds, tournamentsCount: tournamentIds.length };
+  }
+
+  async calendarAudit({ providerAbbr }: { providerAbbr: string }) {
+    if (!providerAbbr) return { error: 'providerAbbr is required' };
+
+    const calendar = await this.calendarStorage.getCalendar(providerAbbr);
+    const tournaments = calendar?.tournaments ?? [];
+    const tournamentIds = await this.tournamentStorageService.listTournamentIds();
+    const storageIdSet = new Set(tournamentIds);
+
+    const calendarEntries = tournaments.map((entry) => ({
+      ...entry,
+      existsInStorage: storageIdSet.has(entry.tournamentId),
+    }));
+
+    const total = calendarEntries.length;
+    const existing = calendarEntries.filter((e) => e.existsInStorage).length;
+
+    return { ...SUCCESS, calendarEntries, counts: { total, existing, missing: total - existing } };
   }
 
   async addProvider(provider) {

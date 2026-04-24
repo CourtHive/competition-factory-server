@@ -11,9 +11,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AuditService.name);
   private pruneTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(
-    @Inject(AUDIT_STORAGE) private readonly auditStorage: IAuditStorage,
-  ) {}
+  constructor(@Inject(AUDIT_STORAGE) private readonly auditStorage: IAuditStorage) {}
 
   onModuleInit() {
     const retentionDays = this.getRetentionDays();
@@ -110,11 +108,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   /**
    * Record a tournament save event (REST save, not executionQueue).
    */
-  async recordSave(params: {
-    tournamentId: string;
-    userId?: string;
-    userEmail?: string;
-  }): Promise<void> {
+  async recordSave(params: { tournamentId: string; userId?: string; userEmail?: string }): Promise<void> {
     const { tournamentId, userId, userEmail } = params;
 
     const row: AuditRow = {
@@ -176,7 +170,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
 
   private getRetentionDays(): number {
     const envVal = process.env.AUDIT_RETENTION_DAYS;
-    const parsed = envVal ? parseInt(envVal, 10) : NaN;
-    return isNaN(parsed) || parsed < 1 ? DEFAULT_RETENTION_DAYS : parsed;
+    const parsed = envVal ? Number.parseInt(envVal, 10) : Number.NaN;
+    return Number.isNaN(parsed) || parsed < 1 ? DEFAULT_RETENTION_DAYS : parsed;
   }
 }

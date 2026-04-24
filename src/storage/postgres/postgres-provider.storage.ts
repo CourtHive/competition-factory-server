@@ -44,6 +44,11 @@ export class PostgresProviderStorage implements IProviderStorage {
     await this.pool.query('UPDATE providers SET last_access = NOW() WHERE provider_id = $1', [providerId]);
   }
 
+  async removeProvider(providerId: string): Promise<{ success: boolean }> {
+    await this.pool.query('DELETE FROM providers WHERE provider_id = $1', [providerId]);
+    return { ...SUCCESS };
+  }
+
   async setProvider(providerId: string, provider: any): Promise<{ success: boolean }> {
     const { organisationAbbreviation, organisationName, ...rest } = provider;
     await this.pool.query(

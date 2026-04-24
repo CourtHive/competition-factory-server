@@ -6,11 +6,11 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', 'build/**', 'coverage/**', 'admin-client/**', '.eslintrc.js'],
+    ignores: ['dist/**', 'node_modules/**'],
   },
   js.configs.recommended,
   {
-    files: ['**/*.ts', '**/*.js'],
+    files: ['**/*.ts'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
@@ -19,9 +19,9 @@ export default [
         project: 'tsconfig.json',
       },
       globals: {
-        ...globals.node,
-        ...globals.jest,
+        ...globals.browser,
         ...globals.es2021,
+        process: 'readonly',
       },
     },
     plugins: {
@@ -31,7 +31,6 @@ export default [
     rules: {
       ...tseslint.configs.recommended.rules,
       'sonarjs/cognitive-complexity': ['warn', 30],
-      '@typescript-eslint/interface-name-prefix': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
@@ -39,19 +38,6 @@ export default [
       'no-console': 'off',
       'no-empty': 'warn',
       'no-prototype-builtins': 'off',
-      'preserve-caught-error': 'off',
-    },
-  },
-  {
-    files: ['**/*.mjs'],
-    languageOptions: {
-      globals: {
-        ...globals.node,
-      },
-    },
-    rules: {
-      'no-console': 'off',
-      'preserve-caught-error': 'off',
     },
   },
 ];

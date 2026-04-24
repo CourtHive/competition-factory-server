@@ -1,5 +1,4 @@
 import { createSanctioningRecord, executeSanctioningMethod } from 'services/apis/sanctioningApi';
-import { createStatusBadge } from '../components/statusBadge';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { context } from 'services/context';
 
@@ -81,7 +80,9 @@ export function renderReviewStep(container: HTMLElement, wizardState: any): void
     for (const event of formData.events) {
       const eventRow = document.createElement('div');
       eventRow.style.cssText = 'padding: 8px 12px; border-bottom: 1px solid var(--tmx-border-secondary, #eee); font-size: 0.85em;';
-      eventRow.textContent = `${event.eventName} — ${event.eventType} ${event.gender ? `(${event.gender})` : ''} ${event.drawSize ? `Draw: ${event.drawSize}` : ''}`;
+      const genderText = event.gender ? `(${event.gender})` : '';
+      const drawText = event.drawSize ? `Draw: ${event.drawSize}` : '';
+      eventRow.textContent = `${event.eventName} — ${event.eventType} ${genderText} ${drawText}`;
       eventsSection.appendChild(eventRow);
     }
   } else {
