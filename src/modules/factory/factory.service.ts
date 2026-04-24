@@ -122,7 +122,7 @@ export class FactoryService {
 
     // Save directly — tournament must be available immediately for
     // subsequent executionQueue mutations from the client.
-    const userId = userContext?.userId;
+    const userId = userContext?.userId ?? user?.userId;
     const result = await this.tournamentStorageService.saveTournamentRecords({ tournamentRecords, userId });
 
     // Additionally queue for async validation if requested
