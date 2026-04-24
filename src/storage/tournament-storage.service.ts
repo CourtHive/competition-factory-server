@@ -93,17 +93,34 @@ export class TournamentStorageService {
     let removed = 0;
 
     for (const tournamentId of tournamentIds) {
-      if (!user?.permissions || user.permissions.includes('deleteTournament') || user.roles?.includes('superadmin')) {
+      const hasDeletePermission =
+        !user?.permissions ||
+        user.permissions.includes('deleteTournament') ||
+        user.roles?.includes('superadmin');
+
+      // Allow creators to delete their own tournaments
+      let isCreator = false;
+      let existingRecord: any;
+      if (!hasDeletePermission && user?.userId) {
+        const existing: any = await this.tournamentStorage.findTournamentRecord({ tournamentId });
+        existingRecord = existing?.tournamentRecord;
+        const createdBy = (existingRecord?.extensions ?? []).find((e) => e?.name === 'createdByUserId')?.value;
+        isCreator = !!createdBy && createdBy === user.userId;
+      }
+
+      if (hasDeletePermission || isCreator) {
         // Record the deletion in the audit trail BEFORE removing the record.
         // Fail-soft: audit errors don't block the deletion.
         if (auditService?.recordDeletion) {
           try {
-            const existing: any = await this.tournamentStorage.findTournamentRecord({ tournamentId });
-            const record = existing?.tournamentRecords?.[tournamentId] ?? existing?.tournamentRecord;
+            if (!existingRecord) {
+              const existing: any = await this.tournamentStorage.findTournamentRecord({ tournamentId });
+              existingRecord = existing?.tournamentRecord;
+            }
             await auditService.recordDeletion({
               tournamentId,
-              tournamentName: record?.tournamentName,
-              providerId: record?.parentOrganisation?.organisationId ?? providerId,
+              tournamentName: existingRecord?.tournamentName,
+              providerId: existingRecord?.parentOrganisation?.organisationId ?? providerId,
               userId: user?.userId,
               userEmail: user?.email,
             });
