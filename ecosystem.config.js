@@ -3,7 +3,7 @@ require('dotenv').config();
 module.exports = {
   apps: [
     {
-      env: { NODE_ENV: 'production' },
+      env: { NODE_ENV: process.env.NODE_ENV || 'production' },
       script: 'build/src/main.js',
       name: 'Factory Server',
       watch: false,
