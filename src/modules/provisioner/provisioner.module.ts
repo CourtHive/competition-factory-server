@@ -5,8 +5,10 @@ import { ProvisionerController } from './provisioner.controller';
 import { ProvisionerService } from './provisioner.service';
 import { SsoTokenService } from './sso-token.service';
 import { SsoController } from './sso.controller';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
+  imports: [AuditModule],
   controllers: [AdminProvisionerController, ProvisionerController, SsoController],
   providers: [ProvisionerService, SsoTokenService],
 })

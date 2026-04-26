@@ -1,7 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import { IProvisionerStorage, ProvisionerRow } from '../interfaces/provisioner-storage.interface';
+import {
+  IProvisionerStorage,
+  ProvisionerRow,
+  CascadeCounts,
+} from '../interfaces/provisioner-storage.interface';
 import { PG_POOL } from './postgres.config';
 import { SUCCESS } from 'src/common/constants/app';
 
@@ -83,6 +87,40 @@ export class PostgresProvisionerStorage implements IProvisionerStorage {
       [provisionerId],
     );
     return { ...SUCCESS };
+  }
+
+  async deleteWithCascade(provisionerId: string): Promise<CascadeCounts> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const keysResult = await client.query(
+        'DELETE FROM provisioner_api_keys WHERE provisioner_id = $1',
+        [provisionerId],
+      );
+      const associationsResult = await client.query(
+        'DELETE FROM provisioner_providers WHERE provisioner_id = $1',
+        [provisionerId],
+      );
+      const stampsResult = await client.query(
+        'DELETE FROM tournament_provisioner WHERE provisioner_id = $1',
+        [provisionerId],
+      );
+      await client.query('DELETE FROM provisioners WHERE provisioner_id = $1', [provisionerId]);
+
+      await client.query('COMMIT');
+
+      return {
+        apiKeys: keysResult.rowCount ?? 0,
+        providerAssociations: associationsResult.rowCount ?? 0,
+        tournamentStamps: stampsResult.rowCount ?? 0,
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }
 

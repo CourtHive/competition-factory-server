@@ -2,6 +2,7 @@ import {
   listProvisioners,
   createProvisioner,
   updateProvisioner,
+  deleteProvisioner,
   listProvisionerKeys,
   generateProvisionerKey,
   revokeProvisionerKey,
@@ -175,6 +176,16 @@ export function renderProvisionersPanel({ container, providers }: RenderProvisio
     });
     actions.appendChild(toggleBtn);
 
+    // Permanent delete is gated to !isActive — server enforces this too,
+    // but hiding the button when active prevents an obviously-wrong click.
+    if (!provisioner.isActive) {
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn-remove';
+      deleteBtn.textContent = t('system.deleteProvisioner');
+      deleteBtn.addEventListener('click', () => openDeleteProvisionerModal(provisioner));
+      actions.appendChild(deleteBtn);
+    }
+
     detailPane.appendChild(actions);
 
     detailPane.appendChild(buildKeysSection(provisioner));
@@ -334,6 +345,76 @@ export function renderProvisionersPanel({ container, providers }: RenderProvisio
     );
 
     return section;
+  };
+
+  const openDeleteProvisionerModal = (provisioner: any) => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display: flex; flex-direction: column; gap: .75rem;';
+
+    const warn = document.createElement('div');
+    warn.style.cssText =
+      'background: var(--tmx-panel-red-bg, #fff8e1); border: 1px solid var(--tmx-accent-red, #f14668); padding: .6rem .75rem; border-radius: 4px; font-size: .85rem;';
+    warn.innerHTML = t('system.deleteProvisionerWarning', { name: provisioner.name });
+    wrap.appendChild(warn);
+
+    const prompt = document.createElement('div');
+    prompt.style.cssText = 'font-size: .85rem;';
+    prompt.innerHTML = t('system.typeNameToConfirm', { name: `<strong>${provisioner.name}</strong>` });
+    wrap.appendChild(prompt);
+
+    const confirmInput = document.createElement('input');
+    confirmInput.type = 'text';
+    confirmInput.className = 'input';
+    confirmInput.placeholder = provisioner.name;
+    confirmInput.style.cssText = 'width: 100%;';
+    wrap.appendChild(confirmInput);
+
+    const content = (elem: HTMLElement) => {
+      elem.appendChild(wrap);
+      // Disable the destructive button until the typed name matches exactly.
+      setTimeout(() => {
+        const deleteBtn = document.getElementById('confirmDeleteProvisioner') as HTMLButtonElement | null;
+        if (deleteBtn) deleteBtn.disabled = true;
+        confirmInput.addEventListener('input', () => {
+          if (deleteBtn) deleteBtn.disabled = confirmInput.value !== provisioner.name;
+        });
+        confirmInput.focus();
+      }, 0);
+    };
+
+    openModal({
+      title: t('system.deleteProvisioner'),
+      content,
+      buttons: [
+        { label: t('common.cancel'), intent: 'none', close: true },
+        {
+          label: t('system.deletePermanently'),
+          intent: 'is-danger',
+          id: 'confirmDeleteProvisioner',
+          disabled: true,
+          close: true,
+          onClick: () => {
+            if (confirmInput.value !== provisioner.name) return;
+            deleteProvisioner(provisioner.provisionerId).then(
+              (res: any) => {
+                if (res?.data?.error) {
+                  tmxToast({ message: res.data.error, intent: 'is-danger' });
+                  return;
+                }
+                const counts = res?.data?.cascadeCounts ?? { apiKeys: 0, providerAssociations: 0, tournamentStamps: 0 };
+                tmxToast({
+                  message: t('system.provisionerDeleted', counts as any),
+                  intent: 'is-success',
+                });
+                refresh();
+                detailPane.innerHTML = `<div class="system-no-selection">${t('system.selectProvisioner')}</div>`;
+              },
+              () => tmxToast({ message: t('system.deleteFailed'), intent: 'is-danger' }),
+            );
+          },
+        },
+      ],
+    });
   };
 
   const openCreateProvisionerModal = () => {

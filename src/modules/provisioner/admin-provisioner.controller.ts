@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { RolesGuard } from '../auth/guards/role.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
@@ -29,6 +29,19 @@ export class AdminProvisionerController {
   @Put(':id')
   async update(@Param('id') id: string, @Body() body: { name?: string; isActive?: boolean; config?: Record<string, any> }) {
     return this.provisionerService.updateProvisioner(id, body);
+  }
+
+  /**
+   * Hard-delete a provisioner with cascade. Refuses to delete unless the
+   * provisioner is already deactivated (two-step safeguard enforced
+   * server-side, not just in the UI).
+   */
+  @Delete(':id')
+  async delete(@Param('id') id: string, @Req() req: any) {
+    const actor = req.user
+      ? { userId: req.user.userId ?? req.user.sub, userEmail: req.user.email }
+      : undefined;
+    return this.provisionerService.deleteProvisioner(id, actor);
   }
 
   // ── API Key management ──

@@ -22,6 +22,23 @@ export interface IProvisionerStorage {
 
   /** Deactivate a provisioner (soft-delete). */
   deactivate(provisionerId: string): Promise<{ success: boolean }>;
+
+  /**
+   * Hard-delete a provisioner and cascade related rows in a single transaction.
+   * Removes:
+   *  - provisioner_api_keys for this provisioner
+   *  - provisioner_providers associations (does NOT delete the providers themselves)
+   *  - tournament_provisioner ownership stamps (does NOT delete the tournaments)
+   *  - the provisioners row
+   * Returns the cascade counts so callers can audit / surface them.
+   */
+  deleteWithCascade(provisionerId: string): Promise<CascadeCounts>;
+}
+
+export interface CascadeCounts {
+  apiKeys: number;
+  providerAssociations: number;
+  tournamentStamps: number;
 }
 
 export interface ProvisionerRow {

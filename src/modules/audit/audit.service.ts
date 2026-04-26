@@ -106,6 +106,49 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Record a provisioner deletion event. Uses the provisionerId in the
+   * tournamentId column (which is just a denormalized indexed string with no
+   * FK) so the row is queryable by `findByActionType('DELETE_PROVISIONER')`.
+   * Cascade counts are stored in metadata so teardown is reconstructable.
+   */
+  async recordProvisionerDeletion(params: {
+    provisionerId: string;
+    provisionerName?: string;
+    cascadeCounts: { apiKeys: number; providerAssociations: number; tournamentStamps: number };
+    userId?: string;
+    userEmail?: string;
+  }): Promise<void> {
+    const { provisionerId, provisionerName, cascadeCounts, userId, userEmail } = params;
+
+    const row: AuditRow = {
+      auditId: tools.UUID(),
+      tournamentId: provisionerId,
+      userId,
+      userEmail,
+      source: 'admin',
+      occurredAt: new Date().toISOString(),
+      actionType: 'DELETE_PROVISIONER',
+      methods: [{ method: 'deleteProvisioner', params: { provisionerId } }],
+      status: 'applied',
+      metadata: {
+        provisionerId,
+        provisionerName,
+        cascadeCounts,
+        deletedAt: new Date().toISOString(),
+      },
+    };
+
+    try {
+      await this.auditStorage.append(row);
+      this.logger.log(
+        `Recorded deletion audit for provisioner ${provisionerId} (${provisionerName ?? 'unnamed'}) — keys=${cascadeCounts.apiKeys}, assoc=${cascadeCounts.providerAssociations}, stamps=${cascadeCounts.tournamentStamps}`,
+      );
+    } catch (err: any) {
+      this.logger.error(`Failed to record provisioner deletion audit for ${provisionerId}: ${err.message}`);
+    }
+  }
+
+  /**
    * Record a tournament save event (REST save, not executionQueue).
    */
   async recordSave(params: { tournamentId: string; userId?: string; userEmail?: string }): Promise<void> {

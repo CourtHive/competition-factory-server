@@ -44,6 +44,10 @@ export async function updateProvisioner(id: string, body: { name?: string; isAct
   return baseApi.put(`/admin/provisioners/${id}`, body);
 }
 
+export async function deleteProvisioner(id: string) {
+  return baseApi.delete(`/admin/provisioners/${id}`);
+}
+
 export async function listProvisionerKeys(id: string) {
   return baseApi.get(`/admin/provisioners/${id}/keys`);
 }

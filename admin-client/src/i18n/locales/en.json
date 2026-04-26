@@ -365,7 +365,13 @@
     "relationship": "Relationship",
     "owner": "Owner",
     "subsidiary": "Subsidiary",
-    "nameRequired": "Name is required"
+    "nameRequired": "Name is required",
+    "deleteProvisioner": "Delete Permanently",
+    "deletePermanently": "Delete permanently",
+    "deleteProvisionerWarning": "<strong>This cannot be undone.</strong> All API keys, provider associations, and tournament ownership stamps for \"{{name}}\" will be removed. The providers and their tournaments will <em>not</em> be deleted.",
+    "typeNameToConfirm": "Type {{name}} to confirm:",
+    "provisionerDeleted": "Provisioner deleted ({{apiKeys}} keys, {{providerAssociations}} associations, {{tournamentStamps}} stamps cleaned up)",
+    "deleteFailed": "Delete failed"
   },
 
   "round_names": {

@@ -2,7 +2,11 @@ import { PostgresProvisionerStorage } from './postgres-provisioner.storage';
 import { IProvisionerStorage } from '../interfaces/provisioner-storage.interface';
 
 function makeMockPool() {
-  return { query: jest.fn() };
+  return { query: jest.fn(), connect: jest.fn() };
+}
+
+function makeMockClient() {
+  return { query: jest.fn(), release: jest.fn() };
 }
 
 describe('PostgresProvisionerStorage', () => {
@@ -101,6 +105,65 @@ describe('PostgresProvisionerStorage', () => {
         expect.stringContaining('is_active = false'),
         ['p1'],
       );
+    });
+  });
+
+  describe('deleteWithCascade', () => {
+    it('runs cascade in a single transaction and returns row counts', async () => {
+      const client = makeMockClient();
+      pool.connect.mockResolvedValueOnce(client);
+      // BEGIN, then 3 cascade DELETEs (with rowCount), then provisioner DELETE, then COMMIT
+      client.query
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rowCount: 3 }) // provisioner_api_keys
+        .mockResolvedValueOnce({ rowCount: 2 }) // provisioner_providers
+        .mockResolvedValueOnce({ rowCount: 5 }) // tournament_provisioner
+        .mockResolvedValueOnce({ rowCount: 1 }) // provisioners
+        .mockResolvedValueOnce({}); // COMMIT
+
+      let result: any = await storage.deleteWithCascade('p1');
+
+      expect(result).toEqual({ apiKeys: 3, providerAssociations: 2, tournamentStamps: 5 });
+
+      const calls = client.query.mock.calls.map((c: any) => c[0]);
+      expect(calls[0]).toBe('BEGIN');
+      expect(calls[1]).toContain('DELETE FROM provisioner_api_keys');
+      expect(calls[2]).toContain('DELETE FROM provisioner_providers');
+      expect(calls[3]).toContain('DELETE FROM tournament_provisioner');
+      expect(calls[4]).toContain('DELETE FROM provisioners');
+      expect(calls[5]).toBe('COMMIT');
+      expect(client.release).toHaveBeenCalled();
+    });
+
+    it('rolls back on error and releases the client', async () => {
+      const client = makeMockClient();
+      pool.connect.mockResolvedValueOnce(client);
+      client.query
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockRejectedValueOnce(new Error('boom')) // first cascade DELETE fails
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      await expect(storage.deleteWithCascade('p1')).rejects.toThrow('boom');
+
+      const calls = client.query.mock.calls.map((c: any) => c[0]);
+      expect(calls[0]).toBe('BEGIN');
+      expect(calls[calls.length - 1]).toBe('ROLLBACK');
+      expect(client.release).toHaveBeenCalled();
+    });
+
+    it('returns 0 counts when nothing to cascade (already-empty provisioner)', async () => {
+      const client = makeMockClient();
+      pool.connect.mockResolvedValueOnce(client);
+      client.query
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rowCount: 0 })
+        .mockResolvedValueOnce({ rowCount: 0 })
+        .mockResolvedValueOnce({ rowCount: 0 })
+        .mockResolvedValueOnce({ rowCount: 1 })
+        .mockResolvedValueOnce({}); // COMMIT
+
+      let result: any = await storage.deleteWithCascade('p1');
+      expect(result).toEqual({ apiKeys: 0, providerAssociations: 0, tournamentStamps: 0 });
     });
   });
 });

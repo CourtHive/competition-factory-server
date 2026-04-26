@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomBytes, createHash } from 'crypto';
 
+import { AuditService } from '../audit/audit.service';
+
 import {
   PROVISIONER_STORAGE,
   type IProvisionerStorage,
@@ -36,6 +38,7 @@ export class ProvisionerService {
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
     @Inject(ASSIGNMENT_STORAGE) private readonly assignmentStorage: IAssignmentStorage,
     @Inject(TOURNAMENT_PROVISIONER_STORAGE) private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
+    private readonly auditService: AuditService,
   ) {}
 
   // ── Provisioner CRUD (SUPER_ADMIN) ──
@@ -69,6 +72,40 @@ export class ProvisionerService {
 
   async deactivateProvisioner(provisionerId: string) {
     return this.provisionerStorage.deactivate(provisionerId);
+  }
+
+  /**
+   * Hard-delete a provisioner with cascade. Refuses to delete an active
+   * provisioner — must be deactivated first (two-step safeguard).
+   * Cascade rules: API keys, provisioner_provider associations, and
+   * tournament_provisioner ownership stamps are removed. The providers
+   * themselves and their tournaments are NOT deleted (they're independent
+   * entities, possibly jointly managed).
+   */
+  async deleteProvisioner(
+    provisionerId: string,
+    actor?: { userId?: string; userEmail?: string },
+  ) {
+    const provisioner = await this.provisionerStorage.getProvisioner(provisionerId);
+    if (!provisioner) return { error: 'Provisioner not found', code: 'PROVISIONER_NOT_FOUND' };
+    if (provisioner.isActive) {
+      return {
+        error: 'Provisioner must be deactivated before deletion',
+        code: 'PROVISIONER_STILL_ACTIVE',
+      };
+    }
+
+    const cascadeCounts = await this.provisionerStorage.deleteWithCascade(provisionerId);
+
+    await this.auditService.recordProvisionerDeletion({
+      provisionerId,
+      provisionerName: provisioner.name,
+      cascadeCounts,
+      userId: actor?.userId,
+      userEmail: actor?.userEmail,
+    });
+
+    return { success: true, cascadeCounts };
   }
 
   // ── API Key management (SUPER_ADMIN) ──
