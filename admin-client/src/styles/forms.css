@@ -1,6 +1,6 @@
 /**
  * Form styles for admin-client (parity with TMX/src/styles/components/forms.css).
- * Themes .input/.label/.control/.select/.icon via --tmx-*/--chc-* variables.
+ * Themes .input, .label, .control, .select, .icon via --tmx- and --chc- vars.
  * Without these rules, Bulma defaults (or browser autofill) leak through and
  * defeat dark mode for modals like loginModal.
  *
