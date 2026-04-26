@@ -9,7 +9,11 @@ import {
   listProvisionerProviders,
   associateProviderWithProvisioner,
   disassociateProviderFromProvisioner,
+  listProvisionerRepresentatives,
+  assignUserToProvisioner,
+  removeUserFromProvisioner,
 } from 'services/apis/provisionersApi';
+import { getUsers } from 'services/apis/servicesApi';
 import { generatedKeyModal } from 'components/modals/generatedKeyModal';
 import { confirmModal, openModal } from 'components/modals/baseModal/baseModal';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
@@ -21,6 +25,7 @@ import { t } from 'i18n';
 const PROVISIONER_LIST_TABLE = 'systemProvisionerListTable';
 const PROVISIONER_KEYS_TABLE = 'systemProvisionerKeysTable';
 const PROVISIONER_ASSOC_TABLE = 'systemProvisionerAssocTable';
+const PROVISIONER_REPS_TABLE = 'systemProvisionerRepsTable';
 
 type RenderProvisionersPanelParams = {
   container: HTMLElement;
@@ -190,6 +195,7 @@ export function renderProvisionersPanel({ container, providers }: RenderProvisio
 
     detailPane.appendChild(buildKeysSection(provisioner));
     detailPane.appendChild(buildAssociatedProvidersSection(provisioner));
+    detailPane.appendChild(buildRepresentativesSection(provisioner));
   };
 
   const buildKeysSection = (provisioner: any): HTMLElement => {
@@ -276,6 +282,156 @@ export function renderProvisionersPanel({ container, providers }: RenderProvisio
     );
 
     return section;
+  };
+
+  const buildRepresentativesSection = (provisioner: any): HTMLElement => {
+    const section = document.createElement('div');
+    section.className = 'system-associated-users';
+
+    const sectionHeader = document.createElement('div');
+    sectionHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;';
+    sectionHeader.innerHTML = `<h4 style="margin: 0;">${t('system.representatives')}</h4>`;
+
+    const assignBtn = document.createElement('button');
+    assignBtn.className = 'btn-invite';
+    assignBtn.style.fontSize = '0.75rem';
+    assignBtn.textContent = t('system.assignUser');
+    assignBtn.addEventListener('click', () => openAssignUserModal(provisioner));
+    sectionHeader.appendChild(assignBtn);
+
+    section.appendChild(sectionHeader);
+
+    const tableEl = document.createElement('div');
+    tableEl.id = PROVISIONER_REPS_TABLE;
+    section.appendChild(tableEl);
+
+    Promise.all([listProvisionerRepresentatives(provisioner.provisionerId), getUsers()]).then(
+      ([repsRes, usersRes]: any) => {
+        const reps = repsRes?.data?.users ?? [];
+        const usersData = usersRes?.data?.users ?? [];
+        const userById = new Map<string, any>(
+          usersData.map((u: any) => [u.value?.userId ?? u.key, u.value ?? u]),
+        );
+
+        const data = reps.map((r: any) => {
+          const u = userById.get(r.userId);
+          const firstName = u?.firstName ?? '';
+          const lastName = u?.lastName ?? '';
+          return {
+            userId: r.userId,
+            email: u?.email ?? r.userId,
+            displayName: `${firstName} ${lastName}`.trim() || u?.email || r.userId,
+            createdAt: r.createdAt,
+          };
+        });
+
+        destroyTable({ anchorId: PROVISIONER_REPS_TABLE });
+        const repsTable = new Tabulator(tableEl, {
+          placeholder: t('system.noRepresentatives'),
+          layout: 'fitColumns',
+          maxHeight: 300,
+          columns: [
+            { title: t('system.displayName'), field: 'displayName', headerSort: true },
+            { title: 'Email', field: 'email', headerSort: true },
+            {
+              title: t('system.granted'),
+              field: 'createdAt',
+              headerSort: true,
+              formatter: (cell: any) => formatDateTime(cell.getValue()),
+            },
+            {
+              title: '',
+              width: 100,
+              hozAlign: 'center',
+              headerSort: false,
+              formatter: () => `<button class="btn-remove" style="font-size:.7rem;padding:2px 8px;">${t('system.remove')}</button>`,
+              cellClick: (_e: any, cell: any) => {
+                const row = cell.getRow().getData();
+                confirmModal({
+                  title: t('system.removeRepresentative'),
+                  query: t('system.removeRepresentativeConfirm', { email: row.email }),
+                  okIntent: 'is-warning',
+                  okAction: () => {
+                    removeUserFromProvisioner(provisioner.provisionerId, row.userId).then(
+                      () => {
+                        tmxToast({ message: t('system.representativeRemoved'), intent: 'is-success' });
+                        renderProvisionerDetail(provisioner);
+                      },
+                      () => tmxToast({ message: t('system.updateFailed'), intent: 'is-danger' }),
+                    );
+                  },
+                  cancelAction: undefined,
+                });
+              },
+            },
+          ],
+          data,
+        });
+        void repsTable;
+      },
+      () => tmxToast({ message: t('system.loadError'), intent: 'is-danger' }),
+    );
+
+    return section;
+  };
+
+  const openAssignUserModal = (provisioner: any) => {
+    const values = { email: '' };
+
+    getUsers().then((res: any) => {
+      const usersData = res?.data?.users ?? [];
+      const userList = usersData
+        .map((u: any) => {
+          const v = u.value ?? u;
+          const name = `${v.firstName ?? ''} ${v.lastName ?? ''}`.trim();
+          return {
+            label: name ? `${name} (${v.email})` : v.email,
+            value: v.email,
+          };
+        })
+        .filter((opt: any) => opt.value);
+
+      const content = (elem: HTMLElement) => {
+        renderForm(elem, [
+          {
+            typeAhead: { list: userList, callback: (email: string) => (values.email = email) },
+            label: t('system.user'),
+            placeholder: t('system.searchUsers'),
+            field: 'email',
+          },
+        ]);
+      };
+
+      openModal({
+        title: t('system.assignUser'),
+        content,
+        buttons: [
+          { label: t('common.cancel'), intent: 'none', close: true },
+          {
+            label: t('system.assign'),
+            intent: 'is-primary',
+            close: true,
+            onClick: () => {
+              if (!values.email) {
+                tmxToast({ message: t('system.selectUserFirst'), intent: 'is-warning' });
+                return;
+              }
+              assignUserToProvisioner(provisioner.provisionerId, { email: values.email }).then(
+                (resp: any) => {
+                  if (resp?.data?.error) {
+                    tmxToast({ message: resp.data.error, intent: 'is-danger' });
+                    return;
+                  }
+                  tmxToast({ message: t('system.representativeAssigned'), intent: 'is-success' });
+                  renderProvisionerDetail(provisioner);
+                },
+                () => tmxToast({ message: t('system.updateFailed'), intent: 'is-danger' }),
+              );
+            },
+          },
+        ],
+      });
+    });
   };
 
   const buildAssociatedProvidersSection = (provisioner: any): HTMLElement => {

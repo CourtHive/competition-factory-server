@@ -55,6 +55,7 @@ describe('MigrationRunnerService', () => {
         { name: '013-add-officiating-sanctioning.sql' },
         { name: '014-add-audit-summary.sql' },
         { name: '015-add-pending-saves.sql' },
+        { name: '016-add-user-provisioners.sql' },
       ]},
     ];
     service = new MigrationRunnerService(mockPool);

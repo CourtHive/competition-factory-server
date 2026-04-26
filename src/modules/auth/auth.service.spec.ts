@@ -44,6 +44,13 @@ describe('AuthService', () => {
       updateLastAccess: jest.fn().mockResolvedValue(undefined),
     };
 
+    const mockUserProvisionerStorage = {
+      findProvisionerIdsByUser: jest.fn().mockResolvedValue([]),
+      findUsersByProvisioner: jest.fn().mockResolvedValue([]),
+      associate: jest.fn().mockResolvedValue({ success: true }),
+      disassociate: jest.fn().mockResolvedValue({ success: true }),
+    };
+
     authService = new AuthService(
       mockUsersService,
       jwtService,
@@ -51,6 +58,7 @@ describe('AuthService', () => {
       mockProviderStorage,
       mockAuthCodeStorage,
       mockUserStorage,
+      mockUserProvisionerStorage as any,
     );
   });
 

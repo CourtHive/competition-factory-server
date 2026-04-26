@@ -56,3 +56,8 @@ export {
   type ISsoIdentityStorage,
   type SsoIdentityRow,
 } from './sso-identity-storage.interface';
+export {
+  USER_PROVISIONER_STORAGE,
+  type IUserProvisionerStorage,
+  type UserProvisionerRow,
+} from './user-provisioner-storage.interface';

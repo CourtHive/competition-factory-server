@@ -371,7 +371,19 @@
     "deleteProvisionerWarning": "<strong>This cannot be undone.</strong> All API keys, provider associations, and tournament ownership stamps for \"{{name}}\" will be removed. The providers and their tournaments will <em>not</em> be deleted.",
     "typeNameToConfirm": "Type {{name}} to confirm:",
     "provisionerDeleted": "Provisioner deleted ({{apiKeys}} keys, {{providerAssociations}} associations, {{tournamentStamps}} stamps cleaned up)",
-    "deleteFailed": "Delete failed"
+    "deleteFailed": "Delete failed",
+    "representatives": "Representatives",
+    "noRepresentatives": "No representatives assigned",
+    "user": "User",
+    "displayName": "Name",
+    "granted": "Granted",
+    "assignUser": "Assign User",
+    "assign": "Assign",
+    "remove": "Remove",
+    "representativeAssigned": "User assigned as representative",
+    "representativeRemoved": "Representative removed",
+    "removeRepresentative": "Remove Representative",
+    "removeRepresentativeConfirm": "Remove {{email}} as a representative? They will no longer be able to act as this provisioner."
   },
 
   "round_names": {

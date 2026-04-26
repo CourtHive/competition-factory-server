@@ -5,6 +5,7 @@ import { BOLT_HISTORY_REPORTING } from './interfaces/bolt-history-reporting.inte
 import { USER_PROVIDER_STORAGE } from './interfaces/user-provider-storage.interface';
 import { PROVISIONER_STORAGE } from './interfaces/provisioner-storage.interface';
 import { SSO_IDENTITY_STORAGE } from './interfaces/sso-identity-storage.interface';
+import { USER_PROVISIONER_STORAGE } from './interfaces/user-provisioner-storage.interface';
 import { OFFICIATING_STORAGE } from './interfaces/officiating-storage.interface';
 import { SANCTIONING_STORAGE } from './interfaces/sanctioning-storage.interface';
 import { BOLT_HISTORY_STORAGE } from './interfaces/bolt-history.interface';
@@ -23,6 +24,7 @@ import { PostgresProvisionerApiKeyStorage } from './postgres/postgres-provisione
 import { PostgresUserProviderStorage } from './postgres/postgres-user-provider.storage';
 import { PostgresProvisionerStorage } from './postgres/postgres-provisioner.storage';
 import { PostgresSsoIdentityStorage } from './postgres/postgres-sso-identity.storage';
+import { PostgresUserProvisionerStorage } from './postgres/postgres-user-provisioner.storage';
 import { PostgresSanctioningStorage } from './postgres/postgres-sanctioning.storage';
 import { PostgresOfficiatingStorage } from './postgres/postgres-officiating.storage';
 import { PostgresAuditStorage } from './postgres/postgres-audit.storage';
@@ -70,6 +72,7 @@ const provisionerApiKeyStorageProvider = makeStorageProvider(PROVISIONER_API_KEY
 const provisionerProviderStorageProvider = makeStorageProvider(PROVISIONER_PROVIDER_STORAGE, PostgresProvisionerProviderStorage);
 const tournamentProvisionerStorageProvider = makeStorageProvider(TOURNAMENT_PROVISIONER_STORAGE, PostgresTournamentProvisionerStorage);
 const ssoIdentityStorageProvider = makeStorageProvider(SSO_IDENTITY_STORAGE, PostgresSsoIdentityStorage);
+const userProvisionerStorageProvider = makeStorageProvider(USER_PROVISIONER_STORAGE, PostgresUserProvisionerStorage);
 
 @Global()
 @Module({
@@ -93,6 +96,7 @@ const ssoIdentityStorageProvider = makeStorageProvider(SSO_IDENTITY_STORAGE, Pos
     provisionerProviderStorageProvider,
     tournamentProvisionerStorageProvider,
     ssoIdentityStorageProvider,
+    userProvisionerStorageProvider,
     TournamentStorageService,
   ],
   exports: [
@@ -114,6 +118,7 @@ const ssoIdentityStorageProvider = makeStorageProvider(SSO_IDENTITY_STORAGE, Pos
     PROVISIONER_PROVIDER_STORAGE,
     TOURNAMENT_PROVISIONER_STORAGE,
     SSO_IDENTITY_STORAGE,
+    USER_PROVISIONER_STORAGE,
     TournamentStorageService,
   ],
 })

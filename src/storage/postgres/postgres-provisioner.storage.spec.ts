@@ -112,12 +112,14 @@ describe('PostgresProvisionerStorage', () => {
     it('runs cascade in a single transaction and returns row counts', async () => {
       const client = makeMockClient();
       pool.connect.mockResolvedValueOnce(client);
-      // BEGIN, then 3 cascade DELETEs (with rowCount), then provisioner DELETE, then COMMIT
+      // BEGIN, then 3 cascade DELETEs (with rowCount), then user_provisioners,
+      // then provisioner DELETE, then COMMIT
       client.query
         .mockResolvedValueOnce({}) // BEGIN
         .mockResolvedValueOnce({ rowCount: 3 }) // provisioner_api_keys
         .mockResolvedValueOnce({ rowCount: 2 }) // provisioner_providers
         .mockResolvedValueOnce({ rowCount: 5 }) // tournament_provisioner
+        .mockResolvedValueOnce({ rowCount: 4 }) // user_provisioners
         .mockResolvedValueOnce({ rowCount: 1 }) // provisioners
         .mockResolvedValueOnce({}); // COMMIT
 
@@ -130,8 +132,9 @@ describe('PostgresProvisionerStorage', () => {
       expect(calls[1]).toContain('DELETE FROM provisioner_api_keys');
       expect(calls[2]).toContain('DELETE FROM provisioner_providers');
       expect(calls[3]).toContain('DELETE FROM tournament_provisioner');
-      expect(calls[4]).toContain('DELETE FROM provisioners');
-      expect(calls[5]).toBe('COMMIT');
+      expect(calls[4]).toContain('DELETE FROM user_provisioners');
+      expect(calls[5]).toContain('DELETE FROM provisioners');
+      expect(calls[6]).toBe('COMMIT');
       expect(client.release).toHaveBeenCalled();
     });
 
@@ -156,10 +159,11 @@ describe('PostgresProvisionerStorage', () => {
       pool.connect.mockResolvedValueOnce(client);
       client.query
         .mockResolvedValueOnce({}) // BEGIN
-        .mockResolvedValueOnce({ rowCount: 0 })
-        .mockResolvedValueOnce({ rowCount: 0 })
-        .mockResolvedValueOnce({ rowCount: 0 })
-        .mockResolvedValueOnce({ rowCount: 1 })
+        .mockResolvedValueOnce({ rowCount: 0 }) // provisioner_api_keys
+        .mockResolvedValueOnce({ rowCount: 0 }) // provisioner_providers
+        .mockResolvedValueOnce({ rowCount: 0 }) // tournament_provisioner
+        .mockResolvedValueOnce({ rowCount: 0 }) // user_provisioners
+        .mockResolvedValueOnce({ rowCount: 1 }) // provisioners
         .mockResolvedValueOnce({}); // COMMIT
 
       let result: any = await storage.deleteWithCascade('p1');

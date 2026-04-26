@@ -74,3 +74,17 @@ export async function associateProviderWithProvisioner(
 export async function disassociateProviderFromProvisioner(id: string, providerId: string) {
   return baseApi.delete(`/admin/provisioners/${id}/providers/${providerId}`);
 }
+
+// ── Representatives (Phase 2A) ─────────────────────────────────────
+
+export async function listProvisionerRepresentatives(id: string) {
+  return baseApi.get(`/admin/provisioners/${id}/users`);
+}
+
+export async function assignUserToProvisioner(id: string, body: { email: string }) {
+  return baseApi.post(`/admin/provisioners/${id}/users`, body);
+}
+
+export async function removeUserFromProvisioner(id: string, userId: string) {
+  return baseApi.delete(`/admin/provisioners/${id}/users/${userId}`);
+}

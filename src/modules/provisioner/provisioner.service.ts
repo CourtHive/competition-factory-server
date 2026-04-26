@@ -18,11 +18,14 @@ import {
   type IUserStorage,
   USER_PROVIDER_STORAGE,
   type IUserProviderStorage,
+  USER_PROVISIONER_STORAGE,
+  type IUserProvisionerStorage,
   ASSIGNMENT_STORAGE,
   type IAssignmentStorage,
   TOURNAMENT_PROVISIONER_STORAGE,
   type ITournamentProvisionerStorage,
 } from 'src/storage/interfaces';
+import { PROVISIONER as PROVISIONER_ROLE } from 'src/common/constants/roles';
 
 const PROV_KEY_PREFIX = 'prov_sk_live_';
 
@@ -38,8 +41,82 @@ export class ProvisionerService {
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
     @Inject(ASSIGNMENT_STORAGE) private readonly assignmentStorage: IAssignmentStorage,
     @Inject(TOURNAMENT_PROVISIONER_STORAGE) private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
+    @Inject(USER_PROVISIONER_STORAGE) private readonly userProvisionerStorage: IUserProvisionerStorage,
     private readonly auditService: AuditService,
   ) {}
+
+  // ── User ↔ Provisioner association (Phase 2A) ──
+
+  async listProvisionerRepresentatives(provisionerId: string) {
+    const associations = await this.userProvisionerStorage.findUsersByProvisioner(provisionerId);
+    if (associations.length === 0) return { success: true, users: [] };
+
+    // Hydrate user details (email, name) for each association. Iterate
+    // sequentially since IUserStorage.findOne is keyed by email and we have
+    // userIds — fall back to a per-association direct lookup.
+    const users: any[] = [];
+    for (const assoc of associations) {
+      // userStorage doesn't expose a findById helper. We accept a lean
+      // representation here (userId + grantedBy + createdAt). The admin UI
+      // can join against the existing user list for display details.
+      users.push(assoc);
+    }
+    return { success: true, users };
+  }
+
+  async assignUserToProvisioner(provisionerId: string, userEmail: string, grantedBy?: string) {
+    const provisioner = await this.provisionerStorage.getProvisioner(provisionerId);
+    if (!provisioner) return { error: 'Provisioner not found', code: 'PROVISIONER_NOT_FOUND' };
+
+    const user = await this.userStorage.findOne(userEmail);
+    if (!user) return { error: 'User not found', code: 'USER_NOT_FOUND' };
+    if (!user.userId) return { error: 'User has no userId', code: 'USER_MISSING_ID' };
+
+    // Idempotently grant the PROVISIONER global role
+    const roles: string[] = Array.isArray(user.roles) ? [...user.roles] : [];
+    if (!roles.includes(PROVISIONER_ROLE)) {
+      roles.push(PROVISIONER_ROLE);
+      await this.userStorage.update(userEmail, { ...user, roles });
+    }
+
+    await this.userProvisionerStorage.associate(user.userId, provisionerId, grantedBy);
+
+    return {
+      success: true,
+      association: {
+        userId: user.userId,
+        email: user.email,
+        provisionerId,
+      },
+    };
+  }
+
+  async removeUserFromProvisioner(provisionerId: string, userId: string) {
+    await this.userProvisionerStorage.disassociate(userId, provisionerId);
+
+    // Strip the PROVISIONER role if this was the user's only provisioner
+    // association — without it, the global role becomes meaningless and would
+    // dangle in the JWT. Look up the user by userId via the remaining
+    // associations and find their email through the user storage.
+    const remaining = await this.userProvisionerStorage.findProvisionerIdsByUser(userId);
+    if (remaining.length === 0) {
+      // Find the user record so we can update roles. We need email since
+      // userStorage.update is email-keyed. Best-effort: skip if we can't
+      // resolve email from userId (the role will simply have no effect).
+      try {
+        const all = await this.userStorage.findAll();
+        const u = all.users?.find((x: any) => x.userId === userId);
+        if (u?.email && Array.isArray(u.roles) && u.roles.includes(PROVISIONER_ROLE)) {
+          const roles = u.roles.filter((r: string) => r !== PROVISIONER_ROLE);
+          await this.userStorage.update(u.email, { ...u, roles });
+        }
+      } catch {
+        // non-fatal — role left in place
+      }
+    }
+
+    return { success: true };
+  }
 
   // ── Provisioner CRUD (SUPER_ADMIN) ──
 

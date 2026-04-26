@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs';
 
 // constants and interfaces
 import { SUCCESS } from 'src/common/constants/app';
+import { PROVISIONER as PROVISIONER_ROLE } from 'src/common/constants/roles';
 import {
   PROVIDER_STORAGE,
   type IProviderStorage,
@@ -16,6 +17,8 @@ import {
   type IAuthCodeStorage,
   USER_STORAGE,
   type IUserStorage,
+  USER_PROVISIONER_STORAGE,
+  type IUserProvisionerStorage,
 } from 'src/storage/interfaces';
 
 const ALLOWED_ROLE_SET = new Set([...VALID_GLOBAL_ROLES, ...VALID_PROVIDER_ROLES, 'admin', 'official', 'director']);
@@ -29,6 +32,7 @@ export class AuthService {
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     @Inject(AUTH_CODE_STORAGE) private readonly authCodeStorage: IAuthCodeStorage,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
+    @Inject(USER_PROVISIONER_STORAGE) private readonly userProvisionerStorage: IUserProvisionerStorage,
   ) {}
 
   async signIn(email: string, clearTextPassword: string) {
@@ -53,6 +57,18 @@ export class AuthService {
     this.userStorage.updateLastAccess(email).catch(() => {});
     if (user.providerId) {
       this.providerStorage.updateLastAccess(user.providerId).catch(() => {});
+    }
+
+    // Phase 2A: PROVISIONER-role users carry their provisioner associations
+    // in the JWT so the provisioner middleware can resolve them on every
+    // request without a DB lookup.
+    if (user.userId && user.roles?.includes(PROVISIONER_ROLE)) {
+      try {
+        userDetails.provisionerIds = await this.userProvisionerStorage.findProvisionerIdsByUser(user.userId);
+      } catch (err) {
+        Logger.warn(`Failed to load provisionerIds for ${email}: ${(err as Error).message}`);
+        userDetails.provisionerIds = [];
+      }
     }
 
     const payload = userDetails;

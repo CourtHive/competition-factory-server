@@ -6,6 +6,7 @@ export const DEVELOPER = 'developer';
 export const GENERATE = 'generate';
 export const CLIENT = 'client';
 export const SCORE = 'score';
+export const PROVISIONER = 'provisioner'; // user represents a provisioner (Phase 2A)
 export const ADMIN = 'admin'; // deprecated — treated as PROVIDER_ADMIN for back-compat; will be removed
 
 // ── Provider-scoped roles (stored in user_providers.provider_role, NOT in JWT) ──
@@ -15,5 +16,5 @@ export const PROVIDER_ADMIN = 'PROVIDER_ADMIN'; // sees all tournaments in the p
 export const DIRECTOR = 'DIRECTOR';             // sees only own/assigned tournaments
 
 // Convenience set for validation (e.g., invite role whitelist)
-export const VALID_GLOBAL_ROLES = [SUPER_ADMIN, DEVELOPER, GENERATE, CLIENT, SCORE] as const;
+export const VALID_GLOBAL_ROLES = [SUPER_ADMIN, DEVELOPER, GENERATE, CLIENT, SCORE, PROVISIONER] as const;
 export const VALID_PROVIDER_ROLES = [PROVIDER_ADMIN, DIRECTOR] as const;

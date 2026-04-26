@@ -83,4 +83,27 @@ export class AdminProvisionerController {
   async disassociateProvider(@Param('id') id: string, @Param('providerId') providerId: string) {
     return this.provisionerService.disassociateProvider(id, providerId);
   }
+
+  // ── User-as-provisioner-representative (Phase 2A) ──
+
+  @Get(':id/users')
+  async listRepresentatives(@Param('id') id: string) {
+    return this.provisionerService.listProvisionerRepresentatives(id);
+  }
+
+  @Post(':id/users')
+  @HttpCode(HttpStatus.CREATED)
+  async assignUser(
+    @Param('id') id: string,
+    @Body() body: { email: string },
+    @Req() req: any,
+  ) {
+    const grantedBy = req.user?.userId ?? req.user?.sub;
+    return this.provisionerService.assignUserToProvisioner(id, body.email, grantedBy);
+  }
+
+  @Delete(':id/users/:userId')
+  async removeUser(@Param('id') id: string, @Param('userId') userId: string) {
+    return this.provisionerService.removeUserFromProvisioner(id, userId);
+  }
 }

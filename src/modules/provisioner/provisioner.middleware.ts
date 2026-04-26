@@ -1,13 +1,16 @@
 import { Inject, Injectable, NestMiddleware } from '@nestjs/common';
 import { createHash } from 'crypto';
+import { JwtService } from '@nestjs/jwt';
 
 import {
   PROVISIONER_API_KEY_STORAGE,
   type IProvisionerApiKeyStorage,
   PROVISIONER_PROVIDER_STORAGE,
   type IProvisionerProviderStorage,
+  PROVISIONER_STORAGE,
+  type IProvisionerStorage,
 } from 'src/storage/interfaces';
-import { CLIENT, GENERATE, SCORE } from 'src/common/constants/roles';
+import { CLIENT, GENERATE, SCORE, PROVISIONER as PROVISIONER_ROLE } from 'src/common/constants/roles';
 import type { UserContext } from '../auth/decorators/user-context.decorator';
 
 const PROV_PREFIX = 'prov_';
@@ -29,6 +32,8 @@ export class ProvisionerMiddleware implements NestMiddleware {
   constructor(
     @Inject(PROVISIONER_API_KEY_STORAGE) private readonly apiKeyStorage: IProvisionerApiKeyStorage,
     @Inject(PROVISIONER_PROVIDER_STORAGE) private readonly providerStorage: IProvisionerProviderStorage,
+    @Inject(PROVISIONER_STORAGE) private readonly provisionerStorage: IProvisionerStorage,
+    private readonly jwtService: JwtService,
   ) {}
 
   async use(req: any, _res: any, next: () => void): Promise<void> {
@@ -39,7 +44,26 @@ export class ProvisionerMiddleware implements NestMiddleware {
     }
 
     const [type, token] = authHeader.split(' ');
-    if (type !== 'Bearer' || !token?.startsWith(PROV_PREFIX)) {
+    if (type !== 'Bearer') {
+      next();
+      return;
+    }
+
+    // ── JWT path (Phase 2A) — PROVISIONER-role users represent a provisioner
+    if (token && !token.startsWith(PROV_PREFIX)) {
+      try {
+        const decoded: any = await this.jwtService.verifyAsync(token);
+        if (decoded?.roles?.includes(PROVISIONER_ROLE) && Array.isArray(decoded.provisionerIds)) {
+          await this.attachProvisionerFromJwt(req, decoded);
+        }
+      } catch {
+        // not a valid JWT — fall through and let AuthGuard reject if needed
+      }
+      next();
+      return;
+    }
+
+    if (!token?.startsWith(PROV_PREFIX)) {
       next();
       return;
     }
@@ -117,6 +141,59 @@ export class ProvisionerMiddleware implements NestMiddleware {
     }
 
     next();
+  }
+
+  /**
+   * Resolve a provisioner identity for a JWT-authenticated user.
+   * Picks the active provisioner from `provisionerIds` (favouring the
+   * X-Provisioner-Id header when the user represents multiple). Sets
+   * the same `req.provisioner` shape the API-key path produces so
+   * downstream code is identical.
+   */
+  private async attachProvisionerFromJwt(req: any, decoded: any): Promise<void> {
+    const ids: string[] = decoded.provisionerIds ?? [];
+    if (ids.length === 0) return;
+
+    const headerProvId = (req.headers['x-provisioner-id'] as string | undefined)?.trim();
+    const provisionerId =
+      headerProvId && ids.includes(headerProvId) ? headerProvId : ids[0];
+
+    let provisioner;
+    try {
+      provisioner = await this.provisionerStorage.getProvisioner(provisionerId);
+    } catch {
+      return;
+    }
+    if (!provisioner || !provisioner.isActive) return;
+
+    req.provisioner = {
+      provisionerId: provisioner.provisionerId,
+      name: provisioner.name,
+      config: provisioner.config ?? {},
+      keyId: null,
+      keyLabel: null,
+      authMode: 'jwt',
+    };
+    req.auditSource = {
+      type: 'provisioner-jwt',
+      provisionerId: provisioner.provisionerId,
+      userId: decoded.userId ?? decoded.sub,
+      userEmail: decoded.email,
+    };
+
+    // X-Provider-Id support mirrors the API-key path
+    const providerId: string | undefined = req.headers['x-provider-id'];
+    if (providerId) {
+      let relationship: 'owner' | 'subsidiary' | null = null;
+      try {
+        relationship = await this.providerStorage.getRelationship(provisioner.provisionerId, providerId);
+      } catch {
+        // storage error — leave relationship null
+      }
+      if (relationship) {
+        req.provisionerRelationship = relationship;
+      }
+    }
   }
 }
 

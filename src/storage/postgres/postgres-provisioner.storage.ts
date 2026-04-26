@@ -106,6 +106,10 @@ export class PostgresProvisionerStorage implements IProvisionerStorage {
         'DELETE FROM tournament_provisioner WHERE provisioner_id = $1',
         [provisionerId],
       );
+      // user_provisioners has FK CASCADE on provisioner_id deletion, but we
+      // delete explicitly so we can report the count and so the row removal
+      // shows up before we drop the parent provisioner row.
+      await client.query('DELETE FROM user_provisioners WHERE provisioner_id = $1', [provisionerId]);
       await client.query('DELETE FROM provisioners WHERE provisioner_id = $1', [provisionerId]);
 
       await client.query('COMMIT');
