@@ -312,7 +312,7 @@
     "passwordResetError": "Failed to reset password",
     "provisioners": "Provisioners",
     "provisionerName": "Provisioner Name",
-    "provisionerNamePlaceholder": "e.g. IONSport",
+    "provisionerNamePlaceholder": "e.g. TMX Sandbox",
     "noProvisioners": "No provisioners found",
     "selectProvisioner": "Select a provisioner to view details",
     "searchProvisioners": "Search provisioners...",

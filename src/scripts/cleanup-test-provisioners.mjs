@@ -25,56 +25,70 @@ import pg from 'pg';
 import 'dotenv/config';
 
 const args = minimist(process.argv.slice(2).filter((a) => a !== '--'), {
-  string: ['ids'],
-  boolean: ['execute', 'help'],
-  alias: { h: 'help' },
+  string: ['ids', 'name-pattern'],
+  boolean: ['execute', 'help', 'list', 'force'],
+  alias: { h: 'help', l: 'list' },
 });
 
-if (args.help || !args.ids) {
+if (args.help || (!args.ids && !args.list && !args['name-pattern'])) {
   console.log(`
 Cleanup Test Provisioners
 
 Usage:
+  node src/scripts/cleanup-test-provisioners.mjs --list
   node src/scripts/cleanup-test-provisioners.mjs --ids "<id1>,<id2>" [--execute]
+  node src/scripts/cleanup-test-provisioners.mjs --name-pattern "<substring>" [--force] [--execute]
 
 Options:
-  --ids       Comma-separated list of provisioner IDs to delete (required)
-  --execute   Actually delete. Without this flag the script runs in dry mode.
+  --list             Print all provisioners. No deletion.
+  --ids              Comma-separated list of provisioner IDs to delete.
+  --name-pattern     Substring to match against provisioner name (e.g.
+                     "E2E-Provisioner-"). Resolves to a list of IDs.
+  --force            Bypass the deactivate-first safeguard (deletes ACTIVE
+                     provisioners). Use only for one-off cleanup of test data.
+  --execute          Actually delete. Without this flag the script runs in dry mode.
 
 Examples:
-  # Preview cascade for two provisioners
+  # Discover what's in the database
+  node src/scripts/cleanup-test-provisioners.mjs --list
+
+  # Preview cascade by ID
   node src/scripts/cleanup-test-provisioners.mjs --ids "abc123,def456"
 
-  # Actually delete them
-  node src/scripts/cleanup-test-provisioners.mjs --ids "abc123,def456" --execute
+  # Bulk wipe e2e test rows (one-off cleanup of forgotten teardowns)
+  node src/scripts/cleanup-test-provisioners.mjs --name-pattern "E2E-Provisioner-" --force
+  node src/scripts/cleanup-test-provisioners.mjs --name-pattern "E2E-Provisioner-" --force --execute
 `);
   process.exit(args.help ? 0 : 1);
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const ids = String(args.ids)
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
+const explicitIds = args.ids
+  ? String(args.ids).split(',').map((s) => s.trim()).filter(Boolean)
+  : [];
 
-if (ids.length === 0) {
-  console.error('No provisioner IDs supplied.');
-  process.exit(1);
-}
-
-const invalid = ids.filter((id) => !UUID_RE.test(id));
-if (invalid.length > 0) {
-  console.error('The following ID(s) are not valid UUIDs:');
-  for (const bad of invalid) console.error(`  - ${bad}`);
-  if (invalid.some((id) => id.startsWith('<') && id.endsWith('>'))) {
-    console.error("\nThose look like placeholders. Replace them with real provisioner UUIDs.");
-    console.error("Tip: get them from `GET /admin/provisioners` or the Provisioners table in admin.");
+if (!args.list && !args['name-pattern']) {
+  if (explicitIds.length === 0) {
+    console.error('No provisioner IDs supplied.');
+    process.exit(1);
   }
-  process.exit(1);
+
+  const invalid = explicitIds.filter((id) => !UUID_RE.test(id));
+  if (invalid.length > 0) {
+    console.error('The following ID(s) are not valid UUIDs:');
+    for (const bad of invalid) console.error(`  - ${bad}`);
+    if (invalid.some((id) => id.startsWith('<') && id.endsWith('>'))) {
+      console.error("\nThose look like placeholders. Replace them with real provisioner UUIDs.");
+      console.error("Tip: run with --list to see the actual IDs.");
+    }
+    process.exit(1);
+  }
 }
 
 const dryRun = !args.execute;
+const force = !!args.force;
+const namePattern = args['name-pattern'] ? String(args['name-pattern']) : null;
 
 // ── Postgres connection ──────────────────────────────────────────────
 
@@ -95,11 +109,11 @@ async function describeProvisioner(client, id) {
   );
   if (!provRes.rows.length) return { id, found: false };
 
-  const [keys, assoc, stamps] = await Promise.all([
-    client.query('SELECT COUNT(*)::int AS n FROM provisioner_api_keys WHERE provisioner_id = $1', [id]),
-    client.query('SELECT COUNT(*)::int AS n FROM provisioner_providers WHERE provisioner_id = $1', [id]),
-    client.query('SELECT COUNT(*)::int AS n FROM tournament_provisioner WHERE provisioner_id = $1', [id]),
-  ]);
+  // Run sequentially — pg client doesn't support concurrent queries on the
+  // same client (deprecation warning otherwise).
+  const keys = await client.query('SELECT COUNT(*)::int AS n FROM provisioner_api_keys WHERE provisioner_id = $1', [id]);
+  const assoc = await client.query('SELECT COUNT(*)::int AS n FROM provisioner_providers WHERE provisioner_id = $1', [id]);
+  const stamps = await client.query('SELECT COUNT(*)::int AS n FROM tournament_provisioner WHERE provisioner_id = $1', [id]);
 
   return {
     id,
@@ -133,13 +147,73 @@ async function deleteWithCascade(client, id) {
   }
 }
 
+async function listAll(client) {
+  const provs = await client.query(
+    'SELECT provisioner_id, name, is_active, created_at FROM provisioners ORDER BY created_at',
+  );
+  if (provs.rows.length === 0) {
+    console.log('No provisioners found.');
+    return;
+  }
+
+  console.log(`Found ${provs.rows.length} provisioner(s):\n`);
+  for (const row of provs.rows) {
+    const desc = await describeProvisioner(client, row.provisioner_id);
+    const status = desc.isActive ? '\x1b[33mACTIVE\x1b[0m   ' : 'inactive ';
+    const counts = desc.counts;
+    console.log(`  ${row.provisioner_id}  [${status}]  ${row.name}`);
+    console.log(
+      `    ${counts.apiKeys} key(s), ${counts.providerAssociations} association(s), ${counts.tournamentStamps} tournament stamp(s)`,
+    );
+  }
+  console.log(`\nTo clean up, deactivate the target(s) first (UI or PATCH) then run:`);
+  console.log(`  node src/scripts/cleanup-test-provisioners.mjs --ids "<id1>,<id2>" --execute`);
+}
+
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main() {
+  const client = await pool.connect();
+
+  if (args.list) {
+    try {
+      await listAll(client);
+    } finally {
+      client.release();
+      await pool.end();
+    }
+    process.exit(0);
+  }
+
+  // Resolve target IDs from --ids and/or --name-pattern (deduplicated)
+  const idSet = new Set(explicitIds);
+  if (namePattern) {
+    const result = await client.query(
+      'SELECT provisioner_id, name FROM provisioners WHERE name ILIKE $1 ORDER BY name',
+      [`%${namePattern}%`],
+    );
+    if (result.rows.length === 0) {
+      console.log(`No provisioners matched name-pattern "${namePattern}".`);
+      client.release();
+      await pool.end();
+      process.exit(0);
+    }
+    for (const row of result.rows) idSet.add(row.provisioner_id);
+    console.log(`Pattern "${namePattern}" matched ${result.rows.length} provisioner(s).`);
+  }
+
+  const ids = [...idSet];
+  if (ids.length === 0) {
+    console.error('No targets resolved.');
+    client.release();
+    await pool.end();
+    process.exit(1);
+  }
+
   console.log(`Mode: ${dryRun ? 'DRY-RUN (no changes will be made)' : 'EXECUTE (provisioners will be deleted)'}`);
+  if (force) console.log(`\x1b[33mForce: active provisioners will be deleted without deactivation.\x1b[0m`);
   console.log(`Targets: ${ids.length} provisioner ID(s)\n`);
 
-  const client = await pool.connect();
   let failures = 0;
   let totals = { apiKeys: 0, providerAssociations: 0, tournamentStamps: 0, deleted: 0 };
 
@@ -160,8 +234,8 @@ async function main() {
 
       if (dryRun) continue;
 
-      if (desc.isActive) {
-        console.log(`    skipped — provisioner is still active. Deactivate via UI or PATCH first.`);
+      if (desc.isActive && !force) {
+        console.log(`    skipped — provisioner is still active. Pass --force to override, or deactivate via UI first.`);
         failures += 1;
         continue;
       }
