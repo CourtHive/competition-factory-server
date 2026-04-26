@@ -19,6 +19,7 @@ export const ADMIN = 'admin';
 export const SYSTEM = 'system';
 export const PROVIDERS_TAB = 'providers';
 export const USERS_TAB = 'users';
+export const PROVISIONERS_TAB = 'provisioners';
 
 // Sanctioning
 export const TMX_SANCTIONING = 'tmxSanctioning';

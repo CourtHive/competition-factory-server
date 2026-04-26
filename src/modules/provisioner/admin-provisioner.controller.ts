@@ -51,6 +51,12 @@ export class AdminProvisionerController {
 
   // ── Provider association ──
 
+  @Get(':id/providers')
+  async listProvisionerProviders(@Param('id') id: string) {
+    const result = await this.provisionerService.listProviders(id);
+    return { success: true, providers: (result.providers ?? []).filter((p: any) => p.managed) };
+  }
+
   @Post(':id/providers')
   @HttpCode(HttpStatus.CREATED)
   async associateProvider(

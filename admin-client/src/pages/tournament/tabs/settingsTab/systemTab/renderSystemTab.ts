@@ -1,5 +1,6 @@
 import { getProviders, getUsers } from 'services/apis/servicesApi';
 import { removeAllChildNodes } from 'services/dom/transformers';
+import { renderProvisionersPanel } from './provisionersPanel';
 import { ensureSystemStyles } from './systemTabStyles';
 import { renderProvidersPanel } from './providersPanel';
 import { tmxToast } from 'services/notifications/tmxToast';
@@ -7,14 +8,14 @@ import { renderUsersPanel } from './usersPanel';
 import { controlBar } from 'courthive-components';
 import { t } from 'i18n';
 
-import { LEFT, PROVIDERS_TAB, USERS_TAB, SYSTEM } from 'constants/tmxConstants';
+import { LEFT, PROVIDERS_TAB, USERS_TAB, PROVISIONERS_TAB, SYSTEM } from 'constants/tmxConstants';
 import { context } from 'services/context';
 
-type SubTab = 'providers' | 'users';
+type SubTab = 'providers' | 'users' | 'provisioners';
 let currentSubTab: SubTab = 'providers';
 
 export function renderSystemTab(container: HTMLElement, selectedTab?: string): void {
-  if (selectedTab === PROVIDERS_TAB || selectedTab === USERS_TAB) {
+  if (selectedTab === PROVIDERS_TAB || selectedTab === USERS_TAB || selectedTab === PROVISIONERS_TAB) {
     currentSubTab = selectedTab;
   } else {
     currentSubTab = PROVIDERS_TAB;
@@ -62,6 +63,12 @@ export function renderSystemTab(container: HTMLElement, selectedTab?: string): v
           label: t('system.users'),
           close: true,
         },
+        {
+          active: currentSubTab === 'provisioners',
+          onClick: () => switchSubTab('provisioners'),
+          label: t('system.provisioners'),
+          close: true,
+        },
       ];
 
       const items: any[] = [{ id: 'systemSubTabs', location: LEFT, tabs }];
@@ -73,8 +80,10 @@ export function renderSystemTab(container: HTMLElement, selectedTab?: string): v
       removeAllChildNodes(contentEl);
       if (currentSubTab === 'providers') {
         renderProvidersPanel({ container: contentEl, providers, users, onRefresh });
-      } else {
+      } else if (currentSubTab === 'users') {
         renderUsersPanel({ container: contentEl, providers, users, onRefresh });
+      } else {
+        renderProvisionersPanel({ container: contentEl, providers });
       }
     };
 

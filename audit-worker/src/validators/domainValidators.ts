@@ -5,7 +5,7 @@
 
 type ValidationResult = { errors: string[]; warnings: string[] };
 
-export function validateCategories(record: any, engine: any): ValidationResult {
+export function validateCategories(record: any, _engine: any): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 

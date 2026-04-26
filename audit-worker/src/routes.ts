@@ -24,7 +24,10 @@ export function registerRoutes(router: Router, pool: pg.Pool): void {
   router.post('/condense/:tournamentId/:reportType', async (req, res) => {
     try {
       const result = await condenseOne(pool, req.params.tournamentId, req.params.reportType);
-      if (result.error) return res.status(400).json(result);
+      if (result.error) {
+        res.status(400).json(result);
+        return;
+      }
       res.json({ success: true, ...result });
     } catch (err: any) {
       console.error('[audit-worker] condenseOne failed:', err.message);
@@ -36,7 +39,10 @@ export function registerRoutes(router: Router, pool: pg.Pool): void {
   router.get('/summary/:tournamentId/:reportType', async (req, res) => {
     try {
       const summary = await getSummary(pool, req.params.tournamentId, req.params.reportType);
-      if (!summary) return res.status(404).json({ error: 'No summary found' });
+      if (!summary) {
+        res.status(404).json({ error: 'No summary found' });
+        return;
+      }
       res.json({ success: true, ...summary.data, condensedAt: summary.condensed_at });
     } catch (err: any) {
       console.error('[audit-worker] getSummary failed:', err.message);
