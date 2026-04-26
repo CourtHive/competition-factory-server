@@ -10,11 +10,14 @@
  * password if the user already existed.
  */
 import { spawn } from 'child_process';
-import { resolve } from 'path';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
 import { E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD } from './helpers/login';
 
-const SERVER_DIR = resolve(__dirname, '..', '..');
+// admin-client is "type": "module" — `__dirname` doesn't exist, derive it.
+const HERE = dirname(fileURLToPath(import.meta.url));
+const SERVER_DIR = resolve(HERE, '..', '..');
 const SCRIPT_PATH = 'src/scripts/admin-user.mjs';
 
 function runScript(args: string[]): Promise<{ code: number; stderr: string; stdout: string }> {
