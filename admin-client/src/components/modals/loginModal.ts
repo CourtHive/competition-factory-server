@@ -1,48 +1,77 @@
+/**
+ * Login modal with email and password validation.
+ * Authenticates user credentials and updates login state on success.
+ */
+import { logIn, logOut } from 'services/authentication/loginState';
+import { renderForm, validators } from 'courthive-components';
 import { systemLogin } from 'services/authentication/authApi';
-import { logIn } from 'services/authentication/loginState';
-import { renderForm } from 'courthive-components';
 import { openModal } from './baseModal/baseModal';
 import { t } from 'i18n';
 
 export function loginModal(callback?: () => void): void {
   let inputs: any;
 
-  const content = document.createElement('div');
-  inputs = renderForm(content, [
+  const enableSubmit = ({ inputs }: any) => {
+    const value = inputs['email'].value;
+    const isValid = validators.emailValidator(value);
+    const loginButton = document.getElementById('loginButton');
+    if (loginButton) (loginButton as HTMLButtonElement).disabled = !isValid;
+  };
+
+  const relationships = [
     {
-      iconLeft: 'fa-regular fa-envelope',
-      placeholder: t('modals.login.emailPlaceholder'),
-      label: t('modals.login.emailLabel'),
-      field: 'email',
+      onInput: enableSubmit,
+      control: 'email',
     },
-    {
-      placeholder: t('modals.login.passwordPlaceholder'),
-      iconLeft: 'fa-solid fa-lock',
-      label: t('modals.login.passwordLabel'),
-      field: 'password',
-      type: 'password',
-    },
-  ]);
+  ];
+
+  const content = (elem: HTMLElement) =>
+    (inputs = renderForm(
+      elem,
+      [
+        {
+          iconLeft: 'fa-regular fa-envelope',
+          placeholder: t('modals.login.emailPlaceholder'),
+          validator: validators.emailValidator,
+          autocomplete: 'email',
+          label: t('modals.login.emailLabel'),
+          field: 'email',
+        },
+        {
+          placeholder: t('modals.login.passwordPlaceholder'),
+          autocomplete: 'current-password',
+          iconLeft: 'fa-solid fa-lock',
+          label: t('modals.login.passwordLabel'),
+          field: 'password',
+          type: 'password',
+        },
+      ],
+      relationships,
+    ));
 
   const submitCredentials = () => {
     const email = inputs.email.value;
     const password = inputs.password.value;
-    if (!email || !password) return;
-
-    systemLogin(email, password).then(
-      (res: any) => {
-        if (res?.status === 200) logIn({ data: res.data, callback });
-      },
-      (err: any) => console.error('Login failed:', err),
-    );
+    const response = (res: any) => {
+      if (!res) logOut();
+      if (res?.status === 200) logIn({ data: res.data, callback });
+    };
+    systemLogin(email, password).then(response, (err: any) => console.log({ err }));
   };
 
   openModal({
     title: t('modals.login.title'),
     content,
     buttons: [
-      { label: t('common.cancel'), close: true },
-      { onClick: submitCredentials, label: t('modals.login.loginButton'), close: true },
+      { label: t('common.cancel'), intent: 'none', close: true },
+      {
+        onClick: submitCredentials,
+        intent: 'is-primary',
+        id: 'loginButton',
+        disabled: true,
+        label: t('modals.login.loginButton'),
+        close: true,
+      },
     ],
   });
 }

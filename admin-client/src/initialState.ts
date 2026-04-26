@@ -6,6 +6,7 @@ import 'courthive-components/dist/courthive-components.css';
 import 'tabulator-tables/dist/css/tabulator_simple.css';
 import 'animate.css/animate.min.css';
 import 'styles/theme.css';
+import 'styles/forms.css';
 import 'styles/admin.css';
 
 export function setupAdmin(): void {
