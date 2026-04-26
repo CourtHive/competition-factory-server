@@ -51,6 +51,8 @@ Examples:
   process.exit(args.help ? 0 : 1);
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const ids = String(args.ids)
   .split(',')
   .map((s) => s.trim())
@@ -58,6 +60,17 @@ const ids = String(args.ids)
 
 if (ids.length === 0) {
   console.error('No provisioner IDs supplied.');
+  process.exit(1);
+}
+
+const invalid = ids.filter((id) => !UUID_RE.test(id));
+if (invalid.length > 0) {
+  console.error('The following ID(s) are not valid UUIDs:');
+  for (const bad of invalid) console.error(`  - ${bad}`);
+  if (invalid.some((id) => id.startsWith('<') && id.endsWith('>'))) {
+    console.error("\nThose look like placeholders. Replace them with real provisioner UUIDs.");
+    console.error("Tip: get them from `GET /admin/provisioners` or the Provisioners table in admin.");
+  }
   process.exit(1);
 }
 
