@@ -61,7 +61,31 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
 
   handleDisconnect(client: Socket): void {
     this.logger.log(`[disconnect] Client ${client.id} disconnected`);
-    // Socket.IO automatically removes the client from all rooms on disconnect
+    // Socket.IO automatically removes the client from all rooms on disconnect.
+    // Capture tournament rooms BEFORE the framework clears them so we can
+    // rebroadcast presence to remaining members.
+    const leavingTournamentIds: string[] = [];
+    for (const room of client.rooms) {
+      if (typeof room === 'string' && room.startsWith(TOURNAMENT_ROOM_PREFIX)) {
+        leavingTournamentIds.push(room.slice(TOURNAMENT_ROOM_PREFIX.length));
+      }
+    }
+    // Socket.IO removes the disconnecting client from rooms synchronously
+    // after this handler returns; defer the count + broadcast a tick so the
+    // departing socket is no longer counted.
+    setImmediate(() => {
+      for (const tournamentId of leavingTournamentIds) {
+        void this.broadcastRoomPresence(tournamentId);
+      }
+    });
+  }
+
+  /** Count current sockets in a tournament room and emit `roomPresence` to that room. */
+  private async broadcastRoomPresence(tournamentId: string): Promise<void> {
+    if (!this.server) return;
+    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
+    const sockets = await this.server.in(room).fetchSockets();
+    this.server.to(room).emit('roomPresence', { tournamentId, count: sockets.length });
   }
 
   // ── Tournament room management ──
@@ -95,6 +119,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     await client.join(room);
     const roomMembers = await this.server?.in(room).fetchSockets();
     this.logger.log(`[room] Client ${client.id} joined ${room} — room now has ${roomMembers?.length ?? '?'} member(s)`);
+    await this.broadcastRoomPresence(tournamentId);
   }
 
   @SubscribeMessage('leaveTournament')
@@ -108,6 +133,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     await client.leave(room);
     const roomMembers = await this.server?.in(room).fetchSockets();
     this.logger.log(`[room] Client ${client.id} left ${room} — room now has ${roomMembers?.length ?? '?'} member(s)`);
+    await this.broadcastRoomPresence(tournamentId);
   }
 
   // ── Mutation handling with broadcast ──
