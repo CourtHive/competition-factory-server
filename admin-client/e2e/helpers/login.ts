@@ -6,18 +6,21 @@
  *   - UI login (loginAsSuperAdmin) — drives the modal like a user would
  *   - API login (signInViaApi) — for cleanup helpers that need a token
  *     without rendering a UI
+ *
+ * Credentials default to a dedicated e2e super-admin that
+ * `e2e/global-setup.ts` provisions before the suite runs (idempotently
+ * via the existing admin-user.mjs CLI). Override via env if you have
+ * a different setup (e.g. running against a shared staging DB).
  */
 import { expect, type Page, type APIRequestContext } from '@playwright/test';
 
-export const SUPER_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'admin@courthive.com';
-export const SUPER_ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? '';
+export const E2E_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'e2e-admin@courthive.test';
+export const E2E_ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'e2e-test-password-do-not-reuse';
 export const API_BASE = process.env.E2E_API_BASE ?? 'http://localhost:3000';
 
-if (!SUPER_ADMIN_PASSWORD) {
-  // Loud at config-time so a missing env var fails predictably during
-  // the first test instead of producing an opaque 401 mid-suite.
-  console.warn('[e2e] E2E_ADMIN_PASSWORD is not set — login helpers will fail.');
-}
+// Backwards-compat aliases for the original symbol names
+export const SUPER_ADMIN_EMAIL = E2E_ADMIN_EMAIL;
+export const SUPER_ADMIN_PASSWORD = E2E_ADMIN_PASSWORD;
 
 export async function loginAsSuperAdmin(page: Page): Promise<void> {
   await page.goto('/');
@@ -27,8 +30,8 @@ export async function loginAsSuperAdmin(page: Page): Promise<void> {
   await page.locator('#login').click();
 
   // The login modal renders email/password inputs through cModal.
-  await page.locator('input[autocomplete="email"]').fill(SUPER_ADMIN_EMAIL);
-  await page.locator('input[autocomplete="current-password"]').fill(SUPER_ADMIN_PASSWORD);
+  await page.locator('input[autocomplete="email"]').fill(E2E_ADMIN_EMAIL);
+  await page.locator('input[autocomplete="current-password"]').fill(E2E_ADMIN_PASSWORD);
 
   await page.locator('#loginButton').click();
 
@@ -39,7 +42,7 @@ export async function loginAsSuperAdmin(page: Page): Promise<void> {
 
 export async function signInViaApi(request: APIRequestContext): Promise<string> {
   const res = await request.post(`${API_BASE}/auth/signin`, {
-    data: { email: SUPER_ADMIN_EMAIL, password: SUPER_ADMIN_PASSWORD },
+    data: { email: E2E_ADMIN_EMAIL, password: E2E_ADMIN_PASSWORD },
   });
   if (!res.ok()) {
     throw new Error(`signInViaApi failed (${res.status()}): ${await res.text()}`);

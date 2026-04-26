@@ -6,17 +6,20 @@ import { defineConfig, devices } from '@playwright/test';
  * Mirrors the TMX e2e setup. Tests are stateful (provisioner CRUD,
  * user assignment) — run sequentially.
  *
- * Required environment variables (set in .env or shell):
- *   E2E_ADMIN_EMAIL       super-admin email for login (default: admin@courthive.com)
- *   E2E_ADMIN_PASSWORD    super-admin password
- *   E2E_API_BASE          REST base for direct API cleanup (default: http://localhost:3000)
+ * Self-bootstrapping: globalSetup provisions a dedicated e2e super-admin
+ * via the existing admin-user.mjs CLI, so no env vars are required for
+ * the common case.
  *
- * Optional:
+ * Optional environment overrides:
+ *   E2E_ADMIN_EMAIL       use a different super-admin (default: e2e-admin@courthive.test)
+ *   E2E_ADMIN_PASSWORD    override the seeded password
+ *   E2E_API_BASE          REST base for direct API calls (default: http://localhost:3000)
  *   TEST_PROD=1           run against `pnpm build && pnpm preview` instead of dev
  */
 export default defineConfig({
   testDir: './journeys',
   outputDir: './test-results',
+  globalSetup: './global-setup.ts',
 
   fullyParallel: false,
   workers: 1,

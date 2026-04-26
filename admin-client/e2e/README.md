@@ -4,43 +4,33 @@ Playwright tests for the admin-client UX journeys. Mirrors the
 TMX `e2e/` setup; see `Mentat/planning/PLAYWRIGHT_E2E_TESTING.md`
 for the broader strategy.
 
-## Setup
-
-`@playwright/test` is **not yet installed** in admin-client. Add it
-manually (no agent installs):
+## Run
 
 ```bash
-cd competition-factory-server/admin-client
-pnpm add -D @playwright/test
-pnpm exec playwright install chromium
+pnpm test:e2e
 ```
 
-Then add scripts to `admin-client/package.json`:
+`globalSetup` provisions a dedicated `e2e-admin@courthive.test`
+super-admin via `src/scripts/admin-user.mjs` before the first spec
+runs (idempotent — re-runs reset the password). No env vars are
+required for the common case. Browser binaries install once via
+`pnpm exec playwright install chromium`.
 
-```json
-"test:e2e":         "playwright test --config e2e/playwright.config.ts",
-"test:e2e:ui":      "playwright test --config e2e/playwright.config.ts --ui",
-"test:e2e:headed":  "playwright test --config e2e/playwright.config.ts --headed",
-"test:e2e:prod":    "TEST_PROD=1 playwright test --config e2e/playwright.config.ts"
-```
-
-## Required environment
-
-Tests log in as a real super-admin against the running dev server.
-Set in your shell (or a `.env` Playwright reads):
+### Optional environment overrides
 
 | Var | Default | Notes |
 |---|---|---|
-| `E2E_ADMIN_EMAIL` | `admin@courthive.com` | super-admin email |
-| `E2E_ADMIN_PASSWORD` | _(unset)_ | **required** — fail-fast warning if missing |
-| `E2E_API_BASE` | `http://localhost:3000` | server REST base for cleanup helpers |
+| `E2E_ADMIN_EMAIL` | `e2e-admin@courthive.test` | override the seeded email |
+| `E2E_ADMIN_PASSWORD` | `e2e-test-password-do-not-reuse` | override the seeded password |
+| `E2E_API_BASE` | `http://localhost:3000` | server REST base for direct API calls |
 | `TEST_PROD` | _(unset)_ | when `1`, runs against `pnpm preview` instead of `pnpm dev` |
 
 ## Layout
 
 ```
 e2e/
-├── playwright.config.ts        # vite webServer + chromium project
+├── playwright.config.ts        # vite webServer + chromium project + globalSetup
+├── global-setup.ts             # idempotently seeds the e2e super-admin
 ├── helpers/
 │   ├── login.ts                # loginAsSuperAdmin (UI) + signInViaApi (REST)
 │   ├── selectors.ts            # `S.*` DOM IDs from tmxConstants
