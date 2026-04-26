@@ -386,6 +386,24 @@
     "removeRepresentativeConfirm": "Remove {{email}} as a representative? They will no longer be able to act as this provisioner."
   },
 
+  "provisioner": {
+    "myProviders": "My Providers",
+    "users": "Users",
+    "noProviders": "No providers yet — create one to get started",
+    "noUsers": "No users for this provider",
+    "createProvider": "Create Provider",
+    "createUser": "Create User",
+    "openInTmx": "Open in TMX",
+    "providerNamePlaceholder": "e.g. IONSport Demos",
+    "providerAbbrPlaceholder": "e.g. IONDEMO",
+    "providerCreated": "Provider created",
+    "providerFieldsRequired": "Name and abbreviation are required",
+    "userCreated": "User created",
+    "userFieldsRequired": "Email and external ID are required",
+    "selectProvider": "Select a provider…",
+    "selectProviderFirst": "Select a provider first"
+  },
+
   "round_names": {
     "F": "Final",
     "SF": "Semifinal",

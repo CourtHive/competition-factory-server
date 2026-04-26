@@ -4,7 +4,7 @@ import { tmxToast } from 'services/notifications/tmxToast';
 import { context } from 'services/context';
 import { t } from 'i18n';
 
-import { SUPER_ADMIN, ADMIN } from 'constants/tmxConstants';
+import { SUPER_ADMIN, ADMIN, PROVISIONER } from 'constants/tmxConstants';
 import type { LoginState } from 'types/tmx';
 
 export function styleLogin(state?: LoginState): void {
@@ -40,6 +40,8 @@ export function logIn({ data, callback }: { data: { token: string }; callback?: 
       // Navigate to appropriate page based on role
       if (state.roles?.includes(SUPER_ADMIN)) {
         context.router?.navigate('/system');
+      } else if (state.roles?.includes(PROVISIONER)) {
+        context.router?.navigate('/provisioner');
       } else {
         context.router?.navigate('/admin');
       }

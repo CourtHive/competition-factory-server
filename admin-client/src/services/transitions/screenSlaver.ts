@@ -2,11 +2,11 @@
  * Screen state management for admin app content areas.
  * Controls visibility of the admin and system page containers.
  */
-import { TMX_ADMIN, TMX_SYSTEM, TMX_SANCTIONING, TMX_SYNC } from 'constants/tmxConstants';
+import { TMX_ADMIN, TMX_SYSTEM, TMX_PROVISIONER, TMX_SANCTIONING, TMX_SYNC } from 'constants/tmxConstants';
 
 let content: string | undefined;
 
-const PAGE_IDS = [TMX_SYSTEM, TMX_ADMIN, TMX_SANCTIONING, TMX_SYNC];
+const PAGE_IDS = [TMX_SYSTEM, TMX_ADMIN, TMX_PROVISIONER, TMX_SANCTIONING, TMX_SYNC];
 
 function selectDisplay(which: string): void {
   for (const id of PAGE_IDS) {
@@ -22,6 +22,10 @@ function selectDisplay(which: string): void {
   }
   if (adminIcon) {
     adminIcon.classList.toggle('active', which === TMX_ADMIN);
+  }
+  const provisionerIcon = document.getElementById('h-provisioner');
+  if (provisionerIcon) {
+    provisionerIcon.classList.toggle('active', which === TMX_PROVISIONER);
   }
   const sanctioningIcon = document.getElementById('h-sanctioning');
   if (sanctioningIcon) {
@@ -62,5 +66,12 @@ export const showTMXsync = (): void => {
   const titleEl = document.getElementById('pageTitle');
   if (titleEl) titleEl.textContent = 'Tournament Sync';
   content = TMX_SYNC;
+  selectDisplay(content);
+};
+
+export const showTMXprovisioner = (): void => {
+  const titleEl = document.getElementById('pageTitle');
+  if (titleEl) titleEl.textContent = 'My Organization';
+  content = TMX_PROVISIONER;
   selectDisplay(content);
 };
