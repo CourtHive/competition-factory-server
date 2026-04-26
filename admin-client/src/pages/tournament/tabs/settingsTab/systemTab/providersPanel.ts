@@ -6,7 +6,6 @@ import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { destroyTable } from 'pages/tournament/destroyTable';
 import { inviteModal } from 'components/modals/inviteUser';
 import { tmxToast } from 'services/notifications/tmxToast';
-import { context } from 'services/context';
 import { t } from 'i18n';
 
 const PROVIDER_LIST_TABLE = 'systemProviderListTable';
@@ -153,14 +152,27 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
   impersonateBtn.className = 'btn-impersonate';
   impersonateBtn.textContent = t('system.impersonate');
   impersonateBtn.addEventListener('click', () => {
-    setActiveProvider(
-      provider._raw?.value || {
-        organisationName: provider.organisationName,
-        organisationAbbreviation: provider.organisationAbbreviation,
-        organisationId: provider.organisationId,
-      },
-    );
-    context.router?.navigate('/admin');
+    const providerValue = provider._raw?.value || {
+      organisationName: provider.organisationName,
+      organisationAbbreviation: provider.organisationAbbreviation,
+      organisationId: provider.organisationId,
+    };
+
+    setActiveProvider(providerValue);
+
+    // Hand off to TMX via the shared localStorage key. TMX reads
+    // `tmx_impersonated_provider` on load (super-admin only) and sets
+    // context.provider so the tournament list reflects the impersonated
+    // provider immediately.
+    try {
+      globalThis.localStorage?.setItem('tmx_impersonated_provider', JSON.stringify(providerValue));
+    } catch {
+      /* localStorage unavailable — non-fatal; user can still manually switch in TMX */
+    }
+
+    const tmxUrl: string = (import.meta as any).env?.VITE_TMX_URL ?? '/';
+    const target = `${tmxUrl.replace(/\/+$/, '')}/#/tournaments`;
+    globalThis.open(target, '_blank');
   });
 
   const editBtn = document.createElement('button');
