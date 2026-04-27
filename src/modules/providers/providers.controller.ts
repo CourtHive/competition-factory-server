@@ -105,6 +105,26 @@ export class ProvidersController {
   }
 
   /**
+   * Raw provider config (caps + settings, separately) — needed by the
+   * provider-admin Settings editor so it can render cap-aware UI
+   * (disabled fields where caps forbid, "locked by provisioner" tooltips,
+   * caps-universe hints next to narrowable lists).
+   *
+   * PROVIDER_ADMIN of this provider OR SUPER_ADMIN. Tournament directors
+   * receive only the merged effective shape via the login response and
+   * never see raw caps/settings.
+   */
+  @Get(':providerId/raw-config')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  getRawConfig(@Param('providerId') providerId: string, @UserCtx() ctx: UserContext) {
+    const isProviderAdmin = ctx?.providerRoles?.[providerId] === PROVIDER_ADMIN;
+    if (!ctx?.isSuperAdmin && !isProviderAdmin) {
+      throw new ForbiddenException('PROVIDER_ADMIN role required');
+    }
+    return this.providers.getRawProviderConfig(providerId);
+  }
+
+  /**
    * Provider-admin settings write. PROVIDER_ADMIN of the target provider
    * or SUPER_ADMIN may write. Settings must respect caps — violations
    * return per-field issues for the editor to surface inline.

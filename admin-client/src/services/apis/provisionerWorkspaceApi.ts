@@ -69,6 +69,19 @@ export async function updateProviderAsProvisioner(
   });
 }
 
+/**
+ * Two-tier provider config: provisioner writes caps. Validator on the
+ * server returns per-field issues if the body is malformed; treat any
+ * response with `code: 'CAPS_INVALID'` as a validation rejection.
+ */
+export async function updateProviderCapsAsProvisioner(providerId: string, caps: Record<string, any>) {
+  return baseApi.put(
+    `/provisioner/providers/${providerId}/caps`,
+    { caps },
+    { headers: provisionerHeaders() },
+  );
+}
+
 // ── Users (under my provisioner) ───────────────────────────────────
 
 export async function listMyProviderUsers(providerId: string) {

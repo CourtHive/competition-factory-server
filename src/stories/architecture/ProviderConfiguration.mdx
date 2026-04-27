@@ -711,26 +711,52 @@ dev.providerConfig.reset();                             // back to defaults
 - `PUT /provisioner/providers/:id/caps` endpoint
 - `PUT /provider/:id/settings` endpoint (PROVIDER_ADMIN + SUPER_ADMIN)
 - `GET /provider/:id/effective-config` endpoint
+- `GET /provider/:id/raw-config` endpoint (PROVIDER_ADMIN + SUPER_ADMIN)
+  — returns caps + settings separately for the cap-aware Settings editor
 - Login response carries `user.activeProviderConfig` (merged shape)
 - TMX `loginState.ts` applies on every auth path; provider switcher
   refetches on impersonation
 - TMX `MUTATION_PERMISSIONS` map expanded from 10 → 35+ entries
+- **Phase 3 — provisioner Caps editor in admin-client.** "Edit Caps"
+  button in the provisioner workspace's My Providers list. Modal
+  with sections for Branding, Permission ceilings (24 toggles
+  grouped), Allowed universes (allowedDrawTypes /
+  allowedCreationMethods / allowedScoringApproaches /
+  allowedMatchUpFormats as comma-separated lists), and Integrations.
+  Per-field validation issues (`code: 'CAPS_INVALID'`) render inline.
+- **Phase 4 — provider admin Settings editor in admin-client.**
+  "Edit Provider Settings" quick action in the `/admin` page.
+  Cap-aware UI: ceilings disabled with "locked by provisioner"
+  tooltip where caps explicitly forbid; allowed lists show the
+  caps universe as a hint. Settings-only Policies (schedulingPolicy,
+  scoringPolicy, seedingPolicy as JSON textareas + allowedMatchUpFormats)
+  and Defaults (4 inputs) sections. Per-field issues
+  (`code: 'SETTINGS_INVALID'`) render inline.
+- **Phase 4 — `manageTournamentAccess` ported to admin-client.**
+  Modal moved from TMX to `admin-client/src/components/manageTournamentAccess.ts`
+  and slotted into the TournamentDetail panel of the `/admin`
+  Calendar flow. TMX's modal file deleted, the
+  `isProviderAdmin(providerId)` helper deleted from
+  `TMX/src/services/authentication/getUserContext.ts` — TMX is now
+  end-user-only and consumes `providerConfig.permissions` only,
+  never inspects role.
 
 ### Deferred
 
-- **Phase 3**: provisioner Caps editor UI in admin-client
-  (`/provisioner/providers/:id/caps` tab)
-- **Phase 4**: provider admin Settings editor UI in admin-client
-  (`/admin` page Settings panel) + port the TMX
-  `manageTournamentAccess` modal to admin-client + delete the
-  `isProviderAdmin` helper from TMX (TMX consumes
-  `providerConfig.permissions` only — never inspects role)
 - **Server-side mutation gating**: enforce the same permission map
   at the `executionQueue` layer so a malicious browser cannot bypass
   client-side checks
 - **Promote types to a shared `@courthive/provider-config` npm
   package** when scaffolding more capabilities (third+ consumer or
   drift becomes recurring)
+- **Locale translations** for the new admin-client `providerConfig.*`
+  and `manageAccess.*` blocks — only `en.json` ships today
+- **Branding live preview** in the Caps editor (the editor accepts
+  values but doesn't preview them; would require a small
+  in-modal preview panel)
+- **Allowed-universe pickers** instead of comma-separated text — for
+  `allowedDrawTypes` (finite known set from `drawTypeConstants`),
+  multi-select would prevent typos
 
 ## References
 

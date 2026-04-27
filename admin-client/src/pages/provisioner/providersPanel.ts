@@ -7,6 +7,7 @@ import { confirmModal, openModal } from 'components/modals/baseModal/baseModal';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { destroyTable } from 'pages/tournament/destroyTable';
 import { openTmxImpersonate } from 'services/openTmxImpersonate';
+import { openCapsEditor } from 'components/providerConfig/openCapsEditor';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { renderForm } from 'courthive-components';
 import { t } from 'i18n';
@@ -57,6 +58,22 @@ export function renderProvisionerProvidersPanel({ container }: { container: HTML
         { title: t('system.providerName'), field: 'organisationName', headerSort: true },
         { title: t('system.providerAbbr'), field: 'organisationAbbreviation', headerSort: true, width: 120 },
         { title: t('system.relationship'), field: 'relationship', headerSort: true, width: 120 },
+        {
+          title: '',
+          width: 110,
+          hozAlign: 'center',
+          headerSort: false,
+          formatter: () =>
+            `<button class="btn-edit-caps" style="font-size:.7rem;padding:2px 8px;">${t('providerConfig.editCapsButton')}</button>`,
+          cellClick: (_e: any, cell: any) => {
+            const row = cell.getRow().getData();
+            openCapsEditor({
+              providerId: row.providerId,
+              providerName: row.organisationName,
+              onSaved: refresh,
+            });
+          },
+        },
         {
           title: '',
           width: 140,

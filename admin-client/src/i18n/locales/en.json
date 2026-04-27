@@ -923,6 +923,76 @@
 
   "datelocalization": "en-EN",
 
+  "manageAccess": {
+    "title": "Manage Tournament Access",
+    "tournament": "Tournament",
+    "grantedAccess": "Granted Access",
+    "addUser": "Add User",
+    "emailPlaceholder": "user@example.com",
+    "grant": "Grant",
+    "revoke": "Revoke",
+    "noAssignments": "No users have been granted access yet.",
+    "loadError": "Failed to load assignments.",
+    "grantError": "Failed to grant access.",
+    "revokeError": "Failed to revoke access.",
+    "granted": "{{email}} granted access",
+    "revoked": "{{email}} access revoked"
+  },
+
+  "providerConfig": {
+    "editCapsButton": "Edit Caps",
+    "editCapsTitle": "Edit Caps — {{name}}",
+    "editCapsTitleGeneric": "Edit Provider Caps",
+    "editSettingsButton": "Edit Settings",
+    "editSettingsTitle": "Edit Settings — {{name}}",
+    "editSettingsTitleGeneric": "Edit Provider Settings",
+    "section": {
+      "branding": "Branding (white labeling)",
+      "permissionCeilings": "Permission Ceilings",
+      "permissionChoices": "Permissions",
+      "allowedUniverses": "Allowed Universes",
+      "allowedSelections": "Allowed Selections",
+      "policies": "Policies",
+      "defaults": "Defaults",
+      "integrations": "Integrations"
+    },
+    "permissions": {
+      "ceilingHint": "Each permission set to OFF here will be locked off for the provider — they cannot enable it.",
+      "choiceHint": "Disable any permission your tournament directors should not perform. Permissions locked off by the provisioner are greyed out.",
+      "lockedByProvisioner": "Locked by provisioner — cannot be enabled."
+    },
+    "allowed": {
+      "universeHint": "Comma-separated list. Empty means unrestricted (everything allowed).",
+      "selectionHint": "Comma-separated list. Empty means use the full provisioner-allowed universe."
+    },
+    "branding": {
+      "appName": "App name",
+      "navbarLogoUrl": "Navbar logo URL",
+      "navbarLogoAlt": "Navbar logo alt text",
+      "navbarLogoHeight": "Navbar logo height (px)",
+      "splashLogoUrl": "Splash logo URL",
+      "accentColor": "Accent color (CSS)"
+    },
+    "defaults": {
+      "defaultEventType": "Default event type",
+      "defaultDrawType": "Default draw type",
+      "defaultCreationMethod": "Default creation method",
+      "defaultGender": "Default gender"
+    },
+    "policies": {
+      "schedulingPolicy": "Scheduling policy (JSON)",
+      "scoringPolicy": "Scoring policy (JSON)",
+      "seedingPolicy": "Seeding policy (JSON)",
+      "policyJsonPlaceholder": "{ ... }",
+      "invalidJson": "Invalid JSON"
+    },
+    "capsSaved": "Caps saved",
+    "settingsSaved": "Settings saved",
+    "invalid": "Validation failed — see field errors below",
+    "saveFailed": "Save failed",
+    "loadCapsForGating": "Loading caps to determine which fields are locked..."
+  },
+
   "common": {
     "cancel": "Cancel",
     "delete": "Delete",

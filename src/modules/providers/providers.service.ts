@@ -155,6 +155,23 @@ export class ProvidersService {
   }
 
   /**
+   * Raw provider config — both tiers separately. Used by the
+   * provider-admin Settings editor for cap-aware UI rendering.
+   * Tournament directors should NOT see this shape — they receive
+   * only the merged effective config via login.
+   */
+  async getRawProviderConfig(providerId: string) {
+    const provider = await this.providerStorage.getProvider(providerId);
+    if (!provider) return { error: 'Provider not found' };
+    return {
+      ...SUCCESS,
+      providerId,
+      caps: provider.providerConfigCaps ?? {},
+      settings: provider.providerConfigSettings ?? {},
+    };
+  }
+
+  /**
    * Effective provider config — caps ∩ settings, computed via the
    * shared merge function. Returned shape matches TMX's
    * `ProviderConfigData` (the consumer-facing flat shape).

@@ -1,5 +1,7 @@
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { calendarAudit, getCalendar, getTournamentInfo } from 'services/apis/servicesApi';
+import { openSettingsEditor } from 'components/providerConfig/openSettingsEditor';
+import { manageTournamentAccess } from 'components/manageTournamentAccess';
 import { destroyTable } from 'pages/tournament/destroyTable';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { context } from 'services/context';
@@ -23,7 +25,7 @@ export function renderAdminGrid(container: HTMLElement, params?: AdminGridParams
 
   if (provider) {
     renderProviderInfoPanel(grid, provider, isSuperAdmin);
-    renderQuickActionsPanel(grid, isSuperAdmin);
+    renderQuickActionsPanel(grid, { provider, isSuperAdmin });
     renderCalendarPanel(grid, provider, isSuperAdmin);
     renderTournamentDetailPanel(grid);
   } else {
@@ -206,7 +208,7 @@ function loadTournamentDetail(tournamentId: string): void {
         detailEl.innerHTML = `<p style="color: var(--tmx-text-muted);">${t('admin.tournamentNotFound')}</p>`;
         return;
       }
-      renderTournamentInfo(detailEl, info);
+      renderTournamentInfo(detailEl, info, tournamentId);
     },
     () => {
       detailEl.innerHTML = `<p style="color: var(--tmx-accent-red);">${t('admin.tournamentLoadError')}</p>`;
@@ -227,7 +229,7 @@ function showTournamentDetailMissing(name: string): void {
   `;
 }
 
-function renderTournamentInfo(container: HTMLElement, info: any): void {
+function renderTournamentInfo(container: HTMLElement, info: any, tournamentId: string): void {
   const events = info.eventInfo ?? [];
   const participantCount = info.individualParticipantCount ?? 0;
   const teamCount = info.teamParticipantCount ?? 0;
@@ -236,6 +238,7 @@ function renderTournamentInfo(container: HTMLElement, info: any): void {
   const tournamentName = info.tournamentName ?? '';
   const matchUpStats = info.matchUpStats;
   const venues = info.venues ?? [];
+  const providerId = info.parentOrganisation?.organisationId;
 
   const eventRows = events
     .map((e: any) => {
@@ -253,6 +256,12 @@ function renderTournamentInfo(container: HTMLElement, info: any): void {
   const venueList = venues.length
     ? venues.map((v: any) => `<span class="venue-tag">${v.venueName || '—'}</span>`).join(' ')
     : '<span style="color: var(--tmx-text-muted);">—</span>';
+
+  const manageAccessButton = providerId
+    ? `<button id="ti-manage-access" class="btn-invite" style="font-size: .75rem; padding: 4px 10px; margin-top: 8px;">
+         <i class="fa-solid fa-shield"></i> ${t('manageAccess.title')}
+       </button>`
+    : '';
 
   container.innerHTML = `
     <div class="ti-header">${tournamentName}</div>
@@ -273,10 +282,27 @@ function renderTournamentInfo(container: HTMLElement, info: any): void {
       </table>`
         : `<p style="color: var(--tmx-text-muted);">${t('admin.noEvents')}</p>`
     }
+    ${manageAccessButton}
   `;
+
+  if (providerId) {
+    setTimeout(() => {
+      document.getElementById('ti-manage-access')?.addEventListener('click', () => {
+        manageTournamentAccess({
+          tournamentId,
+          tournamentName,
+          providerId,
+        });
+      });
+    }, 0);
+  }
 }
 
-function renderQuickActionsPanel(grid: HTMLElement, isSuperAdmin?: boolean): void {
+function renderQuickActionsPanel(
+  grid: HTMLElement,
+  params: { provider: ProviderValue; isSuperAdmin?: boolean },
+): void {
+  const { provider, isSuperAdmin } = params;
   const panel = document.createElement('div');
   panel.className = 'settings-panel panel-purple';
   panel.style.gridColumn = '3 / 5';
@@ -287,6 +313,13 @@ function renderQuickActionsPanel(grid: HTMLElement, isSuperAdmin?: boolean): voi
         `<div class="quick-action" id="qa-system-users"><i class="fa-solid fa-users"></i> ${t('admin.manageUsers')}</div>`,
       ]
     : [];
+  // Provider admin (or super-admin while impersonating) can edit settings
+  // for the active provider. Server-side gate: PROVIDER_ADMIN of this
+  // provider OR SUPER_ADMIN. The button is shown to anyone here; an
+  // unauthorized user gets a clear ForbiddenException on save.
+  actions.push(
+    `<div class="quick-action" id="qa-edit-settings"><i class="fa-solid fa-sliders"></i> ${t('providerConfig.editSettingsButton')}</div>`,
+  );
   actions.push(
     `<div class="quick-action" id="qa-back-system"><i class="fa-solid fa-arrow-left"></i> ${t('admin.backToSystem')}</div>`,
   );
@@ -306,6 +339,12 @@ function renderQuickActionsPanel(grid: HTMLElement, isSuperAdmin?: boolean): voi
       .getElementById('qa-system-users')
       ?.addEventListener('click', () => context.router?.navigate('/system/users'));
     document.getElementById('qa-back-system')?.addEventListener('click', () => context.router?.navigate('/system'));
+    document.getElementById('qa-edit-settings')?.addEventListener('click', () => {
+      openSettingsEditor({
+        providerId: provider.organisationId,
+        providerName: provider.organisationName,
+      });
+    });
   }, 0);
 }
 
