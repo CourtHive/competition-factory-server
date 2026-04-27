@@ -35,7 +35,24 @@ describe('Provisioner E2E', () => {
   });
 
   afterAll(async () => {
-    // Clean up test provider
+    // Clean up test provisioner via the public API (deactivate then hard-delete
+    // with cascade — wipes API keys, provider associations, and tournament
+    // ownership stamps in one transaction). Without this, every spec run
+    // leaves an `E2E-Provisioner-*` row in the dev DB; the cleanup script
+    // exists because of an earlier session that ran this suite ~94 times.
+    if (provisionerId && adminToken) {
+      await request(app.getHttpServer())
+        .put(`/admin/provisioners/${provisionerId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ isActive: false });
+
+      await request(app.getHttpServer())
+        .delete(`/admin/provisioners/${provisionerId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+    }
+
+    // Provider rows survive provisioner cascade by design (providers and
+    // tournaments are independent entities). Clean the test provider directly.
     if (providerId) {
       const { PROVIDER_STORAGE } = await import('src/storage/interfaces');
       const providerStorage = app.get(PROVIDER_STORAGE);
