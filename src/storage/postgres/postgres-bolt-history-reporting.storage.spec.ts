@@ -64,9 +64,15 @@ describe('PostgresBoltHistoryReportingStorage', () => {
     });
 
     it('returns error message when query fails', async () => {
+      // Silence the expected logger.error noise — production behavior logs
+      // dropped-connection errors, but the test only asserts the returned
+      // shape, so the log line is just stdout noise during the suite.
+      const errorSpy = jest.spyOn((reporting as any).logger, 'error').mockImplementation(() => {});
       pool.query.mockRejectedValueOnce(new Error('connection lost'));
       const result = await reporting.getPlayerPointStats({ participantId: 'p1' });
       expect(result.error).toMatch(/connection lost/);
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('connection lost'));
+      errorSpy.mockRestore();
     });
   });
 
