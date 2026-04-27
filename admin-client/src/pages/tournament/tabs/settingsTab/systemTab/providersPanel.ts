@@ -4,6 +4,7 @@ import { setActiveProvider, clearActiveProvider } from 'services/provider/provid
 import { editProviderModal } from 'components/modals/editProvider';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { destroyTable } from 'pages/tournament/destroyTable';
+import { openTmxImpersonate } from 'services/openTmxImpersonate';
 import { inviteModal } from 'components/modals/inviteUser';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { t } from 'i18n';
@@ -157,22 +158,8 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
       organisationAbbreviation: provider.organisationAbbreviation,
       organisationId: provider.organisationId,
     };
-
     setActiveProvider(providerValue);
-
-    // Hand off to TMX via the shared localStorage key. TMX reads
-    // `tmx_impersonated_provider` on load (super-admin only) and sets
-    // context.provider so the tournament list reflects the impersonated
-    // provider immediately.
-    try {
-      globalThis.localStorage?.setItem('tmx_impersonated_provider', JSON.stringify(providerValue));
-    } catch {
-      /* localStorage unavailable — non-fatal; user can still manually switch in TMX */
-    }
-
-    const tmxUrl: string = (import.meta as any).env?.VITE_TMX_URL ?? '/';
-    const target = `${tmxUrl.replace(/\/+$/, '')}/#/tournaments`;
-    globalThis.open(target, '_blank');
+    void openTmxImpersonate(providerValue);
   });
 
   const editBtn = document.createElement('button');

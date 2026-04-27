@@ -284,6 +284,7 @@
     "anonymous": "Anonymous",
     "refreshNow": "Refresh now",
     "lastRefreshed": "Refreshed {{ago}}s ago",
+    "tmxUrlMissing": "Cannot open TMX — server did not provide a TMX URL. Check TMX_URL in the server .env.",
     "loadError": "Failed to load system data",
     "noProviders": "No providers found",
     "noUsers": "No users found",

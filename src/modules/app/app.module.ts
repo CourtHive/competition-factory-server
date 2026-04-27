@@ -12,6 +12,7 @@ import { StorageModule } from '../../storage/storage.module';
 import { ConfigsModule } from '../../config/config.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { FactoryModule } from '../factory/factory.module';
+import { RuntimeConfigController } from './runtime-config.controller';
 import { AppController } from './app.controller';
 import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
@@ -42,7 +43,7 @@ const providerModules = isModuleEnabled('provider')
 
 @Module({
   imports: [...coreModules, ...tournamentModules, ...providerModules],
-  controllers: [AppController],
+  controllers: [AppController, RuntimeConfigController],
   providers: [AppService],
 })
 export class AppModule {}

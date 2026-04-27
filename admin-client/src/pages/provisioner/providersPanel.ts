@@ -6,6 +6,7 @@ import { setActiveProvider } from 'services/provider/providerState';
 import { confirmModal, openModal } from 'components/modals/baseModal/baseModal';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { destroyTable } from 'pages/tournament/destroyTable';
+import { openTmxImpersonate } from 'services/openTmxImpersonate';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { renderForm } from 'courthive-components';
 import { t } from 'i18n';
@@ -73,29 +74,13 @@ export function renderProvisionerProvidersPanel({ container }: { container: HTML
   };
 
   function openInTmx(provider: any): void {
-    // Reuse the existing impersonation handoff: write the shared
-    // localStorage key and open TMX. For provisioner-rep users this is
-    // identical to the super-admin Impersonate flow.
-    setActiveProvider({
+    const providerValue = {
       organisationId: provider.providerId,
       organisationName: provider.organisationName,
       organisationAbbreviation: provider.organisationAbbreviation,
-    });
-    try {
-      globalThis.localStorage?.setItem(
-        'tmx_impersonated_provider',
-        JSON.stringify({
-          organisationId: provider.providerId,
-          organisationName: provider.organisationName,
-          organisationAbbreviation: provider.organisationAbbreviation,
-        }),
-      );
-    } catch {
-      /* non-fatal */
-    }
-    const tmxUrl: string = (import.meta as any).env?.VITE_TMX_URL ?? '/';
-    const target = `${tmxUrl.replace(/\/+$/, '')}/#/tournaments`;
-    globalThis.open(target, '_blank');
+    };
+    setActiveProvider(providerValue);
+    void openTmxImpersonate(providerValue);
   }
 
   function openCreateProviderModal(): void {
