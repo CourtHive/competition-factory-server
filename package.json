@@ -70,6 +70,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.0",
     "codepage": "^1.15.0",
+    "compression": "^1.7.4",
     "core-js": "^3.48.0",
     "dotenv": "^17.0.0",
     "ejs": "5.0.2",
@@ -108,7 +109,6 @@
     "@types/supertest": "7.2.0",
     "@typescript-eslint/eslint-plugin": "8.59.0",
     "@typescript-eslint/parser": "8.59.0",
-    "compression": "^1.7.4",
     "eslint": "10.2.1",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.5",
@@ -146,7 +146,7 @@
       "@scarf/scarf",
       "@swc/core",
       "classic-level",
-      "esbuild",
+      "core-js",
       "unrs-resolver"
     ]
   },
