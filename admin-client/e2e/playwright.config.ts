@@ -55,7 +55,10 @@ export default defineConfig({
       // NestJS API. \`pnpm start\` is faster than \`pnpm watch\` for e2e
       // because it skips the file-watcher overhead.
       command: 'pnpm start',
-      cwd: '../',
+      // cwd is resolved relative to the config file (e2e/playwright.config.ts),
+      // so '../../' lands in competition-factory-server/ where pnpm start
+      // is defined.
+      cwd: '../../',
       url: 'http://127.0.0.1:3000/factory/version',
       reuseExistingServer: !process.env.CI,
       timeout: 90_000,
