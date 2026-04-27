@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock Tabulator — the panels create Tabulator instances directly.
 // We capture constructor args to verify columns and data mapping.
@@ -57,8 +57,14 @@ vi.mock('services/authentication/authApi', () => ({
   inviteUser: vi.fn().mockResolvedValue({}),
 }));
 
+const mockGetPresence = vi.fn();
+vi.mock('services/apis/presenceApi', () => ({
+  getPresence: (...args: any[]) => mockGetPresence(...args),
+}));
+
 import { renderProvidersPanel } from './providersPanel';
 import { renderUsersPanel } from './usersPanel';
+import { renderActiveRoomsPanel, destroyActiveRoomsPanel } from './activeRoomsPanel';
 
 const MOCK_PROVIDERS = [
   {
@@ -242,3 +248,97 @@ describe('renderUsersPanel', () => {
     expect(tabulatorInstances[0].options.data).toHaveLength(0);
   });
 });
+
+describe('renderActiveRoomsPanel', () => {
+  let container: HTMLElement;
+  const mockReplaceData = vi.fn();
+
+  beforeEach(() => {
+    tabulatorInstances.length = 0;
+    mockOn.mockReset();
+    mockReplaceData.mockReset();
+    mockGetPresence.mockReset();
+    container = document.createElement('div');
+    // Patch the latest constructed Tabulator with replaceData on the fly
+    mockGetPresence.mockResolvedValue({
+      takenAt: 1700000000000,
+      totalSockets: 0,
+      rooms: [],
+    });
+  });
+
+  afterEach(() => {
+    destroyActiveRoomsPanel();
+  });
+
+  it('renders toolbar with refresh button + last-refreshed label', () => {
+    renderActiveRoomsPanel({ container });
+    expect(container.querySelector('.system-users-toolbar')).toBeTruthy();
+    const refreshBtn = container.querySelector('.btn-edit') as HTMLButtonElement;
+    expect(refreshBtn).toBeTruthy();
+    expect(refreshBtn.textContent).toContain('Refresh');
+  });
+
+  it('builds the rooms Tabulator with the expected columns', () => {
+    renderActiveRoomsPanel({ container });
+    const inst = tabulatorInstances[tabulatorInstances.length - 1];
+    expect(inst).toBeTruthy();
+    const fields = inst.options.columns.map((c: any) => c.field);
+    expect(fields).toEqual(['tournamentId', 'count', 'providers', 'emails']);
+  });
+
+  it('calls getPresence on mount and pushes rows into the table', async () => {
+    mockGetPresence.mockResolvedValueOnce({
+      takenAt: 1700000000000,
+      totalSockets: 2,
+      rooms: [
+        {
+          tournamentId: 't1',
+          count: 2,
+          members: [
+            { socketId: 'sa', email: 'a@x.com', providerName: 'One', joinedAt: 1700000000000 },
+            { socketId: 'sb', email: 'b@x.com', providerName: 'One', joinedAt: 1700000000500 },
+          ],
+        },
+      ],
+    });
+    const inst = renderRoomsAndCaptureTable(container);
+
+    // Allow the awaited refresh + microtasks to settle
+    await flushMicrotasks();
+    await flushMicrotasks();
+
+    expect(mockGetPresence).toHaveBeenCalledTimes(1);
+    expect(inst.replaceData).toHaveBeenCalledTimes(1);
+    const rows = inst.replaceData.mock.calls[0][0];
+    expect(rows).toHaveLength(1);
+    expect(rows[0].tournamentId).toBe('t1');
+    expect(rows[0].count).toBe(2);
+    expect(rows[0].providers).toBe('One');
+    expect(rows[0].emails).toBe('a@x.com, b@x.com');
+  });
+
+  it('manual refresh button triggers an extra getPresence call', async () => {
+    mockGetPresence.mockResolvedValue({ takenAt: 0, totalSockets: 0, rooms: [] });
+    renderRoomsAndCaptureTable(container);
+    await flushMicrotasks();
+    expect(mockGetPresence).toHaveBeenCalledTimes(1);
+
+    const refreshBtn = container.querySelector('.btn-edit') as HTMLButtonElement;
+    refreshBtn.click();
+    await flushMicrotasks();
+
+    expect(mockGetPresence).toHaveBeenCalledTimes(2);
+  });
+});
+
+function renderRoomsAndCaptureTable(container: HTMLElement) {
+  renderActiveRoomsPanel({ container });
+  const inst = tabulatorInstances[tabulatorInstances.length - 1];
+  inst.replaceData = vi.fn();
+  return inst;
+}
+
+function flushMicrotasks() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}

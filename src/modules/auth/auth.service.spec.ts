@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { Logger, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
@@ -105,6 +105,40 @@ describe('AuthService', () => {
       const result = await authService.signIn('admin@test.com', 'pass');
       expect(mockProviderStorage.getProvider).toHaveBeenCalledWith('p1');
       expect(result.token).toBeDefined();
+    });
+
+    it('updates lastAccess for both user and provider on successful login', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'la@test.com', password: 'pass', roles: ['admin'], providerId: 'p1',
+      });
+      mockProviderStorage.getProvider.mockResolvedValue({ organisationName: 'O' });
+
+      await authService.signIn('la@test.com', 'pass');
+      // flush fire-and-forget .catch handlers
+      await Promise.resolve();
+
+      expect(mockUserStorage.updateLastAccess).toHaveBeenCalledWith('la@test.com');
+      expect(mockProviderStorage.updateLastAccess).toHaveBeenCalledWith('p1');
+    });
+
+    it('logs (but does not throw) when updateLastAccess fails', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'fail@test.com', password: 'pass', roles: ['client'], providerId: 'p1',
+      });
+      mockProviderStorage.getProvider.mockResolvedValue({});
+      mockUserStorage.updateLastAccess.mockRejectedValueOnce(new Error('db down'));
+      mockProviderStorage.updateLastAccess.mockRejectedValueOnce(new Error('db down'));
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+
+      const result = await authService.signIn('fail@test.com', 'pass');
+      // both .catch handlers run on the next microtask — flush a few times
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(result.token).toBeDefined();
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
     });
   });
 

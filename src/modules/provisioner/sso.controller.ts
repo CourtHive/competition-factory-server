@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Inject, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Inject, Logger, Post, Req, UseGuards } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
 import { ProvisionerGuard } from './provisioner.guard';
 import { SsoTokenService } from './sso-token.service';
@@ -11,6 +11,8 @@ import {
   type IUserStorage,
   USER_PROVIDER_STORAGE,
   type IUserProviderStorage,
+  PROVIDER_STORAGE,
+  type IProviderStorage,
 } from 'src/storage/interfaces';
 import { buildUserContext } from '../auth/helpers/buildUserContext';
 
@@ -22,6 +24,7 @@ export class SsoController {
     @Inject(SSO_IDENTITY_STORAGE) private readonly ssoIdentityStorage: ISsoIdentityStorage,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
+    @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
   ) {}
 
   /**
@@ -94,8 +97,17 @@ export class SsoController {
     const jwtPayload = { ...userDetails, providerIds: userContext.providerIds, providerRoles: userContext.providerRoles };
     const accessToken = await this.jwtService.signAsync(jwtPayload);
 
-    // Track last access
-    this.userStorage.updateLastAccess(user.email).catch(() => {});
+    // Track last access for both user and the provider this SSO token resolved to.
+    // Failures are non-fatal but visible — silent .catch() previously hid mismatches.
+    this.userStorage.updateLastAccess(user.email).catch((err: any) => {
+      Logger.warn(`updateLastAccess(user=${user.email}) failed: ${err?.message ?? err}`, SsoController.name);
+    });
+    if (payload.providerId) {
+      const providerId = payload.providerId;
+      this.providerStorage.updateLastAccess(providerId).catch((err: any) => {
+        Logger.warn(`updateLastAccess(provider=${providerId}) failed: ${err?.message ?? err}`, SsoController.name);
+      });
+    }
 
     return {
       accessToken,

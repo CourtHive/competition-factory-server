@@ -1,6 +1,7 @@
 import { BroadcastModule } from '../broadcast/broadcast.module';
 import { AssignmentsService } from '../../factory/assignments.service';
 import { UsersModule } from '../../users/users.module';
+import { AdminPresenceController } from './admin-presence.controller';
 import { TmxGateway } from './tmx.gateway';
 import { Module } from '@nestjs/common';
 
@@ -10,6 +11,7 @@ import { Module } from '@nestjs/common';
 // come from StorageModule which is @Global.
 @Module({
   imports: [BroadcastModule, UsersModule],
+  controllers: [AdminPresenceController],
   providers: [TmxGateway, AssignmentsService],
 })
 export class TmxModule {}

@@ -53,10 +53,18 @@ export class AuthService {
       userDetails.provider = provider;
     }
 
-    // Track last access time for user and their provider
-    this.userStorage.updateLastAccess(email).catch(() => {});
+    // Track last access time for user and their provider. Failures are
+    // non-fatal but must be visible — silent .catch() previously masked
+    // case-mismatch and connection bugs that produced stale `last_access`
+    // columns in the admin UI.
+    this.userStorage.updateLastAccess(email).catch((err: any) => {
+      Logger.warn(`updateLastAccess(user=${email}) failed: ${err?.message ?? err}`, AuthService.name);
+    });
     if (user.providerId) {
-      this.providerStorage.updateLastAccess(user.providerId).catch(() => {});
+      const providerId = user.providerId;
+      this.providerStorage.updateLastAccess(providerId).catch((err: any) => {
+        Logger.warn(`updateLastAccess(provider=${providerId}) failed: ${err?.message ?? err}`, AuthService.name);
+      });
     }
 
     // Phase 2A: PROVISIONER-role users carry their provisioner associations

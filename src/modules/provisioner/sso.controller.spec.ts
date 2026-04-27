@@ -38,12 +38,23 @@ function makeMockUserProviderStorage() {
   };
 }
 
+function makeMockProviderStorage() {
+  return {
+    getProvider: jest.fn().mockResolvedValue({ organisationName: 'Test Org', organisationAbbreviation: 'TST' }),
+    getProviders: jest.fn().mockResolvedValue([]),
+    setProvider: jest.fn().mockResolvedValue({ success: true }),
+    removeProvider: jest.fn().mockResolvedValue({ success: true }),
+    updateLastAccess: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
 describe('SsoController', () => {
   let controller: SsoController;
   let ssoTokenService: ReturnType<typeof makeMockSsoTokenService>;
   let ssoIdentityStorage: ReturnType<typeof makeMockSsoIdentityStorage>;
   let userStorage: ReturnType<typeof makeMockUserStorage>;
   let userProviderStorage: ReturnType<typeof makeMockUserProviderStorage>;
+  let providerStorage: ReturnType<typeof makeMockProviderStorage>;
   let jwtService: ReturnType<typeof makeMockJwtService>;
 
   beforeEach(() => {
@@ -52,6 +63,7 @@ describe('SsoController', () => {
     ssoIdentityStorage = makeMockSsoIdentityStorage();
     userStorage = makeMockUserStorage();
     userProviderStorage = makeMockUserProviderStorage();
+    providerStorage = makeMockProviderStorage();
 
     controller = new SsoController(
       ssoTokenService as any,
@@ -59,6 +71,7 @@ describe('SsoController', () => {
       ssoIdentityStorage as any,
       userStorage as any,
       userProviderStorage as any,
+      providerStorage as any,
     );
   });
 
@@ -116,6 +129,21 @@ describe('SsoController', () => {
       expect(result.accessToken).toBe('mock-jwt-token');
       expect(result.user.userId).toBe('u1');
       expect(result.user.email).toBe('test@test.com');
+    });
+
+    it('updates lastAccess for both user and resolved provider', async () => {
+      ssoTokenService.consume.mockResolvedValueOnce({
+        externalId: 'ext-1', ssoProvider: 'ioncourt', providerId: 'p-resolved', provisionerId: 'prov-1',
+      });
+      ssoIdentityStorage.findByExternalId.mockResolvedValueOnce({ userId: 'u1', ssoProvider: 'ioncourt', externalId: 'ext-1' });
+      userStorage.findOne.mockResolvedValueOnce({ email: 'sso@test.com', userId: 'u1', roles: ['client'], password: '' });
+
+      await controller.loginWithToken({ token: 'tok-uuid' });
+
+      // Promise.resolve flush so the fire-and-forget .catch handlers settle
+      await Promise.resolve();
+      expect(userStorage.updateLastAccess).toHaveBeenCalledWith('sso@test.com');
+      expect(providerStorage.updateLastAccess).toHaveBeenCalledWith('p-resolved');
     });
 
     it('returns error for expired/consumed token', async () => {

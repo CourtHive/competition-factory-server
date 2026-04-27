@@ -9,7 +9,14 @@ import { SocketGuard } from 'src/modules/auth/guards/socket.guard';
 import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
 import { Public } from '../../auth/decorators/public.decorator';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { USER_PROVIDER_STORAGE, type IUserProviderStorage } from 'src/storage/interfaces';
+import {
+  USER_PROVIDER_STORAGE,
+  type IUserProviderStorage,
+  USER_STORAGE,
+  type IUserStorage,
+  PROVIDER_STORAGE,
+  type IProviderStorage,
+} from 'src/storage/interfaces';
 import { UsersService } from 'src/modules/users/users.service';
 import { tools } from 'tods-competition-factory';
 import { tmxMessages } from './tmxMessages';
@@ -25,8 +32,22 @@ import {
   OnGatewayInit,
 } from '@nestjs/websockets';
 
-const TOURNAMENT_ROOM_PREFIX = 'tournament:';
+export const TOURNAMENT_ROOM_PREFIX = 'tournament:';
 const ADMIN_CHAT_MONITOR_ROOM = 'admin:chatMonitor';
+
+export interface RoomMember {
+  socketId: string;
+  userId?: string;
+  email?: string;
+  providerId?: string;
+  joinedAt?: number;
+}
+
+export interface RoomPresence {
+  tournamentId: string;
+  count: number;
+  members: RoomMember[];
+}
 
 @Injectable()
 @UseGuards(SocketGuard) // SocketGuard handles authentication as well as roles
@@ -38,6 +59,8 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   constructor(
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
+    @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
+    @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     private readonly tournamentStorageService: TournamentStorageService,
     private readonly broadcastService: TournamentBroadcastService,
     private readonly assignmentsService: AssignmentsService,
@@ -56,6 +79,8 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
 
   handleConnection(client: Socket): void {
     const hasAuth = !!client.handshake.headers.authorization;
+    client.data.connectedAt = Date.now();
+    client.data.tournamentJoinedAt = {} as Record<string, number>;
     this.logger.log(`[connect] Client ${client.id} connected (hasAuth: ${hasAuth})`);
   }
 
@@ -117,9 +142,28 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
 
     const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
     await client.join(room);
+    if (client.data.tournamentJoinedAt) {
+      client.data.tournamentJoinedAt[tournamentId] = Date.now();
+    }
     const roomMembers = await this.server?.in(room).fetchSockets();
     this.logger.log(`[room] Client ${client.id} joined ${room} — room now has ${roomMembers?.length ?? '?'} member(s)`);
     await this.broadcastRoomPresence(tournamentId);
+
+    // Loading a tournament is the strongest signal of "active" we have. Update
+    // lastAccess for the user and (if known) the home provider so the admin
+    // dashboard reflects real activity, not just the rare /auth/login event.
+    const jwtUser = client.data?.user;
+    if (jwtUser?.email) {
+      this.userStorage.updateLastAccess(jwtUser.email).catch((err: any) => {
+        this.logger.warn(`updateLastAccess(user=${jwtUser.email}) failed: ${err?.message ?? err}`);
+      });
+    }
+    if (jwtUser?.providerId) {
+      const providerId = jwtUser.providerId;
+      this.providerStorage.updateLastAccess(providerId).catch((err: any) => {
+        this.logger.warn(`updateLastAccess(provider=${providerId}) failed: ${err?.message ?? err}`);
+      });
+    }
   }
 
   @SubscribeMessage('leaveTournament')
@@ -297,6 +341,42 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   async timestamp(@MessageBody() data: any): Promise<any> {
     this.logger.verbose(`client timestamp: ${data.timestamp}`);
     return { event: 'timestamp', data: { timestamp: Date.now() } }; // emit to client
+  }
+
+  // ── Admin presence query ──
+
+  /**
+   * Snapshot of every active tournament room and the sockets currently in it.
+   * Backs the GET /admin/presence endpoint. Read-only — no broadcast.
+   */
+  async getActiveRoomPresence(): Promise<RoomPresence[]> {
+    if (!this.server) return [];
+    const rooms = this.server.sockets.adapter.rooms;
+    const tournamentIds: string[] = [];
+    for (const room of rooms.keys()) {
+      if (room.startsWith(TOURNAMENT_ROOM_PREFIX)) {
+        tournamentIds.push(room.slice(TOURNAMENT_ROOM_PREFIX.length));
+      }
+    }
+
+    const result: RoomPresence[] = [];
+    for (const tournamentId of tournamentIds) {
+      const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
+      const sockets = await this.server.in(room).fetchSockets();
+      const members: RoomMember[] = sockets.map((s) => {
+        const jwtUser = (s.data as any)?.user;
+        const joinedAt = (s.data as any)?.tournamentJoinedAt?.[tournamentId];
+        return {
+          socketId: s.id,
+          userId: jwtUser?.userId ?? jwtUser?.sub,
+          email: jwtUser?.email,
+          providerId: jwtUser?.providerId,
+          joinedAt,
+        };
+      });
+      result.push({ tournamentId, count: members.length, members });
+    }
+    return result;
   }
 
   // ── User context resolution for WebSocket handlers ──
