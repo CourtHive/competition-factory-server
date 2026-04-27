@@ -13,7 +13,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Optional environment overrides:
  *   E2E_ADMIN_EMAIL       use a different super-admin (default: e2e-admin@courthive.test)
  *   E2E_ADMIN_PASSWORD    override the seeded password
- *   E2E_API_BASE          REST base for direct API calls (default: http://localhost:3000)
+ *   E2E_API_BASE          REST base for direct API calls (default: http://127.0.0.1:8383)
  *   TEST_PROD=1           run against `pnpm build && pnpm preview` instead of dev
  */
 export default defineConfig({
@@ -59,7 +59,7 @@ export default defineConfig({
       // so '../../' lands in competition-factory-server/ where pnpm start
       // is defined.
       cwd: '../../',
-      url: 'http://127.0.0.1:3000/factory/version',
+      url: 'http://127.0.0.1:8383/factory/version',
       reuseExistingServer: !process.env.CI,
       timeout: 90_000,
       stdout: 'pipe',
@@ -75,7 +75,7 @@ export default defineConfig({
         ? 'pnpm build && pnpm preview --port 4179 --strictPort --host 127.0.0.1'
         : 'pnpm dev --port 5179 --strictPort --host 127.0.0.1',
       env: {
-        SERVER: process.env.SERVER ?? 'http://127.0.0.1:3000',
+        SERVER: process.env.SERVER ?? 'http://127.0.0.1:8383',
       },
       url: process.env.TEST_PROD ? 'http://127.0.0.1:4179/admin/' : 'http://127.0.0.1:5179/admin/',
       reuseExistingServer: !process.env.CI,

@@ -33,7 +33,7 @@ function runScript(args: string[]): Promise<{ code: number; stderr: string; stdo
 }
 
 async function assertServerReachable(): Promise<void> {
-  const base = process.env.E2E_API_BASE ?? 'http://127.0.0.1:3000';
+  const base = process.env.E2E_API_BASE ?? 'http://127.0.0.1:8383';
   try {
     const res = await fetch(`${base}/factory/version`, { signal: AbortSignal.timeout(2000) });
     if (!res.ok) throw new Error(`server returned ${res.status}`);

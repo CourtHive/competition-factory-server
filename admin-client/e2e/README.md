@@ -13,15 +13,15 @@ pnpm test:e2e
 
 Playwright boots both servers automatically:
 
-- The NestJS API on port 3000 (via `pnpm start` in the parent
-  `competition-factory-server/` dir)
+- The NestJS API on port 8383 (via `pnpm start` in the parent
+  `competition-factory-server/` dir; port from `APP_PORT` in `.env`)
 - admin-client on port 5179 (dedicated — won't collide with your
   regular dev server)
 
 If you already have either running, Playwright reuses it.
 `globalSetup` then:
 
-1. Pings `http://127.0.0.1:3000/factory/version` and fails fast with
+1. Pings `http://127.0.0.1:8383/factory/version` and fails fast with
    a clear message if the API didn't come up (e.g. Postgres down).
 2. Provisions a dedicated `e2e-admin@courthive.test` super-admin via
    `src/scripts/admin-user.mjs` (idempotent — re-runs reset the
@@ -36,8 +36,8 @@ install once via `pnpm exec playwright install chromium`.
 |---|---|---|
 | `E2E_ADMIN_EMAIL` | `e2e-admin@courthive.test` | override the seeded email |
 | `E2E_ADMIN_PASSWORD` | `e2e-test-password-do-not-reuse` | override the seeded password |
-| `E2E_API_BASE` | `http://127.0.0.1:3000` | server REST base for direct API calls |
-| `SERVER` | `http://127.0.0.1:3000` | exposed to admin-client at build time as `process.env.SERVER` so `baseApi.ts` can route to the server |
+| `E2E_API_BASE` | `http://127.0.0.1:8383` | server REST base for direct API calls |
+| `SERVER` | `http://127.0.0.1:8383` | exposed to admin-client at build time as `process.env.SERVER` so `baseApi.ts` can route to the server |
 | `TEST_PROD` | _(unset)_ | when `1`, runs against `pnpm preview --port 4179` instead of `pnpm dev` |
 
 ## Layout

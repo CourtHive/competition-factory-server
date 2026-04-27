@@ -18,7 +18,7 @@ export const E2E_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'e2e-admin@courthi
 export const E2E_ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'e2e-test-password-do-not-reuse';
 // Use 127.0.0.1 not localhost — Node resolves localhost to ::1 (IPv6) first
 // and the NestJS server typically only binds to IPv4, causing ECONNREFUSED.
-export const API_BASE = process.env.E2E_API_BASE ?? 'http://127.0.0.1:3000';
+export const API_BASE = process.env.E2E_API_BASE ?? 'http://127.0.0.1:8383';
 
 // Backwards-compat aliases for the original symbol names
 export const SUPER_ADMIN_EMAIL = E2E_ADMIN_EMAIL;
