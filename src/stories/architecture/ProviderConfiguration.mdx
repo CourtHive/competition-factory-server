@@ -2,64 +2,185 @@ import { Meta } from '@storybook/addon-docs/blocks';
 
 <Meta title="Architecture/Provider Configuration" />
 
-# Provider Configuration
+# Provider Configuration — Two-Tier Model
 
-Providers (organisations that host tournaments) can configure TMX behavior for their tournament directors. This covers branding (white labeling), feature toggles (what TDs can and cannot do), and policy enforcement (what formats/categories/draw types are permitted).
+Providers (organisations that host tournaments) need configuration that
+governs TMX behavior on a per-provider basis: branding (white labeling),
+permission ceilings (what TDs are allowed to do), allowed universes
+(draw types, formats, categories), and operational defaults.
+
+The configuration is **two-tier**: a **provisioner** sets caps the
+provider cannot escape, and a **provider admin** tunes settings within
+those caps. The server merges the two into a single effective shape and
+delivers it to TMX at login. **TMX is consumer-only** — it never
+inspects the caps/settings split, never edits config, and never inspects
+role; it only reads the merged effective shape.
 
 ## Architecture
 
 ```
-Server-side (per provider)          Client-side
-┌─────────────────────┐            ┌──────────────────────┐
-│ ProviderConfig JSON │──login──→  │ providerConfig module│
-│  (stored in DB)     │            │  (runtime, read-only)│
-└─────────────────────┘            └──────────┬───────────┘
-                                              │
-                              ┌───────────────┼────────────────┐
-                              ▼               ▼                ▼
-                        UI surfaces     mutationRequest    policy defaults
-                        (show/hide)     (gate mutations)   (pre-populate)
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          admin-client                                    │
+│   ┌────────────────────────┐         ┌────────────────────────────┐     │
+│   │ Provisioner workspace  │         │ Provider admin workspace   │     │
+│   │ /provisioner/...       │         │ /admin                     │     │
+│   │                        │         │                            │     │
+│   │ Caps tab               │         │ Settings tab               │     │
+│   │ (provisioner-owned)    │         │ (provider-admin-owned)     │     │
+│   └──────────┬─────────────┘         └────────────┬───────────────┘     │
+└──────────────┼──────────────────────────────────┼───────────────────────┘
+               │ PUT .../caps                      │ PUT .../settings
+               ▼                                   ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                  competition-factory-server                              │
+│   ┌──────────────────────┐           ┌──────────────────────────┐       │
+│   │ providerConfigCaps   │           │ providerConfigSettings   │       │
+│   │ (Postgres jsonb)     │           │ (Postgres jsonb)         │       │
+│   └──────────┬───────────┘           └────────────┬─────────────┘       │
+│              │                                    │                     │
+│              └────────────┬───────────────────────┘                     │
+│                           ▼                                             │
+│            computeEffectiveConfig(caps, settings)                       │
+│                           │                                             │
+│                           ▼                                             │
+│              ProviderConfigData (merged, flat shape)                    │
+└─────────────────────────────┬───────────────────────────────────────────┘
+                              │ login response: user.activeProviderConfig
+                              │ refetch:        GET /provider/:id/effective-config
+                              ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              TMX (consumer)                              │
+│             config/providerConfig.ts module                             │
+│                           │                                             │
+│           ┌───────────────┼────────────────┐                            │
+│           ▼               ▼                ▼                            │
+│      UI surfaces     mutationRequest   policy defaults                  │
+│      (show/hide)     (gate mutations)  (pre-populate)                   │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-The provider config is a JSON document stored server-side per provider and delivered to the client at login. It governs branding, restricts UI surfaces, and pre-populates policy defaults.
+## Schema
 
-## Config Structure
+The canonical TypeScript types live at
+`src/modules/providers/provider-config.types.ts` and are mirrored at
+`TMX/src/config/providerConfig.ts` (a contract test on each side
+catches drift). Promotion to a shared `@courthive/provider-config`
+npm package is deferred — see the planning doc.
+
+### `ProviderConfigCaps` (provisioner-owned)
 
 ```typescript
-interface ProviderConfig {
+interface ProviderConfigCaps {
   branding?: ProviderBranding;
-  permissions?: ProviderPermissions;
-  policies?: ProviderPolicyDefaults;
-  defaults?: ProviderDefaults;
+  permissions?: ProviderCapsPermissions;
+  policies?: ProviderCapsPolicies;
+  integrations?: ProviderIntegrations;
+}
+
+// Only branding lives at the cap tier — settings has no branding field.
+interface ProviderBranding {
+  navbarLogoUrl?: string;
+  navbarLogoAlt?: string;
+  navbarLogoHeight?: number;
+  splashLogoUrl?: string;
+  appName?: string;
+  accentColor?: string;
+}
+
+// Only the cappable permission keys (boolean ceilings + array universes).
+type ProviderCapsPermissions = Pick<ProviderPermissions, CappablePermissionKey>;
+
+// Caps policies expose only the universe-narrowable fields; the operational
+// schedulingPolicy/scoringPolicy/seedingPolicy live in settings.
+interface ProviderCapsPolicies {
+  allowedMatchUpFormats?: string[];
+  allowedCategories?: AllowedCategory[];
+}
+
+interface ProviderIntegrations {
+  ssoProvider?: string;
 }
 ```
 
-## Branding (White Labeling)
+### `ProviderConfigSettings` (provider-admin-owned)
+
+```typescript
+interface ProviderConfigSettings {
+  permissions?: ProviderPermissions;       // may disable below caps
+  policies?: ProviderPolicyDefaults;       // operational + narrowable
+  defaults?: ProviderDefaults;             // operational pre-fills
+}
+```
+
+### `ProviderConfigData` (effective — what TMX consumes)
+
+```typescript
+interface ProviderConfigData {
+  branding?: ProviderBranding;             // sourced from caps
+  permissions?: ProviderPermissions;       // merged
+  policies?: ProviderPolicyDefaults;       // merged
+  defaults?: ProviderDefaults;             // sourced from settings
+  integrations?: ProviderIntegrations;     // sourced from caps
+}
+```
+
+## Field Ownership Matrix
 
 <table>
   <thead>
-    <tr><th style={{ textAlign: 'left' }}>Field</th><th style={{ textAlign: 'left' }}>Type</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+    <tr><th style={{ textAlign: 'left' }}>Field</th><th style={{ textAlign: 'left' }}>Caps</th><th style={{ textAlign: 'left' }}>Settings</th><th style={{ textAlign: 'left' }}>Merge rule</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>navbarLogoUrl</code></td><td><code>string</code></td><td>URL or data-URI for navbar logo (replaces "TMX" text)</td></tr>
-    <tr><td><code>navbarLogoAlt</code></td><td><code>string</code></td><td>Alt text for the logo</td></tr>
-    <tr><td><code>navbarLogoHeight</code></td><td><code>number</code></td><td>Max height in px (default: 32)</td></tr>
-    <tr><td><code>splashLogoUrl</code></td><td><code>string</code></td><td>Splash/login screen logo (replaces CourtHive hex)</td></tr>
-    <tr><td><code>appName</code></td><td><code>string</code></td><td>Application name in page title and nav bar (default: "TMX")</td></tr>
-    <tr><td><code>accentColor</code></td><td><code>string</code></td><td>CSS color value overriding the accent color</td></tr>
+    <tr><td><code>branding.*</code></td><td>owns</td><td>—</td><td>caps wins (settings has no branding)</td></tr>
+    <tr><td><code>permissions.canX</code> (boolean)</td><td>sets ceiling</td><td>may disable below ceiling</td><td><code>(caps[X] ?? default) AND (settings[X] ?? default)</code></td></tr>
+    <tr><td><code>permissions.allowedDrawTypes</code></td><td>universe</td><td>narrows</td><td>intersect; empty = unrestricted</td></tr>
+    <tr><td><code>permissions.allowedCreationMethods</code></td><td>universe</td><td>narrows</td><td>intersect</td></tr>
+    <tr><td><code>permissions.allowedScoringApproaches</code></td><td>universe</td><td>narrows</td><td>intersect</td></tr>
+    <tr><td><code>policies.allowedMatchUpFormats</code></td><td>universe</td><td>narrows</td><td>intersect</td></tr>
+    <tr><td><code>policies.allowedCategories</code></td><td>universe</td><td>narrows</td><td>intersect by <code>ageCategoryCode</code> (caps display name preserved)</td></tr>
+    <tr><td><code>policies.schedulingPolicy</code></td><td>—</td><td>owns</td><td>settings wins</td></tr>
+    <tr><td><code>policies.scoringPolicy</code></td><td>—</td><td>owns</td><td>settings wins</td></tr>
+    <tr><td><code>policies.seedingPolicy</code></td><td>—</td><td>owns</td><td>settings wins</td></tr>
+    <tr><td><code>defaults.*</code></td><td>—</td><td>owns</td><td>settings wins</td></tr>
+    <tr><td><code>integrations.ssoProvider</code></td><td>owns</td><td>—</td><td>caps wins</td></tr>
   </tbody>
 </table>
 
-## Permissions
+### Boolean default semantics
 
-Permissions are boolean flags that control what a tournament director can do. All default to `true` except where noted.
+Most boolean permissions default to `true` (permissive). Two exceptions
+default to `false`:
+
+- `canModifyCompletedScores` — re-scoring completed matches must be opted into
+- `canAccessProviderAdmin` — admin surface is opt-in per provider
+
+When either side is unset, the default is used in the AND. This means
+`canModifyCompletedScores` requires **both** caps and settings to
+explicitly enable it; either side leaving it unset keeps it disabled.
+
+### Array intersection semantics
+
+`empty array` means **unrestricted**, matching how legacy TMX consumers
+already interpret these fields (see `getAllowedList` in
+`TMX/src/config/providerConfig.ts`). The merge rule:
+
+- both `undefined` → `undefined`
+- one `undefined` or empty → return the other
+- both non-empty → array intersection
+
+Settings can never widen caps. If a settings entry is not in the caps
+universe, the validator rejects the write before it reaches storage.
+
+## Permissions Catalog
+
+All boolean permissions, grouped by surface:
 
 ### Participants
 
 - `canCreateCompetitors` — Add competitor participants
 - `canCreateOfficials` — Add official participants
 - `canDeleteParticipants` — Delete participants
-- `canImportParticipants` — Import from CSV/Google Sheets
+- `canImportParticipants` — Import from CSV / Google Sheets
 - `canEditParticipantDetails` — Edit participant details
 
 ### Events
@@ -74,8 +195,6 @@ Permissions are boolean flags that control what a tournament director can do. Al
 - `canDeleteDraws` — Delete draws
 - `canUseDraftPositioning` — Allow DRAFT creation method
 - `canUseManualPositioning` — Allow MANUAL creation method
-- `allowedDrawTypes` — Restrict draw types to this list (empty = all)
-- `allowedCreationMethods` — Restrict creation methods (empty = all)
 
 ### Scheduling
 
@@ -91,59 +210,534 @@ Permissions are boolean flags that control what a tournament director can do. Al
 ### Scoring
 
 - `canEnterScores` — Enter match scores
-- `canModifyCompletedScores` — Re-score completed matches (default: **false**)
-- `allowedScoringApproaches` — Restrict scoring UI approaches
+- `canModifyCompletedScores` — Re-score completed matches **(default false)**
 
 ### Publishing
 
-- `canPublish` / `canUnpublish` — Publish/unpublish events
+- `canPublish` / `canUnpublish` — Publish or unpublish
 
-### Settings
+### Admin
 
 - `canModifyTournamentDetails` — Edit tournament metadata
 - `canModifyPolicies` — Edit tournament policies
-- `canAccessProviderAdmin` — Access provider admin interface (default: **false**)
+- `canAccessProviderAdmin` — Access provider admin interface **(default false)**
 
-## Defense in Depth
+Array-typed permissions: `allowedDrawTypes`, `allowedCreationMethods`,
+`allowedScoringApproaches`. Empty = all allowed.
 
-Permissions are enforced at two levels:
-
-1. **UI hiding** — buttons and menu items are hidden when the permission is `false`
-2. **Mutation gating** — `mutationRequest()` checks permissions before executing, blocking even programmatic mutations
-
-## Server-Side Storage
-
-Provider config will be stored in the provider record:
+## Merge Function
 
 ```typescript
-interface ProviderRecord {
-  organisationId: string;
-  organisationName: string;
-  // ... existing fields
-  tmxConfig?: ProviderConfig; // provider-specific configuration
+import { computeEffectiveConfig } from 'src/modules/providers/effective-provider-config';
+
+const effective = computeEffectiveConfig(caps, settings);
+// effective is the ProviderConfigData TMX consumes
+```
+
+Pure function; no side effects. Lives at
+`src/modules/providers/effective-provider-config.ts`. 38 unit tests cover
+every merge rule + a realistic IONSport-caps + club-settings integration
+scenario.
+
+### Worked example
+
+```typescript
+const caps = {
+  branding: { appName: 'IONSport TMX', accentColor: '#0066cc' },
+  permissions: {
+    canCreateOfficials: true,
+    canModifyCompletedScores: true,
+    allowedDrawTypes: ['SE', 'RR', 'PAGE'],
+  },
+  policies: { allowedMatchUpFormats: ['SET3-S:6/TB7', 'SET5-S:6/TB7'] },
+  integrations: { ssoProvider: 'ioncourt' },
+};
+
+const settings = {
+  permissions: {
+    canCreateOfficials: false,         // club disables (within cap)
+    canModifyCompletedScores: true,    // club enables (caps allow)
+    allowedDrawTypes: ['SE', 'RR'],    // club narrows
+  },
+  policies: {
+    schedulingPolicy: { startTime: '09:00' },
+    allowedMatchUpFormats: ['SET3-S:6/TB7'],
+  },
+  defaults: { defaultEventType: 'SINGLES' },
+};
+
+const effective = computeEffectiveConfig(caps, settings);
+
+// effective.branding.appName              == 'IONSport TMX'
+// effective.permissions.canCreateOfficials == false
+// effective.permissions.canModifyCompletedScores == true
+// effective.permissions.allowedDrawTypes  == ['SE', 'RR']
+// effective.policies.schedulingPolicy     == { startTime: '09:00' }
+// effective.policies.allowedMatchUpFormats == ['SET3-S:6/TB7']
+// effective.defaults.defaultEventType     == 'SINGLES'
+// effective.integrations.ssoProvider      == 'ioncourt'
+```
+
+## Validators
+
+Both validators live at `src/modules/providers/provider-config.validator.ts`
+and return a list of `ValidationIssue` per offending field:
+
+```typescript
+interface ValidationIssue {
+  path: string;                   // 'permissions.allowedDrawTypes'
+  code: 'unknownField' | 'wrongType' | 'exceedsCap';
+  message: string;                // human-readable
+  disallowedValues?: string[];    // for exceedsCap on arrays
+}
+
+validateCaps(caps): ValidationIssue[]
+validateSettings(settings, caps): ValidationIssue[]
+```
+
+`validateSettings` enforces caps-respect:
+
+- Boolean cannot be upgraded above ceiling — `caps.X = false` and
+  `settings.X = true` → `exceedsCap`
+- Array cannot include values outside the caps universe — every
+  disallowed value is reported in `disallowedValues` so the editor can
+  highlight all at once
+
+Caller decides whether issues are a hard reject (HTTP 400) or
+informational warnings; today every issue list with length > 0 is a
+hard reject at the controller layer.
+
+## REST Endpoints
+
+### `PUT /provisioner/providers/:id/caps`
+
+Provisioner writes caps. API-key authenticated;
+`ProvisionerOwnerGuard` enforces the provisioner owns this provider.
+
+```http
+PUT /provisioner/providers/<providerId>/caps
+Authorization: Bearer prov_sk_live_<key>
+Content-Type: application/json
+
+{
+  "caps": {
+    "branding": { "appName": "IONSport TMX" },
+    "permissions": {
+      "canCreateOfficials": true,
+      "allowedDrawTypes": ["SE", "RR", "PAGE"]
+    },
+    "policies": {
+      "allowedMatchUpFormats": ["SET3-S:6/TB7", "SET5-S:6/TB7"]
+    },
+    "integrations": { "ssoProvider": "ioncourt" }
+  }
 }
 ```
 
-Delivered to the client via a REST endpoint after login: `GET /api/provider/:id/config`.
+**Success response:**
 
-## Testing (Dev Console)
+```json
+{ "success": true }
+```
 
-In development mode, the provider config is exposed on `window.dev.providerConfig`:
+**Validation failure:**
+
+```json
+{
+  "error": "caps validation failed",
+  "code": "CAPS_INVALID",
+  "issues": [
+    {
+      "path": "permissions.canFly",
+      "code": "unknownField",
+      "message": "unknown permission key \"canFly\""
+    }
+  ]
+}
+```
+
+### `PUT /provider/:id/settings`
+
+Provider admin writes settings. JWT authenticated; either
+`SUPER_ADMIN` global role OR `PROVIDER_ADMIN` provider-scoped role for
+**this specific provider**. `DIRECTOR` cannot write settings —
+configuration is administrative work.
+
+```http
+PUT /provider/<providerId>/settings
+Authorization: Bearer <jwt>
+Content-Type: application/json
+
+{
+  "settings": {
+    "permissions": {
+      "canCreateOfficials": false,
+      "allowedDrawTypes": ["SE", "RR"]
+    },
+    "policies": {
+      "schedulingPolicy": { "startTime": "09:00" },
+      "allowedMatchUpFormats": ["SET3-S:6/TB7"]
+    },
+    "defaults": { "defaultEventType": "SINGLES" }
+  }
+}
+```
+
+**Cap-violation rejection:**
+
+```json
+{
+  "error": "settings validation failed",
+  "code": "SETTINGS_INVALID",
+  "issues": [
+    {
+      "path": "permissions.allowedDrawTypes",
+      "code": "exceedsCap",
+      "message": "allowedDrawTypes contains values outside the provisioner-allowed universe",
+      "disallowedValues": ["COMPASS"]
+    }
+  ]
+}
+```
+
+### `GET /provider/:id/effective-config`
+
+Returns the merged effective shape that TMX consumes — caps and settings
+are never exposed separately. Authenticated; the user must have access
+to the provider (`SUPER_ADMIN` or membership via `userContext.providerIds`).
+Used by the TMX provider switcher to refetch on impersonation.
+
+```http
+GET /provider/<providerId>/effective-config
+Authorization: Bearer <jwt>
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "providerId": "<uuid>",
+  "effective": {
+    "branding": { "appName": "IONSport TMX" },
+    "permissions": {
+      "canCreateEvents": true,
+      "canCreateOfficials": false,
+      "allowedDrawTypes": ["SE", "RR"],
+      "...": "all 24 boolean keys present"
+    },
+    "policies": {
+      "schedulingPolicy": { "startTime": "09:00" },
+      "allowedMatchUpFormats": ["SET3-S:6/TB7"]
+    },
+    "defaults": { "defaultEventType": "SINGLES" },
+    "integrations": { "ssoProvider": "ioncourt" }
+  }
+}
+```
+
+## Login Response Embedding
+
+`AuthService.signIn` computes the effective config for the user's
+home provider and embeds it in the JWT/login payload as
+`user.activeProviderConfig`. TMX applies it directly via
+`providerConfig.set()` with no extra fetch on boot.
+
+```json
+{
+  "token": "<jwt>",
+  // jwt payload:
+  // {
+  //   "email": "td@club.com",
+  //   "providerId": "<uuid>",
+  //   "provider": { "organisationId": "...", ... },
+  //   "activeProviderConfig": { "branding": {...}, "permissions": {...}, ... },
+  //   "exp": 1761600000
+  // }
+}
+```
+
+For users with no `providerId` (super-admin without active
+impersonation) the field is absent and TMX runs default-permissive.
+
+## Storage
+
+The provider record's `data` jsonb column carries both fields:
+
+```jsonc
+// providers.data after migration 017
+{
+  "providerConfigCaps": { /* ProviderConfigCaps */ },
+  "providerConfigSettings": { /* ProviderConfigSettings */ }
+  // (other provider fields unchanged)
+}
+```
+
+Surgical updates via `IProviderStorage`:
+
+```typescript
+interface IProviderStorage {
+  // ... existing methods
+  updateProviderCaps(providerId: string, caps: any): Promise<{ success: boolean }>;
+  updateProviderSettings(providerId: string, settings: any): Promise<{ success: boolean }>;
+}
+```
+
+Both implementations use `jsonb_set` so writes touch only their own
+sub-key. The Postgres impl uses `COALESCE(data, '{}'::jsonb)` as the
+target so writes against pre-existing rows with no data field still
+succeed.
+
+## Migration
+
+Migration `017-split-provider-config.sql` runs automatically on
+server boot via `MigrationRunnerService`:
+
+```sql
+UPDATE providers
+SET data = jsonb_set(
+  jsonb_set(
+    data - 'providerConfig',
+    '{providerConfigCaps}',
+    COALESCE(data->'providerConfigCaps', data->'providerConfig', '{}'::jsonb),
+    true
+  ),
+  '{providerConfigSettings}',
+  COALESCE(data->'providerConfigSettings', '{}'::jsonb),
+  true
+)
+WHERE data ? 'providerConfig'
+   OR NOT (data ? 'providerConfigCaps')
+   OR NOT (data ? 'providerConfigSettings');
+```
+
+Idempotent — re-running is a no-op once both keys exist. The legacy
+single `providerConfig` blob is treated as caps (provisioner-owned was
+always its semantic intent), and `providerConfigSettings` starts empty.
+
+## Backward Compatibility
+
+The provisioner endpoints accept a legacy `providerConfig` field on
+input for back-compat:
+
+- `POST /provisioner/providers` body: `providerConfig` is mapped to
+  `providerConfigCaps`. New callers should use `providerConfigCaps`
+  and/or `providerConfigSettings` directly.
+- `PUT /provisioner/providers/:id` body: `providerConfig` is mapped
+  to `providerConfigCaps`. Prefer the dedicated
+  `PUT .../caps` endpoint for new code.
+
+Output shape: `listProviders` and `getProviderDetail` return
+`providerConfigCaps` and `providerConfigSettings` separately. The
+legacy `providerConfig` field is no longer returned.
+
+## TMX Consumer
+
+The TMX side ships a single module at `src/config/providerConfig.ts`
+with module-level state:
+
+```typescript
+import { providerConfig } from 'config/providerConfig';
+
+// Read
+providerConfig.get();                          // full config
+providerConfig.isAllowed('canCreateEvents');   // boolean shorthand
+providerConfig.getAllowedList('allowedDrawTypes'); // array shorthand
+
+// Write (called by loginState.ts on every auth path)
+providerConfig.set(effective);
+
+// Reset (called by logOut)
+providerConfig.reset();
+```
+
+### Apply paths
+
+- `logIn(token)` — fresh login → `providerConfig.set(valid.activeProviderConfig)`
+- `getLoginState()` — boot path with valid existing token →
+  `providerConfig.set(valid.activeProviderConfig)`
+- `cancelImpersonation()` — re-applies the JWT default after
+  stop-impersonating
+- `setActiveProvider(provider)` (provider switcher) — fetches
+  `GET /provider/:id/effective-config` and applies
+- `logOut()` → `providerConfig.reset()`
+
+### Branding side-effects
+
+`providerConfig.set()` immediately applies branding to the DOM:
+
+- `appName` → `document.title`
+- `accentColor` → `--tmx-accent-blue` CSS custom property on `<html>`
+- `navbarLogoUrl` / `navbarLogoAlt` / `navbarLogoHeight` → navbar `#provider`
+  element (replaces "TMX" text with the logo)
+- `splashLogoUrl` → splash/login screen logo
+
+## Defense in Depth — Mutation Gating
+
+UI gating prevents accidents (button hidden). Mutation gating in
+`mutationRequest()` prevents intentional bypass via dev console or
+replay attacks. The lookup table lives at
+`TMX/src/constants/mutationPermissions.ts`:
+
+```typescript
+export const MUTATION_PERMISSIONS: Record<string, keyof ProviderPermissions> = {
+  // Participants
+  addParticipants: 'canCreateCompetitors',
+  deleteParticipants: 'canDeleteParticipants',
+  modifyParticipant: 'canEditParticipantDetails',
+  // Officials
+  addMatchUpOfficial: 'canCreateOfficials',
+  // Events
+  addEvent: 'canCreateEvents',
+  deleteEvents: 'canDeleteEvents',
+  modifyEvent: 'canModifyEventFormat',
+  setMatchUpFormat: 'canModifyEventFormat',
+  modifyTieFormat: 'canModifyEventFormat',
+  // Draws
+  addDrawDefinition: 'canCreateDraws',
+  addFlight: 'canCreateDraws',
+  modifyDrawDefinition: 'canCreateDraws',
+  deleteDrawDefinitions: 'canDeleteDraws',
+  deleteAdHocMatchUps: 'canDeleteDraws',
+  deleteFlightAndFlightDraw: 'canDeleteDraws',
+  // Scheduling
+  addMatchUpScheduleItems: 'canModifySchedule',
+  bulkScheduleMatchUps: 'canModifySchedule',
+  proAutoSchedule: 'canModifySchedule',
+  // Venues + courts
+  addVenue: 'canCreateVenues',
+  deleteVenues: 'canDeleteVenues',
+  modifyVenue: 'canCreateVenues',
+  modifyCourt: 'canModifyCourtAvailability',
+  modifyCourtAvailability: 'canModifyCourtAvailability',
+  // Tournament details
+  setTournamentDates: 'canModifyTournamentDetails',
+  setTournamentName: 'canModifyTournamentDetails',
+  setTournamentLocalTimeZone: 'canModifyTournamentDetails',
+  setTournamentNotes: 'canModifyTournamentDetails',
+  setRegistrationProfile: 'canModifyTournamentDetails',
+  // Policies
+  attachPolicies: 'canModifyPolicies',
+  // Publishing
+  publishEvent: 'canPublish',
+  publishOrderOfPlay: 'canPublish',
+  publishParticipants: 'canPublish',
+  publishEventSeeding: 'canPublish',
+  unPublishEvent: 'canUnpublish',
+  unPublishOrderOfPlay: 'canUnpublish',
+  unPublishParticipants: 'canUnpublish',
+  unPublishEventSeeding: 'canUnpublish',
+};
+
+export function isMutationAllowed(method: string): boolean {
+  const permKey = MUTATION_PERMISSIONS[method];
+  if (!permKey) return true; // Unmapped mutations allowed by default
+  return providerConfig.isAllowed(permKey);
+}
+```
+
+`mutationRequest()` calls `isMutationAllowed(method)` for each method in
+the queue. A blocked method causes the entire batch to be rejected
+client-side with a permission-denied toast.
+
+Server-side mutation enforcement (deeper defense in the
+`executionQueue` layer of competition-factory-server) is a separate
+deferred workstream — a malicious browser could in principle strip the
+client check, so the server should also enforce. Today the protection
+relies on client-side gating + server-side **schema validation** (the
+caps-respect check on settings writes) but not yet on per-mutation
+permission checks at the WebSocket gateway.
+
+## Testing
+
+### Server-side unit tests
+
+- `effective-provider-config.spec.ts` — 38 tests covering every merge
+  rule across branding, integrations, defaults, boolean permissions
+  (default-true and default-false), array permissions (intersection,
+  empty=unrestricted), policies, and a realistic combined scenario
+- `provider-config.validator.spec.ts` — 39 tests covering both
+  validators including caps-respect with multi-error real-world rejection
+- `provider-config.contract.spec.ts` — 5 tests asserting the canonical
+  KEYS arrays match the agreed canonical set
+- `providers.service.config.spec.ts` — 7 tests covering
+  `getEffectiveProviderConfig` and `updateProviderSettings` with
+  mock storage
+
+### TMX-side unit tests
+
+- `providerConfig.test.ts` — covers the consumer module's read paths
+  (`isAllowed`, `getAllowedList`, defaults, override behavior)
+- `providerConfig.contract.test.ts` — 5 contract tests asserting the
+  TMX mirror still matches the canonical lists
+- `mutationPermissions.test.ts` — 12 tests covering the mutation gating
+  map + `isMutationAllowed`
+
+### Dev-console testing
+
+In development mode TMX exposes the consumer module on
+`window.dev.providerConfig`:
 
 ```javascript
-// Apply a restrictive config
+// Apply a restrictive merged config (simulates what the server would deliver)
 dev.providerConfig.set({
-  branding: { appName: 'My Tennis Org' },
+  branding: { appName: 'My Tennis Org', accentColor: '#cc0066' },
   permissions: {
-    canCreateCompetitors: false,
+    canCreateOfficials: false,
     canDeleteEvents: false,
-    allowedDrawTypes: ['SINGLE_ELIMINATION', 'ROUND_ROBIN'],
+    allowedDrawTypes: ['SE', 'RR'],
   },
+  defaults: { defaultEventType: 'SINGLES' },
 });
 
-// Check a permission
-dev.providerConfig.isAllowed('canCreateCompetitors'); // false
+dev.providerConfig.isAllowed('canCreateOfficials');     // false
+dev.providerConfig.isAllowed('canCreateEvents');        // true
+dev.providerConfig.getAllowedList('allowedDrawTypes');  // ['SE', 'RR']
 
-// Reset to defaults
-dev.providerConfig.reset();
+dev.providerConfig.reset();                             // back to defaults
 ```
+
+## Status
+
+### Shipped (2026-04-27)
+
+- Two-tier schema (caps + settings + effective)
+- Pure merge function with full unit test coverage
+- Caps + settings validators with caps-respect enforcement
+- `IProviderStorage.updateProviderCaps` + `updateProviderSettings`
+  surgical jsonb_set methods (Postgres impl)
+- Migration 017 splitting legacy `providerConfig` blob into
+  caps + settings (idempotent)
+- `PUT /provisioner/providers/:id/caps` endpoint
+- `PUT /provider/:id/settings` endpoint (PROVIDER_ADMIN + SUPER_ADMIN)
+- `GET /provider/:id/effective-config` endpoint
+- Login response carries `user.activeProviderConfig` (merged shape)
+- TMX `loginState.ts` applies on every auth path; provider switcher
+  refetches on impersonation
+- TMX `MUTATION_PERMISSIONS` map expanded from 10 → 35+ entries
+
+### Deferred
+
+- **Phase 3**: provisioner Caps editor UI in admin-client
+  (`/provisioner/providers/:id/caps` tab)
+- **Phase 4**: provider admin Settings editor UI in admin-client
+  (`/admin` page Settings panel) + port the TMX
+  `manageTournamentAccess` modal to admin-client + delete the
+  `isProviderAdmin` helper from TMX (TMX consumes
+  `providerConfig.permissions` only — never inspects role)
+- **Server-side mutation gating**: enforce the same permission map
+  at the `executionQueue` layer so a malicious browser cannot bypass
+  client-side checks
+- **Promote types to a shared `@courthive/provider-config` npm
+  package** when scaffolding more capabilities (third+ consumer or
+  drift becomes recurring)
+
+## References
+
+- Planning doc: `Mentat/planning/TMX_PROVIDER_CONFIG_FEATURES.md`
+- Server canonical types: `src/modules/providers/provider-config.types.ts`
+- Server merge function: `src/modules/providers/effective-provider-config.ts`
+- Server validators: `src/modules/providers/provider-config.validator.ts`
+- TMX consumer module: `TMX/src/config/providerConfig.ts`
+- TMX mutation gating: `TMX/src/constants/mutationPermissions.ts`
+- Migration: `src/storage/postgres/migrations/017-split-provider-config.sql`
