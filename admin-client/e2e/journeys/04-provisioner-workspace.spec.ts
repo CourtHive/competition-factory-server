@@ -24,7 +24,9 @@ test.describe('Journey 04 — provisioner workspace shell', () => {
     await page.goto('/#/provisioner/providers');
     await expect(page.locator(S.PROVISIONER_PROVIDERS_TABLE)).toBeVisible();
 
-    await page.getByRole('button', { name: /^users$/i }).click();
+    // courthive-components controlBar renders tabs as <li><a><span>label</span></a></li>
+    // (Bulma `tabs is-toggle` pattern), not <button>.
+    await page.locator('.tabs a').filter({ hasText: /^Users$/ }).click();
     await expect(page).toHaveURL(/#\/provisioner\/users/);
   });
 });
