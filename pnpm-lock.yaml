@@ -75,6 +75,9 @@ importers:
       codepage:
         specifier: ^1.15.0
         version: 1.15.0
+      compression:
+        specifier: ^1.7.4
+        version: 1.8.1
       core-js:
         specifier: ^3.48.0
         version: 3.49.0
@@ -184,9 +187,6 @@ importers:
       '@typescript-eslint/parser':
         specifier: 8.59.0
         version: 8.59.0(eslint@10.2.1(jiti@2.6.1))(typescript@6.0.3)
-      compression:
-        specifier: ^1.7.4
-        version: 1.8.1
       eslint:
         specifier: 10.2.1
         version: 10.2.1(jiti@2.6.1)
