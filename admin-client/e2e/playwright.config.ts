@@ -30,7 +30,10 @@ export default defineConfig({
   reporter: process.env.CI ? [['html', { open: 'never' }]] : [['list']],
 
   use: {
-    baseURL: process.env.TEST_PROD ? 'http://localhost:4173/admin/' : 'http://localhost:5173/admin/',
+    // Dedicated ports so e2e never collides with TMX dev (5173) or anything
+    // else the developer might have running. 127.0.0.1 (not localhost) so
+    // Node doesn't try IPv6 ::1 first.
+    baseURL: process.env.TEST_PROD ? 'http://127.0.0.1:4179/admin/' : 'http://127.0.0.1:5179/admin/',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'on-first-retry',
@@ -45,9 +48,21 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: process.env.TEST_PROD ? 'pnpm build && pnpm preview' : 'pnpm dev',
-    url: process.env.TEST_PROD ? 'http://localhost:4173/admin/' : 'http://localhost:5173/admin/',
+    // --host 127.0.0.1 forces Vite to bind IPv4 explicitly. Without it
+    // Vite defaults to 'localhost' which on macOS resolves to ::1 (IPv6),
+    // making the 127.0.0.1 URL unreachable and webServer time out.
+    //
+    // SERVER must be set so admin-client/baseApi.ts points at the running
+    // NestJS server (different origin from Vite). Otherwise /auth/signin
+    // and /admin/provisioners/* calls hit Vite and 404.
+    command: process.env.TEST_PROD
+      ? 'pnpm build && pnpm preview --port 4179 --strictPort --host 127.0.0.1'
+      : 'pnpm dev --port 5179 --strictPort --host 127.0.0.1',
+    env: {
+      SERVER: process.env.SERVER ?? 'http://127.0.0.1:3000',
+    },
+    url: process.env.TEST_PROD ? 'http://127.0.0.1:4179/admin/' : 'http://127.0.0.1:5179/admin/',
     reuseExistingServer: !process.env.CI,
-    timeout: 30_000,
+    timeout: 60_000,
   },
 });

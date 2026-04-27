@@ -16,22 +16,27 @@ import { expect, type Page, type APIRequestContext } from '@playwright/test';
 
 export const E2E_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'e2e-admin@courthive.test';
 export const E2E_ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'e2e-test-password-do-not-reuse';
-export const API_BASE = process.env.E2E_API_BASE ?? 'http://localhost:3000';
+// Use 127.0.0.1 not localhost — Node resolves localhost to ::1 (IPv6) first
+// and the NestJS server typically only binds to IPv4, causing ECONNREFUSED.
+export const API_BASE = process.env.E2E_API_BASE ?? 'http://127.0.0.1:3000';
 
 // Backwards-compat aliases for the original symbol names
 export const SUPER_ADMIN_EMAIL = E2E_ADMIN_EMAIL;
 export const SUPER_ADMIN_PASSWORD = E2E_ADMIN_PASSWORD;
 
 export async function loginAsSuperAdmin(page: Page): Promise<void> {
-  await page.goto('/');
+  // Empty path so Playwright uses the full baseURL (which already
+  // includes the /admin/ base). page.goto('/') would strip /admin/
+  // and hit a Vite 404.
+  await page.goto('');
 
   // The login icon is always present in the navbar; clicking it opens
   // the modal because no token is set yet on a fresh test page.
   await page.locator('#login').click();
 
-  // The login modal renders email/password inputs through cModal.
-  await page.locator('input[autocomplete="email"]').fill(E2E_ADMIN_EMAIL);
-  await page.locator('input[autocomplete="current-password"]').fill(E2E_ADMIN_PASSWORD);
+  // Fields have stable IDs assigned in loginModal.ts via renderForm.
+  await page.locator('#loginEmail').fill(E2E_ADMIN_EMAIL);
+  await page.locator('#loginPassword').fill(E2E_ADMIN_PASSWORD);
 
   await page.locator('#loginButton').click();
 

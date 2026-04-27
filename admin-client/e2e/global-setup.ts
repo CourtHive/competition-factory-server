@@ -32,7 +32,23 @@ function runScript(args: string[]): Promise<{ code: number; stderr: string; stdo
   });
 }
 
+async function assertServerReachable(): Promise<void> {
+  const base = process.env.E2E_API_BASE ?? 'http://127.0.0.1:3000';
+  try {
+    const res = await fetch(`${base}/factory/version`, { signal: AbortSignal.timeout(2000) });
+    if (!res.ok) throw new Error(`server returned ${res.status}`);
+  } catch (err) {
+    throw new Error(
+      `[e2e/global-setup] cannot reach the NestJS server at ${base} — ` +
+        `start it with \`pnpm watch\` (or \`pnpm start\`) in another terminal before running e2e.\n` +
+        `(underlying error: ${(err as Error).message})`,
+    );
+  }
+}
+
 export default async function globalSetup(): Promise<void> {
+  await assertServerReachable();
+
   // Try create — succeeds first run, errors with "already exists" subsequently.
   const createResult = await runScript(['create', '-e', E2E_ADMIN_EMAIL, '-p', E2E_ADMIN_PASSWORD]);
 

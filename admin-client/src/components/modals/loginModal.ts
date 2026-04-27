@@ -36,6 +36,7 @@ export function loginModal(callback?: () => void): void {
           autocomplete: 'email',
           label: t('modals.login.emailLabel'),
           field: 'email',
+          id: 'loginEmail',
         },
         {
           placeholder: t('modals.login.passwordPlaceholder'),
@@ -44,6 +45,7 @@ export function loginModal(callback?: () => void): void {
           label: t('modals.login.passwordLabel'),
           field: 'password',
           type: 'password',
+          id: 'loginPassword',
         },
       ],
       relationships,

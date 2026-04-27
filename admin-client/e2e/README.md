@@ -7,14 +7,26 @@ for the broader strategy.
 ## Run
 
 ```bash
+# In one terminal (NestJS server — required)
+cd competition-factory-server
+pnpm watch
+
+# In another terminal
+cd competition-factory-server/admin-client
 pnpm test:e2e
 ```
 
-`globalSetup` provisions a dedicated `e2e-admin@courthive.test`
-super-admin via `src/scripts/admin-user.mjs` before the first spec
-runs (idempotent — re-runs reset the password). No env vars are
-required for the common case. Browser binaries install once via
-`pnpm exec playwright install chromium`.
+Playwright auto-starts admin-client on port 5179 (dedicated, won't
+collide with the user's regular dev server) and `globalSetup`:
+
+1. Pings the NestJS server on `http://127.0.0.1:3000/factory/version`
+   and fails fast with a clear message if it's not running.
+2. Provisions a dedicated `e2e-admin@courthive.test` super-admin via
+   `src/scripts/admin-user.mjs` (idempotent — re-runs reset the
+   password).
+
+No env vars are required for the common case. Browser binaries
+install once via `pnpm exec playwright install chromium`.
 
 ### Optional environment overrides
 
@@ -22,8 +34,9 @@ required for the common case. Browser binaries install once via
 |---|---|---|
 | `E2E_ADMIN_EMAIL` | `e2e-admin@courthive.test` | override the seeded email |
 | `E2E_ADMIN_PASSWORD` | `e2e-test-password-do-not-reuse` | override the seeded password |
-| `E2E_API_BASE` | `http://localhost:3000` | server REST base for direct API calls |
-| `TEST_PROD` | _(unset)_ | when `1`, runs against `pnpm preview` instead of `pnpm dev` |
+| `E2E_API_BASE` | `http://127.0.0.1:3000` | server REST base for direct API calls |
+| `SERVER` | `http://127.0.0.1:3000` | exposed to admin-client at build time as `process.env.SERVER` so `baseApi.ts` can route to the server |
+| `TEST_PROD` | _(unset)_ | when `1`, runs against `pnpm preview --port 4179` instead of `pnpm dev` |
 
 ## Layout
 
