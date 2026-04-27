@@ -144,7 +144,7 @@ pm2 start 'npx net-level-server' --name 'hive-db' \
   --cwd /home/tennis_aip/competition-factory-server
 
 # Start NestJS application
-NODE_ENV=production pm2 start build/src/main.js --name 'Factory Server'
+NODE_ENV=production pm2 start build/src/main.js --name Factory-Server
 ```
 
 > **Note**: The `ecosystem.config.js` references `dist/src/main.js` but `pnpm build` outputs to `build/src/main.js`. Use the manual PM2 commands above instead.
@@ -161,9 +161,9 @@ sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u tennis_aip --hp /home/tennis
 ```bash
 pm2 list                    # Show running processes
 pm2 logs                    # Stream all logs
-pm2 logs 'Factory Server'  # Stream app logs only
+pm2 logs Factory-Server     # Stream app logs only
 pm2 restart all             # Restart everything
-pm2 reload 'Factory Server' # Zero-downtime reload
+pm2 reload Factory-Server   # Zero-downtime reload
 ```
 
 ## Nginx Configuration
@@ -214,7 +214,7 @@ cd /home/tennis_aip/competition-factory-server
 git pull
 pnpm install
 pnpm build
-pm2 restart 'Factory Server'
+pm2 restart Factory-Server
 ```
 
 ## Data Migration

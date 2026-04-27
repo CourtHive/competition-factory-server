@@ -4,7 +4,7 @@
  * PM2 silently ignores typos in app names or missing fields, and a bad
  * ecosystem file only surfaces at deploy time on nest. This test catches
  * regressions up front — e.g. a misspelled script path, a removed app,
- * or a missing env var needed by the Score Relay bundle.
+ * or a missing env var needed by the Score-Relay bundle.
  */
 
 interface EcosystemApp {
@@ -35,9 +35,9 @@ describe('ecosystem.config.js', () => {
     expect(config.apps.length).toBeGreaterThan(0);
   });
 
-  it('includes the core apps (Factory Server, Score Relay)', () => {
+  it('includes the core apps (Factory-Server, Score-Relay)', () => {
     const names = config.apps.map((a) => a.name);
-    expect(names).toEqual(expect.arrayContaining(['Factory Server', 'Score Relay']));
+    expect(names).toEqual(expect.arrayContaining(['Factory-Server', 'Score-Relay']));
   });
 
   it('does not include hive-db (LevelDB removed)', () => {
@@ -45,20 +45,20 @@ describe('ecosystem.config.js', () => {
     expect(names).not.toContain('hive-db');
   });
 
-  describe('Factory Server', () => {
+  describe('Factory-Server', () => {
     it('runs build/src/main.js', () => {
-      const app = config.apps.find((a) => a.name === 'Factory Server');
+      const app = config.apps.find((a) => a.name === 'Factory-Server');
       expect(app).toBeDefined();
       expect(app?.script).toBe('build/src/main.js');
       expect(app?.watch).toBe(false);
     });
   });
 
-  describe('Score Relay', () => {
+  describe('Score-Relay', () => {
     let app: EcosystemApp | undefined;
 
     beforeAll(() => {
-      app = config.apps.find((a) => a.name === 'Score Relay');
+      app = config.apps.find((a) => a.name === 'Score-Relay');
     });
 
     it('runs score-relay/dist/server.js from the release root', () => {

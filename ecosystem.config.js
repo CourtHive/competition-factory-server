@@ -5,11 +5,11 @@ module.exports = {
     {
       env: { NODE_ENV: process.env.NODE_ENV || 'production' },
       script: 'build/src/main.js',
-      name: 'Factory Server',
+      name: 'Factory-Server',
       watch: false,
     },
     {
-      name: 'Score Relay',
+      name: 'Score-Relay',
       script: 'score-relay/dist/server.js',
       watch: false,
       env: {
@@ -25,7 +25,7 @@ module.exports = {
       },
     },
     {
-      name: 'Audit Worker',
+      name: 'Audit-Worker',
       script: 'audit-worker/dist/index.js',
       watch: false,
       env: {
