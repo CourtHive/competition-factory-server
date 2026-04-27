@@ -46,7 +46,7 @@ export async function loginAsSuperAdmin(page: Page): Promise<void> {
 }
 
 export async function signInViaApi(request: APIRequestContext): Promise<string> {
-  const res = await request.post(`${API_BASE}/auth/signin`, {
+  const res = await request.post(`${API_BASE}/auth/login`, {
     data: { email: E2E_ADMIN_EMAIL, password: E2E_ADMIN_PASSWORD },
   });
   if (!res.ok()) {

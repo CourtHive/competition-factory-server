@@ -24,8 +24,8 @@ test.describe('Journey 02 — provisioner create / list / delete', () => {
 
     await page.getByRole('button', { name: /create provisioner/i }).click();
 
-    // The create modal renders a single name input via renderForm.
-    await page.locator('.cmodal-dialog input').first().fill(testName);
+    // The create modal renders a single name input with a stable id.
+    await page.locator('#createProvisionerName').fill(testName);
     await page.getByRole('button', { name: /^create$/i }).click();
 
     // The new row should appear in the list table.

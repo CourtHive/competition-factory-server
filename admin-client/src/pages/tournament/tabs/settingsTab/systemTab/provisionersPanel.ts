@@ -581,6 +581,7 @@ export function renderProvisionersPanel({ container, providers }: RenderProvisio
           label: t('system.provisionerName'),
           field: 'name',
           placeholder: t('system.provisionerNamePlaceholder'),
+          id: 'createProvisionerName',
         },
       ]);
     };
