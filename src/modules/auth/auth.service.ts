@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { VALID_GLOBAL_ROLES, VALID_PROVIDER_ROLES } from 'src/common/constants/roles';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import { computeEffectiveConfig } from '../providers/effective-provider-config';
 import { createUniqueKey } from './helpers/createUniqueKey';
 import { UsersService } from '../users/users.service';
 import { hashPassword } from './helpers/hashPassword';
@@ -51,6 +52,14 @@ export class AuthService {
     if (user.providerId) {
       const provider = await this.providerStorage.getProvider(user.providerId);
       userDetails.provider = provider;
+      // Two-tier provider config: compute effective shape (caps ∩ settings)
+      // and embed in the login response so TMX can apply it immediately.
+      // Provider switcher / impersonation uses GET /api/provider/:id/effective-config
+      // for runtime refetch — see Mentat/planning/TMX_PROVIDER_CONFIG_FEATURES.md.
+      userDetails.activeProviderConfig = computeEffectiveConfig(
+        provider?.providerConfigCaps,
+        provider?.providerConfigSettings,
+      );
     }
 
     // Track last access time for user and their provider. Failures are

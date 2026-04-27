@@ -35,11 +35,33 @@ export class ProvisionerController {
   @UseGuards(ProvisionerOwnerGuard)
   async updateProvider(
     @Param('providerId') _providerId: string,
-    @Body() body: { providerConfig?: Record<string, any>; organisationName?: string; inactive?: boolean },
+    @Body() body: {
+      providerConfig?: Record<string, any>;
+      providerConfigCaps?: Record<string, any>;
+      providerConfigSettings?: Record<string, any>;
+      organisationName?: string;
+      inactive?: boolean;
+    },
     @Req() req: any,
   ) {
     const providerId = req.headers['x-provider-id'] ?? _providerId;
     return this.provisionerService.updateProviderConfig(providerId, body);
+  }
+
+  /**
+   * Two-tier provider config: provisioner writes caps. Caps validator
+   * rejects unknown keys + wrong types; per-field issues returned in
+   * the response so the editor can surface them inline.
+   */
+  @Put('providers/:providerId/caps')
+  @UseGuards(ProvisionerOwnerGuard)
+  async updateProviderCaps(
+    @Param('providerId') _providerId: string,
+    @Body() body: { caps: Record<string, any> },
+    @Req() req: any,
+  ) {
+    const providerId = req.headers['x-provider-id'] ?? _providerId;
+    return this.provisionerService.updateProviderCaps(providerId, body.caps ?? {});
   }
 
   // ── User management ──

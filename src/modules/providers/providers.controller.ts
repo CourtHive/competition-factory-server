@@ -1,6 +1,17 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 import { UserCtx, type UserContext } from '../auth/decorators/user-context.decorator';
-import { ADMIN, CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
+import { ADMIN, CLIENT, PROVIDER_ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
 import { ModifyProviderDto } from './dto/modifyProvider.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -75,5 +86,40 @@ export class ProvidersController {
   @HttpCode(HttpStatus.OK)
   modifyProvider(@Body() provider: ModifyProviderDto) {
     return this.providers.modifyProvider(provider);
+  }
+
+  /**
+   * Effective provider config — the merged caps ∩ settings shape that
+   * TMX consumes. Used for runtime refetch by the provider switcher
+   * and for impersonation refresh. Any authenticated user with access
+   * to the provider may read it; the result is identical to what TMX
+   * received in their login response.
+   */
+  @Get(':providerId/effective-config')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  getEffectiveConfig(@Param('providerId') providerId: string, @UserCtx() ctx: UserContext) {
+    if (!ctx?.isSuperAdmin && !ctx?.providerIds?.includes(providerId)) {
+      throw new ForbiddenException('No access to this provider');
+    }
+    return this.providers.getEffectiveProviderConfig(providerId);
+  }
+
+  /**
+   * Provider-admin settings write. PROVIDER_ADMIN of the target provider
+   * or SUPER_ADMIN may write. Settings must respect caps — violations
+   * return per-field issues for the editor to surface inline.
+   */
+  @Put(':providerId/settings')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  updateSettings(
+    @Param('providerId') providerId: string,
+    @Body() body: { settings: Record<string, any> },
+    @UserCtx() ctx: UserContext,
+  ) {
+    const isProviderAdmin = ctx?.providerRoles?.[providerId] === PROVIDER_ADMIN;
+    if (!ctx?.isSuperAdmin && !isProviderAdmin) {
+      throw new ForbiddenException('PROVIDER_ADMIN role required');
+    }
+    return this.providers.updateProviderSettings(providerId, body.settings ?? {});
   }
 }

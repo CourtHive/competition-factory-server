@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomBytes, createHash } from 'crypto';
 
+import { computeEffectiveConfig } from '../providers/effective-provider-config';
+import { validateCaps, validateSettings } from '../providers/provider-config.validator';
 import { AuditService } from '../audit/audit.service';
 
 import {
@@ -242,7 +244,18 @@ export class ProvisionerService {
 
   // ── Provider CRUD (Provisioner) ──
 
-  async createProvider(provisionerId: string, params: { organisationAbbreviation: string; organisationName: string; providerConfig?: Record<string, any> }) {
+  async createProvider(
+    provisionerId: string,
+    params: {
+      organisationAbbreviation: string;
+      organisationName: string;
+      // New two-tier shape (preferred)
+      providerConfigCaps?: Record<string, any>;
+      providerConfigSettings?: Record<string, any>;
+      // Legacy single-blob shape (back-compat — treated as caps)
+      providerConfig?: Record<string, any>;
+    },
+  ) {
     // Check abbreviation uniqueness
     const existing = await this.providerStorage.getProviders();
     const conflict = existing.find((p) => p.value?.organisationAbbreviation === params.organisationAbbreviation);
@@ -251,11 +264,16 @@ export class ProvisionerService {
     // Generate provider ID
     const providerId = crypto.randomUUID();
 
+    // Resolve caps from explicit field or legacy `providerConfig` blob
+    const providerConfigCaps = params.providerConfigCaps ?? params.providerConfig ?? {};
+    const providerConfigSettings = params.providerConfigSettings ?? {};
+
     await this.providerStorage.setProvider(providerId, {
       organisationId: providerId,
       organisationAbbreviation: params.organisationAbbreviation,
       organisationName: params.organisationName,
-      providerConfig: params.providerConfig ?? {},
+      providerConfigCaps,
+      providerConfigSettings,
     });
 
     // Auto-associate as owner
@@ -278,7 +296,12 @@ export class ProvisionerService {
         organisationName: p.value?.organisationName,
         managed,
         relationship,
-        ...(managed ? { providerConfig: p.value?.providerConfig ?? {} } : {}),
+        ...(managed
+          ? {
+              providerConfigCaps: p.value?.providerConfigCaps ?? {},
+              providerConfigSettings: p.value?.providerConfigSettings ?? {},
+            }
+          : {}),
         inactive: p.value?.inactive ?? false,
       };
     });
@@ -299,21 +322,90 @@ export class ProvisionerService {
       organisationName: provider.organisationName,
       managed,
       relationship,
-      ...(managed ? { providerConfig: provider.providerConfig ?? {} } : {}),
+      ...(managed
+        ? {
+            providerConfigCaps: provider.providerConfigCaps ?? {},
+            providerConfigSettings: provider.providerConfigSettings ?? {},
+          }
+        : {}),
       inactive: provider.inactive ?? false,
     };
   }
 
-  async updateProviderConfig(providerId: string, params: { providerConfig?: Record<string, any>; organisationName?: string; inactive?: boolean }) {
+  /**
+   * Generic provider-record update (provisioner-level). Caps and settings
+   * have their own dedicated endpoints (`updateProviderCaps`,
+   * `updateProviderSettings`) with cap-respecting validation; this method
+   * is for the lightweight name/inactive flag updates.
+   *
+   * Accepts a legacy `providerConfig` field for back-compat — when present,
+   * it is written to `providerConfigCaps` (the legacy single blob always
+   * represented provisioner-controlled config). Prefer the dedicated
+   * caps-write endpoint for new callers.
+   */
+  async updateProviderConfig(
+    providerId: string,
+    params: {
+      providerConfig?: Record<string, any>;
+      providerConfigCaps?: Record<string, any>;
+      providerConfigSettings?: Record<string, any>;
+      organisationName?: string;
+      inactive?: boolean;
+    },
+  ) {
     const provider = await this.providerStorage.getProvider(providerId);
     if (!provider) return { error: 'Provider not found', code: 'PROVIDER_NOT_FOUND' };
 
     const updated = { ...provider };
-    if (params.providerConfig !== undefined) updated.providerConfig = params.providerConfig;
+    const capsUpdate = params.providerConfigCaps ?? params.providerConfig;
+    if (capsUpdate !== undefined) updated.providerConfigCaps = capsUpdate;
+    if (params.providerConfigSettings !== undefined) updated.providerConfigSettings = params.providerConfigSettings;
     if (params.organisationName !== undefined) updated.organisationName = params.organisationName;
     if (params.inactive !== undefined) updated.inactive = params.inactive;
 
     return this.providerStorage.setProvider(providerId, updated);
+  }
+
+  /**
+   * Provisioner-side caps write — replaces the entire caps blob with
+   * the validated input. Settings are untouched. Use this in preference
+   * to the legacy `updateProviderConfig` for new caps writes.
+   */
+  async updateProviderCaps(providerId: string, caps: Record<string, any>) {
+    const provider = await this.providerStorage.getProvider(providerId);
+    if (!provider) return { error: 'Provider not found', code: 'PROVIDER_NOT_FOUND' };
+    const issues = validateCaps(caps);
+    if (issues.length) return { error: 'caps validation failed', code: 'CAPS_INVALID', issues };
+    return this.providerStorage.updateProviderCaps(providerId, caps);
+  }
+
+  /**
+   * Provider-admin-side settings write — replaces the entire settings
+   * blob with validated input. Caps are untouched. Settings must respect
+   * caps (no booleans above ceiling, no allowedX outside cap universe);
+   * violations are returned as `issues` with per-field detail.
+   */
+  async updateProviderSettings(providerId: string, settings: Record<string, any>) {
+    const provider = await this.providerStorage.getProvider(providerId);
+    if (!provider) return { error: 'Provider not found', code: 'PROVIDER_NOT_FOUND' };
+    const issues = validateSettings(settings, provider.providerConfigCaps ?? {});
+    if (issues.length) return { error: 'settings validation failed', code: 'SETTINGS_INVALID', issues };
+    return this.providerStorage.updateProviderSettings(providerId, settings);
+  }
+
+  /**
+   * Compute the effective ProviderConfigData (caps ∩ settings) for a
+   * single provider. Used by the GET /provider/:id/effective-config
+   * endpoint and by AuthService at login.
+   */
+  async getEffectiveProviderConfig(providerId: string) {
+    const provider = await this.providerStorage.getProvider(providerId);
+    if (!provider) return { error: 'Provider not found', code: 'PROVIDER_NOT_FOUND' };
+    const effective = computeEffectiveConfig(
+      provider.providerConfigCaps,
+      provider.providerConfigSettings,
+    );
+    return { success: true, providerId, effective };
   }
 
   // ── SSO User management (Provisioner) ──

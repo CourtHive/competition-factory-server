@@ -1,6 +1,8 @@
 import { scopeCalendarForUser } from 'src/modules/factory/helpers/checkTournamentAccess';
 import type { UserContext } from 'src/modules/auth/decorators/user-context.decorator';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import { computeEffectiveConfig } from './effective-provider-config';
+import { validateSettings } from './provider-config.validator';
 import { Inject, Injectable } from '@nestjs/common';
 import { tools } from 'tods-competition-factory';
 
@@ -150,5 +152,32 @@ export class ProvidersService {
 
     await this.providerStorage.setProvider(key, { ...storedProvider, ...value });
     return { ...SUCCESS };
+  }
+
+  /**
+   * Effective provider config — caps ∩ settings, computed via the
+   * shared merge function. Returned shape matches TMX's
+   * `ProviderConfigData` (the consumer-facing flat shape).
+   */
+  async getEffectiveProviderConfig(providerId: string) {
+    const provider = await this.providerStorage.getProvider(providerId);
+    if (!provider) return { error: 'Provider not found' };
+    const effective = computeEffectiveConfig(
+      provider.providerConfigCaps,
+      provider.providerConfigSettings,
+    );
+    return { ...SUCCESS, providerId, effective };
+  }
+
+  /**
+   * Settings write with cap-respect validation. Per-field issues
+   * returned in the response when settings exceed caps.
+   */
+  async updateProviderSettings(providerId: string, settings: Record<string, any>) {
+    const provider = await this.providerStorage.getProvider(providerId);
+    if (!provider) return { error: 'Provider not found' };
+    const issues = validateSettings(settings, provider.providerConfigCaps ?? {});
+    if (issues.length) return { error: 'settings validation failed', code: 'SETTINGS_INVALID', issues };
+    return this.providerStorage.updateProviderSettings(providerId, settings);
   }
 }

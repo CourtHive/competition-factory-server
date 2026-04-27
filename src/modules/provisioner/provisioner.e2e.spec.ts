@@ -125,7 +125,10 @@ describe('Provisioner E2E', () => {
       .send({
         organisationAbbreviation: abbr,
         organisationName: 'E2E Test Provider',
-        providerConfig: { features: { scoring: true }, integrations: { ssoProvider: 'ioncourt' } },
+        providerConfigCaps: {
+          permissions: { canCreateOfficials: true, allowedDrawTypes: ['SE', 'RR'] },
+          integrations: { ssoProvider: 'ioncourt' },
+        },
       })
       .expect(201);
 
@@ -134,7 +137,7 @@ describe('Provisioner E2E', () => {
     providerId = res.body.providerId;
   });
 
-  it('shows provider as managed with config', async () => {
+  it('shows provider as managed with caps + settings', async () => {
     const res = await request(app.getHttpServer())
       .get(`/provisioner/providers/${providerId}`)
       .set('Authorization', `Bearer ${apiKey}`)
@@ -142,7 +145,10 @@ describe('Provisioner E2E', () => {
 
     expect(res.body.managed).toBe(true);
     expect(res.body.relationship).toBe('owner');
-    expect(res.body.providerConfig.features.scoring).toBe(true);
+    expect(res.body.providerConfigCaps?.integrations?.ssoProvider).toBe('ioncourt');
+    expect(res.body.providerConfigCaps?.permissions?.allowedDrawTypes).toEqual(['SE', 'RR']);
+    // Settings starts empty for a freshly created provider
+    expect(res.body.providerConfigSettings).toEqual({});
   });
 
   it('rejects duplicate abbreviation', async () => {

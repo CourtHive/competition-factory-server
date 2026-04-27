@@ -63,4 +63,26 @@ export class PostgresProviderStorage implements IProviderStorage {
     );
     return { ...SUCCESS };
   }
+
+  async updateProviderCaps(providerId: string, caps: any): Promise<{ success: boolean }> {
+    await this.pool.query(
+      `UPDATE providers
+         SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{providerConfigCaps}', $2::jsonb, true),
+             updated_at = NOW()
+       WHERE provider_id = $1`,
+      [providerId, JSON.stringify(caps ?? {})],
+    );
+    return { ...SUCCESS };
+  }
+
+  async updateProviderSettings(providerId: string, settings: any): Promise<{ success: boolean }> {
+    await this.pool.query(
+      `UPDATE providers
+         SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{providerConfigSettings}', $2::jsonb, true),
+             updated_at = NOW()
+       WHERE provider_id = $1`,
+      [providerId, JSON.stringify(settings ?? {})],
+    );
+    return { ...SUCCESS };
+  }
 }
