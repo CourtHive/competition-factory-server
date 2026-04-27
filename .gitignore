@@ -56,5 +56,10 @@ storybook-static/
 admin-client/dist/
 admin-client/node_modules/
 
-# Staged by mentat-push-server.sh during deploy
-score-relay/
+# Staged by mentat-push-server.sh during deploy.
+# On mentat-dev, this is a symlink to ../epixodic/score-relay so that
+# ecosystem.config.js's relative `score-relay/dist/server.js` path
+# resolves locally without duplicating node_modules. Pattern with no
+# trailing slash matches both the directory (on nest) and the symlink
+# (on mentat).
+score-relay
