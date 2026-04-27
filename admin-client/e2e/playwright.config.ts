@@ -47,22 +47,36 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    // --host 127.0.0.1 forces Vite to bind IPv4 explicitly. Without it
-    // Vite defaults to 'localhost' which on macOS resolves to ::1 (IPv6),
-    // making the 127.0.0.1 URL unreachable and webServer time out.
-    //
-    // SERVER must be set so admin-client/baseApi.ts points at the running
-    // NestJS server (different origin from Vite). Otherwise /auth/signin
-    // and /admin/provisioners/* calls hit Vite and 404.
-    command: process.env.TEST_PROD
-      ? 'pnpm build && pnpm preview --port 4179 --strictPort --host 127.0.0.1'
-      : 'pnpm dev --port 5179 --strictPort --host 127.0.0.1',
-    env: {
-      SERVER: process.env.SERVER ?? 'http://127.0.0.1:3000',
+  // Two web servers: the NestJS API server and admin-client's Vite dev.
+  // Both reuse an already-running instance during local dev (so the user's
+  // own \`pnpm watch\` / \`pnpm dev\` are picked up) but spin up fresh under CI.
+  webServer: [
+    {
+      // NestJS API. \`pnpm start\` is faster than \`pnpm watch\` for e2e
+      // because it skips the file-watcher overhead.
+      command: 'pnpm start',
+      cwd: '../',
+      url: 'http://127.0.0.1:3000/factory/version',
+      reuseExistingServer: !process.env.CI,
+      timeout: 90_000,
+      stdout: 'pipe',
+      stderr: 'pipe',
     },
-    url: process.env.TEST_PROD ? 'http://127.0.0.1:4179/admin/' : 'http://127.0.0.1:5179/admin/',
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
-  },
+    {
+      // admin-client Vite dev server.
+      // --host 127.0.0.1 forces Vite to bind IPv4 explicitly (default
+      // 'localhost' resolves to ::1 on macOS, making 127.0.0.1 URLs
+      // unreachable). SERVER must be set so admin-client/baseApi.ts
+      // points at the API server (different origin from Vite).
+      command: process.env.TEST_PROD
+        ? 'pnpm build && pnpm preview --port 4179 --strictPort --host 127.0.0.1'
+        : 'pnpm dev --port 5179 --strictPort --host 127.0.0.1',
+      env: {
+        SERVER: process.env.SERVER ?? 'http://127.0.0.1:3000',
+      },
+      url: process.env.TEST_PROD ? 'http://127.0.0.1:4179/admin/' : 'http://127.0.0.1:5179/admin/',
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+  ],
 });

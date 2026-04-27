@@ -7,20 +7,22 @@ for the broader strategy.
 ## Run
 
 ```bash
-# In one terminal (NestJS server — required)
-cd competition-factory-server
-pnpm watch
-
-# In another terminal
 cd competition-factory-server/admin-client
 pnpm test:e2e
 ```
 
-Playwright auto-starts admin-client on port 5179 (dedicated, won't
-collide with the user's regular dev server) and `globalSetup`:
+Playwright boots both servers automatically:
 
-1. Pings the NestJS server on `http://127.0.0.1:3000/factory/version`
-   and fails fast with a clear message if it's not running.
+- The NestJS API on port 3000 (via `pnpm start` in the parent
+  `competition-factory-server/` dir)
+- admin-client on port 5179 (dedicated — won't collide with your
+  regular dev server)
+
+If you already have either running, Playwright reuses it.
+`globalSetup` then:
+
+1. Pings `http://127.0.0.1:3000/factory/version` and fails fast with
+   a clear message if the API didn't come up (e.g. Postgres down).
 2. Provisions a dedicated `e2e-admin@courthive.test` super-admin via
    `src/scripts/admin-user.mjs` (idempotent — re-runs reset the
    password).
