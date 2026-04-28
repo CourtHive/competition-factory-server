@@ -1010,7 +1010,8 @@
     "success": "Success",
     "required": "Required",
     "send": "Send",
-    "iSavedIt": "I saved it"
+    "iSavedIt": "I saved it",
+    "remove": "Remove"
   },
 
   "modals": {
@@ -1230,6 +1231,18 @@
       "services": "Services",
       "tournamentProfiles": "Tournament Profiles (fetch)",
       "invite": "Invite"
+    },
+    "editUser": {
+      "providers": "Providers",
+      "noProviders": "This user has no provider associations.",
+      "noProvidersAtYourScope": "This user has no associations at your provider.",
+      "addProvider": "Add",
+      "addProviderPlaceholder": "Select a provider...",
+      "providerAdded": "Provider added",
+      "providerRemoved": "Provider association removed",
+      "providerRoleUpdated": "Role updated to {{role}}",
+      "removeProviderTitle": "Remove provider association",
+      "removeProviderConfirm": "Remove this user's association with {{provider}}? This action cannot be undone."
     },
     "fetchTournament": {
       "title": "Fetch tournament details",

@@ -1,6 +1,8 @@
 import { modifyUser } from 'services/apis/servicesApi';
 import { renderForm } from 'courthive-components';
 import { labelWithRoleTip } from './roleDefinitions';
+import { buildUserProvidersPanel } from './userProvidersPanel';
+import { getLoginState } from 'services/authentication/loginState';
 import { openModal } from './baseModal/baseModal';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { isFunction } from 'functions/typeOf';
@@ -18,19 +20,15 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
   const userServices = user?.services || [];
 
   let inputs;
+  // Legacy `providerId` is still pinned to the user record for back-compat
+  // with the modifyUser endpoint. The multi-provider Providers panel
+  // (added below the form) now manages the canonical user_providers
+  // associations; this scalar will be retired in Phase 5.
   const values = { providerId: user?.providerId || '' };
+  const userId = user?.userId || user?.user_id || '';
 
-  // Legacy single-provider field. The new model assigns providers via the
-  // user_providers many-to-many table; this column will be deprecated.
-  // Show the organisation name in a disabled input rather than letting the
-  // editor change it here — multi-provider edits will land in a separate
-  // UI. Save flow still passes `values.providerId` through unchanged.
-  const initialProvider = (providers || []).find((p) => p.key === values.providerId);
-  const initialProviderDisplay =
-    initialProvider?.value?.organisationName ?? (values.providerId || t('none'));
-
-  const content = (elem) =>
-    (inputs = renderForm(elem, [
+  const content = (elem) => {
+    inputs = renderForm(elem, [
       {
         iconLeft: 'fa-regular fa-envelope',
         value: user?.email || '',
@@ -94,11 +92,12 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
         checkbox: true,
         id: 'editGenerate',
       },
+      // Anchor row — the multi-provider panel is injected here in the
+      // content callback below. Empty `text` keeps the renderForm flow
+      // happy without rendering anything visible.
       {
-        value: initialProviderDisplay,
-        field: 'providerId',
-        label: t('modals.inviteUser.provider'),
-        disabled: true,
+        text: '',
+        id: 'editProvidersAnchor',
       },
       {
         text: t('modals.inviteUser.permissions'),
@@ -161,7 +160,21 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
           }
         },
       },
-    ]));
+    ]);
+
+    // Inject the multi-provider associations panel at the anchor row.
+    // The server filters list responses by editor scope, so SUPER_ADMIN
+    // sees every association the user has and PROVIDER_ADMIN editors
+    // see only rows at their own provider(s). Skipped entirely if the
+    // user record has no userId (legacy data) — the panel needs the
+    // UUID to call the endpoints.
+    if (userId) {
+      const editorRoles = getLoginState()?.roles ?? [];
+      const anchor = document.getElementById('editProvidersAnchor');
+      const panel = buildUserProvidersPanel({ userId, editorRoles, providers });
+      anchor?.replaceWith(panel);
+    }
+  };
 
   const roles = ['client', 'admin', 'score', 'developer', 'generate', 'director', 'official'];
   const permissions = ['devMode', 'editTennisId', 'deleteTournament'];
