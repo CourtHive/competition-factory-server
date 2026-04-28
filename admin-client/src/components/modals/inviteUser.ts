@@ -1,6 +1,7 @@
 import { validators, renderForm } from 'courthive-components';
 import { inviteUser } from 'services/authentication/authApi';
 import { tmxToast } from 'services/notifications/tmxToast';
+import { roleDefinitionsHtml } from './roleDefinitions';
 import { copyClick } from 'services/dom/copyClick';
 import { openModal } from './baseModal/baseModal';
 import { INVITE } from 'constants/tmxConstants';
@@ -65,6 +66,9 @@ export function inviteModal(callback, providers = [], selectedProviderId?: strin
         {
           text: t('modals.inviteUser.roles'),
           header: true,
+        },
+        {
+          text: roleDefinitionsHtml(),
         },
         {
           label: t('modals.inviteUser.client'),

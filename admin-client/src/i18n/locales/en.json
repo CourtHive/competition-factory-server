@@ -1229,7 +1229,10 @@
       "devMode": "Dev mode",
       "services": "Services",
       "tournamentProfiles": "Tournament Profiles (fetch)",
-      "invite": "Invite"
+      "invite": "Invite",
+      "roleDefs": {
+        "toggle": "What do these roles mean?"
+      }
     },
     "fetchTournament": {
       "title": "Fetch tournament details",

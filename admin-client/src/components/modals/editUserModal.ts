@@ -1,5 +1,6 @@
 import { modifyUser } from 'services/apis/servicesApi';
 import { renderForm } from 'courthive-components';
+import { roleDefinitionsHtml } from './roleDefinitions';
 import { openModal } from './baseModal/baseModal';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { isFunction } from 'functions/typeOf';
@@ -38,6 +39,9 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
       {
         text: t('modals.inviteUser.roles'),
         header: true,
+      },
+      {
+        text: roleDefinitionsHtml(),
       },
       {
         label: t('modals.inviteUser.client'),
