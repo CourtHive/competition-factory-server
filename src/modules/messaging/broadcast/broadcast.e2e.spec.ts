@@ -13,6 +13,7 @@ import { io, Socket } from 'socket.io-client';
 import request from 'supertest';
 
 import { saveAndCommit } from 'src/tests/helpers/saveAndCommit';
+import { seededRng } from 'src/tests/helpers/seededRng';
 
 // constants
 import { TEST, TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
@@ -43,11 +44,13 @@ describe('REST → Socket.IO broadcast', () => {
       .expect(200);
     token = loginRes.body.token;
 
-    // Save a tournament record so mutations have something to operate on
+    // Save a tournament record so mutations have something to operate on.
+    // Seeded RNG keeps tournament_name + draw IDs stable across runs.
     const drawProfiles = [{ drawSize: 4 }];
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       drawProfiles,
       tournamentAttributes: { tournamentId: TEST },
+      random: seededRng(3003),
     });
     await saveAndCommit(httpServer, token, tournamentRecord);
   });

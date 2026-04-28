@@ -5,6 +5,7 @@ import { mocksEngine } from 'tods-competition-factory';
 import request from 'supertest';
 
 import { saveAndCommit } from 'src/tests/helpers/saveAndCommit';
+import { seededRng } from 'src/tests/helpers/seededRng';
 import { TEST, TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
 
 describe('FactoryService', () => {
@@ -49,9 +50,11 @@ describe('FactoryService', () => {
 
     const token = loginReq.body.token;
 
-    // ENSURE: tournamentRecord exists (use save to await persistence)
+    // ENSURE: tournamentRecord exists (use save to await persistence).
+    // Seeded RNG keeps the generated tournament_name stable across runs.
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       tournamentAttributes: { tournamentId: TEST },
+      random: seededRng(1001),
     });
     await saveAndCommit(app.getHttpServer(), token, tournamentRecord);
 

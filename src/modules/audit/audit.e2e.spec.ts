@@ -23,7 +23,10 @@ import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
 const AUDIT_TOURNAMENT_ID = `audit-e2e-${Date.now()}`;
 const AUDIT_PROVIDER_ABBR = `AUDITE2E${Date.now()}`;
 
-describe('Audit Trail E2E', () => {
+const e2eEnabled = process.env.STORAGE_PROVIDER === 'postgres';
+const d = e2eEnabled ? describe : describe.skip;
+
+d('Audit Trail E2E', () => {
   let app: INestApplication;
   let token: string;
   let providerId: string;

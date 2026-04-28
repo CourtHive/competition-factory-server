@@ -5,6 +5,7 @@ import request from 'supertest';
 
 import { mocksEngine, factoryConstants } from 'tods-competition-factory';
 import { saveAndCommit } from '../helpers/saveAndCommit';
+import { seededRng } from '../helpers/seededRng';
 import { TEST, TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
 
 const { SINGLES } = factoryConstants.eventConstants;
@@ -46,6 +47,7 @@ describe('ClientGeneratedTournamentRecord', () => {
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       eventProfiles: [{ eventId: 'e1', eventType: SINGLES }],
       tournamentAttributes: { tournamentId },
+      random: seededRng(2002),
     });
 
     expect(tournamentRecord.events.length).toEqual(1);

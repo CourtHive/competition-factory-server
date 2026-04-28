@@ -100,9 +100,11 @@ const USER_EMAIL_LIKE = `email LIKE 'e2e-sso-%@test.com'`;
 const PROVISIONER_NAME_LIKE = `name LIKE 'E2E-Provisioner-%'`;
 const AUDIT_TOURNAMENT_LIKE = `tournament_id LIKE 'audit-e2e-%'`;
 // Orphan tournaments left by historical test runs whose provider was
-// deleted before the tournament — match by deterministic test names.
+// deleted before the tournament — match by deterministic test names,
+// the synthetic 'test-provider' literal used by unit specs, and the
+// audit-e2e- tournament_id pattern.
 const ORPHAN_TOURNAMENT_NAMES = `tournament_name IN ('E2E Provisioner Tournament','Assignment Test','Audit Trail Test')`;
-const ORPHAN_TOURNAMENT_WHERE = `(${ORPHAN_TOURNAMENT_NAMES} OR tournament_id LIKE 'audit-e2e-%')`;
+const ORPHAN_TOURNAMENT_WHERE = `(${ORPHAN_TOURNAMENT_NAMES} OR tournament_id LIKE 'audit-e2e-%' OR provider_id = 'test-provider')`;
 
 // ── Discovery ────────────────────────────────────────────────────────
 

@@ -10,7 +10,10 @@ import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
  * Simulates an external provisioner (like IONSport) from onboarding
  * through SSO login. Requires STORAGE_PROVIDER=postgres and Redis.
  */
-describe('Provisioner E2E', () => {
+const e2eEnabled = process.env.STORAGE_PROVIDER === 'postgres';
+const d = e2eEnabled ? describe : describe.skip;
+
+d('Provisioner E2E', () => {
   let app: INestApplication;
   let adminToken: string;
   let provisionerId: string;

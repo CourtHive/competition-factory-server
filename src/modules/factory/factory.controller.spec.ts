@@ -13,6 +13,8 @@ import { AuthModule } from '../auth/auth.module';
 import { TEST } from 'src/common/constants/test';
 import { ConfigService } from '@nestjs/config';
 
+import { seededRng } from 'src/tests/helpers/seededRng';
+
 const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
 
 describe('FactoryController', () => {
@@ -37,7 +39,12 @@ describe('FactoryController', () => {
   });
 
   it('can generate a tournament record', async () => {
-    const result = await factoryController.generateTournamentRecord({ tournamentId: TEST }, testUser);
+    // Seed RNG and pin tournamentId via tournamentAttributes so this spec
+    // always UPSERTs the same Postgres row instead of inserting a new UUID.
+    const result = await factoryController.generateTournamentRecord(
+      { tournamentAttributes: { tournamentId: TEST }, random: seededRng(1) },
+      testUser,
+    );
     expect(result.success).toEqual(true);
   });
 
@@ -47,7 +54,10 @@ describe('FactoryController', () => {
   });
 
   it('can generate a tournamentRecord and query for it', async () => {
-    const result = await factoryController.generateTournamentRecord({ tournamentAttributes: { tournamentId: TEST } }, testUser);
+    const result = await factoryController.generateTournamentRecord(
+      { tournamentAttributes: { tournamentId: TEST }, random: seededRng(2) },
+      testUser,
+    );
     expect(result.tournamentRecord.tournamentId).toBe(TEST);
   });
 
