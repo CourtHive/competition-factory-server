@@ -3,6 +3,7 @@ import { UserCtx, type UserContext } from './decorators/user-context.decorator';
 import { ADMIN, SUPER_ADMIN, CLIENT } from 'src/common/constants/roles';
 import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
+import { User } from './decorators/user.decorator';
 import { ModifyUserDto } from './dto/modifyUser.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
@@ -34,8 +35,11 @@ export class AuthController {
 
   @Post('invite')
   @Roles([ADMIN, SUPER_ADMIN])
-  invite(@Body() invitation: InviteDto) {
-    return this.authService.invite(invitation);
+  invite(@Body() invitation: InviteDto, @User() user?: any, @UserCtx() userContext?: UserContext) {
+    return this.authService.invite(invitation, {
+      userContext,
+      provisionerIds: user?.provisionerIds,
+    });
   }
 
   @Post('modify')

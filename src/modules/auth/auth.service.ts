@@ -20,7 +20,13 @@ import {
   type IUserStorage,
   USER_PROVISIONER_STORAGE,
   type IUserProvisionerStorage,
+  USER_PROVIDER_STORAGE,
+  type IUserProviderStorage,
+  PROVISIONER_PROVIDER_STORAGE,
+  type IProvisionerProviderStorage,
 } from 'src/storage/interfaces';
+import { assertProviderEditor } from './helpers/assertProviderEditor';
+import type { UserContext } from './decorators/user-context.decorator';
 
 const ALLOWED_ROLE_SET = new Set([...VALID_GLOBAL_ROLES, ...VALID_PROVIDER_ROLES, 'admin', 'official', 'director']);
 
@@ -34,6 +40,9 @@ export class AuthService {
     @Inject(AUTH_CODE_STORAGE) private readonly authCodeStorage: IAuthCodeStorage,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
     @Inject(USER_PROVISIONER_STORAGE) private readonly userProvisionerStorage: IUserProvisionerStorage,
+    @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
+    @Inject(PROVISIONER_PROVIDER_STORAGE)
+    private readonly provisionerProviderStorage: IProvisionerProviderStorage,
   ) {}
 
   async signIn(email: string, clearTextPassword: string) {
@@ -98,7 +107,29 @@ export class AuthService {
     return { token };
   }
 
-  async invite(invitation: any) {
+  /**
+   * Invite a user to a provider.
+   *
+   * Two paths:
+   *
+   *   - Existing email — skip user creation, upsert a user_providers row
+   *     at the inviter's chosen provider, return `{ existingUser: true }`.
+   *     No invite code; the user already has credentials.
+   *
+   *   - New email — create the invite code as today, but also persist
+   *     `providerId` + `providerRole` in the cached invite payload so
+   *     `register()` can lay down the corresponding user_providers row
+   *     when the invitee accepts.
+   *
+   * Authorization: the inviter must have edit authority at `providerId`.
+   * Super-admins are unrestricted; PROVIDER_ADMIN editors are confined
+   * to their own provider; provisioners are confined to providers they
+   * administer. Enforced via `assertProviderEditor`.
+   */
+  async invite(
+    invitation: any,
+    editor?: { userContext?: UserContext; provisionerIds?: string[] },
+  ) {
     const email = invitation?.email ?? '';
     if (!email) return { error: 'Email is required' };
 
@@ -109,33 +140,72 @@ export class AuthService {
       return { error: `Invalid role(s): ${invalidRoles.join(', ')}` };
     }
 
-    const user = await this.usersService.findOne(email);
-    if (user?.email) return { error: 'Existing user' };
+    const providerId: string | undefined = invitation?.providerId;
+    const providerRole: string =
+      invitation?.providerRole === 'PROVIDER_ADMIN' ? 'PROVIDER_ADMIN' : 'DIRECTOR';
 
+    if (!providerId) return { error: 'providerId required' };
+
+    // Editor must have authority at the chosen provider — same rule
+    // applied by the user-provider CRUD controller.
+    await assertProviderEditor({
+      userContext: editor?.userContext,
+      providerId,
+      provisionerIds: editor?.provisionerIds,
+      provisionerProviderStorage: this.provisionerProviderStorage,
+    });
+
+    const user = await this.usersService.findOne(email);
+    if (user?.email) {
+      // Existing-email path: associate, no invite code.
+      const userId = user.userId ?? user.user_id;
+      if (!userId) return { error: 'Existing user has no userId' };
+      await this.userProviderStorage.upsert({ userId, providerId, providerRole });
+      return { success: true, existingUser: true, providerId, providerRole };
+    }
+
+    // New-email path: persist provider context in the cached invite so
+    // register() can stamp the user_providers row on accept.
     const inviteCode = createUniqueKey();
-    await this.cacheManager.set(`invite:${inviteCode}`, invitation, 60 * 60 * 24 * 1000);
+    const cachedInvite = { ...invitation, providerId, providerRole };
+    await this.cacheManager.set(`invite:${inviteCode}`, cachedInvite, 60 * 60 * 24 * 1000);
 
     Logger.verbose(`Invite code: ${inviteCode}, Email: ${email}`);
-    /**
-      await sendEmailHTML({
-        to: email,
-        subject: 'Invitation',
-        templateName: 'userInvitation',
-        templateData: {
-          invitationLink: `/newUser?code=${inviteCode}`,
-        },
-      });
-     */
-    return { inviteCode };
+    return { success: true, existingUser: false, inviteCode };
   }
 
   async register(invitation: any) {
     const { code, ...details } = invitation;
-    const invite = await this.cacheManager.get(`invite:${code}`);
+    const invite: any = await this.cacheManager.get(`invite:${code}`);
     if (!invite) throw new UnauthorizedException('Invalid invitation code');
     await this.cacheManager.del(`invite:${code}`);
+
     const result: any = await this.usersService.create({ ...details, ...invite });
     if (result.error) return result;
+
+    // If the invite carried a provider context, lay down the
+    // user_providers row now so the new user lands with the correct
+    // per-provider scope role.
+    if (invite.providerId && invite.providerRole) {
+      const created = await this.usersService.findOne(invite.email);
+      const userId = created?.userId ?? created?.user_id;
+      if (userId) {
+        try {
+          await this.userProviderStorage.upsert({
+            userId,
+            providerId: invite.providerId,
+            providerRole: invite.providerRole,
+          });
+        } catch (err) {
+          // Non-fatal: user is created, association can be repaired by
+          // an admin later. Log so we know if this surfaces.
+          Logger.warn(
+            `Failed to upsert user_providers row for ${invite.email}: ${(err as Error).message}`,
+          );
+        }
+      }
+    }
+
     return { ...SUCCESS };
   }
 

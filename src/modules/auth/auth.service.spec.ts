@@ -11,6 +11,8 @@ describe('AuthService', () => {
   let mockProviderStorage: any;
   let mockAuthCodeStorage: any;
   let mockUserStorage: any;
+  let mockUserProviderStorage: any;
+  let mockProvisionerProviderStorage: any;
 
   beforeEach(() => {
     jwtService = new JwtService({ secret: 'test-secret' });
@@ -51,6 +53,25 @@ describe('AuthService', () => {
       disassociate: jest.fn().mockResolvedValue({ success: true }),
     };
 
+    mockUserProviderStorage = {
+      findByUserId: jest.fn().mockResolvedValue([]),
+      findByUserIdEnriched: jest.fn().mockResolvedValue([]),
+      findByEmail: jest.fn().mockResolvedValue([]),
+      findByProviderId: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue(null),
+      upsert: jest.fn().mockResolvedValue({ success: true }),
+      remove: jest.fn().mockResolvedValue({ success: true }),
+    };
+
+    mockProvisionerProviderStorage = {
+      findByProvisioner: jest.fn().mockResolvedValue([]),
+      findByProvider: jest.fn().mockResolvedValue([]),
+      getRelationship: jest.fn().mockResolvedValue(null),
+      associate: jest.fn(),
+      updateRelationship: jest.fn(),
+      disassociate: jest.fn(),
+    };
+
     authService = new AuthService(
       mockUsersService,
       jwtService,
@@ -59,6 +80,8 @@ describe('AuthService', () => {
       mockAuthCodeStorage,
       mockUserStorage,
       mockUserProvisionerStorage as any,
+      mockUserProviderStorage,
+      mockProvisionerProviderStorage,
     );
   });
 
@@ -143,22 +166,95 @@ describe('AuthService', () => {
   });
 
   describe('invite', () => {
+    const superAdminCtx = {
+      userContext: {
+        userId: 'admin-uuid',
+        email: 'admin@test.com',
+        isSuperAdmin: true,
+        globalRoles: ['superadmin'],
+        providerRoles: {},
+        providerIds: [],
+      },
+    };
+
     it('returns error when email is empty', async () => {
-      const result = await authService.invite({});
+      const result = await authService.invite({}, superAdminCtx);
       expect(result.error).toBe('Email is required');
     });
 
-    it('returns error when user already exists', async () => {
-      mockUsersService.findOne.mockResolvedValue({ email: 'existing@test.com' });
-      const result = await authService.invite({ email: 'existing@test.com' });
-      expect(result.error).toBe('Existing user');
+    it('returns error when providerId is missing', async () => {
+      mockUsersService.findOne.mockResolvedValue(null);
+      const result = await authService.invite(
+        { email: 'new@test.com' },
+        superAdminCtx,
+      );
+      expect(result.error).toBe('providerId required');
     });
 
-    it('returns invite code for new user', async () => {
+    it('rejects when editor lacks scope at the chosen provider', async () => {
+      const result: any = await authService
+        .invite(
+          { email: 'new@test.com', providerId: 'p-1' },
+          {
+            userContext: {
+              userId: 'u-1',
+              email: 'admin@test.com',
+              isSuperAdmin: false,
+              globalRoles: ['client'],
+              providerRoles: { 'p-other': 'PROVIDER_ADMIN' },
+              providerIds: ['p-other'],
+            },
+          },
+        )
+        .catch((e) => e);
+      // assertProviderEditor throws ForbiddenException
+      expect(result?.status).toBe(403);
+    });
+
+    it('upserts user_providers row for an existing email and skips invite code', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'existing@test.com',
+        userId: 'existing-uuid',
+      });
+      const result: any = await authService.invite(
+        { email: 'existing@test.com', providerId: 'p-1', providerRole: 'DIRECTOR' },
+        superAdminCtx,
+      );
+      expect(result.existingUser).toBe(true);
+      expect(result.providerId).toBe('p-1');
+      expect(result.providerRole).toBe('DIRECTOR');
+      expect(result.inviteCode).toBeUndefined();
+      expect(mockUserProviderStorage.upsert).toHaveBeenCalledWith({
+        userId: 'existing-uuid',
+        providerId: 'p-1',
+        providerRole: 'DIRECTOR',
+      });
+      expect(mockCacheManager.set).not.toHaveBeenCalled();
+    });
+
+    it('returns invite code for new user and persists provider context in cache', async () => {
       mockUsersService.findOne.mockResolvedValue(null);
-      const result = await authService.invite({ email: 'new@test.com', roles: ['client'] });
+      const result: any = await authService.invite(
+        { email: 'new@test.com', roles: ['client'], providerId: 'p-1', providerRole: 'PROVIDER_ADMIN' },
+        superAdminCtx,
+      );
+      expect(result.existingUser).toBe(false);
       expect(result.inviteCode).toBeDefined();
       expect(mockCacheManager.set).toHaveBeenCalled();
+      const cachedPayload = (mockCacheManager.set as jest.Mock).mock.calls[0][1];
+      expect(cachedPayload.providerId).toBe('p-1');
+      expect(cachedPayload.providerRole).toBe('PROVIDER_ADMIN');
+    });
+
+    it('defaults providerRole to DIRECTOR when not specified', async () => {
+      mockUsersService.findOne.mockResolvedValue(null);
+      const result: any = await authService.invite(
+        { email: 'new@test.com', providerId: 'p-1' },
+        superAdminCtx,
+      );
+      expect(result.inviteCode).toBeDefined();
+      const cachedPayload = (mockCacheManager.set as jest.Mock).mock.calls[0][1];
+      expect(cachedPayload.providerRole).toBe('DIRECTOR');
     });
   });
 

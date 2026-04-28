@@ -1,7 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import { IUserProviderStorage, UserProviderRow } from '../interfaces/user-provider-storage.interface';
+import {
+  IUserProviderStorage,
+  UserProviderRow,
+  UserProviderEnrichedRow,
+} from '../interfaces/user-provider-storage.interface';
 import { PG_POOL } from './postgres.config';
 import { SUCCESS } from 'src/common/constants/app';
 
@@ -19,6 +23,41 @@ export class PostgresUserProviderStorage implements IUserProviderStorage {
       [userId],
     );
     return result.rows.map(mapRow);
+  }
+
+  async findByUserIdEnriched(
+    userId: string,
+    allowedProviderIds?: string[],
+  ): Promise<UserProviderEnrichedRow[]> {
+    // Single round-trip: join users (for email) and providers (for display
+    // fields). The optional ANY($2) filter lets the controller pass a
+    // PROVIDER_ADMIN/PROVISIONER's allowed-providers set so the SQL never
+    // returns rows the editor isn't authorised to see — defense in depth
+    // alongside the controller-level check.
+    const params: any[] = [userId];
+    let scopeClause = '';
+    if (allowedProviderIds !== undefined) {
+      // An empty allow-list short-circuits to no rows; treat that as
+      // "editor has no authorised providers" rather than "no filter".
+      if (!allowedProviderIds.length) return [];
+      params.push(allowedProviderIds);
+      scopeClause = ' AND up.provider_id = ANY($2::text[])';
+    }
+    const result = await this.pool.query(
+      `SELECT up.user_id, up.provider_id, up.provider_role, up.created_at, up.updated_at,
+              u.email, p.organisation_name, p.organisation_abbreviation
+         FROM user_providers up
+         JOIN users u ON u.user_id = up.user_id
+         JOIN providers p ON p.provider_id = up.provider_id
+        WHERE up.user_id = $1${scopeClause}
+        ORDER BY p.organisation_name`,
+      params,
+    );
+    return result.rows.map((row) => ({
+      ...mapRow(row),
+      organisationName: row.organisation_name ?? '',
+      organisationAbbreviation: row.organisation_abbreviation ?? '',
+    }));
   }
 
   async findByEmail(email: string): Promise<UserProviderRow[]> {
