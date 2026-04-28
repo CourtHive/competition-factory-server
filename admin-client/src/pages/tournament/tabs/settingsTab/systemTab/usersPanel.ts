@@ -96,6 +96,12 @@ export function renderUsersPanel({ container, providers, users, onRefresh }: Ren
     selectableRows: 1,
     layout: 'fitColumns',
     maxHeight: 500,
+    // Surface the most recently active users at the top by default;
+    // ties (and never-accessed rows) fall back to email.
+    initialSort: [
+      { column: 'lastAccess', dir: 'desc' },
+      { column: 'email', dir: 'asc' },
+    ],
     columns: [
       { title: t('system.firstName'), field: 'firstName', headerSort: true },
       { title: t('system.lastName'), field: 'lastName', headerSort: true },
@@ -106,6 +112,7 @@ export function renderUsersPanel({ container, providers, users, onRefresh }: Ren
         title: t('system.lastAccess'),
         field: 'lastAccess',
         headerSort: true,
+        sorter: 'datetime',
         formatter: (cell) => {
           const val = cell.getValue();
           if (!val) return '';

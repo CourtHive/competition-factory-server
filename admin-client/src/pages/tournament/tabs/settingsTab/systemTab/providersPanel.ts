@@ -81,6 +81,12 @@ export function renderProvidersPanel({ container, providers, users, onRefresh }:
     selectableRows: 1,
     layout: 'fitColumns',
     maxHeight: 500,
+    // Surface the most recently active providers at the top by default;
+    // ties (and never-accessed rows) fall back to organisation name.
+    initialSort: [
+      { column: 'lastAccess', dir: 'desc' },
+      { column: 'organisationName', dir: 'asc' },
+    ],
     columns: [
       { title: t('system.providerName'), field: 'organisationName', headerSort: true },
       { title: t('system.providerAbbr'), field: 'organisationAbbreviation', headerSort: true },
@@ -88,6 +94,7 @@ export function renderProvidersPanel({ container, providers, users, onRefresh }:
         title: t('system.lastAccess'),
         field: 'lastAccess',
         headerSort: true,
+        sorter: 'datetime',
         formatter: (cell: any) => {
           const val = cell.getValue();
           if (!val) return '';
