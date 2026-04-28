@@ -1,4 +1,5 @@
-packages: []
+packages:
+  - 'audit-worker'
 
 ignoredBuiltDependencies:
   - '@nestjs/core'
