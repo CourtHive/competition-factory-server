@@ -1,6 +1,5 @@
 import { validateTournamentRecord } from './validateRecord.js';
 import { getPendingRows, markSaveResult } from '../db.js';
-import axios from 'axios';
 
 import type pg from 'pg';
 
@@ -42,12 +41,8 @@ async function processOne(pool: pg.Pool, row: any): Promise<void> {
     const result = await validateTournamentRecord(data, level);
 
     if (result.valid) {
-      // Commit via server internal endpoint
       try {
-        await axios.post(`${SERVER_URL}/factory/internal/commit-save`, { saveId }, {
-          headers: { 'X-Internal-Key': INTERNAL_KEY },
-          timeout: 30000,
-        });
+        await commitSave(saveId);
         await markSaveResult(pool, saveId, 'accepted', result.errors, result.warnings);
         console.log(`[audit-worker] save ${saveId} accepted`);
       } catch (commitErr: any) {
@@ -61,6 +56,22 @@ async function processOne(pool: pg.Pool, row: any): Promise<void> {
   } catch (err: any) {
     console.error(`[audit-worker] validation threw for ${saveId}:`, err.message);
     await markSaveResult(pool, saveId, 'rejected', [`Validation error: ${err.message}`], []);
+  }
+}
+
+async function commitSave(saveId: string): Promise<void> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+  try {
+    const res = await fetch(`${SERVER_URL}/factory/internal/commit-save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Internal-Key': INTERNAL_KEY },
+      body: JSON.stringify({ saveId }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
