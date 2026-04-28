@@ -27,6 +27,13 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
   const values = { providerId: user?.providerId || '' };
   const setProviderId = (value) => (values.providerId = value);
 
+  // Resolve the label for the initial providerId so the field shows the
+  // organisation name, not the bare UUID. The typeAhead initialises the
+  // input from `value` literally; callbacks update `values.providerId`
+  // when the user picks a different provider, so saving still uses the id.
+  const initialProvider = providerList.find((p) => p.value === values.providerId);
+  const initialProviderDisplay = initialProvider?.label ?? values.providerId;
+
   const content = (elem) =>
     (inputs = renderForm(elem, [
       {
@@ -97,7 +104,7 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
       },
       {
         typeAhead: { list: providerList, callback: setProviderId },
-        value: values.providerId || '',
+        value: initialProviderDisplay,
         placeholder: t('none'),
         field: 'providerId',
         label: t('modals.inviteUser.provider'),
