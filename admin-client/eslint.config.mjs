@@ -22,6 +22,9 @@ export default [
         ...globals.browser,
         ...globals.es2021,
         process: 'readonly',
+        // Build-time constants injected by Vite via `define` in vite.config.ts
+        __BUILD_COMMIT__: 'readonly',
+        __BUILD_TIME__: 'readonly',
       },
     },
     plugins: {

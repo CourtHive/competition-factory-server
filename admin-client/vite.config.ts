@@ -1,5 +1,18 @@
 import { defineConfig } from 'vite';
+import { execSync } from 'child_process';
 import { resolve } from 'path';
+
+// Capture the build commit + timestamp so the running app can announce
+// itself in the browser console. Lets a dev verify "did my rebuild
+// actually ship" without poking around in DevTools.
+const BUILD_COMMIT = (() => {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim();
+  } catch {
+    return 'unknown';
+  }
+})();
+const BUILD_TIME = new Date().toISOString();
 
 export default defineConfig({
   base: '/admin/',
@@ -10,6 +23,8 @@ export default defineConfig({
   // origin as the server so the fallback to window.location.origin is fine.
   define: {
     'process.env.SERVER': JSON.stringify(process.env.SERVER ?? ''),
+    __BUILD_COMMIT__: JSON.stringify(BUILD_COMMIT),
+    __BUILD_TIME__: JSON.stringify(BUILD_TIME),
   },
   resolve: {
     alias: {
