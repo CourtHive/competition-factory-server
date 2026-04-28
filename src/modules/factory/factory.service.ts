@@ -99,8 +99,13 @@ export class FactoryService {
     return await queryTournamentRecords(params, this.tournamentStorage);
   }
 
-  async removeTournamentRecords(params, user) {
-    return await this.tournamentStorageService.removeTournamentRecords(params, user, this.auditService);
+  async removeTournamentRecords(params, user, userContext?: UserContext) {
+    return await this.tournamentStorageService.removeTournamentRecords(
+      params,
+      user,
+      this.auditService,
+      userContext,
+    );
   }
 
   async saveTournamentRecords(params, user, userContext?: UserContext) {

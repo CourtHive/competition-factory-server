@@ -4,6 +4,8 @@ import { TOURNAMENT_STORAGE, type ITournamentStorage } from './interfaces/tourna
 import { PROVIDER_STORAGE, type IProviderStorage } from './interfaces/provider-storage.interface';
 import { CALENDAR_STORAGE, type ICalendarStorage } from './interfaces/calendar-storage.interface';
 import { CREATED_BY_USER_ID } from 'src/modules/factory/helpers/checkTournamentAccess';
+import type { UserContext } from 'src/modules/auth/decorators/user-context.decorator';
+import { PROVIDER_ADMIN } from 'src/common/constants/roles';
 
 import { getCalendarEntry } from 'src/helpers/getCalendarEntry';
 import { SUCCESS } from 'src/common/constants/app';
@@ -86,6 +88,7 @@ export class TournamentStorageService {
     params: { tournamentIds?: string[]; tournamentId?: string; providerId?: string },
     user?: any,
     auditService?: any,
+    userContext?: UserContext,
   ) {
     const tournamentIds: string[] =
       params?.tournamentIds ?? ([params?.tournamentId].filter(Boolean) as string[]);
@@ -93,12 +96,19 @@ export class TournamentStorageService {
     let removed = 0;
 
     for (const tournamentId of tournamentIds) {
-      const hasDeletePermission =
+      // Resolve auth in three layers, cheapest first:
+      // 1. Per-user `permissions` array (legacy granular grant) — or no
+      //    permissions field at all (back-compat for older user records).
+      // 2. SUPER_ADMIN role.
+      // 3. PROVIDER_ADMIN at the tournament's owning provider — provider
+      //    admins logically should be able to delete their own provider's
+      //    tournaments without needing the separate `deleteTournament`
+      //    permission checkbox. Requires loading the tournament record.
+      let hasDeletePermission =
         !user?.permissions ||
         user.permissions.includes('deleteTournament') ||
         user.roles?.includes('superadmin');
 
-      // Allow creators to delete their own tournaments
       let isCreator = false;
       let existingRecord: any;
       if (!hasDeletePermission && user?.userId) {
@@ -106,6 +116,17 @@ export class TournamentStorageService {
         existingRecord = existing?.tournamentRecord;
         const createdBy = (existingRecord?.extensions ?? []).find((e) => e?.name === 'createdByUserId')?.value;
         isCreator = !!createdBy && createdBy === user.userId;
+
+        // PROVIDER_ADMIN at the tournament's provider also implies delete.
+        if (!isCreator && userContext) {
+          const tournamentProviderId = existingRecord?.parentOrganisation?.organisationId;
+          if (
+            tournamentProviderId &&
+            userContext.providerRoles?.[tournamentProviderId] === PROVIDER_ADMIN
+          ) {
+            hasDeletePermission = true;
+          }
+        }
       }
 
       if (hasDeletePermission || isCreator) {

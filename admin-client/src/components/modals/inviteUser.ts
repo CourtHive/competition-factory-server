@@ -1,7 +1,7 @@
 import { validators, renderForm } from 'courthive-components';
 import { inviteUser } from 'services/authentication/authApi';
 import { tmxToast } from 'services/notifications/tmxToast';
-import { roleDefinitionsHtml } from './roleDefinitions';
+import { labelWithRoleTip } from './roleDefinitions';
 import { copyClick } from 'services/dom/copyClick';
 import { openModal } from './baseModal/baseModal';
 import { INVITE } from 'constants/tmxConstants';
@@ -68,49 +68,46 @@ export function inviteModal(callback, providers = [], selectedProviderId?: strin
           header: true,
         },
         {
-          text: roleDefinitionsHtml(),
-        },
-        {
-          label: t('modals.inviteUser.client'),
+          label: labelWithRoleTip(t('modals.inviteUser.client'), 'client'),
           field: 'client',
           checkbox: true,
           width: '50%',
           id: 'client',
           fieldPair: {
-            label: t('modals.inviteUser.director'),
+            label: labelWithRoleTip(t('modals.inviteUser.director'), 'director'),
             field: 'director',
             id: 'director',
             checkbox: true,
           },
         },
         {
-          label: t('modals.inviteUser.admin'),
+          label: labelWithRoleTip(t('modals.inviteUser.admin'), 'admin'),
           checkbox: true,
           field: 'admin',
           width: '50%',
           id: 'admin',
           fieldPair: {
-            label: t('modals.inviteUser.official'),
+            label: labelWithRoleTip(t('modals.inviteUser.official'), 'official'),
             field: 'official',
             id: 'official',
             checkbox: true,
           },
         },
         {
-          label: t('modals.inviteUser.scoring'),
+          label: labelWithRoleTip(t('modals.inviteUser.scoring'), 'score'),
           field: 'score',
           width: '50%',
           id: 'score',
           checkbox: true,
           fieldPair: {
-            label: t('modals.inviteUser.developer'),
+            label: labelWithRoleTip(t('modals.inviteUser.developer'), 'developer'),
             field: 'developer',
             id: 'developer',
             checkbox: true,
           },
         },
         {
-          label: t('modals.inviteUser.generate'),
+          label: labelWithRoleTip(t('modals.inviteUser.generate'), 'generate'),
           field: 'generate',
           checkbox: true,
           id: 'generate',

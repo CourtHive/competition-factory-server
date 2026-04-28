@@ -1,12 +1,14 @@
 /**
- * Inline reference for the role checkboxes in the invite/edit user modals.
+ * Per-role definition reference used by the invite/edit user modals.
  *
- * Returns an HTML string suitable for `renderForm`'s `text` field, which
- * sets `innerHTML`. Wrapped in a native `<details>` element so it's
- * keyboard-accessible without any extra JS. The content is collapsed
- * by default — open on click of the summary.
+ * Earlier iteration was a single big `<details>` block under the Roles
+ * header — too much to parse at once and it overlaid the modal content
+ * messily. Now exposed as a per-role description string that callers
+ * paint into a small `<i>` info icon next to each checkbox label, with
+ * the description in a native `title` attribute (browser tooltip on
+ * hover, no overlay, no extra deps).
  *
- * Why both shaped roles get explained here:
+ * Why both shapes of role get explained here:
  *   - The visible checkboxes write to `users.roles` (legacy global +
  *     functional role array).
  *   - The new per-provider scope role lives in `user_providers.provider_role`
@@ -18,77 +20,38 @@
  * surface is admin-only and English-only. When the admin app picks up
  * i18n for descriptions, swap to t() calls.
  */
-import { t } from 'i18n';
 
-interface RoleDef {
-  /** Lowercase role key as stored in users.roles. */
-  key: string;
-  /** Human-friendly label — reuse i18n key from inviteUser.* */
-  labelKey: string;
-  /** One- or two-sentence description shown in the popover. */
-  description: string;
+/** One-sentence description per legacy role key (lowercase). */
+const ROLE_DESCRIPTIONS: Record<string, string> = {
+  client:
+    'Basic tournament access. Required for any user logging into TMX or other client apps.',
+  admin:
+    "Provider administrator. Grants full mutate access — including delete — to all tournaments at the user's home provider (equivalent to PROVIDER_ADMIN in the per-provider role table). Without this, the user can only edit/delete tournaments they personally created or were explicitly assigned to.",
+  director:
+    'Tournament director. Functional role for users who run tournaments. Distinct from the per-provider DIRECTOR scope role, which is auto-derived from a user-provider association.',
+  official: 'Match officials — referees, umpires, line judges.',
+  score: 'Allowed to enter scores for matchups. Used by the official-app and scoring stations.',
+  generate: 'Allowed to use the mocksEngine and draw-generation tools.',
+  developer: 'Dev-mode features and internal debugging UIs.',
+};
+
+/**
+ * Returns the role's plain-text description (no HTML), suitable for a
+ * `title` attribute on the corresponding label/icon.
+ */
+export function roleDescription(roleKey: string): string {
+  return ROLE_DESCRIPTIONS[roleKey] ?? '';
 }
 
-const ROLE_DEFS: RoleDef[] = [
-  {
-    key: 'client',
-    labelKey: 'modals.inviteUser.client',
-    description:
-      'Basic tournament access. Required for any user logging into TMX or other client apps.',
-  },
-  {
-    key: 'admin',
-    labelKey: 'modals.inviteUser.admin',
-    description:
-      "Provider administrator. Grants full mutate access to <em>all</em> tournaments at the user's home provider — equivalent to <code>PROVIDER_ADMIN</code> in the new role table. Without this, the user can only edit/delete tournaments they personally created or were explicitly assigned to.",
-  },
-  {
-    key: 'director',
-    labelKey: 'modals.inviteUser.director',
-    description:
-      'Tournament director. Functional role for users who run tournaments. Distinct from the per-provider <code>DIRECTOR</code> scope role, which is auto-derived from a user-provider association.',
-  },
-  {
-    key: 'official',
-    labelKey: 'modals.inviteUser.official',
-    description: 'Match officials — referees, umpires, line judges.',
-  },
-  {
-    key: 'score',
-    labelKey: 'modals.inviteUser.scoring',
-    description:
-      'Allowed to enter scores for matchups. Used by the official-app and scoring stations.',
-  },
-  {
-    key: 'generate',
-    labelKey: 'modals.inviteUser.generate',
-    description:
-      'Allowed to use the mocksEngine and draw-generation tools.',
-  },
-  {
-    key: 'developer',
-    labelKey: 'modals.inviteUser.developer',
-    description: 'Dev-mode features and internal debugging UIs.',
-  },
-];
-
-/** HTML for a `<details>` block that explains every checkbox role. */
-export function roleDefinitionsHtml(): string {
-  const items = ROLE_DEFS.map(
-    (r) =>
-      `<dt style="font-weight:600; margin-top:0.6em;">${t(r.labelKey)}</dt>` +
-      `<dd style="margin:0.15em 0 0 0; opacity:0.85;">${r.description}</dd>`,
-  ).join('');
-
-  return [
-    `<details style="font-weight:normal; font-size:0.85em; margin-top:-0.3em;">`,
-    `  <summary style="cursor:help; user-select:none; opacity:0.75; display:inline-flex; align-items:center; gap:6px;">`,
-    `    <i class="fa-solid fa-circle-info"></i>`,
-    `    <span>${t('modals.inviteUser.roleDefs.toggle')}</span>`,
-    `  </summary>`,
-    `  <dl style="margin:0.6em 0 0.4em 1.4em; padding:0.6em 0.9em; border-left:3px solid var(--tmx-border-secondary, #ccc); background:var(--tmx-bg-secondary, rgba(128,128,128,0.05)); border-radius:0 4px 4px 0;">`,
-    items,
-    `  </dl>`,
-    `</details>`,
-  ].join('');
+/**
+ * Returns a label string with a trailing info icon whose `title`
+ * attribute is the role description. Safe to use as a `renderForm`
+ * label (which is set via innerHTML).
+ */
+export function labelWithRoleTip(label: string, roleKey: string): string {
+  const desc = roleDescription(roleKey);
+  if (!desc) return label;
+  // Title attribute is auto-escaped by the browser; description content
+  // is hand-authored above so no untrusted input is interpolated here.
+  return `${label} <i class="fa-solid fa-circle-info" style="opacity:0.5; cursor:help; margin-left:4px;" title="${desc}"></i>`;
 }

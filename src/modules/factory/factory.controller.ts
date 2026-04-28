@@ -18,6 +18,7 @@ import { Roles } from 'src/modules/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/modules/auth/guards/role.guard';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { User } from '../auth/decorators/user.decorator';
+import { UserCtx, type UserContext } from '../auth/decorators/user-context.decorator';
 import { FactoryService } from './factory.service';
 
 @UseGuards(RolesGuard)
@@ -184,8 +185,12 @@ export class FactoryController {
   @Post('remove')
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  removeTournamentRecords(@Body() rtd: RemoveTournamentRecordsDto, @User() user?: any) {
-    return this.factoryService.removeTournamentRecords(rtd, user);
+  removeTournamentRecords(
+    @Body() rtd: RemoveTournamentRecordsDto,
+    @User() user?: any,
+    @UserCtx() userContext?: UserContext,
+  ) {
+    return this.factoryService.removeTournamentRecords(rtd, user, userContext);
   }
 
   @Post('save')

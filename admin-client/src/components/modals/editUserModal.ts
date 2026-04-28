@@ -1,6 +1,6 @@
 import { modifyUser } from 'services/apis/servicesApi';
 import { renderForm } from 'courthive-components';
-import { roleDefinitionsHtml } from './roleDefinitions';
+import { labelWithRoleTip } from './roleDefinitions';
 import { openModal } from './baseModal/baseModal';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { isFunction } from 'functions/typeOf';
@@ -17,22 +17,17 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
   const userPermissions = user?.permissions || [];
   const userServices = user?.services || [];
 
-  const noProvider: any = { value: { organisationName: 'None' }, key: '' };
-  const providerList = [noProvider, ...providers].map(({ key, value }) => ({
-    label: value?.organisationName,
-    value: key,
-  }));
-
   let inputs;
   const values = { providerId: user?.providerId || '' };
-  const setProviderId = (value) => (values.providerId = value);
 
-  // Resolve the label for the initial providerId so the field shows the
-  // organisation name, not the bare UUID. The typeAhead initialises the
-  // input from `value` literally; callbacks update `values.providerId`
-  // when the user picks a different provider, so saving still uses the id.
-  const initialProvider = providerList.find((p) => p.value === values.providerId);
-  const initialProviderDisplay = initialProvider?.label ?? values.providerId;
+  // Legacy single-provider field. The new model assigns providers via the
+  // user_providers many-to-many table; this column will be deprecated.
+  // Show the organisation name in a disabled input rather than letting the
+  // editor change it here — multi-provider edits will land in a separate
+  // UI. Save flow still passes `values.providerId` through unchanged.
+  const initialProvider = (providers || []).find((p) => p.key === values.providerId);
+  const initialProviderDisplay =
+    initialProvider?.value?.organisationName ?? (values.providerId || t('none'));
 
   const content = (elem) =>
     (inputs = renderForm(elem, [
@@ -48,17 +43,14 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
         header: true,
       },
       {
-        text: roleDefinitionsHtml(),
-      },
-      {
-        label: t('modals.inviteUser.client'),
+        label: labelWithRoleTip(t('modals.inviteUser.client'), 'client'),
         checked: userRoles.includes('client'),
         field: 'client',
         checkbox: true,
         width: '50%',
         id: 'editClient',
         fieldPair: {
-          label: t('modals.inviteUser.director'),
+          label: labelWithRoleTip(t('modals.inviteUser.director'), 'director'),
           checked: userRoles.includes('director'),
           field: 'director',
           id: 'editDirector',
@@ -66,14 +58,14 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
         },
       },
       {
-        label: t('modals.inviteUser.admin'),
+        label: labelWithRoleTip(t('modals.inviteUser.admin'), 'admin'),
         checked: userRoles.includes('admin'),
         checkbox: true,
         field: 'admin',
         width: '50%',
         id: 'editAdmin',
         fieldPair: {
-          label: t('modals.inviteUser.official'),
+          label: labelWithRoleTip(t('modals.inviteUser.official'), 'official'),
           checked: userRoles.includes('official'),
           field: 'official',
           id: 'editOfficial',
@@ -81,14 +73,14 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
         },
       },
       {
-        label: t('modals.inviteUser.scoring'),
+        label: labelWithRoleTip(t('modals.inviteUser.scoring'), 'score'),
         checked: userRoles.includes('score'),
         field: 'score',
         width: '50%',
         id: 'editScore',
         checkbox: true,
         fieldPair: {
-          label: t('modals.inviteUser.developer'),
+          label: labelWithRoleTip(t('modals.inviteUser.developer'), 'developer'),
           checked: userRoles.includes('developer'),
           field: 'developer',
           id: 'editDeveloper',
@@ -96,26 +88,30 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
         },
       },
       {
-        label: t('modals.inviteUser.generate'),
+        label: labelWithRoleTip(t('modals.inviteUser.generate'), 'generate'),
         checked: userRoles.includes('generate'),
         field: 'generate',
         checkbox: true,
         id: 'editGenerate',
       },
       {
-        typeAhead: { list: providerList, callback: setProviderId },
         value: initialProviderDisplay,
-        placeholder: t('none'),
         field: 'providerId',
         label: t('modals.inviteUser.provider'),
+        disabled: true,
       },
       {
         text: t('modals.inviteUser.permissions'),
         header: true,
       },
       {
+        // PROVIDER_ADMIN at the user's home provider implies delete authority
+        // server-side, so when 'admin' is checked we auto-check + disable this
+        // box to keep the UI honest. The relationship at the bottom of this
+        // form handles the dynamic toggle.
         label: t('modals.inviteUser.deleteTournaments'),
-        checked: userPermissions.includes('deleteTournament'),
+        checked: userPermissions.includes('deleteTournament') || userRoles.includes('admin'),
+        disabled: userRoles.includes('admin'),
         field: 'deleteTournament',
         checkbox: true,
         id: 'editDelete',
@@ -144,6 +140,26 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
         field: 'tournamentProfile',
         id: 'editTournamentProfile',
         checkbox: true,
+      },
+    ], [
+      // When 'admin' (provider admin shorthand) is checked, force-check and
+      // lock the deleteTournament permission — the server already grants
+      // delete to PROVIDER_ADMIN scope, so an unchecked box would mislead
+      // editors into thinking delete is blocked. Unchecking 'admin' unlocks
+      // the permission box but doesn't auto-uncheck it (user can clear).
+      {
+        control: 'admin',
+        onChange: ({ inputs: i }: any) => {
+          const adminChecked = !!i.admin?.checked;
+          if (i.deleteTournament) {
+            if (adminChecked) {
+              i.deleteTournament.checked = true;
+              i.deleteTournament.disabled = true;
+            } else {
+              i.deleteTournament.disabled = false;
+            }
+          }
+        },
       },
     ]));
 
