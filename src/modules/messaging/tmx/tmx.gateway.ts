@@ -20,7 +20,7 @@ import {
 import { UsersService } from 'src/modules/users/users.service';
 import { tools } from 'tods-competition-factory';
 import { tmxMessages } from './tmxMessages';
-import { Server, Socket } from 'socket.io';
+import { Namespace, Server, Socket } from 'socket.io';
 import {
   MessageBody,
   SubscribeMessage,
@@ -351,7 +351,13 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
    */
   async getActiveRoomPresence(): Promise<RoomPresence[]> {
     if (!this.server) return [];
-    const rooms = this.server.sockets.adapter.rooms;
+    // `this.server` is typed as `Server`, but with `namespace: 'tmx'` NestJS
+    // injects a `Namespace` at runtime. On a Namespace the adapter sits
+    // directly on the instance — `this.server.sockets` is a Map<id,Socket>,
+    // not a default-namespace shim, so the previous chain
+    // `this.server.sockets.adapter.rooms` produced
+    // "Cannot read properties of undefined (reading 'rooms')" in prod.
+    const rooms = (this.server as unknown as Namespace).adapter.rooms;
     const tournamentIds: string[] = [];
     for (const room of rooms.keys()) {
       if (room.startsWith(TOURNAMENT_ROOM_PREFIX)) {

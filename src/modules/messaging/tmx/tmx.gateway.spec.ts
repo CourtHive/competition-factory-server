@@ -37,7 +37,9 @@ function makeMockServer(socketsByRoom: Record<string, MockSocket[]>) {
     adapterRooms.set(room, new Set(sockets.map((s) => s.id)));
   }
   return {
-    sockets: { adapter: { rooms: adapterRooms } },
+    // Namespace shape — the gateway is registered to `namespace: 'tmx'`,
+    // so the adapter is on the namespace itself, not nested under `.sockets`.
+    adapter: { rooms: adapterRooms },
     in: (room: string) => ({
       fetchSockets: async () => socketsByRoom[room] ?? [],
     }),
