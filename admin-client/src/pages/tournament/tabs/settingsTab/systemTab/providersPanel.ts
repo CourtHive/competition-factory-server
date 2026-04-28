@@ -94,7 +94,15 @@ export function renderProvidersPanel({ container, providers, users, onRefresh }:
         title: t('system.lastAccess'),
         field: 'lastAccess',
         headerSort: true,
-        sorter: 'datetime',
+        // Custom sorter — Tabulator's built-in 'datetime' sorter requires
+        // Luxon, which isn't a dep here. Coerce to epoch ms; empty/missing
+        // sorts to one end so default desc-by-lastAccess pushes never-
+        // accessed rows to the bottom.
+        sorter: (a: any, b: any) => {
+          const ta = a ? new Date(a).getTime() : 0;
+          const tb = b ? new Date(b).getTime() : 0;
+          return ta - tb;
+        },
         formatter: (cell: any) => {
           const val = cell.getValue();
           if (!val) return '';
