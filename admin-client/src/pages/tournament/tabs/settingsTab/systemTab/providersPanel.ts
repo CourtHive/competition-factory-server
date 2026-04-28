@@ -114,6 +114,16 @@ export function renderProvidersPanel({ container, providers, users, onRefresh }:
     data: providerData,
   });
 
+  // Belt-and-suspenders: in Tabulator 6 `initialSort` can race the
+  // constructor data load and silently no-op. Re-applying the sort
+  // on tableBuilt guarantees the desired order on first render.
+  table.on('tableBuilt', () => {
+    table.setSort([
+      { column: 'lastAccess', dir: 'desc' },
+      { column: 'organisationName', dir: 'asc' },
+    ]);
+  });
+
   table.on('rowSelectionChanged', (_data, rows) => {
     const selected = rows?.[0]?.getData();
     if (selected) {
