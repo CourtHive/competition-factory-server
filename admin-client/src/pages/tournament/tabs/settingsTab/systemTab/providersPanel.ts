@@ -100,12 +100,12 @@ export function renderProvidersPanel({ container, providers, users, onRefresh }:
     selectableRows: 1,
     layout: 'fitColumns',
     maxHeight: 500,
-    // Surface the most recently active providers at the top by default;
-    // ties (and never-accessed rows) fall back to organisation name.
-    initialSort: [
-      { column: 'lastAccess', dir: 'desc' },
-      { column: 'organisationName', dir: 'asc' },
-    ],
+    // Default order is whatever the pre-sorted `providerData` array
+    // gives us (lastAccess desc, then name). Don't pass `initialSort`
+    // here — its interaction with the custom column sorter was reshuffling
+    // the rows alphabetically on first paint despite the array already
+    // being correctly ordered. The column-header click sorters below
+    // still let users re-sort by anything.
     columns: [
       { title: t('system.providerName'), field: 'organisationName', headerSort: true },
       { title: t('system.providerAbbr'), field: 'organisationAbbreviation', headerSort: true },
@@ -131,16 +131,6 @@ export function renderProvidersPanel({ container, providers, users, onRefresh }:
       },
     ],
     data: providerData,
-  });
-
-  // Belt-and-suspenders: in Tabulator 6 `initialSort` can race the
-  // constructor data load and silently no-op. Re-applying the sort
-  // on tableBuilt guarantees the desired order on first render.
-  table.on('tableBuilt', () => {
-    table.setSort([
-      { column: 'lastAccess', dir: 'desc' },
-      { column: 'organisationName', dir: 'asc' },
-    ]);
   });
 
   table.on('rowSelectionChanged', (_data, rows) => {

@@ -115,12 +115,10 @@ export function renderUsersPanel({ container, providers, users, onRefresh }: Ren
     selectableRows: 1,
     layout: 'fitColumns',
     maxHeight: 500,
-    // Surface the most recently active users at the top by default;
-    // ties (and never-accessed rows) fall back to email.
-    initialSort: [
-      { column: 'lastAccess', dir: 'desc' },
-      { column: 'email', dir: 'asc' },
-    ],
+    // Default order is whatever the pre-sorted `userData` array gives us
+    // (lastAccess desc, then email). Don't pass `initialSort` — see the
+    // matching note in providersPanel.ts. Column-header click sorters
+    // below still let users re-sort by anything.
     columns: [
       { title: t('system.firstName'), field: 'firstName', headerSort: true },
       { title: t('system.lastName'), field: 'lastName', headerSort: true },
@@ -149,16 +147,6 @@ export function renderUsersPanel({ container, providers, users, onRefresh }: Ren
       },
     ],
     data: userData,
-  });
-
-  // Belt-and-suspenders: in Tabulator 6 `initialSort` can race the
-  // constructor data load and silently no-op. Re-applying the sort
-  // on tableBuilt guarantees the desired order on first render.
-  table.on('tableBuilt', () => {
-    table.setSort([
-      { column: 'lastAccess', dir: 'desc' },
-      { column: 'email', dir: 'asc' },
-    ]);
   });
 
   // Search filter
