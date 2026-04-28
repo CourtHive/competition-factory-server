@@ -56,10 +56,40 @@ export class AuthController {
   }
 
   @Post('admin-reset-password')
-  @Roles([SUPER_ADMIN])
+  // CLIENT is the broad gate; service-layer narrows to SUPER_ADMIN OR
+  // PROVIDER_ADMIN/PROVISIONER scoped to one of the target user's
+  // provider associations. CLIENT alone cannot reset passwords.
+  @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  adminResetPassword(@Body() body: { email: string; newPassword?: string }) {
-    return this.authService.adminResetPassword(body.email, body.newPassword);
+  adminResetPassword(
+    @Body() body: { email: string; newPassword?: string },
+    @User() user?: any,
+    @UserCtx() userContext?: UserContext,
+  ) {
+    return this.authService.adminResetPassword(body.email, body.newPassword, {
+      userContext,
+      provisionerIds: user?.provisionerIds,
+    });
+  }
+
+  /**
+   * Self-service password change for a logged-in user. The middleware
+   * already verifies the JWT; we cross-reference its email with the
+   * request body so a token can only change its own owner's password.
+   */
+  @Post('change-password')
+  @Roles([CLIENT, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  changePassword(
+    @Body() body: { currentPassword: string; newPassword: string },
+    @UserCtx() userContext?: UserContext,
+  ) {
+    if (!userContext?.email) return { error: 'Authentication required' };
+    return this.authService.changePassword(
+      userContext.email,
+      body.currentPassword,
+      body.newPassword,
+    );
   }
 
   @Post('allusers')

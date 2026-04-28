@@ -346,4 +346,150 @@ describe('AuthService', () => {
       expect(result).toBe(users);
     });
   });
+
+  describe('adminResetPassword', () => {
+    const superAdminCtx = {
+      userContext: {
+        userId: 'admin-uuid',
+        email: 'admin@test.com',
+        isSuperAdmin: true,
+        globalRoles: ['superadmin'],
+        providerRoles: {},
+        providerIds: [],
+      },
+    };
+
+    it('returns error when email is missing', async () => {
+      const result = await authService.adminResetPassword('', undefined, superAdminCtx);
+      expect(result.error).toBe('Email is required');
+    });
+
+    it('returns error when target user is missing', async () => {
+      mockUsersService.findOne.mockResolvedValue(null);
+      const result = await authService.adminResetPassword('missing@test.com', undefined, superAdminCtx);
+      expect(result.error).toBe('User not found');
+    });
+
+    it('lets a SUPER_ADMIN reset any user without scope check', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'target@test.com',
+        userId: 'target-uuid',
+        password: 'old-hash',
+      });
+      const result: any = await authService.adminResetPassword('target@test.com', 'newpw', superAdminCtx);
+      expect(result.success).toBe(true);
+      expect(mockUserStorage.update).toHaveBeenCalled();
+      // SUPER_ADMIN doesn't need to inspect provider associations.
+      expect(mockUserProviderStorage.findByUserId).not.toHaveBeenCalled();
+    });
+
+    it('allows a PROVIDER_ADMIN at one of the target user\u2019s providers', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'target@test.com',
+        userId: 'target-uuid',
+        password: 'old-hash',
+      });
+      mockUserProviderStorage.findByUserId.mockResolvedValue([
+        { userId: 'target-uuid', providerId: 'p-1', providerRole: 'DIRECTOR' },
+      ]);
+
+      const result: any = await authService.adminResetPassword('target@test.com', 'newpw', {
+        userContext: {
+          userId: 'editor-uuid',
+          email: 'editor@test.com',
+          isSuperAdmin: false,
+          globalRoles: ['client'],
+          providerRoles: { 'p-1': 'PROVIDER_ADMIN' },
+          providerIds: ['p-1'],
+        },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects an editor with no scope at any of the target\u2019s providers', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'target@test.com',
+        userId: 'target-uuid',
+        password: 'old-hash',
+      });
+      mockUserProviderStorage.findByUserId.mockResolvedValue([
+        { userId: 'target-uuid', providerId: 'p-1', providerRole: 'DIRECTOR' },
+      ]);
+
+      await expect(
+        authService.adminResetPassword('target@test.com', 'newpw', {
+          userContext: {
+            userId: 'editor-uuid',
+            email: 'editor@test.com',
+            isSuperAdmin: false,
+            globalRoles: ['client'],
+            providerRoles: { 'p-other': 'PROVIDER_ADMIN' },
+            providerIds: ['p-other'],
+          },
+        }),
+      ).rejects.toMatchObject({ status: 403 });
+    });
+
+    it('rejects a non-super-admin editor when target has no provider associations', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'orphan@test.com',
+        userId: 'orphan-uuid',
+        password: 'old-hash',
+      });
+      mockUserProviderStorage.findByUserId.mockResolvedValue([]);
+
+      await expect(
+        authService.adminResetPassword('orphan@test.com', 'newpw', {
+          userContext: {
+            userId: 'editor-uuid',
+            email: 'editor@test.com',
+            isSuperAdmin: false,
+            globalRoles: ['client'],
+            providerRoles: { 'p-1': 'PROVIDER_ADMIN' },
+            providerIds: ['p-1'],
+          },
+        }),
+      ).rejects.toMatchObject({ status: 403 });
+    });
+  });
+
+  describe('changePassword', () => {
+    it('returns error when any field is missing', async () => {
+      const result = await authService.changePassword('user@test.com', '', 'new');
+      expect(result.error).toMatch(/required/i);
+    });
+
+    it('throws 401 when user is not found', async () => {
+      mockUsersService.findOne.mockResolvedValue(null);
+      await expect(
+        authService.changePassword('missing@test.com', 'old', 'new'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws 401 when current password is wrong', async () => {
+      const hashed = await bcrypt.hash('correct', 10);
+      mockUsersService.findOne.mockResolvedValue({ email: 'user@test.com', password: hashed });
+
+      await expect(
+        authService.changePassword('user@test.com', 'wrong', 'new'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('writes the new password when current password matches', async () => {
+      const hashed = await bcrypt.hash('correct', 10);
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'user@test.com',
+        password: hashed,
+      });
+
+      const result: any = await authService.changePassword('user@test.com', 'correct', 'newpw');
+      expect(result.success).toBe(true);
+      expect(mockUserStorage.update).toHaveBeenCalledWith(
+        'user@test.com',
+        expect.objectContaining({ password: expect.any(String) }),
+      );
+      const updateCall = (mockUserStorage.update as jest.Mock).mock.calls[0];
+      expect(updateCall[1].password).not.toBe(hashed);
+    });
+  });
 });

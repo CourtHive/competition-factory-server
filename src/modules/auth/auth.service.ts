@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { VALID_GLOBAL_ROLES, VALID_PROVIDER_ROLES } from 'src/common/constants/roles';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { computeEffectiveConfig } from '../providers/effective-provider-config';
@@ -239,15 +239,80 @@ export class AuthService {
     return { ...SUCCESS };
   }
 
-  async adminResetPassword(email: string, newPassword?: string) {
+  /**
+   * Reset a user's password as an administrator.
+   *
+   * Authorization: SUPER_ADMIN unrestricted. Otherwise the editor must
+   * have edit authority at *at least one* of the target user's
+   * `user_providers` associations — i.e. PROVIDER_ADMIN or
+   * PROVISIONER administering one of the target's providers.
+   *
+   * If the target user has no provider associations, only SUPER_ADMIN
+   * can reset (the previous behavior).
+   */
+  async adminResetPassword(
+    email: string,
+    newPassword?: string,
+    editor?: { userContext?: UserContext; provisionerIds?: string[] },
+  ) {
     if (!email) return { error: 'Email is required' };
     const user = await this.usersService.findOne(email);
     if (!user) return { error: 'User not found' };
+
+    const editorContext = editor?.userContext;
+    if (!editorContext?.isSuperAdmin) {
+      // Walk the target's provider associations until we find one the
+      // editor has authority over. Pure SUPER_ADMIN short-circuits above.
+      const targetUserId = user.userId ?? user.user_id;
+      const targetRows = targetUserId
+        ? await this.userProviderStorage.findByUserId(targetUserId)
+        : [];
+      let allowed = false;
+      for (const row of targetRows) {
+        try {
+          await assertProviderEditor({
+            userContext: editorContext,
+            providerId: row.providerId,
+            provisionerIds: editor?.provisionerIds,
+            provisionerProviderStorage: this.provisionerProviderStorage,
+          });
+          allowed = true;
+          break;
+        } catch {
+          // Try the next provider association.
+        }
+      }
+      if (!allowed) {
+        throw new ForbiddenException(
+          'Not authorised to reset this user\u2019s password',
+        );
+      }
+    }
 
     const password = newPassword || createUniqueKey().slice(0, 12);
     user.password = await hashPassword(password);
     await this.userStorage.update(email, user);
     return { ...SUCCESS, password };
+  }
+
+  /**
+   * Self-service password change for a logged-in user. Verifies the
+   * current password before writing the new one. Returns 401 on a wrong
+   * current-password to keep timing-attack surface flat with sign-in.
+   */
+  async changePassword(email: string, currentPassword: string, newPassword: string) {
+    if (!email || !currentPassword || !newPassword) {
+      return { error: 'Email, currentPassword, and newPassword are required' };
+    }
+    const user = await this.usersService.findOne(email);
+    if (!user?.password) throw new UnauthorizedException();
+
+    const match = await bcrypt.compare(currentPassword, user.password);
+    if (!match) throw new UnauthorizedException();
+
+    const updated = { ...user, password: await hashPassword(newPassword) };
+    await this.userStorage.update(email, updated);
+    return { ...SUCCESS };
   }
 
   async modifyUser(params: { email: string; [key: string]: any }) {
