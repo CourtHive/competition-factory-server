@@ -57,6 +57,7 @@ describe('MigrationRunnerService', () => {
         { name: '015-add-pending-saves.sql' },
         { name: '016-add-user-provisioners.sql' },
         { name: '017-split-provider-config.sql' },
+        { name: '018-drop-stale-data-lastaccess.sql' },
       ]},
     ];
     service = new MigrationRunnerService(mockPool);

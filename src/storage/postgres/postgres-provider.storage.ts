@@ -16,11 +16,13 @@ export class PostgresProviderStorage implements IProviderStorage {
     );
     if (!result.rows.length) return null;
     const row = result.rows[0];
+    // Spread `data` first so canonical column-derived fields win on conflict.
+    // Earlier ordering let stale `data.organisationId` etc. shadow the columns.
     return {
+      ...row.data,
       organisationId: row.provider_id,
       organisationAbbreviation: row.organisation_abbreviation,
       organisationName: row.organisation_name,
-      ...row.data,
     };
   }
 
@@ -30,12 +32,16 @@ export class PostgresProviderStorage implements IProviderStorage {
     );
     return result.rows.map((row) => ({
       key: row.provider_id,
+      // Spread `data` first so canonical column-derived fields win on conflict.
+      // Without this, a stale `data.lastAccess` (left over from a pre-column
+      // write path) would shadow `last_access` and the admin UI would show
+      // a months-old timestamp despite the column being correctly updated.
       value: {
+        ...row.data,
         organisationId: row.provider_id,
         organisationAbbreviation: row.organisation_abbreviation,
         organisationName: row.organisation_name,
         lastAccess: row.last_access,
-        ...row.data,
       },
     }));
   }
