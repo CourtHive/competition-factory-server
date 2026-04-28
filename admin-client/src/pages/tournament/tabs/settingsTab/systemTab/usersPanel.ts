@@ -99,15 +99,6 @@ export function renderUsersPanel({ container, providers, users, onRefresh }: Ren
       return a.email.localeCompare(b.email);
     });
 
-  // Diagnostic: surface the first few rows + the count of populated
-  // lastAccess values so we can tell from the console whether the
-  // server payload actually carries timestamps.
-  const populated = userData.filter((u) => u.lastAccess).length;
-  console.log(
-    `[users] rendering ${userData.length} rows (${populated} with lastAccess), top 3:`,
-    userData.slice(0, 3).map((u) => ({ email: u.email, lastAccess: u.lastAccess })),
-  );
-
   destroyTable({ anchorId: USERS_TABLE });
 
   const table = new Tabulator(tableEl, {

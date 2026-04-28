@@ -84,15 +84,6 @@ export function renderProvidersPanel({ container, providers, users, onRefresh }:
       return a.organisationName.localeCompare(b.organisationName);
     });
 
-  // Diagnostic: surface the first few rows + the count of populated
-  // lastAccess values so we can tell from the console whether the
-  // server payload actually carries timestamps.
-  const populated = providerData.filter((p) => p.lastAccess).length;
-  console.log(
-    `[providers] rendering ${providerData.length} rows (${populated} with lastAccess), top 3:`,
-    providerData.slice(0, 3).map((p) => ({ name: p.organisationName, lastAccess: p.lastAccess })),
-  );
-
   destroyTable({ anchorId: PROVIDER_LIST_TABLE });
 
   const table = new Tabulator(listTableEl, {
