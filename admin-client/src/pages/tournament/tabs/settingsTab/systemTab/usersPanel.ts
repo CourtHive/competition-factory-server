@@ -78,16 +78,35 @@ export function renderUsersPanel({ container, providers, users, onRefresh }: Ren
   tableEl.id = USERS_TABLE;
   container.appendChild(tableEl);
 
-  const userData = (users || []).map((u) => ({
-    firstName: u.value?.firstName || '',
-    lastName: u.value?.lastName || '',
-    email: u.value?.email || '',
-    providerName: providerMap[u.value?.providerId] || '',
-    roles: (u.value?.roles || []).join(', '),
-    lastAccess: u.value?.lastAccess || '',
-    searchText: `${u.value?.firstName || ''} ${u.value?.lastName || ''} ${u.value?.email || ''}`.toLowerCase(),
-    _raw: u,
-  }));
+  const userData = (users || [])
+    .map((u) => ({
+      firstName: u.value?.firstName || '',
+      lastName: u.value?.lastName || '',
+      email: u.value?.email || '',
+      providerName: providerMap[u.value?.providerId] || '',
+      roles: (u.value?.roles || []).join(', '),
+      lastAccess: u.value?.lastAccess || '',
+      searchText: `${u.value?.firstName || ''} ${u.value?.lastName || ''} ${u.value?.email || ''}`.toLowerCase(),
+      _raw: u,
+    }))
+    // Pre-sort by lastAccess desc so the initial render is in the right
+    // order even if Tabulator's `initialSort` / `tableBuilt setSort` paths
+    // misbehave. Falls back to email on ties / never-accessed.
+    .sort((a, b) => {
+      const ta = a.lastAccess ? new Date(a.lastAccess).getTime() : 0;
+      const tb = b.lastAccess ? new Date(b.lastAccess).getTime() : 0;
+      if (tb !== ta) return tb - ta;
+      return a.email.localeCompare(b.email);
+    });
+
+  // Diagnostic: surface the first few rows + the count of populated
+  // lastAccess values so we can tell from the console whether the
+  // server payload actually carries timestamps.
+  const populated = userData.filter((u) => u.lastAccess).length;
+  console.log(
+    `[users] rendering ${userData.length} rows (${populated} with lastAccess), top 3:`,
+    userData.slice(0, 3).map((u) => ({ email: u.email, lastAccess: u.lastAccess })),
+  );
 
   destroyTable({ anchorId: USERS_TABLE });
 

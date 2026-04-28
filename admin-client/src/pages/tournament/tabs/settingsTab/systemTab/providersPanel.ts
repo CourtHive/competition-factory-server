@@ -65,14 +65,33 @@ export function renderProvidersPanel({ container, providers, users, onRefresh }:
   layout.appendChild(detailPane);
   container.appendChild(layout);
 
-  const providerData = (providers || []).map((p) => ({
-    organisationName: p.value?.organisationName || '',
-    organisationAbbreviation: p.value?.organisationAbbreviation || '',
-    organisationId: p.value?.organisationId || p.key || '',
-    lastAccess: p.value?.lastAccess || '',
-    searchText: `${p.value?.organisationName || ''} ${p.value?.organisationAbbreviation || ''}`.toLowerCase(),
-    _raw: p,
-  }));
+  const providerData = (providers || [])
+    .map((p) => ({
+      organisationName: p.value?.organisationName || '',
+      organisationAbbreviation: p.value?.organisationAbbreviation || '',
+      organisationId: p.value?.organisationId || p.key || '',
+      lastAccess: p.value?.lastAccess || '',
+      searchText: `${p.value?.organisationName || ''} ${p.value?.organisationAbbreviation || ''}`.toLowerCase(),
+      _raw: p,
+    }))
+    // Pre-sort by lastAccess desc so the initial render is in the right
+    // order even if Tabulator's `initialSort` / `tableBuilt setSort` paths
+    // misbehave. Falls back to organisation name on ties / never-accessed.
+    .sort((a, b) => {
+      const ta = a.lastAccess ? new Date(a.lastAccess).getTime() : 0;
+      const tb = b.lastAccess ? new Date(b.lastAccess).getTime() : 0;
+      if (tb !== ta) return tb - ta;
+      return a.organisationName.localeCompare(b.organisationName);
+    });
+
+  // Diagnostic: surface the first few rows + the count of populated
+  // lastAccess values so we can tell from the console whether the
+  // server payload actually carries timestamps.
+  const populated = providerData.filter((p) => p.lastAccess).length;
+  console.log(
+    `[providers] rendering ${providerData.length} rows (${populated} with lastAccess), top 3:`,
+    providerData.slice(0, 3).map((p) => ({ name: p.organisationName, lastAccess: p.lastAccess })),
+  );
 
   destroyTable({ anchorId: PROVIDER_LIST_TABLE });
 
