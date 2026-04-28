@@ -99,10 +99,12 @@ export class SsoController {
 
     // Track last access for both user and the provider this SSO token resolved to.
     // Failures are non-fatal but visible — silent .catch() previously hid mismatches.
+    // Super-admin access never counts toward provider activity.
+    const isSuperAdmin = userContext.isSuperAdmin;
     this.userStorage.updateLastAccess(user.email).catch((err: any) => {
       Logger.warn(`updateLastAccess(user=${user.email}) failed: ${err?.message ?? err}`, SsoController.name);
     });
-    if (payload.providerId) {
+    if (payload.providerId && !isSuperAdmin) {
       const providerId = payload.providerId;
       this.providerStorage.updateLastAccess(providerId).catch((err: any) => {
         Logger.warn(`updateLastAccess(provider=${providerId}) failed: ${err?.message ?? err}`, SsoController.name);

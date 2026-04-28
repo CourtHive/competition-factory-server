@@ -51,6 +51,7 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
   const userStorage = opts.userStorage ?? { updateLastAccess: jest.fn().mockResolvedValue(undefined) };
   const providerStorage = opts.providerStorage ?? {
     updateLastAccess: jest.fn().mockResolvedValue(undefined),
+    updateLastAccessByTournament: jest.fn().mockResolvedValue(undefined),
     getProvider: jest.fn(),
     getProviders: jest.fn(),
     setProvider: jest.fn(),
@@ -92,7 +93,7 @@ describe('TmxGateway.handleConnection', () => {
 });
 
 describe('TmxGateway.joinTournament', () => {
-  it('updates user + provider lastAccess for a JWT user', async () => {
+  it('updates user lastAccess + tournament-driven provider lastAccess for a JWT user', async () => {
     const { gateway, userStorage, providerStorage } = buildGateway();
     const socket = makeSocket({ user: { email: 'me@test.com', providerId: 'prov-1' } });
     gateway.server = makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] });
@@ -102,8 +103,25 @@ describe('TmxGateway.joinTournament', () => {
 
     expect(socket.join).toHaveBeenCalledWith('tournament:t1');
     expect(userStorage.updateLastAccess).toHaveBeenCalledWith('me@test.com');
-    expect(providerStorage.updateLastAccess).toHaveBeenCalledWith('prov-1');
+    // Provider update is keyed off the tournament's owning provider, not the
+    // user's home providerId — covers multi-provider users / switcher flows.
+    expect(providerStorage.updateLastAccessByTournament).toHaveBeenCalledWith('t1');
+    expect(providerStorage.updateLastAccess).not.toHaveBeenCalled();
     expect(socket.data.tournamentJoinedAt.t1).toEqual(expect.any(Number));
+  });
+
+  it('skips provider lastAccess update for super-admins', async () => {
+    const { gateway, userStorage, providerStorage } = buildGateway();
+    const socket = makeSocket({ user: { email: 'admin@test.com', providerId: 'prov-1', roles: ['superadmin'] } });
+    gateway.server = makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] });
+
+    await gateway.joinTournament({ tournamentId: 't1' }, socket as any);
+    await Promise.resolve();
+
+    // Per-user activity still tracked; provider activity is not credited
+    // because super-admin operates across every provider.
+    expect(userStorage.updateLastAccess).toHaveBeenCalledWith('admin@test.com');
+    expect(providerStorage.updateLastAccessByTournament).not.toHaveBeenCalled();
   });
 
   it('skips lastAccess update when socket is unauthenticated', async () => {
@@ -115,13 +133,14 @@ describe('TmxGateway.joinTournament', () => {
     await Promise.resolve();
 
     expect(userStorage.updateLastAccess).not.toHaveBeenCalled();
-    expect(providerStorage.updateLastAccess).not.toHaveBeenCalled();
+    expect(providerStorage.updateLastAccessByTournament).not.toHaveBeenCalled();
   });
 
   it('logs (but does not throw) when lastAccess update fails', async () => {
     const userStorage = { updateLastAccess: jest.fn().mockRejectedValue(new Error('db down')) };
     const providerStorage = {
-      updateLastAccess: jest.fn().mockRejectedValue(new Error('db down')),
+      updateLastAccess: jest.fn(),
+      updateLastAccessByTournament: jest.fn().mockRejectedValue(new Error('db down')),
       getProvider: jest.fn(), getProviders: jest.fn(), setProvider: jest.fn(), removeProvider: jest.fn(),
     };
     const { gateway } = buildGateway({ userStorage, providerStorage });

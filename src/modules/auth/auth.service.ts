@@ -10,7 +10,7 @@ import bcrypt from 'bcryptjs';
 
 // constants and interfaces
 import { SUCCESS } from 'src/common/constants/app';
-import { PROVISIONER as PROVISIONER_ROLE } from 'src/common/constants/roles';
+import { PROVISIONER as PROVISIONER_ROLE, SUPER_ADMIN } from 'src/common/constants/roles';
 import {
   PROVIDER_STORAGE,
   type IProviderStorage,
@@ -66,10 +66,15 @@ export class AuthService {
     // non-fatal but must be visible — silent .catch() previously masked
     // case-mismatch and connection bugs that produced stale `last_access`
     // columns in the admin UI.
+    //
+    // Super-admin access never counts toward a provider's activity (they're
+    // operating on every provider; crediting their home provider would be
+    // misleading). User-level lastAccess always updates regardless of role.
+    const isSuperAdmin = (user.roles ?? []).includes(SUPER_ADMIN);
     this.userStorage.updateLastAccess(email).catch((err: any) => {
       Logger.warn(`updateLastAccess(user=${email}) failed: ${err?.message ?? err}`, AuthService.name);
     });
-    if (user.providerId) {
+    if (user.providerId && !isSuperAdmin) {
       const providerId = user.providerId;
       this.providerStorage.updateLastAccess(providerId).catch((err: any) => {
         Logger.warn(`updateLastAccess(provider=${providerId}) failed: ${err?.message ?? err}`, AuthService.name);

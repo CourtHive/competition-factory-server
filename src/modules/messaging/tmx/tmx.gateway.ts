@@ -149,19 +149,27 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     this.logger.log(`[room] Client ${client.id} joined ${room} — room now has ${roomMembers?.length ?? '?'} member(s)`);
     await this.broadcastRoomPresence(tournamentId);
 
-    // Loading a tournament is the strongest signal of "active" we have. Update
-    // lastAccess for the user and (if known) the home provider so the admin
-    // dashboard reflects real activity, not just the rare /auth/login event.
+    // Loading a tournament is the strongest signal of "active" we have.
+    // - User: always stamp lastAccess (super-admins included; that's per-user
+    //   activity, distinct from provider access).
+    // - Provider: stamp the *tournament's* owning provider, not the user's
+    //   home provider. The home-provider variant missed multi-provider users
+    //   and credited the wrong provider in switcher/impersonation flows.
+    //   Skip entirely for super-admins — their access never represents
+    //   provider-level activity.
     const jwtUser = client.data?.user;
+    const isSuperAdmin = (jwtUser?.roles ?? []).includes(SUPER_ADMIN);
     if (jwtUser?.email) {
       this.userStorage.updateLastAccess(jwtUser.email).catch((err: any) => {
         this.logger.warn(`updateLastAccess(user=${jwtUser.email}) failed: ${err?.message ?? err}`);
       });
     }
-    if (jwtUser?.providerId) {
-      const providerId = jwtUser.providerId;
-      this.providerStorage.updateLastAccess(providerId).catch((err: any) => {
-        this.logger.warn(`updateLastAccess(provider=${providerId}) failed: ${err?.message ?? err}`);
+    // Gate on an authenticated user — unverified joins (which the @Roles
+    // guard normally blocks) should never credit a provider, and super-admin
+    // access never represents provider-level activity.
+    if (jwtUser?.email && !isSuperAdmin) {
+      this.providerStorage.updateLastAccessByTournament(tournamentId).catch((err: any) => {
+        this.logger.warn(`updateLastAccessByTournament(tournament=${tournamentId}) failed: ${err?.message ?? err}`);
       });
     }
   }

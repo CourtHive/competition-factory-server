@@ -8,6 +8,15 @@ export interface IProviderStorage {
   updateLastAccess(providerId: string): Promise<void>;
 
   /**
+   * Set last_access on the provider that owns `tournamentId`. Used by
+   * tournament-driven access tracking (joinTournament) so the provider
+   * whose tournament was actually loaded gets credit — not the user's
+   * home provider, which would miss multi-provider users entirely.
+   * No-op when the tournament has no resolvable provider.
+   */
+  updateLastAccessByTournament(tournamentId: string): Promise<void>;
+
+  /**
    * Surgical update of just the caps/settings tier of a provider's
    * config, leaving the rest of the provider record untouched. Used
    * by `PUT /provisioner/providers/:id/caps` and `PUT /provider/:id/settings`.

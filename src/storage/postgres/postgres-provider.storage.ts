@@ -44,6 +44,20 @@ export class PostgresProviderStorage implements IProviderStorage {
     await this.pool.query('UPDATE providers SET last_access = NOW() WHERE provider_id = $1', [providerId]);
   }
 
+  async updateLastAccessByTournament(tournamentId: string): Promise<void> {
+    // Single round-trip JOIN — bumps the owning provider's last_access
+    // without a separate fetch. Silently no-op when the tournament row
+    // exists but has no provider_id (legacy data) or doesn't exist.
+    await this.pool.query(
+      `UPDATE providers
+         SET last_access = NOW()
+         FROM tournaments
+         WHERE providers.provider_id = tournaments.provider_id
+           AND tournaments.tournament_id = $1`,
+      [tournamentId],
+    );
+  }
+
   async removeProvider(providerId: string): Promise<{ success: boolean }> {
     await this.pool.query('DELETE FROM providers WHERE provider_id = $1', [providerId]);
     return { ...SUCCESS };
