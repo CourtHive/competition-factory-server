@@ -93,6 +93,31 @@ describe('AuthMiddleware', () => {
     expect(req.userContext.providerIds).toEqual(['prov-a', 'prov-b']);
   });
 
+  it('back-compat: legacy admin role overrides DIRECTOR in user_providers for the home provider', async () => {
+    // Reproduces tmx@courthive.com's drift: user_providers row was backfilled
+    // as DIRECTOR before 'admin' was added to users.roles, and the legacy
+    // role-edit flow doesn't sync to user_providers. The shim must promote
+    // unconditionally on every buildUserContext call so the legacy 'admin'
+    // role stays authoritative until it's fully retired.
+    const user = {
+      email: 'admin@test.com',
+      userId: 'uuid-4',
+      roles: ['client', 'admin', 'score'],
+      providerId: 'prov-home',
+    };
+    mockAuthService.decode.mockResolvedValue({ email: 'admin@test.com' });
+    mockUsersService.findOne.mockResolvedValue(user);
+    mockUserProviderStorage.findByUserId.mockResolvedValue([
+      { userId: 'uuid-4', providerId: 'prov-home', providerRole: 'DIRECTOR' },
+    ]);
+
+    const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer valid.token' } };
+    const next = jest.fn();
+    await middleware.use(req, {}, next);
+
+    expect(req.userContext.providerRoles).toEqual({ 'prov-home': 'PROVIDER_ADMIN' });
+  });
+
   it('calls next without setting user when token decode fails', async () => {
     mockAuthService.decode.mockRejectedValue(new Error('Invalid token'));
 
