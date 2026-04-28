@@ -17,6 +17,8 @@ describe('Provisioner E2E', () => {
   let apiKey: string;
   let providerId: string;
   let ssoUserId: string;
+  let ssoUserEmail: string;
+  const createdTournamentIds: string[] = [];
 
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
@@ -35,30 +37,71 @@ describe('Provisioner E2E', () => {
   });
 
   afterAll(async () => {
-    // Clean up test provisioner via the public API (deactivate then hard-delete
-    // with cascade — wipes API keys, provider associations, and tournament
-    // ownership stamps in one transaction). Without this, every spec run
-    // leaves an `E2E-Provisioner-*` row in the dev DB; the cleanup script
-    // exists because of an earlier session that ran this suite ~94 times.
-    if (provisionerId && adminToken) {
-      await request(app.getHttpServer())
-        .put(`/admin/provisioners/${provisionerId}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ isActive: false });
+    // Each cleanup step is wrapped so a single failure can't prevent the
+    // others (or `app.close()`) from running. Without this, every spec run
+    // leaves an `E2E-Provisioner-*` row + `E2E*` provider + `e2e-sso-*` user
+    // + 2 impersonated tournaments behind in the dev DB.
+    try {
+      // Provisioner: deactivate + hard-delete cascades API keys, provider
+      // associations, and tournament ownership stamps in one transaction.
+      if (provisionerId && adminToken) {
+        try {
+          await request(app.getHttpServer())
+            .put(`/admin/provisioners/${provisionerId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ isActive: false });
 
-      await request(app.getHttpServer())
-        .delete(`/admin/provisioners/${provisionerId}`)
-        .set('Authorization', `Bearer ${adminToken}`);
-    }
+          await request(app.getHttpServer())
+            .delete(`/admin/provisioners/${provisionerId}`)
+            .set('Authorization', `Bearer ${adminToken}`);
+        } catch (err) {
+           
+          console.warn('[provisioner.e2e] provisioner cleanup failed:', (err as Error).message);
+        }
+      }
 
-    // Provider rows survive provisioner cascade by design (providers and
-    // tournaments are independent entities). Clean the test provider directly.
-    if (providerId) {
-      const { PROVIDER_STORAGE } = await import('src/storage/interfaces');
-      const providerStorage = app.get(PROVIDER_STORAGE);
-      await providerStorage.removeProvider(providerId);
+      // Tournaments generated via impersonation survive the provisioner
+      // cascade — remove them explicitly via the super-admin REST endpoint.
+      if (adminToken && createdTournamentIds.length > 0) {
+        for (const tournamentId of createdTournamentIds) {
+          try {
+            await request(app.getHttpServer())
+              .post('/factory/remove')
+              .set('Authorization', `Bearer ${adminToken}`)
+              .send({ tournamentId, providerId });
+          } catch (err) {
+             
+            console.warn(`[provisioner.e2e] tournament ${tournamentId} cleanup failed:`, (err as Error).message);
+          }
+        }
+      }
+
+      // Provider rows survive provisioner cascade by design — clean directly.
+      if (providerId) {
+        try {
+          const { PROVIDER_STORAGE } = await import('src/storage/interfaces');
+          const providerStorage = app.get(PROVIDER_STORAGE);
+          await providerStorage.removeProvider(providerId);
+        } catch (err) {
+           
+          console.warn('[provisioner.e2e] provider cleanup failed:', (err as Error).message);
+        }
+      }
+
+      // SSO user — created via /provisioner/users, never cascade-removed.
+      if (ssoUserEmail) {
+        try {
+          const { USER_STORAGE } = await import('src/storage/interfaces');
+          const userStorage = app.get(USER_STORAGE);
+          await userStorage.remove(ssoUserEmail);
+        } catch (err) {
+           
+          console.warn('[provisioner.e2e] sso user cleanup failed:', (err as Error).message);
+        }
+      }
+    } finally {
+      await app.close();
     }
-    await app.close();
   });
 
   // ── Phase 0: Provisioner onboarding (SUPER_ADMIN) ──
@@ -181,6 +224,7 @@ describe('Provisioner E2E', () => {
     expect(res.body.userId).toBeDefined();
     expect(res.body.providerRole).toBe('DIRECTOR');
     ssoUserId = res.body.userId;
+    ssoUserEmail = email;
   });
 
   it('lists users for the provider', async () => {
@@ -222,6 +266,7 @@ describe('Provisioner E2E', () => {
 
     expect(res.body.success).toBe(true);
     expect(res.body.tournamentRecord.tournamentName).toBe('E2E Provisioner Tournament');
+    createdTournamentIds.push(res.body.tournamentRecord.tournamentId);
   });
 
   // ── Phase 0: Assignment management ──
@@ -236,6 +281,7 @@ describe('Provisioner E2E', () => {
       .expect(200);
 
     const tournamentId = genRes.body.tournamentRecord.tournamentId;
+    createdTournamentIds.push(tournamentId);
     const userEmail = (await request(app.getHttpServer())
       .get(`/provisioner/users?providerId=${providerId}`)
       .set('Authorization', `Bearer ${apiKey}`)

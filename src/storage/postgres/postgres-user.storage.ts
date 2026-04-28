@@ -64,16 +64,19 @@ export class PostgresUserStorage implements IUserStorage {
       'SELECT user_id, email, provider_id, roles, permissions, data, last_access FROM users',
     );
     if (!result.rows.length) return { success: false, message: 'No users found' };
+    // Spread `data` first so canonical column-derived fields win on conflict.
+    // Identical bug to provider storage: a stale `data.lastAccess` migrated
+    // from the LevelDB-era record body would otherwise shadow the column.
     const users = result.rows.map((row) => ({
       key: row.email,
       value: {
+        ...row.data,
         userId: row.user_id,
         email: row.email,
         providerId: row.provider_id,
         roles: row.roles,
         permissions: row.permissions,
         lastAccess: row.last_access,
-        ...row.data,
       },
     }));
     return { ...SUCCESS, users };

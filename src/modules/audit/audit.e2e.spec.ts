@@ -56,17 +56,31 @@ describe('Audit Trail E2E', () => {
   });
 
   afterAll(async () => {
-    // Clean up test provider and its calendar
-    if (providerId) {
-      const { PROVIDER_STORAGE } = await import('src/storage/interfaces');
-      const providerStorage = app.get(PROVIDER_STORAGE);
-      await providerStorage.removeProvider(providerId);
+    try {
+      // Provider + calendar — keep separate try blocks so a failure on one
+      // doesn't prevent the other (or `app.close()`) from running.
+      if (providerId) {
+        try {
+          const { PROVIDER_STORAGE } = await import('src/storage/interfaces');
+          const providerStorage = app.get(PROVIDER_STORAGE);
+          await providerStorage.removeProvider(providerId);
+        } catch (err) {
+           
+          console.warn('[audit.e2e] provider cleanup failed:', (err as Error).message);
+        }
 
-      const { CALENDAR_STORAGE } = await import('src/storage/interfaces');
-      const calendarStorage = app.get(CALENDAR_STORAGE);
-      await calendarStorage.setCalendar(AUDIT_PROVIDER_ABBR, { provider: {}, tournaments: [] });
+        try {
+          const { CALENDAR_STORAGE } = await import('src/storage/interfaces');
+          const calendarStorage = app.get(CALENDAR_STORAGE);
+          await calendarStorage.setCalendar(AUDIT_PROVIDER_ABBR, { provider: {}, tournaments: [] });
+        } catch (err) {
+           
+          console.warn('[audit.e2e] calendar cleanup failed:', (err as Error).message);
+        }
+      }
+    } finally {
+      await app.close();
     }
-    await app.close();
   });
 
   it('records audit rows for mutations via executionQueue', async () => {
