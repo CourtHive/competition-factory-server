@@ -7,10 +7,18 @@ export async function systemLogin(email, password) {
   });
 }
 
-export async function inviteUser(email, providerId, roles, permissions, services) {
+export async function inviteUser(
+  email: string,
+  providerId: string,
+  roles: string[],
+  permissions: string[],
+  services: string[],
+  providerRole: 'PROVIDER_ADMIN' | 'DIRECTOR' = 'DIRECTOR',
+) {
   return baseApi.post('/auth/invite', {
     permissions,
     providerId,
+    providerRole,
     services,
     email,
     roles,

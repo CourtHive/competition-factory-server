@@ -39,16 +39,33 @@ describe('authApi', () => {
   });
 
   describe('inviteUser', () => {
-    it('posts to /auth/invite with all parameters', async () => {
+    it('posts to /auth/invite with all parameters and a default DIRECTOR providerRole', async () => {
       mockPost.mockResolvedValue({ data: { inviteCode: 'abc123' } });
       await inviteUser('new@test.com', 'org-1', ['admin', 'client'], ['devMode'], ['tournamentProfile']);
       expect(mockPost).toHaveBeenCalledWith('/auth/invite', {
         email: 'new@test.com',
         providerId: 'org-1',
+        providerRole: 'DIRECTOR',
         roles: ['admin', 'client'],
         permissions: ['devMode'],
         services: ['tournamentProfile'],
       });
+    });
+
+    it('forwards an explicit PROVIDER_ADMIN providerRole', async () => {
+      mockPost.mockResolvedValue({ data: { inviteCode: 'abc123' } });
+      await inviteUser(
+        'new@test.com',
+        'org-1',
+        ['admin', 'client'],
+        ['devMode'],
+        ['tournamentProfile'],
+        'PROVIDER_ADMIN',
+      );
+      expect(mockPost).toHaveBeenCalledWith(
+        '/auth/invite',
+        expect.objectContaining({ providerRole: 'PROVIDER_ADMIN' }),
+      );
     });
   });
 

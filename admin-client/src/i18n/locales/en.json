@@ -1230,7 +1230,9 @@
       "devMode": "Dev mode",
       "services": "Services",
       "tournamentProfiles": "Tournament Profiles (fetch)",
-      "invite": "Invite"
+      "invite": "Invite",
+      "providerRole": "Provider Role",
+      "existingUserAdded": "{{email}} already had an account — added to {{provider}} as {{role}}."
     },
     "editUser": {
       "providers": "Providers",
