@@ -86,6 +86,19 @@ export interface AllowedCategory {
   categoryName?: string;
 }
 
+/**
+ * Per-print-type composition policies. Opaque to the server — the
+ * shape is owned by pdf-factory's `CompositionConfig` type, validated
+ * client-side by the editor. Stored as JSON in
+ * `providerConfigSettings.policies.printPolicies`.
+ *
+ * Keys are pdf-factory `PrintType` values (`'draw'`, `'schedule'`,
+ * `'playerList'`, `'courtCard'`, `'signInSheet'`, `'matchCard'`).
+ *
+ * See `Mentat/planning/PRINT_COMPOSITION_POLICY_PLAN.md`.
+ */
+export type PrintPoliciesByType = Record<string, unknown>;
+
 export interface ProviderPolicyDefaults {
   /** Scheduling policy applied to new tournaments */
   schedulingPolicy?: any;
@@ -97,6 +110,8 @@ export interface ProviderPolicyDefaults {
   allowedMatchUpFormats?: string[];
   /** Restrict event categories to this list */
   allowedCategories?: AllowedCategory[];
+  /** Per-print-type composition policies (pdf-factory CompositionConfig per type) */
+  printPolicies?: PrintPoliciesByType;
 }
 
 export interface ProviderDefaults {
