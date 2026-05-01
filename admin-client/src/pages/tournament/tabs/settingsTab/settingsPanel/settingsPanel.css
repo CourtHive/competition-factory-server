@@ -540,6 +540,44 @@
   margin-top: 4px;
 }
 
+/* ── Categories code chip button ── */
+
+.sp-category-code-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--tmx-border-primary, #ccc);
+  border-radius: 4px;
+  background: var(--tmx-bg-elevated, #fff);
+  color: var(--tmx-text-secondary, #666);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sp-category-code-btn.is-set {
+  color: var(--tmx-text-primary, #222);
+  background: var(--tmx-panel-blue-bg, #e6f0fe);
+  border-color: var(--tmx-panel-blue-border, #2d7ff9);
+}
+
+.sp-category-code-btn:hover {
+  border-color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+.sp-category-code-btn i {
+  font-size: 0.75rem;
+  color: var(--tmx-text-muted, #999);
+}
+
+.sp-category-code-btn.is-set i {
+  color: var(--tmx-accent-blue, #2d7ff9);
+}
+
 @media (max-width: 900px) {
   .sp-layout {
     grid-template-columns: 1fr;

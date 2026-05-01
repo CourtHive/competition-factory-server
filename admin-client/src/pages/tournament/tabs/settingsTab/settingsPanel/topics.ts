@@ -17,6 +17,7 @@ import type {
 } from 'types/providerConfig';
 import {
   createPrintCompositionEditor,
+  getAgeCategoryModal,
   type PrintCompositionConfig,
   type PrintCompositionEditorHandle,
   type PrintType,
@@ -27,7 +28,7 @@ import {
   EVENT_TYPE_OPTIONS,
   GENDER_OPTIONS,
 } from './constants';
-import { chipMultiSelect, rowEditor } from './widgets';
+import { chipMultiSelect } from './widgets';
 
 export type TopicId = 'permissions' | 'allowed' | 'policies' | 'defaults' | 'print' | 'categories';
 
@@ -377,37 +378,145 @@ function configuredFlag(map: Record<string, unknown>, type: string): string {
 function renderCategories(host: HTMLElement, ctx: TopicContext): void {
   const root = topicShell(
     'Categories',
-    'Restrict event categories. Empty list = all caps-allowed categories available. Each row needs an age category code; the name is optional.',
+    'Restrict event categories. Empty list = all caps-allowed categories available. Click the code chip to open the Age Category editor.',
   );
   host.appendChild(root);
   const body = root.querySelector<HTMLElement>('.sp-topic-body')!;
 
   const universe = ctx.caps.policies?.allowedCategories ?? [];
-  const hint = universe.length
-    ? `Provisioner-allowed: ${universe.map((c) => c.ageCategoryCode).join(', ')}`
-    : undefined;
+  const rows: AllowedCategory[] = [...(ctx.draft.policies?.allowedCategories ?? [])];
 
-  body.appendChild(
-    rowEditor<AllowedCategory>({
-      rows: ctx.draft.policies?.allowedCategories ?? [],
-      columns: [
-        { key: 'ageCategoryCode', label: 'Age Category Code', placeholder: 'e.g., U18', required: true },
-        { key: 'categoryName', label: 'Display Name', placeholder: 'e.g., Under 18' },
-      ],
-      isEmpty: (row) => !row.ageCategoryCode?.trim(),
-      emptyRow: () => ({ ageCategoryCode: '', categoryName: '' }),
-      hint,
-      onChange: (next) => {
-        ctx.draft.policies = { ...(ctx.draft.policies ?? {}) };
-        if (next.length) {
-          ctx.draft.policies.allowedCategories = next;
-        } else {
-          delete ctx.draft.policies.allowedCategories;
-        }
-        ctx.onChange();
+  const tableHost = document.createElement('div');
+  tableHost.className = 'sp-row-editor';
+  body.appendChild(tableHost);
+
+  const table = document.createElement('div');
+  table.className = 'sp-row-table';
+  tableHost.appendChild(table);
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'sp-row-add-btn';
+  addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add category';
+  addBtn.addEventListener('click', () => {
+    rows.push({ ageCategoryCode: '', categoryName: '' });
+    emit();
+    rebuild();
+    // Auto-launch the editor for the new (empty) row.
+    openCodeEditor(rows.length - 1);
+  });
+  tableHost.appendChild(addBtn);
+
+  if (universe.length) {
+    const hint = document.createElement('div');
+    hint.className = 'sp-row-hint';
+    hint.textContent = `Provisioner-allowed: ${universe.map((c) => c.ageCategoryCode).join(', ')}`;
+    tableHost.appendChild(hint);
+  }
+
+  function emit(): void {
+    const cleaned = rows.filter((r) => r.ageCategoryCode?.trim());
+    ctx.draft.policies = { ...(ctx.draft.policies ?? {}) };
+    if (cleaned.length) {
+      ctx.draft.policies.allowedCategories = cleaned;
+    } else {
+      delete ctx.draft.policies.allowedCategories;
+    }
+    ctx.onChange();
+  }
+
+  function openCodeEditor(idx: number): void {
+    const current = rows[idx];
+    getAgeCategoryModal({
+      existingAgeCategoryCode: current?.ageCategoryCode || undefined,
+      callback: (result: { ageCategoryCode: string; [key: string]: any }) => {
+        if (!result?.ageCategoryCode) return;
+        rows[idx] = {
+          ...rows[idx],
+          ageCategoryCode: result.ageCategoryCode,
+        };
+        emit();
+        rebuild();
       },
-    }),
-  );
+    });
+  }
+
+  function rebuild(): void {
+    table.innerHTML = '';
+
+    const headerRow = document.createElement('div');
+    headerRow.className = 'sp-row-header';
+    const codeHead = document.createElement('div');
+    codeHead.className = 'sp-row-cell-header';
+    codeHead.textContent = 'Age Category Code *';
+    const nameHead = document.createElement('div');
+    nameHead.className = 'sp-row-cell-header';
+    nameHead.textContent = 'Display Name';
+    headerRow.appendChild(codeHead);
+    headerRow.appendChild(nameHead);
+    headerRow.appendChild(document.createElement('div'));
+    table.appendChild(headerRow);
+
+    if (rows.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'sp-row-empty';
+      empty.textContent = 'No categories. Click Add category to start.';
+      table.appendChild(empty);
+      return;
+    }
+
+    rows.forEach((row, idx) => {
+      const tr = document.createElement('div');
+      tr.className = 'sp-row';
+
+      // Code column — chip-style button that opens the age-category modal.
+      const codeCell = document.createElement('div');
+      codeCell.className = 'sp-row-cell';
+      const codeBtn = document.createElement('button');
+      codeBtn.type = 'button';
+      codeBtn.className = 'sp-category-code-btn' + (row.ageCategoryCode ? ' is-set' : '');
+      codeBtn.innerHTML = row.ageCategoryCode
+        ? `<span>${escapeHtml(row.ageCategoryCode)}</span><i class="fa-solid fa-pen-to-square"></i>`
+        : '<span><em>Choose code…</em></span><i class="fa-solid fa-arrow-right"></i>';
+      codeBtn.addEventListener('click', () => openCodeEditor(idx));
+      codeCell.appendChild(codeBtn);
+      tr.appendChild(codeCell);
+
+      // Display name — free text.
+      const nameCell = document.createElement('div');
+      nameCell.className = 'sp-row-cell';
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.className = 'sp-field-input';
+      nameInput.placeholder = 'e.g., Under 18';
+      nameInput.value = row.categoryName ?? '';
+      nameInput.addEventListener('input', () => {
+        rows[idx] = { ...rows[idx], categoryName: nameInput.value };
+        emit();
+      });
+      nameCell.appendChild(nameInput);
+      tr.appendChild(nameCell);
+
+      const delCell = document.createElement('div');
+      delCell.className = 'sp-row-cell-delete';
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'sp-row-del-btn';
+      delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+      delBtn.title = 'Remove category';
+      delBtn.addEventListener('click', () => {
+        rows.splice(idx, 1);
+        emit();
+        rebuild();
+      });
+      delCell.appendChild(delBtn);
+      tr.appendChild(delCell);
+
+      table.appendChild(tr);
+    });
+  }
+
+  rebuild();
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
