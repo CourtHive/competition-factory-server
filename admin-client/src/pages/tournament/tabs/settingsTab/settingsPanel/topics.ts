@@ -10,13 +10,18 @@
  * See `Mentat/planning/ADMIN_SETTINGS_PAGE_REDESIGN.md`.
  */
 import { PERMISSION_GROUPS } from 'types/providerConfig';
-import type { ProviderConfigCaps, ProviderConfigSettings, ProviderPermissions } from 'types/providerConfig';
+import type {
+  AllowedCategory,
+  ProviderConfigCaps,
+  ProviderConfigSettings,
+} from 'types/providerConfig';
 import {
   CREATION_METHOD_OPTIONS,
   DRAW_TYPE_OPTIONS,
   EVENT_TYPE_OPTIONS,
   GENDER_OPTIONS,
 } from './constants';
+import { chipMultiSelect, rowEditor } from './widgets';
 
 export type TopicId = 'permissions' | 'allowed' | 'policies' | 'defaults' | 'print' | 'categories';
 
@@ -175,26 +180,73 @@ function setDefault(
 // ── Other topics (Phase 2 read-only summaries; editors land in 3b–d) ──────
 
 function renderAllowed(host: HTMLElement, ctx: TopicContext): void {
-  const perm: ProviderPermissions = ctx.draft.permissions ?? {};
-  const pol = ctx.draft.policies ?? {};
-  const rows: string[] = [];
-  const add = (label: string, list: string[] | undefined) => {
-    if (!list || !list.length) return;
-    rows.push(`<li><strong>${label}:</strong> ${list.map((v) => `<code>${escapeHtml(v)}</code>`).join(' ')}</li>`);
-  };
-  add('Draw Types', perm.allowedDrawTypes);
-  add('Creation Methods', perm.allowedCreationMethods);
-  add('Scoring Approaches', perm.allowedScoringApproaches);
-  add('MatchUp Formats', pol.allowedMatchUpFormats);
   const root = topicShell(
     'Allowed Selections',
-    'Narrowing within the provisioner-allowed universe. Multi-select chip editor lands in Phase 3b.',
+    'Narrow the provisioner-allowed universe. Click a chip to toggle. Empty list = inherit caps unchanged.',
   );
-  const body = root.querySelector<HTMLElement>('.sp-topic-body')!;
-  body.innerHTML = rows.length
-    ? `<ul class="sp-summary-list">${rows.join('')}</ul>`
-    : '<p class="sp-summary-empty"><em>No narrowing applied — inheriting all caps.</em></p>';
   host.appendChild(root);
+  const body = root.querySelector<HTMLElement>('.sp-topic-body')!;
+
+  body.appendChild(
+    chipMultiSelect({
+      label: 'Draw Types',
+      values: ctx.draft.permissions?.allowedDrawTypes ?? [],
+      pinnedUniverse: ctx.caps.permissions?.allowedDrawTypes,
+      placeholder: 'Add draw type…',
+      onChange: (next) => setPermArray(ctx, 'allowedDrawTypes', next),
+    }),
+  );
+  body.appendChild(
+    chipMultiSelect({
+      label: 'Creation Methods',
+      values: ctx.draft.permissions?.allowedCreationMethods ?? [],
+      pinnedUniverse: ctx.caps.permissions?.allowedCreationMethods,
+      placeholder: 'Add creation method…',
+      onChange: (next) => setPermArray(ctx, 'allowedCreationMethods', next),
+    }),
+  );
+  body.appendChild(
+    chipMultiSelect({
+      label: 'Scoring Approaches',
+      values: ctx.draft.permissions?.allowedScoringApproaches ?? [],
+      pinnedUniverse: ctx.caps.permissions?.allowedScoringApproaches,
+      placeholder: 'Add scoring approach…',
+      onChange: (next) => setPermArray(ctx, 'allowedScoringApproaches', next),
+    }),
+  );
+  body.appendChild(
+    chipMultiSelect({
+      label: 'MatchUp Formats',
+      values: ctx.draft.policies?.allowedMatchUpFormats ?? [],
+      pinnedUniverse: ctx.caps.policies?.allowedMatchUpFormats,
+      placeholder: 'Add matchUp format code…',
+      onChange: (next) => setPolicyArray(ctx, 'allowedMatchUpFormats', next),
+    }),
+  );
+}
+
+function setPermArray(
+  ctx: TopicContext,
+  key: 'allowedDrawTypes' | 'allowedCreationMethods' | 'allowedScoringApproaches',
+  next: string[],
+): void {
+  ctx.draft.permissions = { ...(ctx.draft.permissions ?? {}) };
+  if (next.length) {
+    ctx.draft.permissions[key] = next;
+  } else {
+    delete ctx.draft.permissions[key];
+  }
+  ctx.onChange();
+}
+
+function setPolicyArray(ctx: TopicContext, key: 'allowedMatchUpFormats', next: string[]): void {
+  ctx.draft.policies = { ...(ctx.draft.policies ?? {}) };
+  if (next.length) {
+    ctx.draft.policies[key] = next;
+  } else {
+    delete ctx.draft.policies[key];
+  }
+  ctx.onChange();
 }
 
 function renderPolicies(host: HTMLElement, ctx: TopicContext): void {
@@ -236,22 +288,39 @@ function renderPrint(host: HTMLElement, ctx: TopicContext): void {
 }
 
 function renderCategories(host: HTMLElement, ctx: TopicContext): void {
-  const cats = ctx.draft.policies?.allowedCategories ?? [];
-  const rows = cats.length
-    ? cats
-        .map(
-          (c) =>
-            `<li><code>${escapeHtml(c.ageCategoryCode)}</code>${c.categoryName ? ` — ${escapeHtml(c.categoryName)}` : ''}</li>`,
-        )
-        .join('')
-    : '<li><em>No categories restricted — all caps-allowed categories available.</em></li>';
   const root = topicShell(
     'Categories',
-    'Restrict event categories to this list. Row editor lands in Phase 3b.',
+    'Restrict event categories. Empty list = all caps-allowed categories available. Each row needs an age category code; the name is optional.',
   );
-  const body = root.querySelector<HTMLElement>('.sp-topic-body')!;
-  body.innerHTML = `<ul class="sp-summary-list">${rows}</ul>`;
   host.appendChild(root);
+  const body = root.querySelector<HTMLElement>('.sp-topic-body')!;
+
+  const universe = ctx.caps.policies?.allowedCategories ?? [];
+  const hint = universe.length
+    ? `Provisioner-allowed: ${universe.map((c) => c.ageCategoryCode).join(', ')}`
+    : undefined;
+
+  body.appendChild(
+    rowEditor<AllowedCategory>({
+      rows: ctx.draft.policies?.allowedCategories ?? [],
+      columns: [
+        { key: 'ageCategoryCode', label: 'Age Category Code', placeholder: 'e.g., U18', required: true },
+        { key: 'categoryName', label: 'Display Name', placeholder: 'e.g., Under 18' },
+      ],
+      isEmpty: (row) => !row.ageCategoryCode?.trim(),
+      emptyRow: () => ({ ageCategoryCode: '', categoryName: '' }),
+      hint,
+      onChange: (next) => {
+        ctx.draft.policies = { ...(ctx.draft.policies ?? {}) };
+        if (next.length) {
+          ctx.draft.policies.allowedCategories = next;
+        } else {
+          delete ctx.draft.policies.allowedCategories;
+        }
+        ctx.onChange();
+      },
+    }),
+  );
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
