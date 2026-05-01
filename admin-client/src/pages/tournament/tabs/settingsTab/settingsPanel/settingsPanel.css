@@ -167,6 +167,163 @@
   color: var(--tmx-text-secondary, #666);
 }
 
+/* ── Panel header (title + dirty dot + save button) ── */
+
+.sp-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px 0;
+}
+
+.sp-panel-header h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.sp-dirty-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tmx-accent-blue, #2d7ff9);
+  display: inline-block;
+}
+
+.sp-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--tmx-accent-blue, #2d7ff9);
+  border-radius: 4px;
+  background: var(--tmx-accent-blue, #2d7ff9);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.sp-save-btn:disabled {
+  background: var(--tmx-bg-elevated, #f0f0f0);
+  border-color: var(--tmx-border-primary, #ccc);
+  color: var(--tmx-text-muted, #999);
+  cursor: not-allowed;
+}
+
+.sp-save-btn:not(:disabled):hover {
+  filter: brightness(1.05);
+}
+
+/* ── Validation banner ── */
+
+.sp-validation {
+  background: var(--tmx-panel-red-bg, #fff0f0);
+  border: 1px solid var(--tmx-panel-red-border, #d32f2f);
+  color: var(--tmx-text-primary, #222);
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+}
+
+.sp-validation strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.sp-validation ul {
+  list-style: disc;
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* ── Field (label + input) ── */
+
+.sp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  max-width: 320px;
+}
+
+.sp-field-label {
+  font-size: 0.8rem;
+  color: var(--tmx-text-secondary, #555);
+  font-weight: 500;
+}
+
+.sp-field-input {
+  padding: 6px 8px;
+  border: 1px solid var(--tmx-border-primary, #ccc);
+  border-radius: 4px;
+  background: var(--tmx-bg-elevated, #fff);
+  color: var(--tmx-text-primary, #222);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.sp-field-input:focus {
+  outline: 2px solid var(--tmx-accent-blue, #2d7ff9);
+  outline-offset: 0;
+  border-color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+/* ── Permissions grid ── */
+
+.sp-perm-group {
+  margin-bottom: 18px;
+}
+
+.sp-perm-group-title {
+  margin: 0 0 8px 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--tmx-text-secondary, #555);
+}
+
+.sp-perm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px 16px;
+}
+
+.sp-perm-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.sp-perm-item input[type='checkbox'] {
+  margin: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.sp-perm-item.is-locked {
+  cursor: not-allowed;
+  color: var(--tmx-text-muted, #999);
+}
+
+.sp-perm-item.is-locked .fa-lock {
+  font-size: 0.7rem;
+  color: var(--tmx-text-muted, #999);
+}
+
+.sp-perm-label {
+  flex: 1;
+}
+
 @media (max-width: 900px) {
   .sp-layout {
     grid-template-columns: 1fr;
