@@ -109,32 +109,48 @@ function buildAddInput(placeholder: string | undefined, onAdd: (value: string) =
   wrap.className = 'sp-chip-add';
   const input = document.createElement('input');
   input.type = 'text';
-  input.placeholder = placeholder ?? 'Add…';
+  input.placeholder = placeholder ?? 'Type to add, then Enter or +';
   input.className = 'sp-chip-add-input';
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const v = input.value;
-      if (v.trim()) {
-        onAdd(v);
-        input.value = '';
-      }
-    }
-  });
+
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'sp-chip-add-btn';
   btn.innerHTML = '<i class="fa-solid fa-plus"></i>';
   btn.title = 'Add';
-  btn.addEventListener('click', () => {
-    const v = input.value;
-    if (v.trim()) {
-      onAdd(v);
-      input.value = '';
+
+  function syncBtnState(): void {
+    const hasValue = input.value.trim().length > 0;
+    btn.classList.toggle('is-ready', hasValue);
+    // Keep the button enabled even when empty so the click handler can
+    // run (focus the input). Disabled buttons swallow clicks entirely.
+  }
+
+  function commit(): boolean {
+    const v = input.value.trim();
+    if (!v) {
+      input.focus();
+      return false;
+    }
+    onAdd(v);
+    return true;
+  }
+
+  input.addEventListener('input', syncBtnState);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commit();
     }
   });
+  btn.addEventListener('click', () => {
+    if (!commit()) return;
+    // commit() already wrote the value; rebuild() destroys this input
+    // when chips re-render, so nothing else to do here.
+  });
+
   wrap.appendChild(input);
   wrap.appendChild(btn);
+  syncBtnState();
   return wrap;
 }
 

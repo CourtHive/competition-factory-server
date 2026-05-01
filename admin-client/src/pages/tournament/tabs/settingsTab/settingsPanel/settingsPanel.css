@@ -368,6 +368,14 @@
 
 .sp-chip i {
   font-size: 0.7rem;
+  /* Make sure clicks always bubble to the button — Font Awesome's
+     icon glyph can otherwise eat the click target depending on how
+     the consuming app's CSS resets pointer events. */
+  pointer-events: none;
+}
+
+.sp-chip > * {
+  pointer-events: none;
 }
 
 .sp-chip.is-selected {
@@ -419,7 +427,7 @@
 .sp-chip-add-btn {
   border: 0;
   background: transparent;
-  color: var(--tmx-text-secondary, #666);
+  color: var(--tmx-text-muted, #aaa);
   cursor: pointer;
   padding: 2px 6px;
   border-radius: 999px;
@@ -428,6 +436,14 @@
 
 .sp-chip-add-btn:hover {
   color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+.sp-chip-add-btn.is-ready {
+  color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+.sp-chip-add-btn i {
+  pointer-events: none;
 }
 
 /* ── Row editor ── */
