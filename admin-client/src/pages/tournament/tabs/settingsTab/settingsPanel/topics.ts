@@ -16,6 +16,12 @@ import type {
   ProviderConfigSettings,
 } from 'types/providerConfig';
 import {
+  createPrintCompositionEditor,
+  type PrintCompositionConfig,
+  type PrintCompositionEditorHandle,
+  type PrintType,
+} from 'courthive-components';
+import {
   CREATION_METHOD_OPTIONS,
   DRAW_TYPE_OPTIONS,
   EVENT_TYPE_OPTIONS,
@@ -268,23 +274,104 @@ function renderPolicies(host: HTMLElement, ctx: TopicContext): void {
   host.appendChild(root);
 }
 
+const PRINT_TYPES: PrintType[] = ['draw', 'schedule', 'playerList', 'courtCard', 'signInSheet', 'matchCard'];
+
 function renderPrint(host: HTMLElement, ctx: TopicContext): void {
-  const printPolicies = (ctx.draft.policies as any)?.printPolicies ?? {};
-  const types = ['draw', 'schedule', 'playerList', 'courtCard', 'signInSheet', 'matchCard'];
-  const rows = types
-    .map((type) => {
-      const cfg = printPolicies[type];
-      const configured = cfg && typeof cfg === 'object' && Object.keys(cfg).length > 0;
-      return `<li>${configured ? '●' : '○'} <code>${type}</code> ${configured ? '' : '<em>(uses pdf-factory defaults)</em>'}</li>`;
-    })
-    .join('');
   const root = topicShell(
     'Print Configuration',
-    'Per-print-type composition policies. The composition editor embeds here in Phase 3c.',
+    "Per-print-type composition policies. ●/○ markers in the picker show which types have a saved policy. Reset clears the active type's policy and falls back to pdf-factory defaults.",
   );
-  const body = root.querySelector<HTMLElement>('.sp-topic-body')!;
-  body.innerHTML = `<ul class="sp-summary-list">${rows}</ul>`;
   host.appendChild(root);
+  const body = root.querySelector<HTMLElement>('.sp-topic-body')!;
+
+  const printPolicies = ((ctx.draft.policies as any)?.printPolicies ?? {}) as Record<string, unknown>;
+
+  // Type picker + reset
+  const controls = document.createElement('div');
+  controls.className = 'sp-print-controls';
+
+  const picker = document.createElement('select');
+  picker.className = 'sp-field-input';
+  picker.setAttribute('aria-label', 'Print type');
+  for (const type of PRINT_TYPES) {
+    const o = document.createElement('option');
+    o.value = type;
+    o.textContent = configuredFlag(printPolicies, type) + type;
+    picker.appendChild(o);
+  }
+  controls.appendChild(picker);
+
+  const resetBtn = document.createElement('button');
+  resetBtn.type = 'button';
+  resetBtn.className = 'sp-row-add-btn';
+  resetBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Reset to defaults';
+  resetBtn.title = "Remove this provider's policy for the selected print type";
+  controls.appendChild(resetBtn);
+
+  body.appendChild(controls);
+
+  const editorHost = document.createElement('div');
+  editorHost.className = 'sp-print-editor-host';
+  body.appendChild(editorHost);
+
+  let active: PrintType = PRINT_TYPES[0];
+  let handle: PrintCompositionEditorHandle | null = null;
+
+  function refreshPicker(): void {
+    for (let i = 0; i < picker.options.length; i++) {
+      const opt = picker.options[i];
+      const t = opt.value as PrintType;
+      opt.textContent = configuredFlag(printPolicies, t) + t;
+    }
+  }
+
+  function writePolicy(type: PrintType, cfg: PrintCompositionConfig): void {
+    ctx.draft.policies = { ...(ctx.draft.policies ?? {}) };
+    const existing = ((ctx.draft.policies as any).printPolicies ?? {}) as Record<string, unknown>;
+    const next = { ...existing };
+    if (cfg && Object.keys(cfg).length > 0) {
+      next[type] = cfg;
+    } else {
+      delete next[type];
+    }
+    if (Object.keys(next).length > 0) {
+      (ctx.draft.policies as any).printPolicies = next;
+    } else {
+      delete (ctx.draft.policies as any).printPolicies;
+    }
+    // Keep the local snapshot in lockstep so picker markers reflect edits.
+    Object.keys(printPolicies).forEach((k) => delete printPolicies[k]);
+    Object.assign(printPolicies, next);
+    ctx.onChange();
+    refreshPicker();
+  }
+
+  function mount(type: PrintType): void {
+    handle?.destroy();
+    const existing = (printPolicies[type] ?? {}) as PrintCompositionConfig;
+    handle = createPrintCompositionEditor(editorHost, {
+      printType: type,
+      config: existing,
+      onChange: (cfg) => writePolicy(type, cfg),
+    });
+  }
+
+  picker.addEventListener('change', () => {
+    active = picker.value as PrintType;
+    mount(active);
+  });
+
+  resetBtn.addEventListener('click', () => {
+    writePolicy(active, {} as PrintCompositionConfig);
+    mount(active);
+  });
+
+  mount(active);
+}
+
+function configuredFlag(map: Record<string, unknown>, type: string): string {
+  const cfg = map[type];
+  return cfg && typeof cfg === 'object' && Object.keys(cfg as object).length > 0 ? '● ' : '○ ';
 }
 
 function renderCategories(host: HTMLElement, ctx: TopicContext): void {

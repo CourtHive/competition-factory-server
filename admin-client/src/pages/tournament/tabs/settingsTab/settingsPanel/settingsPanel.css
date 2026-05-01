@@ -521,6 +521,25 @@
   color: var(--tmx-text-muted, #999);
 }
 
+/* ── Print Configuration topic ── */
+
+.sp-print-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sp-print-controls .sp-field-input {
+  max-width: 220px;
+}
+
+.sp-print-editor-host {
+  /* The embedded createPrintCompositionEditor brings its own chrome
+     and styles; we just need to give it room. */
+  margin-top: 4px;
+}
+
 @media (max-width: 900px) {
   .sp-layout {
     grid-template-columns: 1fr;
