@@ -256,23 +256,192 @@ function setPolicyArray(ctx: TopicContext, key: 'allowedMatchUpFormats', next: s
   ctx.onChange();
 }
 
+type PolicyKey = 'schedulingPolicy' | 'scoringPolicy' | 'seedingPolicy';
+
+interface PolicyDescriptor {
+  key: PolicyKey;
+  label: string;
+  description: string;
+}
+
+const POLICY_DESCRIPTORS: PolicyDescriptor[] = [
+  {
+    key: 'schedulingPolicy',
+    label: 'Scheduling',
+    description:
+      'Average match times, recovery windows between matches, daily match limits per participant.',
+  },
+  {
+    key: 'scoringPolicy',
+    label: 'Scoring',
+    description: 'Allowed matchUp formats, default format selection, ready-to-score conditions.',
+  },
+  {
+    key: 'seedingPolicy',
+    label: 'Seeding',
+    description: 'Seed positioning patterns and thresholds for the number of seeds per draw size.',
+  },
+];
+
 function renderPolicies(host: HTMLElement, ctx: TopicContext): void {
-  const pol = ctx.draft.policies ?? {};
-  const has = (v: any) => v !== undefined && v !== null && Object.keys(v ?? {}).length > 0;
-  const rows = [
-    { label: 'Scheduling Policy', set: has(pol.schedulingPolicy) },
-    { label: 'Scoring Policy', set: has(pol.scoringPolicy) },
-    { label: 'Seeding Policy', set: has(pol.seedingPolicy) },
-  ];
   const root = topicShell(
     'Policies',
-    'Static configuration the factory engines consume. Structured editors land in Phase 3d.',
+    'Static configuration the factory engines consume. Each policy has an editable name and a JSON body — structured forms per policy type land when the schemas are pinned.',
   );
-  const body = root.querySelector<HTMLElement>('.sp-topic-body')!;
-  body.innerHTML = `<ul class="sp-summary-list">${rows
-    .map((r) => `<li><strong>${r.label}:</strong> ${r.set ? 'configured' : '<em>using defaults</em>'}</li>`)
-    .join('')}</ul>`;
   host.appendChild(root);
+  const body = root.querySelector<HTMLElement>('.sp-topic-body')!;
+
+  for (const desc of POLICY_DESCRIPTORS) {
+    body.appendChild(buildPolicyCard(ctx, desc));
+  }
+}
+
+function buildPolicyCard(ctx: TopicContext, desc: PolicyDescriptor): HTMLElement {
+  const card = document.createElement('section');
+  card.className = 'sp-policy-card';
+
+  const head = document.createElement('header');
+  head.className = 'sp-policy-card-header';
+
+  const heading = document.createElement('div');
+  heading.className = 'sp-policy-card-heading';
+
+  const titleRow = document.createElement('div');
+  titleRow.className = 'sp-policy-card-title-row';
+  const title = document.createElement('h5');
+  title.className = 'sp-policy-card-title';
+  title.textContent = desc.label;
+  const status = document.createElement('span');
+  status.className = 'sp-policy-status';
+  titleRow.appendChild(title);
+  titleRow.appendChild(status);
+  heading.appendChild(titleRow);
+
+  const description = document.createElement('p');
+  description.className = 'sp-policy-card-description';
+  description.textContent = desc.description;
+  heading.appendChild(description);
+
+  head.appendChild(heading);
+
+  const resetBtn = document.createElement('button');
+  resetBtn.type = 'button';
+  resetBtn.className = 'sp-policy-reset-btn';
+  resetBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Reset';
+  resetBtn.title = 'Remove this policy from the draft';
+  head.appendChild(resetBtn);
+
+  card.appendChild(head);
+
+  const nameField = document.createElement('label');
+  nameField.className = 'sp-field';
+  const nameLabel = document.createElement('span');
+  nameLabel.className = 'sp-field-label';
+  nameLabel.textContent = 'Policy name';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'sp-field-input';
+  nameInput.placeholder = 'Optional human-readable label';
+  nameField.appendChild(nameLabel);
+  nameField.appendChild(nameInput);
+  card.appendChild(nameField);
+
+  // Collapsible JSON editor for the rest of the policy.
+  const jsonWrap = document.createElement('details');
+  jsonWrap.className = 'sp-policy-json';
+
+  const summary = document.createElement('summary');
+  summary.className = 'sp-policy-json-summary';
+  summary.innerHTML = '<i class="fa-solid fa-code"></i> Advanced (JSON)';
+  jsonWrap.appendChild(summary);
+
+  const ta = document.createElement('textarea');
+  ta.className = 'sp-policy-json-input';
+  ta.rows = 6;
+  ta.spellcheck = false;
+  ta.placeholder = '{\n  "...": "..."\n}';
+  jsonWrap.appendChild(ta);
+
+  const jsonError = document.createElement('div');
+  jsonError.className = 'sp-policy-json-error';
+  jsonError.style.display = 'none';
+  jsonWrap.appendChild(jsonError);
+
+  card.appendChild(jsonWrap);
+
+  // ── Wire state ────────────────────────────────────────────────────────
+
+  const refresh = () => {
+    const policy = (ctx.draft.policies?.[desc.key] ?? undefined) as Record<string, any> | undefined;
+    const isSet = policy && Object.keys(policy).length > 0;
+    status.textContent = isSet ? 'configured' : 'using defaults';
+    status.classList.toggle('is-configured', !!isSet);
+
+    nameInput.value = (policy?.policyName as string) ?? '';
+
+    // Body view excludes policyName so the JSON editor only shows the rest.
+    const { policyName: _omit, ...rest } = (policy ?? {}) as Record<string, any>;
+    void _omit;
+    ta.value = Object.keys(rest).length ? JSON.stringify(rest, null, 2) : '';
+    jsonError.style.display = 'none';
+  };
+
+  const writePolicy = (next: Record<string, any> | undefined) => {
+    ctx.draft.policies = { ...(ctx.draft.policies ?? {}) };
+    if (next && Object.keys(next).length > 0) {
+      (ctx.draft.policies as any)[desc.key] = next;
+    } else {
+      delete (ctx.draft.policies as any)[desc.key];
+    }
+    ctx.onChange();
+    refresh();
+  };
+
+  nameInput.addEventListener('input', () => {
+    const current = ((ctx.draft.policies?.[desc.key] ?? {}) as Record<string, any>) || {};
+    const next = { ...current };
+    if (nameInput.value.trim()) {
+      next.policyName = nameInput.value;
+    } else {
+      delete next.policyName;
+    }
+    writePolicy(next);
+  });
+
+  ta.addEventListener('input', () => {
+    const raw = ta.value.trim();
+    if (raw === '') {
+      // Clear the body but preserve policyName if set.
+      const current = ((ctx.draft.policies?.[desc.key] ?? {}) as Record<string, any>) || {};
+      const policyName = current.policyName;
+      writePolicy(policyName ? { policyName } : undefined);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        showJsonError('Policy body must be a JSON object.');
+        return;
+      }
+      jsonError.style.display = 'none';
+      const current = ((ctx.draft.policies?.[desc.key] ?? {}) as Record<string, any>) || {};
+      const policyName = current.policyName;
+      const next = policyName ? { policyName, ...parsed } : { ...parsed };
+      writePolicy(next);
+    } catch (err) {
+      showJsonError(err instanceof Error ? err.message : 'Invalid JSON.');
+    }
+  });
+
+  resetBtn.addEventListener('click', () => writePolicy(undefined));
+
+  function showJsonError(message: string): void {
+    jsonError.textContent = message;
+    jsonError.style.display = '';
+  }
+
+  refresh();
+  return card;
 }
 
 const PRINT_TYPES: PrintType[] = ['draw', 'schedule', 'playerList', 'courtCard', 'signInSheet', 'matchCard'];
