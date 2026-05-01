@@ -27,6 +27,7 @@ export function setActiveProvisionerId(provisionerId: string): void {
   } catch {
     /* non-fatal */
   }
+  notifyProvisionerChange();
 }
 
 export function clearActiveProvisionerId(): void {
@@ -34,6 +35,18 @@ export function clearActiveProvisionerId(): void {
     globalThis.localStorage?.removeItem(ACTIVE_PROVISIONER_KEY);
   } catch {
     /* non-fatal */
+  }
+  notifyProvisionerChange();
+}
+
+/**
+ * Fire a DOM event so the nav-visibility module can refresh the
+ * provisioner icon's display state without forming a circular import
+ * (this module is imported by navVisibility.ts).
+ */
+function notifyProvisionerChange(): void {
+  if (typeof document !== 'undefined') {
+    document.dispatchEvent(new CustomEvent('admin:provisioner-changed'));
   }
 }
 

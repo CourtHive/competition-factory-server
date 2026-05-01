@@ -6,18 +6,11 @@ import { renderSystemPage } from 'pages/system/renderSystemPage';
 import { renderAdminPage } from 'pages/admin/renderAdminPage';
 import { renderSyncPage } from 'pages/sync/renderSyncPage';
 import { getLoginState } from 'services/authentication/loginState';
+import { updateNavVisibility } from 'services/navigation/navVisibility';
 import { context } from 'services/context';
 import Navigo from 'navigo';
 
-import {
-  SUPER_ADMIN,
-  PROVISIONER,
-  SYSTEM,
-  PROVISIONER_ROUTE,
-  SANCTIONING,
-  SYNC,
-  NONE,
-} from 'constants/tmxConstants';
+import { SUPER_ADMIN, PROVISIONER, SYSTEM, PROVISIONER_ROUTE, SANCTIONING, SYNC } from 'constants/tmxConstants';
 
 export function routeAdmin(): void {
   const router = new Navigo('/', { hash: true });
@@ -126,23 +119,4 @@ export function routeAdmin(): void {
 
 function isProvisionerOrSuperAdmin(state: any): boolean {
   return !!(state?.roles?.includes(SUPER_ADMIN) || state?.roles?.includes(PROVISIONER));
-}
-
-function updateNavVisibility(): void {
-  const state = getLoginState();
-  const isSuperAdmin = state?.roles?.includes(SUPER_ADMIN);
-  const isProvisioner = state?.roles?.includes(PROVISIONER);
-
-  const systemIcon = document.getElementById('h-system');
-  if (systemIcon) {
-    systemIcon.style.display = isSuperAdmin ? '' : NONE;
-  }
-  const hSync = document.getElementById('h-sync');
-  if (hSync) {
-    hSync.style.display = isSuperAdmin ? '' : NONE;
-  }
-  const provisionerIcon = document.getElementById('h-provisioner');
-  if (provisionerIcon) {
-    provisionerIcon.style.display = isSuperAdmin || isProvisioner ? '' : NONE;
-  }
 }
