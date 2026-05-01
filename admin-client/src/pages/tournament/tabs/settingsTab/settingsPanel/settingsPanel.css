@@ -1,0 +1,115 @@
+/**
+ * Provider settings panel — two-column layout (topic nav + content).
+ * Mirrors the policy-catalog visual language but uses TMX theme
+ * variables (--tmx-*) so it sits comfortably alongside the other
+ * settings panels.
+ */
+
+.sp-panel {
+  /* parent .settings-panel already supplies padding; we want the
+     internal layout to feel breathing-room dense, so push gap on
+     internal grid rather than on the outer panel. */
+}
+
+.sp-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 16px;
+  margin-top: 12px;
+  min-height: 320px;
+}
+
+.sp-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-right: 1px solid var(--tmx-border-primary, #e0e0e0);
+  padding-right: 12px;
+}
+
+.sp-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--tmx-text-primary, #222);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.sp-nav-item:hover {
+  background: var(--tmx-bg-elevated, rgba(0, 0, 0, 0.03));
+}
+
+.sp-nav-item:focus-visible {
+  outline: 2px solid var(--tmx-accent-blue, #2d7ff9);
+  outline-offset: 1px;
+}
+
+.sp-nav-item.is-active {
+  background: var(--tmx-panel-blue-bg, #e6f0fe);
+  border-color: var(--tmx-panel-blue-border, #2d7ff9);
+  color: var(--tmx-accent-blue, #2d7ff9);
+  font-weight: 600;
+}
+
+.sp-nav-item i {
+  width: 16px;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.sp-content {
+  padding: 8px 12px;
+  min-width: 0;
+}
+
+.sp-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--tmx-text-secondary, #666);
+  text-align: center;
+}
+
+.sp-placeholder i {
+  font-size: 2rem;
+  color: var(--tmx-text-muted, #aaa);
+}
+
+.sp-placeholder p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.sp-placeholder-sub {
+  font-size: 0.8rem !important;
+  color: var(--tmx-text-muted, #aaa);
+  max-width: 420px;
+}
+
+@media (max-width: 900px) {
+  .sp-layout {
+    grid-template-columns: 1fr;
+  }
+  .sp-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--tmx-border-primary, #e0e0e0);
+    padding-right: 0;
+    padding-bottom: 8px;
+  }
+  .sp-nav-item {
+    white-space: nowrap;
+  }
+}
