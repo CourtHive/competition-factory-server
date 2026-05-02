@@ -31,6 +31,14 @@ export const PROVISIONER_ROUTE = 'provisioner';
 export const TMX_SANCTIONING = 'tmxSanctioning';
 export const SANCTIONING = 'sanctioning';
 
+// Templates (per-provider topology / tieFormat / composition catalogs)
+export const TMX_TEMPLATES = 'tmxTemplates';
+export const TEMPLATES = 'templates';
+
+// Policies (per-provider policy catalog)
+export const TMX_POLICIES = 'tmxPolicies';
+export const POLICIES = 'policies';
+
 // Tournament Sync
 export const TMX_SYNC = 'tmxSync';
 export const SYNC = 'sync';

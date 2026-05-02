@@ -1,0 +1,714 @@
+/**
+ * Provider settings panel — two-column layout (topic nav + content).
+ * Mirrors the policy-catalog visual language but uses TMX theme
+ * variables (--tmx-*) so it sits comfortably alongside the other
+ * settings panels.
+ */
+
+.sp-panel {
+  /* parent .settings-panel already supplies padding; we want the
+     internal layout to feel breathing-room dense, so push gap on
+     internal grid rather than on the outer panel. */
+}
+
+.sp-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 16px;
+  margin-top: 12px;
+  min-height: 320px;
+}
+
+.sp-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-right: 1px solid var(--tmx-border-primary, #e0e0e0);
+  padding-right: 12px;
+}
+
+.sp-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--tmx-text-primary, #222);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.sp-nav-item:hover {
+  background: var(--tmx-bg-elevated, rgba(0, 0, 0, 0.03));
+}
+
+.sp-nav-item:focus-visible {
+  outline: 2px solid var(--tmx-accent-blue, #2d7ff9);
+  outline-offset: 1px;
+}
+
+.sp-nav-item.is-active {
+  background: var(--tmx-panel-blue-bg, #e6f0fe);
+  border-color: var(--tmx-panel-blue-border, #2d7ff9);
+  color: var(--tmx-accent-blue, #2d7ff9);
+  font-weight: 600;
+}
+
+.sp-nav-item i {
+  width: 16px;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.sp-content {
+  padding: 8px 12px;
+  min-width: 0;
+}
+
+.sp-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--tmx-text-secondary, #666);
+  text-align: center;
+}
+
+.sp-placeholder i {
+  font-size: 2rem;
+  color: var(--tmx-text-muted, #aaa);
+}
+
+.sp-placeholder p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.sp-placeholder-sub {
+  font-size: 0.8rem !important;
+  color: var(--tmx-text-muted, #aaa);
+  max-width: 420px;
+}
+
+.sp-error i {
+  color: var(--tmx-panel-red-border, #d32f2f);
+}
+
+.sp-topic {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sp-topic-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-bottom: 1px solid var(--tmx-border-primary, #e0e0e0);
+  padding-bottom: 12px;
+}
+
+.sp-topic-header h4 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--tmx-text-primary, #222);
+}
+
+.sp-topic-description {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--tmx-text-secondary, #666);
+}
+
+.sp-topic-body {
+  font-size: 0.9rem;
+  color: var(--tmx-text-primary, #222);
+}
+
+.sp-summary-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sp-summary-list li {
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: var(--tmx-bg-elevated, rgba(0, 0, 0, 0.02));
+  border: 1px solid var(--tmx-border-primary, #e0e0e0);
+}
+
+.sp-summary-list li code {
+  font-family: var(--tmx-font-mono, ui-monospace, monospace);
+  font-size: 0.8rem;
+  background: var(--tmx-bg-secondary, rgba(0, 0, 0, 0.04));
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.sp-summary-list li code + code {
+  margin-left: 4px;
+}
+
+.sp-summary-empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--tmx-text-secondary, #666);
+}
+
+/* ── Panel header (title + dirty dot + save button) ── */
+
+.sp-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px 0;
+}
+
+.sp-panel-header h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.sp-dirty-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tmx-accent-blue, #2d7ff9);
+  display: inline-block;
+}
+
+.sp-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--tmx-accent-blue, #2d7ff9);
+  border-radius: 4px;
+  background: var(--tmx-accent-blue, #2d7ff9);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.sp-save-btn:disabled {
+  background: var(--tmx-bg-elevated, #f0f0f0);
+  border-color: var(--tmx-border-primary, #ccc);
+  color: var(--tmx-text-muted, #999);
+  cursor: not-allowed;
+}
+
+.sp-save-btn:not(:disabled):hover {
+  filter: brightness(1.05);
+}
+
+/* ── Validation banner ── */
+
+.sp-validation {
+  background: var(--tmx-panel-red-bg, #fff0f0);
+  border: 1px solid var(--tmx-panel-red-border, #d32f2f);
+  color: var(--tmx-text-primary, #222);
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+}
+
+.sp-validation strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.sp-validation ul {
+  list-style: disc;
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* ── Field (label + input) ── */
+
+.sp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  max-width: 320px;
+}
+
+.sp-field-label {
+  font-size: 0.8rem;
+  color: var(--tmx-text-secondary, #555);
+  font-weight: 500;
+}
+
+.sp-field-input {
+  padding: 6px 8px;
+  border: 1px solid var(--tmx-border-primary, #ccc);
+  border-radius: 4px;
+  background: var(--tmx-bg-elevated, #fff);
+  color: var(--tmx-text-primary, #222);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.sp-field-input:focus {
+  outline: 2px solid var(--tmx-accent-blue, #2d7ff9);
+  outline-offset: 0;
+  border-color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+/* ── Permissions grid ── */
+
+.sp-perm-group {
+  margin-bottom: 18px;
+}
+
+.sp-perm-group-title {
+  margin: 0 0 8px 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--tmx-text-secondary, #555);
+}
+
+.sp-perm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px 16px;
+}
+
+.sp-perm-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.sp-perm-item input[type='checkbox'] {
+  margin: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.sp-perm-item.is-locked {
+  cursor: not-allowed;
+  color: var(--tmx-text-muted, #999);
+}
+
+.sp-perm-item.is-locked .fa-lock {
+  font-size: 0.7rem;
+  color: var(--tmx-text-muted, #999);
+}
+
+.sp-perm-label {
+  flex: 1;
+}
+
+/* ── Chip multi-select ── */
+
+.sp-field-wide {
+  max-width: none;
+}
+
+.sp-field-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.sp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--tmx-border-primary, #ccc);
+  border-radius: 999px;
+  background: var(--tmx-bg-elevated, #fff);
+  color: var(--tmx-text-secondary, #666);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.sp-chip:hover {
+  border-color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+.sp-chip i {
+  font-size: 0.7rem;
+  /* Make sure clicks always bubble to the button — Font Awesome's
+     icon glyph can otherwise eat the click target depending on how
+     the consuming app's CSS resets pointer events. */
+  pointer-events: none;
+}
+
+.sp-chip > * {
+  pointer-events: none;
+}
+
+.sp-chip.is-selected {
+  background: var(--tmx-accent-blue, #2d7ff9);
+  border-color: var(--tmx-accent-blue, #2d7ff9);
+  color: #fff;
+}
+
+.sp-chip.is-selected:hover {
+  filter: brightness(1.05);
+}
+
+.sp-chip.is-orphan {
+  background: var(--tmx-panel-orange-bg, #fff4e0);
+  border-color: var(--tmx-panel-orange-border, #f59e0b);
+  color: var(--tmx-text-primary, #222);
+}
+
+.sp-chip.is-orphan i {
+  color: var(--tmx-panel-orange-border, #f59e0b);
+}
+
+.sp-chips-hint {
+  width: 100%;
+  font-size: 0.75rem;
+  color: var(--tmx-text-muted, #999);
+  margin-top: 4px;
+}
+
+.sp-chip-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px dashed var(--tmx-border-primary, #ccc);
+  border-radius: 999px;
+  padding: 2px 4px 2px 10px;
+}
+
+.sp-chip-add-input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8rem;
+  width: 140px;
+  color: var(--tmx-text-primary, #222);
+}
+
+.sp-chip-add-btn {
+  border: 0;
+  background: transparent;
+  color: var(--tmx-text-muted, #aaa);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.sp-chip-add-btn:hover {
+  color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+.sp-chip-add-btn.is-ready {
+  color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+.sp-chip-add-btn i {
+  pointer-events: none;
+}
+
+/* ── Row editor ── */
+
+.sp-row-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sp-row-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--tmx-border-primary, #e0e0e0);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--tmx-bg-elevated, rgba(0, 0, 0, 0.02));
+}
+
+.sp-row-header,
+.sp-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 36px;
+  gap: 8px;
+  align-items: center;
+}
+
+.sp-row-cell-header {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  color: var(--tmx-text-secondary, #555);
+  padding: 0 4px;
+}
+
+.sp-row-cell {
+  min-width: 0;
+}
+
+.sp-row-cell-delete {
+  display: flex;
+  justify-content: center;
+}
+
+.sp-row-del-btn {
+  background: transparent;
+  border: 0;
+  color: var(--tmx-text-muted, #999);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+}
+
+.sp-row-del-btn:hover {
+  color: var(--tmx-panel-red-border, #d32f2f);
+  background: var(--tmx-panel-red-bg, #fff0f0);
+}
+
+.sp-row-empty {
+  padding: 12px;
+  font-size: 0.85rem;
+  color: var(--tmx-text-secondary, #666);
+  text-align: center;
+  font-style: italic;
+}
+
+.sp-row-add-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--tmx-border-primary, #ccc);
+  border-radius: 4px;
+  background: var(--tmx-bg-elevated, #fff);
+  color: var(--tmx-text-primary, #222);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.sp-row-add-btn:hover {
+  border-color: var(--tmx-accent-blue, #2d7ff9);
+  color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+.sp-row-hint {
+  font-size: 0.75rem;
+  color: var(--tmx-text-muted, #999);
+}
+
+/* ── Print Configuration topic ── */
+
+.sp-print-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sp-print-controls .sp-field-input {
+  max-width: 220px;
+}
+
+.sp-print-editor-host {
+  /* The embedded createPrintCompositionEditor brings its own chrome
+     and styles; we just need to give it room. */
+  margin-top: 4px;
+}
+
+/* ── Categories code chip button ── */
+
+.sp-category-code-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--tmx-border-primary, #ccc);
+  border-radius: 4px;
+  background: var(--tmx-bg-elevated, #fff);
+  color: var(--tmx-text-secondary, #666);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sp-category-code-btn.is-set {
+  color: var(--tmx-text-primary, #222);
+  background: var(--tmx-panel-blue-bg, #e6f0fe);
+  border-color: var(--tmx-panel-blue-border, #2d7ff9);
+}
+
+.sp-category-code-btn:hover {
+  border-color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+.sp-category-code-btn i {
+  font-size: 0.75rem;
+  color: var(--tmx-text-muted, #999);
+}
+
+.sp-category-code-btn.is-set i {
+  color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+/* ── Policy cards ── */
+
+.sp-policy-card {
+  border: 1px solid var(--tmx-border-primary, #e0e0e0);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--tmx-bg-elevated, rgba(0, 0, 0, 0.02));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sp-policy-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sp-policy-card-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sp-policy-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sp-policy-card-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--tmx-text-primary, #222);
+}
+
+.sp-policy-status {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  color: var(--tmx-text-muted, #999);
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--tmx-border-primary, #e0e0e0);
+  background: var(--tmx-bg-secondary, transparent);
+}
+
+.sp-policy-status.is-configured {
+  color: var(--tmx-accent-blue, #2d7ff9);
+  border-color: var(--tmx-accent-blue, #2d7ff9);
+  background: var(--tmx-panel-blue-bg, rgba(45, 127, 249, 0.08));
+}
+
+.sp-policy-card-description {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--tmx-text-secondary, #666);
+}
+
+.sp-policy-reset-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--tmx-border-primary, #e0e0e0);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--tmx-text-secondary, #666);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.sp-policy-reset-btn:hover {
+  color: var(--tmx-panel-red-border, #d32f2f);
+  border-color: var(--tmx-panel-red-border, #d32f2f);
+}
+
+.sp-policy-orphan-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--tmx-panel-orange-border, #f59e0b);
+  background: var(--tmx-panel-orange-bg, rgba(245, 158, 11, 0.08));
+  color: var(--tmx-text-primary, #222);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.sp-policy-orphan-hint i {
+  color: var(--tmx-panel-orange-border, #f59e0b);
+  margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .sp-layout {
+    grid-template-columns: 1fr;
+  }
+  .sp-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--tmx-border-primary, #e0e0e0);
+    padding-right: 0;
+    padding-bottom: 8px;
+  }
+  .sp-nav-item {
+    white-space: nowrap;
+  }
+}

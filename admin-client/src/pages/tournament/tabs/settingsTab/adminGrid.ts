@@ -1,10 +1,9 @@
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { calendarAudit, getCalendar, getTournamentInfo } from 'services/apis/servicesApi';
-import { openSettingsEditor } from 'components/providerConfig/openSettingsEditor';
+import { renderSettingsPanel } from './settingsPanel';
 import { manageTournamentAccess } from 'components/manageTournamentAccess';
 import { destroyTable } from 'pages/tournament/destroyTable';
 import { tmxToast } from 'services/notifications/tmxToast';
-import { context } from 'services/context';
 import { t } from 'i18n';
 
 import type { ProviderValue } from 'types/tmx';
@@ -25,9 +24,9 @@ export function renderAdminGrid(container: HTMLElement, params?: AdminGridParams
 
   if (provider) {
     renderProviderInfoPanel(grid, provider, isSuperAdmin);
-    renderQuickActionsPanel(grid, { provider, isSuperAdmin });
     renderCalendarPanel(grid, provider, isSuperAdmin);
     renderTournamentDetailPanel(grid);
+    renderSettingsPanel(grid, { provider, isSuperAdmin });
   } else {
     renderNoProviderPanel(grid, isSuperAdmin);
   }
@@ -38,7 +37,7 @@ export function renderAdminGrid(container: HTMLElement, params?: AdminGridParams
 function renderProviderInfoPanel(grid: HTMLElement, provider: ProviderValue, isSuperAdmin?: boolean): void {
   const panel = document.createElement('div');
   panel.className = 'settings-panel panel-blue';
-  panel.style.gridColumn = '1 / 3';
+  panel.style.gridColumn = '1 / -1';
 
   const image = provider.onlineResources?.find(
     (r) => r.name === 'providerImage' && r.resourceType === 'URL' && r.resourceSubType === 'IMAGE',
@@ -296,56 +295,6 @@ function renderTournamentInfo(container: HTMLElement, info: any, tournamentId: s
       });
     }, 0);
   }
-}
-
-function renderQuickActionsPanel(
-  grid: HTMLElement,
-  params: { provider: ProviderValue; isSuperAdmin?: boolean },
-): void {
-  const { provider, isSuperAdmin } = params;
-  const panel = document.createElement('div');
-  panel.className = 'settings-panel panel-purple';
-  panel.style.gridColumn = '3 / 5';
-
-  const actions: string[] = isSuperAdmin
-    ? [
-        `<div class="quick-action" id="qa-system-providers"><i class="fa-solid fa-server"></i> ${t('admin.manageProviders')}</div>`,
-        `<div class="quick-action" id="qa-system-users"><i class="fa-solid fa-users"></i> ${t('admin.manageUsers')}</div>`,
-      ]
-    : [];
-  // Provider admin (or super-admin while impersonating) can edit settings
-  // for the active provider. Server-side gate: PROVIDER_ADMIN of this
-  // provider OR SUPER_ADMIN. The button is shown to anyone here; an
-  // unauthorized user gets a clear ForbiddenException on save.
-  actions.push(
-    `<div class="quick-action" id="qa-edit-settings"><i class="fa-solid fa-sliders"></i> ${t('providerConfig.editSettingsButton')}</div>`,
-  );
-  actions.push(
-    `<div class="quick-action" id="qa-back-system"><i class="fa-solid fa-arrow-left"></i> ${t('admin.backToSystem')}</div>`,
-  );
-
-  panel.innerHTML = `
-    <h3><i class="fa-solid fa-bolt"></i> ${t('admin.quickActions')}</h3>
-    <div class="quick-actions-list">${actions.join('')}</div>
-  `;
-
-  grid.appendChild(panel);
-
-  setTimeout(() => {
-    document
-      .getElementById('qa-system-providers')
-      ?.addEventListener('click', () => context.router?.navigate('/system/providers'));
-    document
-      .getElementById('qa-system-users')
-      ?.addEventListener('click', () => context.router?.navigate('/system/users'));
-    document.getElementById('qa-back-system')?.addEventListener('click', () => context.router?.navigate('/system'));
-    document.getElementById('qa-edit-settings')?.addEventListener('click', () => {
-      openSettingsEditor({
-        providerId: provider.organisationId,
-        providerName: provider.organisationName,
-      });
-    });
-  }, 0);
 }
 
 function renderNoProviderPanel(grid: HTMLElement, isSuperAdmin?: boolean): void {

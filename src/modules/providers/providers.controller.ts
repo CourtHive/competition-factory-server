@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   HttpCode,
@@ -16,6 +17,8 @@ import { ModifyProviderDto } from './dto/modifyProvider.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ProvidersService } from './providers.service';
+import { TopologiesService } from './topologies.service';
+import { ProviderCatalogService, assertCatalogType } from './provider-catalog.service';
 import { AddProviderDto } from './dto/addProvider.dto';
 import { GetProviderDto } from './dto/getProvider.dto';
 import { GetCalendarDto } from './dto/getCalendar.dto';
@@ -24,7 +27,145 @@ import { RolesGuard } from '../auth/guards/role.guard';
 @UseGuards(RolesGuard)
 @Controller('provider')
 export class ProvidersController {
-  constructor(private readonly providers: ProvidersService) {}
+  constructor(
+    private readonly providers: ProvidersService,
+    private readonly topologies: TopologiesService,
+    private readonly catalog: ProviderCatalogService,
+  ) {}
+
+  /**
+   * Per-provider topology catalog. PROVIDER_ADMIN of the target provider
+   * or SUPER_ADMIN may read/write. Topology IDs are referenced by
+   * `allowedDrawTypes` in `providerConfigSettings` so the Allowed
+   * Selections chip widget can surface provider-defined draw structures
+   * alongside the factory enum.
+   */
+  private assertProviderAdmin(providerId: string, ctx: UserContext): void {
+    const isProviderAdmin = ctx?.providerRoles?.[providerId] === PROVIDER_ADMIN;
+    if (!ctx?.isSuperAdmin && !isProviderAdmin) {
+      throw new ForbiddenException('PROVIDER_ADMIN role required');
+    }
+  }
+
+  @Get(':providerId/topologies')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  listTopologies(@Param('providerId') providerId: string, @UserCtx() ctx: UserContext) {
+    this.assertProviderAdmin(providerId, ctx);
+    return this.topologies.listForProvider(providerId);
+  }
+
+  @Get(':providerId/topologies/:topologyId')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  getTopology(
+    @Param('providerId') providerId: string,
+    @Param('topologyId') topologyId: string,
+    @UserCtx() ctx: UserContext,
+  ) {
+    this.assertProviderAdmin(providerId, ctx);
+    return this.topologies.getOne(providerId, topologyId);
+  }
+
+  @Post(':providerId/topologies')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  createTopology(
+    @Param('providerId') providerId: string,
+    @Body() body: { name: string; description?: string; state: any },
+    @UserCtx() ctx: UserContext,
+  ) {
+    this.assertProviderAdmin(providerId, ctx);
+    return this.topologies.create(providerId, body);
+  }
+
+  @Put(':providerId/topologies/:topologyId')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  updateTopology(
+    @Param('providerId') providerId: string,
+    @Param('topologyId') topologyId: string,
+    @Body() body: { name?: string; description?: string; state?: any },
+    @UserCtx() ctx: UserContext,
+  ) {
+    this.assertProviderAdmin(providerId, ctx);
+    return this.topologies.update(providerId, topologyId, body);
+  }
+
+  @Delete(':providerId/topologies/:topologyId')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  removeTopology(
+    @Param('providerId') providerId: string,
+    @Param('topologyId') topologyId: string,
+    @UserCtx() ctx: UserContext,
+  ) {
+    this.assertProviderAdmin(providerId, ctx);
+    return this.topologies.remove(providerId, topologyId);
+  }
+
+  /**
+   * Per-provider catalog items: compositions, tieFormats, and policies.
+   * Same auth model as topologies (PROVIDER_ADMIN of target or SUPER_ADMIN).
+   * `:type` is one of `composition` | `tieFormat` | `policy` — invalid
+   * values 404 via the service's `assertCatalogType`.
+   */
+  @Get(':providerId/catalog/:type')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  listCatalog(
+    @Param('providerId') providerId: string,
+    @Param('type') type: string,
+    @UserCtx() ctx: UserContext,
+  ) {
+    this.assertProviderAdmin(providerId, ctx);
+    return this.catalog.list(providerId, assertCatalogType(type));
+  }
+
+  @Get(':providerId/catalog/:type/:catalogId')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  getCatalogItem(
+    @Param('providerId') providerId: string,
+    @Param('type') type: string,
+    @Param('catalogId') catalogId: string,
+    @UserCtx() ctx: UserContext,
+  ) {
+    this.assertProviderAdmin(providerId, ctx);
+    return this.catalog.getOne(providerId, assertCatalogType(type), catalogId);
+  }
+
+  @Post(':providerId/catalog/:type')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  createCatalogItem(
+    @Param('providerId') providerId: string,
+    @Param('type') type: string,
+    @Body() body: { name: string; description?: string; data: any; metadata?: any },
+    @UserCtx() ctx: UserContext,
+  ) {
+    this.assertProviderAdmin(providerId, ctx);
+    return this.catalog.create(providerId, assertCatalogType(type), body);
+  }
+
+  @Put(':providerId/catalog/:type/:catalogId')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  updateCatalogItem(
+    @Param('providerId') providerId: string,
+    @Param('type') type: string,
+    @Param('catalogId') catalogId: string,
+    @Body() body: { name?: string; description?: string; data?: any; metadata?: any },
+    @UserCtx() ctx: UserContext,
+  ) {
+    this.assertProviderAdmin(providerId, ctx);
+    return this.catalog.update(providerId, assertCatalogType(type), catalogId, body);
+  }
+
+  @Delete(':providerId/catalog/:type/:catalogId')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  removeCatalogItem(
+    @Param('providerId') providerId: string,
+    @Param('type') type: string,
+    @Param('catalogId') catalogId: string,
+    @UserCtx() ctx: UserContext,
+  ) {
+    this.assertProviderAdmin(providerId, ctx);
+    return this.catalog.remove(providerId, assertCatalogType(type), catalogId);
+  }
 
   /** Public calendar — used by courthive-public and epixodic. Unchanged. */
   @Public()

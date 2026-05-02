@@ -13,6 +13,8 @@ import { TOURNAMENT_STORAGE } from './interfaces/tournament-storage.interface';
 import { ASSIGNMENT_STORAGE } from './interfaces/assignment-storage.interface';
 import { AUTH_CODE_STORAGE } from './interfaces/auth-code-storage.interface';
 import { PROVIDER_STORAGE } from './interfaces/provider-storage.interface';
+import { TOPOLOGY_STORAGE } from './interfaces/topology-storage.interface';
+import { PROVIDER_CATALOG_STORAGE } from './interfaces/provider-catalog-storage.interface';
 import { CALENDAR_STORAGE } from './interfaces/calendar-storage.interface';
 import { AUDIT_STORAGE } from './interfaces/audit-storage.interface';
 import { USER_STORAGE } from './interfaces/user-storage.interface';
@@ -32,6 +34,8 @@ import { PostgresBoltHistoryStorage } from './postgres/postgres-bolt-history.sto
 import { PostgresTournamentStorage } from './postgres/postgres-tournament.storage';
 import { PostgresAssignmentStorage } from './postgres/postgres-assignment.storage';
 import { PostgresProviderStorage } from './postgres/postgres-provider.storage';
+import { PostgresTopologyStorage } from './postgres/postgres-topology.storage';
+import { PostgresProviderCatalogStorage } from './postgres/postgres-provider-catalog.storage';
 import { PostgresCalendarStorage } from './postgres/postgres-calendar.storage';
 import { PostgresAuthCodeStorage } from './postgres/postgres-auth-code.storage';
 import { PostgresUserStorage } from './postgres/postgres-user.storage';
@@ -58,6 +62,11 @@ function makeStorageProvider(token: symbol, storageClass: any) {
 const tournamentStorageProvider = makeStorageProvider(TOURNAMENT_STORAGE, PostgresTournamentStorage);
 const userStorageProvider = makeStorageProvider(USER_STORAGE, PostgresUserStorage);
 const providerStorageProvider = makeStorageProvider(PROVIDER_STORAGE, PostgresProviderStorage);
+const topologyStorageProvider = makeStorageProvider(TOPOLOGY_STORAGE, PostgresTopologyStorage);
+const providerCatalogStorageProvider = makeStorageProvider(
+  PROVIDER_CATALOG_STORAGE,
+  PostgresProviderCatalogStorage,
+);
 const calendarStorageProvider = makeStorageProvider(CALENDAR_STORAGE, PostgresCalendarStorage);
 const authCodeStorageProvider = makeStorageProvider(AUTH_CODE_STORAGE, PostgresAuthCodeStorage);
 const officiatingStorageProvider = makeStorageProvider(OFFICIATING_STORAGE, PostgresOfficiatingStorage);
@@ -82,6 +91,8 @@ const userProvisionerStorageProvider = makeStorageProvider(USER_PROVISIONER_STOR
     tournamentStorageProvider,
     userStorageProvider,
     providerStorageProvider,
+    topologyStorageProvider,
+    providerCatalogStorageProvider,
     calendarStorageProvider,
     authCodeStorageProvider,
     officiatingStorageProvider,
@@ -104,6 +115,8 @@ const userProvisionerStorageProvider = makeStorageProvider(USER_PROVISIONER_STOR
     TOURNAMENT_STORAGE,
     USER_STORAGE,
     PROVIDER_STORAGE,
+    TOPOLOGY_STORAGE,
+    PROVIDER_CATALOG_STORAGE,
     CALENDAR_STORAGE,
     AUTH_CODE_STORAGE,
     OFFICIATING_STORAGE,

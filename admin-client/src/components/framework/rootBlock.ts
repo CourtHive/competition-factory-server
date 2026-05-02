@@ -2,7 +2,7 @@
  * Root application block for the admin client.
  * Creates navbar, main content area with page containers.
  */
-import { NONE, TMX_ADMIN, TMX_SYSTEM, TMX_PROVISIONER, TMX_SANCTIONING, TMX_SYNC, TMX_DRAWER } from 'constants/tmxConstants';
+import { NONE, TMX_ADMIN, TMX_SYSTEM, TMX_PROVISIONER, TMX_SANCTIONING, TMX_SYNC, TMX_TEMPLATES, TMX_POLICIES, TMX_DRAWER } from 'constants/tmxConstants';
 
 const flexColFlexGrow = 'flexcol flexgrow';
 
@@ -47,6 +47,20 @@ export function rootBlock(): HTMLElement {
   sync.id = TMX_SYNC;
   main.appendChild(sync);
 
+  // Templates page container (per-provider topology / tieFormat / composition)
+  const templates = document.createElement('div');
+  templates.className = flexColFlexGrow;
+  templates.style.display = NONE;
+  templates.id = TMX_TEMPLATES;
+  main.appendChild(templates);
+
+  // Policies page container (per-provider policy catalog)
+  const policies = document.createElement('div');
+  policies.className = flexColFlexGrow;
+  policies.style.display = NONE;
+  policies.id = TMX_POLICIES;
+  main.appendChild(policies);
+
   // Drawer
   const drawer = document.createElement('section');
   drawer.className = 'drawer drawer--left';
@@ -82,6 +96,8 @@ function createNavbar(): HTMLDivElement {
       <i id='h-admin' class="home-nav-icon fa-solid fa-shield-halved" title="Admin"></i>
       <i id='h-provisioner' class="home-nav-icon fa-solid fa-handshake" title="My Organization"></i>
       <i id='h-sanctioning' class="home-nav-icon fa-solid fa-stamp" title="Sanctioning"></i>
+      <i id='h-templates' class="home-nav-icon fa-solid fa-shapes" title="Templates"></i>
+      <i id='h-policies' class="home-nav-icon fa-solid fa-file-shield" title="Policies"></i>
       <i id='h-sync' class="home-nav-icon fa-solid fa-arrows-rotate" title="Tournament Sync"></i>
       <i id='h-stop-impersonating' class="home-nav-icon fa-solid fa-xmark" title="Stop impersonating" style="display:none; color: var(--tmx-accent-orange, #f5a623);"></i>
     </div>

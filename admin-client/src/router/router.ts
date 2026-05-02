@@ -5,19 +5,14 @@ import { renderProvisionerPage } from 'pages/provisioner/renderProvisionerPage';
 import { renderSystemPage } from 'pages/system/renderSystemPage';
 import { renderAdminPage } from 'pages/admin/renderAdminPage';
 import { renderSyncPage } from 'pages/sync/renderSyncPage';
+import { renderTemplatesPage } from 'pages/templates/renderTemplatesPage';
+import { renderPoliciesPage } from 'pages/policies/renderPoliciesPage';
 import { getLoginState } from 'services/authentication/loginState';
+import { updateNavVisibility } from 'services/navigation/navVisibility';
 import { context } from 'services/context';
 import Navigo from 'navigo';
 
-import {
-  SUPER_ADMIN,
-  PROVISIONER,
-  SYSTEM,
-  PROVISIONER_ROUTE,
-  SANCTIONING,
-  SYNC,
-  NONE,
-} from 'constants/tmxConstants';
+import { SUPER_ADMIN, PROVISIONER, SYSTEM, PROVISIONER_ROUTE, SANCTIONING, SYNC, TEMPLATES, POLICIES } from 'constants/tmxConstants';
 
 export function routeAdmin(): void {
   const router = new Navigo('/', { hash: true });
@@ -28,11 +23,15 @@ export function routeAdmin(): void {
   const adminIcon = document.getElementById('h-admin');
   const provisionerIcon = document.getElementById('h-provisioner');
   const sanctioningIcon = document.getElementById('h-sanctioning');
+  const templatesIcon = document.getElementById('h-templates');
+  const policiesIcon = document.getElementById('h-policies');
   const syncIcon = document.getElementById('h-sync');
   if (systemIcon) systemIcon.addEventListener('click', () => router.navigate(`/${SYSTEM}`));
   if (adminIcon) adminIcon.addEventListener('click', () => router.navigate('/admin'));
   if (provisionerIcon) provisionerIcon.addEventListener('click', () => router.navigate(`/${PROVISIONER_ROUTE}`));
   if (sanctioningIcon) sanctioningIcon.addEventListener('click', () => router.navigate(`/${SANCTIONING}`));
+  if (templatesIcon) templatesIcon.addEventListener('click', () => router.navigate(`/${TEMPLATES}`));
+  if (policiesIcon) policiesIcon.addEventListener('click', () => router.navigate(`/${POLICIES}`));
   if (syncIcon) syncIcon.addEventListener('click', () => router.navigate(`/${SYNC}`));
 
   router.hooks({
@@ -96,6 +95,22 @@ export function routeAdmin(): void {
     renderSanctioningDashboard();
   });
 
+  // Templates route (PROVIDER_ADMIN of an active provider, or super-admin
+  // impersonating one). Topologies / tieFormats / compositions are
+  // per-provider, so an active provider is required.
+  router.on(`/${TEMPLATES}/:templateView`, (match) => {
+    void renderTemplatesPage({ templateView: match?.data?.templateView });
+  });
+
+  router.on(`/${TEMPLATES}`, () => {
+    void renderTemplatesPage();
+  });
+
+  // Policies route — per-provider catalog.
+  router.on(`/${POLICIES}`, () => {
+    void renderPoliciesPage();
+  });
+
   // Tournament Sync route (superadmin only)
   router.on(`/${SYNC}`, () => {
     const state = getLoginState();
@@ -126,23 +141,4 @@ export function routeAdmin(): void {
 
 function isProvisionerOrSuperAdmin(state: any): boolean {
   return !!(state?.roles?.includes(SUPER_ADMIN) || state?.roles?.includes(PROVISIONER));
-}
-
-function updateNavVisibility(): void {
-  const state = getLoginState();
-  const isSuperAdmin = state?.roles?.includes(SUPER_ADMIN);
-  const isProvisioner = state?.roles?.includes(PROVISIONER);
-
-  const systemIcon = document.getElementById('h-system');
-  if (systemIcon) {
-    systemIcon.style.display = isSuperAdmin ? '' : NONE;
-  }
-  const hSync = document.getElementById('h-sync');
-  if (hSync) {
-    hSync.style.display = isSuperAdmin ? '' : NONE;
-  }
-  const provisionerIcon = document.getElementById('h-provisioner');
-  if (provisionerIcon) {
-    provisionerIcon.style.display = isSuperAdmin || isProvisioner ? '' : NONE;
-  }
 }

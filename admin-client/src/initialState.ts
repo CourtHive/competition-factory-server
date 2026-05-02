@@ -2,6 +2,7 @@ import { initLoginToggle, getLoginState } from 'services/authentication/loginSta
 import { initTheme, initThemeToggle } from 'services/theme/themeService';
 import { version, buildCommit, buildTime } from 'config/version';
 import { loadRuntimeConfig } from 'services/runtimeConfig';
+import { wireNavVisibilityListeners } from 'services/navigation/navVisibility';
 import { routeAdmin } from 'router/router';
 
 import 'courthive-components/dist/courthive-components.css';
@@ -21,6 +22,7 @@ export function setupAdmin(): void {
   initTheme();
   initThemeToggle('themeToggle');
   initLoginToggle('login');
+  wireNavVisibilityListeners();
   getLoginState();
   // Fire-and-forget — the impersonate handler awaits the same promise if a
   // user clicks before this resolves, so there's no race.
