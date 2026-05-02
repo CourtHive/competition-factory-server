@@ -1,0 +1,352 @@
+/**
+ * Templates page — two-pane layout (catalog + builder).
+ * Mirrors the Settings panel visual language so admin-client feels
+ * consistent across pages.
+ */
+
+/* ── Top nav chips (Topologies / Tie Formats / Compositions) ─── */
+
+.tpl-nav-chips {
+  display: flex;
+  gap: 6px;
+  padding: 12px 16px 0;
+}
+
+.tpl-nav-chip {
+  padding: 6px 14px;
+  border: 1px solid var(--tmx-border-primary, #e0e0e0);
+  border-radius: 999px;
+  background: var(--tmx-bg-elevated, #fff);
+  color: var(--tmx-text-primary, #222);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.tpl-nav-chip:hover {
+  border-color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+.tpl-nav-chip.active {
+  background: var(--tmx-accent-blue, #2d7ff9);
+  border-color: var(--tmx-accent-blue, #2d7ff9);
+  color: #fff;
+}
+
+.tpl-view-host {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tpl-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  padding: 16px;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+}
+
+.tpl-no-provider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 64px 24px;
+  color: var(--tmx-text-secondary, #666);
+  text-align: center;
+}
+
+.tpl-no-provider i {
+  font-size: 2rem;
+  color: var(--tmx-text-muted, #aaa);
+}
+
+.tpl-no-provider p {
+  margin: 0;
+}
+
+.tpl-no-provider-sub {
+  font-size: 0.85rem;
+  color: var(--tmx-text-muted, #aaa);
+  max-width: 420px;
+}
+
+/* ── Catalog (left pane) ─────────────────────────────────────────── */
+
+.tpl-catalog-panel {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--tmx-border-primary, #e0e0e0);
+  padding-right: 12px;
+  min-height: 0;
+}
+
+.tpl-catalog-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 12px;
+  border-bottom: 1px solid var(--tmx-border-primary, #e0e0e0);
+}
+
+.tpl-catalog-header h3 {
+  margin: 0;
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--tmx-text-primary, #222);
+}
+
+.tpl-new-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--tmx-accent-blue, #2d7ff9);
+  border-radius: 4px;
+  background: var(--tmx-accent-blue, #2d7ff9);
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.tpl-new-btn:hover {
+  filter: brightness(1.05);
+}
+
+.tpl-catalog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  padding: 8px 4px;
+  min-height: 0;
+}
+
+.tpl-catalog-section {
+  margin-top: 8px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--tmx-text-muted, #999);
+  padding: 4px;
+}
+
+.tpl-catalog-section:first-child {
+  margin-top: 0;
+}
+
+.tpl-catalog-empty-hint {
+  padding: 8px;
+  font-size: 0.8rem;
+  color: var(--tmx-text-muted, #999);
+  font-style: italic;
+}
+
+.tpl-catalog-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* Reserve a tiny right-side gutter so the lock-icon marker on builtin
+     cards never crowds the name text. */
+  padding: 8px 24px 8px 10px;
+  border: 1px solid var(--tmx-border-primary, #e0e0e0);
+  border-radius: 6px;
+  background: var(--tmx-bg-elevated, #fff);
+  color: var(--tmx-text-primary, #222);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.tpl-catalog-card:hover {
+  border-color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+.tpl-catalog-card.is-selected {
+  border-color: var(--tmx-accent-blue, #2d7ff9);
+  background: var(--tmx-panel-blue-bg, #e6f0fe);
+}
+
+.tpl-catalog-card__name {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.tpl-catalog-card__desc {
+  font-size: 0.75rem;
+  color: var(--tmx-text-secondary, #666);
+}
+
+/* Builtin marker — tiny icon-only badge that doesn't crowd the name. */
+.tpl-catalog-card__marker {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tmx-text-muted, #999);
+  font-size: 0.65rem;
+  pointer-events: auto;
+  cursor: help;
+}
+
+.tpl-catalog-card.is-selected .tpl-catalog-card__marker {
+  color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+/* ── Builder (right pane) ────────────────────────────────────────── */
+
+.tpl-builder-panel {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: 0;
+}
+
+.tpl-builder-host {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.tpl-builder-host:empty {
+  display: none;
+}
+
+.tpl-builder-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 64px 24px;
+  color: var(--tmx-text-secondary, #666);
+  text-align: center;
+}
+
+.tpl-builder-empty i {
+  font-size: 1.5rem;
+  color: var(--tmx-text-muted, #aaa);
+}
+
+.tpl-builder-empty p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.tpl-delete-btn {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1px solid var(--tmx-panel-red-border, #d32f2f);
+  border-radius: 4px;
+  background: var(--tmx-bg-elevated, #fff);
+  color: var(--tmx-panel-red-border, #d32f2f);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.tpl-delete-btn:hover {
+  background: var(--tmx-panel-red-bg, #fff0f0);
+}
+
+/* ── JSON editor (used by Tie Formats view) ──────────────────────── */
+
+.tpl-json-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  height: 100%;
+  min-height: 0;
+}
+
+.tpl-json-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--tmx-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  padding: 8px 10px;
+  border: 1px solid var(--tmx-border-primary, #ccc);
+  border-radius: 4px;
+  background: var(--tmx-bg-elevated, #fff);
+  color: var(--tmx-text-primary, #222);
+  resize: vertical;
+  outline: 0;
+}
+
+.tpl-json-textarea:focus {
+  border-color: var(--tmx-accent-blue, #2d7ff9);
+}
+
+.tpl-json-error {
+  padding: 6px 10px;
+  border: 1px solid var(--tmx-panel-red-border, #d32f2f);
+  background: var(--tmx-panel-red-bg, rgba(211, 47, 47, 0.08));
+  color: var(--tmx-panel-red-border, #d32f2f);
+  font-size: 0.8rem;
+  font-family: var(--tmx-font-mono, ui-monospace, monospace);
+  border-radius: 4px;
+}
+
+.tpl-json-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tpl-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--tmx-accent-blue, #2d7ff9);
+  border-radius: 4px;
+  background: var(--tmx-accent-blue, #2d7ff9);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tpl-save-btn:hover {
+  filter: brightness(1.05);
+}
+
+@media (max-width: 900px) {
+  .tpl-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .tpl-catalog-panel {
+    border-right: none;
+    border-bottom: 1px solid var(--tmx-border-primary, #e0e0e0);
+    padding-right: 0;
+    padding-bottom: 12px;
+  }
+}

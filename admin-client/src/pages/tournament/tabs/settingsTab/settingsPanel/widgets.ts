@@ -1,11 +1,20 @@
 /**
  * Reusable input widgets for the Settings panel topics.
  *
- * - chipMultiSelect: cap-aware multi-select. When `pinnedUniverse` is
- *   provided (provisioner-restricted), every value renders as a chip
- *   that toggles on click. When `pinnedUniverse` is empty/undefined
- *   (no cap restriction), only the user's selections render as chips
- *   and a text input lets them add arbitrary values.
+ * - chipMultiSelect: closed-list multi-select with three rendering modes,
+ *   chosen by which universe is supplied:
+ *
+ *     1. `pinnedUniverse` (provisioner-restricted) — chips render the
+ *        provisioner's allowed list. Selected chips that fall outside
+ *        the cap render as orphan chips so the user can see and clear
+ *        them.
+ *
+ *     2. `fullUniverse` (factory enum, no provisioner restriction) —
+ *        chips render the full factory enum. Same toggle behavior, no
+ *        orphan handling needed: any value not in the enum is invalid.
+ *
+ *     3. neither — free-form text input for grammars whose universe
+ *        isn't a fixed enum (matchUpFormatCode strings).
  *
  * - rowEditor: simple add/edit/delete table for a list of records.
  */
@@ -13,7 +22,17 @@
 export interface ChipMultiSelectOpts {
   label: string;
   values: string[];
+  /** Provisioner-restricted universe; takes precedence over `fullUniverse`. */
   pinnedUniverse?: string[];
+  /** Closed factory enum used when caps don't restrict the universe. */
+  fullUniverse?: readonly string[];
+  /**
+   * Optional display-label override for individual values. Used when the
+   * stored value is an opaque id (e.g. a topology UUID) and the chip
+   * should render a human-readable name. Falls back to the raw value
+   * when no override is present.
+   */
+  labels?: Record<string, string>;
   placeholder?: string;
   onChange: (next: string[]) => void;
 }
@@ -35,34 +54,48 @@ export function chipMultiSelect(opts: ChipMultiSelectOpts): HTMLElement {
   wrap.appendChild(chipsHost);
 
   const selected = new Set(opts.values);
-  const restricted = !!(opts.pinnedUniverse && opts.pinnedUniverse.length);
+  const pinned = opts.pinnedUniverse && opts.pinnedUniverse.length ? opts.pinnedUniverse : null;
+  const full = opts.fullUniverse && opts.fullUniverse.length ? opts.fullUniverse : null;
 
   function emit(): void {
     opts.onChange([...selected]);
   }
 
+  const labelFor = (value: string): string => opts.labels?.[value] ?? value;
+
   function rebuild(): void {
     chipsHost.innerHTML = '';
 
-    if (restricted) {
-      const universe = opts.pinnedUniverse!;
-      for (const value of universe) {
-        chipsHost.appendChild(makeChip(value, selected.has(value), () => toggle(value)));
+    if (pinned) {
+      for (const value of pinned) {
+        chipsHost.appendChild(makeChip(labelFor(value), selected.has(value), () => toggle(value)));
       }
       // Surface any selected values that aren't in the universe (legacy /
       // out-of-cap data). Render them as chips with an out-of-cap visual
       // marker so the user can see and remove them.
-      const orphans = [...selected].filter((v) => !universe.includes(v));
+      const orphans = [...selected].filter((v) => !pinned.includes(v));
       for (const value of orphans) {
-        chipsHost.appendChild(makeChip(value, true, () => toggle(value), { orphan: true }));
+        chipsHost.appendChild(makeChip(labelFor(value), true, () => toggle(value), { orphan: true }));
       }
       const hint = document.createElement('div');
       hint.className = 'sp-chips-hint';
       hint.textContent = 'Click to toggle. Provisioner-allowed list above.';
       chipsHost.appendChild(hint);
+    } else if (full) {
+      for (const value of full) {
+        chipsHost.appendChild(makeChip(labelFor(value), selected.has(value), () => toggle(value)));
+      }
+      const orphans = [...selected].filter((v) => !full.includes(v));
+      for (const value of orphans) {
+        chipsHost.appendChild(makeChip(labelFor(value), true, () => toggle(value), { orphan: true }));
+      }
+      const hint = document.createElement('div');
+      hint.className = 'sp-chips-hint';
+      hint.textContent = 'Click to toggle. Empty selection = all values allowed.';
+      chipsHost.appendChild(hint);
     } else {
       for (const value of selected) {
-        chipsHost.appendChild(makeChip(value, true, () => toggle(value)));
+        chipsHost.appendChild(makeChip(labelFor(value), true, () => toggle(value)));
       }
       chipsHost.appendChild(buildAddInput(opts.placeholder, (v) => add(v)));
     }

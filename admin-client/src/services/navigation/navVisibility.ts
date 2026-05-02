@@ -10,6 +10,7 @@
  */
 import { getLoginState } from 'services/authentication/loginState';
 import { getActiveProvisionerId } from 'services/apis/provisionerWorkspaceApi';
+import { getActiveProvider } from 'services/provider/providerState';
 import { NONE, PROVISIONER, SUPER_ADMIN } from 'constants/tmxConstants';
 
 export function updateNavVisibility(): void {
@@ -17,6 +18,7 @@ export function updateNavVisibility(): void {
   const isSuperAdmin = !!state?.roles?.includes(SUPER_ADMIN);
   const isProvisioner = !!state?.roles?.includes(PROVISIONER);
   const hasActiveProvisioner = !!getActiveProvisionerId();
+  const hasActiveProvider = !!getActiveProvider();
 
   setIconDisplay('h-system', isSuperAdmin);
   setIconDisplay('h-sync', isSuperAdmin);
@@ -27,6 +29,13 @@ export function updateNavVisibility(): void {
   // X-Provisioner-Id header the /provisioner/* endpoints reject the
   // request, so showing the icon would just lead to an error toast.
   setIconDisplay('h-provisioner', isProvisioner || (isSuperAdmin && hasActiveProvisioner));
+
+  // Templates icon: per-provider catalog requires an active provider.
+  // PROVIDER_ADMIN users have one by default; super-admins must impersonate.
+  setIconDisplay('h-templates', hasActiveProvider);
+
+  // Policies icon: same per-provider scoping rule as Templates.
+  setIconDisplay('h-policies', hasActiveProvider);
 }
 
 function setIconDisplay(id: string, visible: boolean): void {

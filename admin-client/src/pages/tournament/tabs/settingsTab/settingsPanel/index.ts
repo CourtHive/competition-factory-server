@@ -15,6 +15,8 @@
  */
 import './settingsPanel.css';
 import { getRawProviderConfig, updateProviderSettings } from 'services/apis/providerConfigApi';
+import { listTopologies, type TopologyDto } from 'services/apis/topologyApi';
+import { listCatalog, type CatalogItemDto } from 'services/apis/catalogApi';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { t } from 'i18n';
 import type { ProviderValue } from 'types/tmx';
@@ -33,6 +35,17 @@ interface PanelState {
   original: ProviderConfigSettings;
   /** Mutable working copy — topics edit this. */
   draft: ProviderConfigSettings;
+  /**
+   * Provider-defined topologies, loaded alongside config. Topology IDs
+   * mix into the Allowed Selections "Draw Types" chip universe so a TD
+   * can pick from factory enum + provider topologies.
+   */
+  topologies: TopologyDto[];
+  /**
+   * Provider-defined policies from the policy catalog. Surfaces in the
+   * Policies topic as picker options alongside factory builtins.
+   */
+  policies: CatalogItemDto[];
   activeTopic: TopicId;
   errorMessage?: string;
   validationIssues?: ValidationIssue[];
@@ -50,6 +63,8 @@ export function renderSettingsPanel(grid: HTMLElement, params: RenderSettingsPan
     caps: {},
     original: {},
     draft: {},
+    topologies: [],
+    policies: [],
     activeTopic: TOPICS[0].id,
   };
 
@@ -172,7 +187,15 @@ export function renderSettingsPanel(grid: HTMLElement, params: RenderSettingsPan
 
 async function loadConfig(providerId: string, state: PanelState, onLoaded: () => void): Promise<void> {
   try {
-    const res: any = await getRawProviderConfig(providerId);
+    // Fetch config + topologies + policies in parallel; all three feed the editor.
+    const [configRes, topologiesRes, policiesRes] = await Promise.all([
+      getRawProviderConfig(providerId),
+      // Topology and policy catalogs are best-effort — a stale endpoint or
+      // missing permission shouldn't block the rest of the editor.
+      listTopologies(providerId).catch(() => ({ data: { topologies: [] } })),
+      listCatalog(providerId, 'policy').catch(() => ({ data: { items: [] } })),
+    ]);
+    const res: any = configRes;
     if (res?.data?.error) {
       state.status = 'error';
       state.errorMessage = res.data.error;
@@ -180,6 +203,8 @@ async function loadConfig(providerId: string, state: PanelState, onLoaded: () =>
       state.caps = (res?.data?.caps ?? {}) as ProviderConfigCaps;
       state.original = (res?.data?.settings ?? {}) as ProviderConfigSettings;
       state.draft = deepClone(state.original);
+      state.topologies = ((topologiesRes as any)?.data?.topologies ?? []) as TopologyDto[];
+      state.policies = ((policiesRes as any)?.data?.items ?? []) as CatalogItemDto[];
       state.status = 'ready';
     }
   } catch (err) {
@@ -232,7 +257,13 @@ function rerenderContent(contentHost: HTMLElement, state: PanelState, onChange: 
     contentHost.appendChild(buildValidationBanner(state.validationIssues));
   }
   const topic = TOPICS.find((t) => t.id === state.activeTopic) ?? TOPICS[0];
-  const ctx: TopicContext = { caps: state.caps, draft: state.draft, onChange };
+  const ctx: TopicContext = {
+    caps: state.caps,
+    draft: state.draft,
+    topologies: state.topologies,
+    policies: state.policies,
+    onChange,
+  };
   topic.render(contentHost, ctx);
 }
 

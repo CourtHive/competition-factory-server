@@ -22,3 +22,10 @@ export const DRAW_TYPE_OPTIONS = [
 ] as const;
 
 export const CREATION_METHOD_OPTIONS = ['AUTOMATED', 'MANUAL', 'DRAFT'] as const;
+
+export const SCORING_APPROACH_OPTIONS = [
+  'dynamicSets',
+  'freeScore',
+  'dialPad',
+  'inlineScoring',
+] as const;

@@ -1,0 +1,32 @@
+.pol-host {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pol-no-provider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 64px 24px;
+  color: var(--tmx-text-secondary, #666);
+  text-align: center;
+}
+
+.pol-no-provider i {
+  font-size: 2rem;
+  color: var(--tmx-text-muted, #aaa);
+}
+
+.pol-no-provider p {
+  margin: 0;
+}
+
+.pol-no-provider-sub {
+  font-size: 0.85rem;
+  color: var(--tmx-text-muted, #aaa);
+  max-width: 420px;
+}

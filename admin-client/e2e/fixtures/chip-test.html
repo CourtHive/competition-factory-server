@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" />
+    <title>Chip widget e2e fixture</title>
+    <style>
+      body { font-family: system-ui, sans-serif; padding: 24px; max-width: 720px; }
+      h2 { font-size: 1rem; margin: 24px 0 8px; }
+      [data-fixture] { padding: 12px; border: 1px solid #ccc; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <h1>chipMultiSelect e2e fixture</h1>
+
+    <h2>Unrestricted (free-form input + + button — for matchUpFormatCode etc.)</h2>
+    <div data-fixture="unrestricted"></div>
+
+    <h2>Pinned universe (provisioner caps restrict)</h2>
+    <div data-fixture="restricted"></div>
+
+    <h2>Full universe (factory enum, no caps)</h2>
+    <div data-fixture="full-universe"></div>
+
+    <script type="module">
+      import '../../src/pages/tournament/tabs/settingsTab/settingsPanel/settingsPanel.css';
+      import { chipMultiSelect } from '../../src/pages/tournament/tabs/settingsTab/settingsPanel/widgets.ts';
+
+      const events = [];
+      window.__chipEvents = events;
+
+      const unrestrictedHost = document.querySelector('[data-fixture="unrestricted"]');
+      unrestrictedHost.appendChild(
+        chipMultiSelect({
+          label: 'Draw Types (unrestricted)',
+          values: [],
+          onChange: (next) => events.push({ kind: 'unrestricted', next: [...next] }),
+        }),
+      );
+
+      const restrictedHost = document.querySelector('[data-fixture="restricted"]');
+      restrictedHost.appendChild(
+        chipMultiSelect({
+          label: 'Draw Types (restricted)',
+          values: ['LEGACY'],
+          pinnedUniverse: ['SINGLE_ELIMINATION', 'ROUND_ROBIN', 'COMPASS'],
+          onChange: (next) => events.push({ kind: 'restricted', next: [...next] }),
+        }),
+      );
+
+      const fullUniverseHost = document.querySelector('[data-fixture="full-universe"]');
+      fullUniverseHost.appendChild(
+        chipMultiSelect({
+          label: 'Creation Methods (full universe)',
+          values: [],
+          fullUniverse: ['AUTOMATED', 'MANUAL', 'DRAFT'],
+          onChange: (next) => events.push({ kind: 'full-universe', next: [...next] }),
+        }),
+      );
+
+      window.__chipFixtureReady = true;
+    </script>
+  </body>
+</html>
