@@ -1,6 +1,8 @@
 import { ProvidersController } from './providers.controller';
 import { StorageModule } from 'src/storage/storage.module';
 import { ProvidersService } from './providers.service';
+import { TopologiesService } from './topologies.service';
+import { ProviderCatalogService } from './provider-catalog.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
@@ -14,7 +16,7 @@ describe('ProvidersService', () => {
   beforeAll(async () => {
     app = await Test.createTestingModule({
       imports: [AuthModule, UsersModule, CacheModule, StorageModule],
-      providers: [ProvidersService, ConfigService],
+      providers: [ProvidersService, TopologiesService, ProviderCatalogService, ConfigService],
       controllers: [ProvidersController],
     }).compile();
 
