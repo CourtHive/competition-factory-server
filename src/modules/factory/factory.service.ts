@@ -20,7 +20,7 @@ import publicQueries from './functions/public';
 
 // types and interfaces
 import type { UserContext } from 'src/modules/auth/decorators/user-context.decorator';
-import { TOURNAMENT_STORAGE, type ITournamentStorage, TOURNAMENT_PROVISIONER_STORAGE, type ITournamentProvisionerStorage } from 'src/storage/interfaces';
+import { TOURNAMENT_STORAGE, type ITournamentStorage, TOURNAMENT_PROVISIONER_STORAGE, type ITournamentProvisionerStorage, PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
 
 @Injectable()
 export class FactoryService {
@@ -30,6 +30,7 @@ export class FactoryService {
     private readonly auditService: AuditService,
     @Inject(TOURNAMENT_STORAGE) private readonly tournamentStorage: ITournamentStorage,
     @Inject(TOURNAMENT_PROVISIONER_STORAGE) private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
+    @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     @Inject(PG_POOL) private readonly pgPool: any,
     @Optional() private readonly mutationMirror?: MutationMirrorService,
   ) {}
@@ -205,6 +206,6 @@ export class FactoryService {
   }
 
   async getParticipants({ params }) {
-    return await publicQueries.getParticipants(params, this.tournamentStorage);
+    return await publicQueries.getParticipants(params, this.tournamentStorage, this.providerStorage);
   }
 }

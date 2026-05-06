@@ -177,6 +177,18 @@ export interface ProviderCapsPolicies {
 }
 
 /**
+ * Granular fields the provider may opt to publish on participants.
+ * Default for every field is `false` — privacy-first. Each toggle
+ * relaxes a single attribute that the default privacy policy
+ * (`POLICY_PRIVACY_DEFAULT`) otherwise strips from public payloads.
+ */
+export interface ProviderParticipantPrivacy {
+  /** Allow `person.addresses[0].city / .state` through to the public
+   *  participants endpoint (full street / postal code stay stripped). */
+  cityState?: boolean;
+}
+
+/**
  * Provisioner-owned configuration — the "ceiling" the provider
  * cannot exceed. Provider admin writes to ProviderConfigSettings
  * may not violate caps.
@@ -186,6 +198,7 @@ export interface ProviderConfigCaps {
   permissions?: ProviderCapsPermissions;
   policies?: ProviderCapsPolicies;
   integrations?: ProviderIntegrations;
+  participantPrivacy?: ProviderParticipantPrivacy;
 }
 
 // ── Settings-tier schema (provider-admin-owned) ──
@@ -215,6 +228,7 @@ export interface ProviderConfigData {
   policies?: ProviderPolicyDefaults;
   defaults?: ProviderDefaults;
   integrations?: ProviderIntegrations;
+  participantPrivacy?: ProviderParticipantPrivacy;
 }
 
 // ── Helper enumerations for the merge function and validators ──

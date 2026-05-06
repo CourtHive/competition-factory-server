@@ -46,6 +46,9 @@ export function computeEffectiveConfig(
     policies: mergePolicies(caps.policies, settings.policies),
     defaults: settings.defaults,
     integrations: caps.integrations,
+    // participantPrivacy lives on caps only — privacy ceilings are owned
+    // by the provisioner. Default = false (privacy-first) when absent.
+    participantPrivacy: { cityState: caps.participantPrivacy?.cityState === true },
   };
 }
 
