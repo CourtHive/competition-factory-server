@@ -113,10 +113,23 @@ export interface ProviderConfigCaps {
   integrations?: ProviderIntegrations;
 }
 
+/**
+ * Granular fields the provider may opt to publish on participants.
+ * Default for every field is `false` (privacy-first). Mirrors the
+ * server's `ProviderParticipantPrivacy` type. Provider-owned —
+ * provisioner has no caps surface for privacy.
+ */
+export interface ProviderParticipantPrivacy {
+  /** Allow `person.addresses[0].city / .state` through to the public
+   *  participants endpoint (full street / postal code stay stripped). */
+  cityState?: boolean;
+}
+
 export interface ProviderConfigSettings {
   permissions?: ProviderPermissions;
   policies?: ProviderPolicyDefaults;
   defaults?: ProviderDefaults;
+  participantPrivacy?: ProviderParticipantPrivacy;
 }
 
 export interface ProviderConfigData {
@@ -125,6 +138,7 @@ export interface ProviderConfigData {
   policies?: ProviderPolicyDefaults;
   defaults?: ProviderDefaults;
   integrations?: ProviderIntegrations;
+  participantPrivacy?: ProviderParticipantPrivacy;
 }
 
 // Boolean permission keys grouped by surface — drives the editor sections.

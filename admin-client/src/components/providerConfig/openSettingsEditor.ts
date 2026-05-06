@@ -225,6 +225,21 @@ function renderEditor({
       }),
     );
 
+    // ── Participant privacy (provider-owned; no caps tier) ──
+    elem.appendChild(buildSectionHeader(t('providerConfig.section.privacy')));
+    const privacyHint = document.createElement('div');
+    privacyHint.style.cssText = 'font-size: .75rem; color: var(--tmx-text-muted, #888); margin-bottom: 6px;';
+    privacyHint.textContent = t('providerConfig.privacy.settingsHint');
+    elem.appendChild(privacyHint);
+    elem.appendChild(
+      buildCheckboxField({
+        label: t('providerConfig.privacy.cityState'),
+        checked: settings.participantPrivacy?.cityState === true,
+        registry: boolReaders,
+        registryKey: 'participantPrivacy.cityState',
+      }),
+    );
+
     issuesContainer = document.createElement('div');
     issuesContainer.style.cssText = 'margin-top: 8px;';
     elem.appendChild(issuesContainer);
@@ -361,9 +376,17 @@ function collectSettings({
     if (v && v.length > 0) defaults[key] = v;
   }
 
+  const participantPrivacy: any = {};
+  for (const [key, reader] of Object.entries(boolReaders)) {
+    if (!key.startsWith('participantPrivacy.')) continue;
+    const privacyKey = key.slice('participantPrivacy.'.length);
+    participantPrivacy[privacyKey] = reader();
+  }
+
   const settings: ProviderConfigSettings = {};
   if (Object.keys(permissions).length > 0) settings.permissions = permissions;
   if (Object.keys(policies).length > 0) settings.policies = policies;
   if (Object.keys(defaults).length > 0) settings.defaults = defaults;
+  if (Object.keys(participantPrivacy).length > 0) settings.participantPrivacy = participantPrivacy;
   return { settings, jsonErrors };
 }

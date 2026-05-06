@@ -46,9 +46,11 @@ export function computeEffectiveConfig(
     policies: mergePolicies(caps.policies, settings.policies),
     defaults: settings.defaults,
     integrations: caps.integrations,
-    // participantPrivacy lives on caps only — privacy ceilings are owned
-    // by the provisioner. Default = false (privacy-first) when absent.
-    participantPrivacy: { cityState: caps.participantPrivacy?.cityState === true },
+    // participantPrivacy is provider-owned (settings tier only). The
+    // provisioner has no caps surface here — privacy is between the
+    // provider and its participants. Default = false (privacy-first)
+    // when absent.
+    participantPrivacy: { cityState: settings.participantPrivacy?.cityState === true },
   };
 }
 

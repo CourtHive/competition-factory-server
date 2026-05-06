@@ -339,4 +339,36 @@ describe('computeEffectiveConfig', () => {
       expect(out.policies?.schedulingPolicy).toEqual({ startTime: '09:00' });
     });
   });
+
+  describe('participantPrivacy (settings-only — provider-owned)', () => {
+    it('defaults cityState to false when settings is absent', () => {
+      const out = computeEffectiveConfig({}, {});
+      expect(out.participantPrivacy?.cityState).toBe(false);
+    });
+
+    it('defaults cityState to false when settings.participantPrivacy is absent', () => {
+      const out = computeEffectiveConfig({}, { defaults: { defaultEventType: 'SINGLES' } });
+      expect(out.participantPrivacy?.cityState).toBe(false);
+    });
+
+    it('reads cityState true from settings', () => {
+      const out = computeEffectiveConfig({}, { participantPrivacy: { cityState: true } });
+      expect(out.participantPrivacy?.cityState).toBe(true);
+    });
+
+    it('reads cityState false from settings explicitly', () => {
+      const out = computeEffectiveConfig({}, { participantPrivacy: { cityState: false } });
+      expect(out.participantPrivacy?.cityState).toBe(false);
+    });
+
+    it('ignores stray cityState on caps (privacy is provider-owned, not provisioner-gated)', () => {
+      // A stale write to caps.participantPrivacy must not influence the
+      // effective shape — settings tier is the only source of truth.
+      const out = computeEffectiveConfig(
+        { participantPrivacy: { cityState: true } } as any,
+        {},
+      );
+      expect(out.participantPrivacy?.cityState).toBe(false);
+    });
+  });
 });

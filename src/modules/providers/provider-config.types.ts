@@ -192,13 +192,16 @@ export interface ProviderParticipantPrivacy {
  * Provisioner-owned configuration — the "ceiling" the provider
  * cannot exceed. Provider admin writes to ProviderConfigSettings
  * may not violate caps.
+ *
+ * NOTE: `participantPrivacy` lives on `ProviderConfigSettings`,
+ * NOT here. Privacy governs the provider's relationship with its
+ * own participants — a reseller has no standing to dictate it.
  */
 export interface ProviderConfigCaps {
   branding?: ProviderBranding;
   permissions?: ProviderCapsPermissions;
   policies?: ProviderCapsPolicies;
   integrations?: ProviderIntegrations;
-  participantPrivacy?: ProviderParticipantPrivacy;
 }
 
 // ── Settings-tier schema (provider-admin-owned) ──
@@ -213,6 +216,14 @@ export interface ProviderConfigSettings {
   permissions?: ProviderPermissions;
   policies?: ProviderPolicyDefaults;
   defaults?: ProviderDefaults;
+  /**
+   * Granular privacy toggles for what the provider opts to publish
+   * about its participants. Owned by the provider-admin alone —
+   * provisioner has no say here. Each toggle relaxes a single
+   * attribute that the default privacy policy strips. Default per
+   * field is `false` (privacy-first).
+   */
+  participantPrivacy?: ProviderParticipantPrivacy;
 }
 
 // ── Effective shape (delivered to TMX) ──

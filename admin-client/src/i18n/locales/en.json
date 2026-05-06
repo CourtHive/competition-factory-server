@@ -954,7 +954,12 @@
       "allowedSelections": "Allowed Selections",
       "policies": "Policies",
       "defaults": "Defaults",
-      "integrations": "Integrations"
+      "integrations": "Integrations",
+      "privacy": "Participant Privacy"
+    },
+    "privacy": {
+      "settingsHint": "Each toggle below relaxes the default privacy policy for one participant attribute. Leave off (the default) to keep that attribute private.",
+      "cityState": "Publish City / State on participants"
     },
     "permissions": {
       "ceilingHint": "Each permission set to OFF here will be locked off for the provider — they cannot enable it.",

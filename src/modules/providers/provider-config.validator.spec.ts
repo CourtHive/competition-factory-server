@@ -314,6 +314,49 @@ describe('validateSettings', () => {
     });
   });
 
+  describe('participantPrivacy (settings-only)', () => {
+    it('accepts an absent participantPrivacy block', () => {
+      const issues = validateSettings({ permissions: {} }, {});
+      expect(issues.filter((i) => i.path.startsWith('participantPrivacy'))).toEqual([]);
+    });
+
+    it('accepts boolean cityState true', () => {
+      const issues = validateSettings({ participantPrivacy: { cityState: true } }, {});
+      expect(issues.filter((i) => i.path.startsWith('participantPrivacy'))).toEqual([]);
+    });
+
+    it('accepts boolean cityState false', () => {
+      const issues = validateSettings({ participantPrivacy: { cityState: false } }, {});
+      expect(issues.filter((i) => i.path.startsWith('participantPrivacy'))).toEqual([]);
+    });
+
+    it('rejects a non-boolean cityState', () => {
+      const issues = validateSettings({ participantPrivacy: { cityState: 'yes' } }, {});
+      const issue = issues.find((i) => i.path === 'participantPrivacy.cityState');
+      expect(issue?.code).toBe('wrongType');
+    });
+
+    it('rejects an unknown participantPrivacy key', () => {
+      const issues = validateSettings({ participantPrivacy: { gender: true } }, {});
+      const issue = issues.find((i) => i.path === 'participantPrivacy.gender');
+      expect(issue?.code).toBe('unknownField');
+    });
+
+    it('rejects a non-object participantPrivacy', () => {
+      const issues = validateSettings({ participantPrivacy: 'true' }, {});
+      const issue = issues.find((i) => i.path === 'participantPrivacy');
+      expect(issue?.code).toBe('wrongType');
+    });
+
+    it('rejects participantPrivacy on caps (it belongs on settings)', () => {
+      // The caps validator should reject `participantPrivacy` as an
+      // unknown top-level field — privacy is provider-owned.
+      const issues = validateCaps({ participantPrivacy: { cityState: true } });
+      const issue = issues.find((i) => i.path === 'participantPrivacy');
+      expect(issue?.code).toBe('unknownField');
+    });
+  });
+
   describe('combined real-world rejection', () => {
     it('reports multiple issues from a single bad write', () => {
       const issues = validateSettings(

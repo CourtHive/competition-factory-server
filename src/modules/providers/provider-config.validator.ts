@@ -43,7 +43,8 @@ export type ValidationIssueCode =
 // ── Allowed top-level keys ──
 
 const CAPS_TOP_LEVEL_KEYS = new Set(['branding', 'permissions', 'policies', 'integrations']);
-const SETTINGS_TOP_LEVEL_KEYS = new Set(['permissions', 'policies', 'defaults']);
+const SETTINGS_TOP_LEVEL_KEYS = new Set(['permissions', 'policies', 'defaults', 'participantPrivacy']);
+const PARTICIPANT_PRIVACY_KEYS = new Set(['cityState']);
 
 const BRANDING_KEYS = new Set([
   'navbarLogoUrl',
@@ -124,8 +125,37 @@ export function validateSettings(settings: unknown, caps: ProviderConfigCaps = {
   validateSettingsPermissions(settings.permissions, caps.permissions, 'permissions', issues);
   validateSettingsPolicies(settings.policies, caps.policies, 'policies', issues);
   validateDefaults(settings.defaults, 'defaults', issues);
+  validateParticipantPrivacy(settings.participantPrivacy, 'participantPrivacy', issues);
 
   return issues;
+}
+
+// ── Participant privacy (settings tier only) ──
+
+function validateParticipantPrivacy(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (value === undefined) return;
+  if (!isPlainObject(value)) {
+    issues.push({ path, code: 'wrongType', message: `${path} must be an object` });
+    return;
+  }
+  for (const key of Object.keys(value)) {
+    if (!PARTICIPANT_PRIVACY_KEYS.has(key)) {
+      issues.push({
+        path: `${path}.${key}`,
+        code: 'unknownField',
+        message: `unknown participantPrivacy key "${key}"`,
+      });
+      continue;
+    }
+    const v = (value as Record<string, unknown>)[key];
+    if (v !== undefined && typeof v !== 'boolean') {
+      issues.push({
+        path: `${path}.${key}`,
+        code: 'wrongType',
+        message: `${path}.${key} must be a boolean`,
+      });
+    }
+  }
 }
 
 // ── Branding ──

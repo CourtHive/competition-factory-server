@@ -68,7 +68,8 @@ function buildTournamentStorage(record: any): ITournamentStorage {
 
 function buildProviderStorage(participantPrivacy?: { cityState?: boolean }): IProviderStorage {
   return {
-    getProvider: async () => ({ caps: { participantPrivacy }, settings: {} }),
+    // participantPrivacy is provider-owned and lives on settings, not caps.
+    getProvider: async () => ({ caps: {}, settings: { participantPrivacy } }),
     getProviders: async () => [],
     setProvider: async () => ({ success: true }),
     removeProvider: async () => ({ success: true }),
