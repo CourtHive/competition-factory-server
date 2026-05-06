@@ -1,4 +1,13 @@
 import { MigrationRunnerService } from './migration-runner.service';
+import { readdirSync } from 'fs';
+import { join } from 'path';
+
+// Derive the "all applied" fixture from the migrations directory at test
+// load time so adding a new migration .sql file does not invalidate this
+// spec. The runner reads from the same directory, so the two stay in sync.
+const ALL_DISK_MIGRATIONS = readdirSync(join(__dirname, 'migrations'))
+  .filter((f) => f.endsWith('.sql'))
+  .sort();
 
 describe('MigrationRunnerService', () => {
   let service: MigrationRunnerService;
@@ -39,27 +48,7 @@ describe('MigrationRunnerService', () => {
   it('reports all migrations up to date when all are applied', async () => {
     queryResults = [
       undefined, // CREATE TABLE
-      { rows: [
-        { name: '001-initial-schema.sql' },
-        { name: '002-add-last-access.sql' },
-        { name: '003-add-bolt-history.sql' },
-        { name: '004-add-user-uuid.sql' },
-        { name: '005-add-user-providers.sql' },
-        { name: '006-backfill-user-providers.sql' },
-        { name: '007-add-tournament-assignments.sql' },
-        { name: '008-add-audit-log.sql' },
-        { name: '009-add-provisioner-tables.sql' },
-        { name: '010-nullable-granted-by.sql' },
-        { name: '011-add-mutation-mirror-queue.sql' },
-        { name: '012-add-outbound-relay-queue.sql' },
-        { name: '013-add-officiating-sanctioning.sql' },
-        { name: '014-add-audit-summary.sql' },
-        { name: '015-add-pending-saves.sql' },
-        { name: '016-add-user-provisioners.sql' },
-        { name: '017-split-provider-config.sql' },
-        { name: '018-drop-stale-data-lastaccess.sql' },
-        { name: '019-drop-stale-user-data-lastaccess.sql' },
-      ]},
+      { rows: ALL_DISK_MIGRATIONS.map((name) => ({ name })) },
     ];
     service = new MigrationRunnerService(mockPool);
     await service.onModuleInit();
