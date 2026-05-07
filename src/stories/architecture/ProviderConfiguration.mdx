@@ -228,16 +228,17 @@ Array-typed permissions: `allowedDrawTypes`, `allowedCreationMethods`,
 ## Merge Function
 
 ```typescript
-import { computeEffectiveConfig } from 'src/modules/providers/effective-provider-config';
+import { computeEffectiveConfig } from '@courthive/provider-config';
 
 const effective = computeEffectiveConfig(caps, settings);
 // effective is the ProviderConfigData TMX consumes
 ```
 
-Pure function; no side effects. Lives at
-`src/modules/providers/effective-provider-config.ts`. 38 unit tests cover
-every merge rule + a realistic IONSport-caps + club-settings integration
-scenario.
+Pure function; no side effects. Lives in the shared
+`@courthive/provider-config` npm package alongside the canonical types,
+KEYS arrays, validators, and `MUTATION_PERMISSIONS` map. 38 unit tests
+cover every merge rule + a realistic IONSport-caps + club-settings
+integration scenario.
 
 ### Worked example
 

@@ -1,3 +1,4 @@
+import { computeEffectiveConfig, isMutationAllowed } from '@courthive/provider-config';
 import { TournamentBroadcastService } from '../broadcast/tournament-broadcast.service';
 import { canViewTournament, canMutateTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
@@ -205,20 +206,15 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     if (tmxMessages[type]) {
       const methods = tools.unique(payload?.methods?.map((directive) => directive.method) ?? []).join('|');
 
-      // Per-tournament mutation check (behind feature flag via canMutateTournament)
+      // Per-tournament gates: tournament-access (canMutateTournament) +
+      // provider-permission (MUTATION_PERMISSIONS). Returns an error
+      // string if any gate rejects, or null when all tournaments pass.
       const userContext = await this.resolveUserContext(client);
-      if (userContext && payload.tournamentIds?.length) {
-        const assignedIds = await this.assignmentsService.getAssignedTournamentIds(userContext.userId);
-        for (const tid of payload.tournamentIds) {
-          const result: any = await this.tournamentStorageService.fetchTournamentRecords({ tournamentId: tid });
-          const tournament = result?.tournamentRecords?.[tid];
-          if (tournament && !canMutateTournament(tournament, userContext, assignedIds)) {
-            this.logger.warn(`[executionQueue] mutation denied for ${userId}: ${methods} on ${tid}`);
-            const ackId = payload?.ackId;
-            client.emit('ack', { ackId, error: 'Not authorized to modify this tournament' });
-            return;
-          }
-        }
+      const requestedMethods: string[] = (payload?.methods ?? []).map((m: any) => m?.method).filter(Boolean);
+      const denial = await this.gatePerTournament(userContext, payload.tournamentIds ?? [], requestedMethods, userId, methods);
+      if (denial) {
+        client.emit('ack', { ackId: payload?.ackId, error: denial });
+        return;
       }
 
       try {
@@ -391,6 +387,64 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       result.push({ tournamentId, count: members.length, members });
     }
     return result;
+  }
+
+  /**
+   * Defense-in-depth gates applied before a mutation reaches `executionQueue`:
+   *   1. canMutateTournament (per-tournament access)
+   *   2. provider permission map (MUTATION_PERMISSIONS in the tournament's
+   *      owning provider's effective config)
+   *
+   * Super-admins bypass both. Returns the denial reason as a string when
+   * any tournament rejects, or `null` when all clear.
+   */
+  private async gatePerTournament(
+    userContext: any,
+    tournamentIds: string[],
+    requestedMethods: string[],
+    userId: string,
+    methods: string,
+  ): Promise<string | null> {
+    if (!userContext || !tournamentIds.length) return null;
+
+    const assignedIds = await this.assignmentsService.getAssignedTournamentIds(userContext.userId);
+    for (const tid of tournamentIds) {
+      const result: any = await this.tournamentStorageService.fetchTournamentRecords({ tournamentId: tid });
+      const tournament = result?.tournamentRecords?.[tid];
+      if (!tournament) continue;
+
+      if (!canMutateTournament(tournament, userContext, assignedIds)) {
+        this.logger.warn(`[executionQueue] mutation denied for ${userId}: ${methods} on ${tid}`);
+        return 'Not authorized to modify this tournament';
+      }
+
+      if (userContext.isSuperAdmin || !requestedMethods.length) continue;
+      const blocked = await this.checkProviderPermissionGate(tournament, requestedMethods);
+      if (blocked) {
+        this.logger.warn(
+          `[executionQueue] provider permission denied for ${userId}: ${blocked.method} on ${tid} (provider ${blocked.providerId})`,
+        );
+        return `Action not permitted: ${blocked.method}`;
+      }
+    }
+    return null;
+  }
+
+  /** Returns the first method blocked by the owning provider's permissions, or null. */
+  private async checkProviderPermissionGate(
+    tournament: any,
+    requestedMethods: string[],
+  ): Promise<{ method: string; providerId: string } | null> {
+    const providerId = tournament?.parentOrganisation?.organisationId;
+    if (!providerId) return null;
+    const provider: any = await this.providerStorage.getProvider(providerId);
+    const effective = computeEffectiveConfig(
+      provider?.providerConfigCaps ?? {},
+      provider?.providerConfigSettings ?? {},
+    );
+    const permissions = effective.permissions ?? {};
+    const method = requestedMethods.find((m) => !isMutationAllowed(m, permissions));
+    return method ? { method, providerId } : null;
   }
 
   // ── User context resolution for WebSocket handlers ──

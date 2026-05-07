@@ -1,8 +1,7 @@
 import { scopeCalendarForUser } from 'src/modules/factory/helpers/checkTournamentAccess';
 import type { UserContext } from 'src/modules/auth/decorators/user-context.decorator';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
-import { computeEffectiveConfig } from './effective-provider-config';
-import { validateSettings } from './provider-config.validator';
+import { computeEffectiveConfig, validateSettings } from '@courthive/provider-config';
 import { Inject, Injectable } from '@nestjs/common';
 import { tools } from 'tods-competition-factory';
 

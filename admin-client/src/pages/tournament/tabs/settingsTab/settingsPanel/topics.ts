@@ -9,12 +9,12 @@
  *
  * See `Mentat/planning/ADMIN_SETTINGS_PAGE_REDESIGN.md`.
  */
-import { PERMISSION_GROUPS } from 'types/providerConfig';
+import { PERMISSION_GROUPS } from 'types/permissionGroups';
 import type {
   AllowedCategory,
   ProviderConfigCaps,
   ProviderConfigSettings,
-} from 'types/providerConfig';
+} from '@courthive/provider-config';
 import { BUILTIN_POLICIES } from 'pages/policies/policyBridge';
 import {
   createPrintCompositionEditor,

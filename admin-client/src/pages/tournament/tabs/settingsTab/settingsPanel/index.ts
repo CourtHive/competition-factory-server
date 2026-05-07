@@ -20,7 +20,7 @@ import { listCatalog, type CatalogItemDto } from 'services/apis/catalogApi';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { t } from 'i18n';
 import type { ProviderValue } from 'types/tmx';
-import type { ProviderConfigCaps, ProviderConfigSettings, ValidationIssue } from 'types/providerConfig';
+import type { ProviderConfigCaps, ProviderConfigSettings, ValidationIssue } from '@courthive/provider-config';
 import { TOPICS, type TopicContext, type TopicId } from './topics';
 
 interface RenderSettingsPanelParams {

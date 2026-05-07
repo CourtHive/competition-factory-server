@@ -1,7 +1,7 @@
 import { ForbiddenException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { VALID_GLOBAL_ROLES, VALID_PROVIDER_ROLES } from 'src/common/constants/roles';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { computeEffectiveConfig } from '../providers/effective-provider-config';
+import { computeEffectiveConfig } from '@courthive/provider-config';
 import { createUniqueKey } from './helpers/createUniqueKey';
 import { UsersService } from '../users/users.service';
 import { hashPassword } from './helpers/hashPassword';

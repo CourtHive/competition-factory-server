@@ -1,7 +1,6 @@
 import { fixtures, queryGovernor, factoryConstants } from 'tods-competition-factory';
 
-import { computeEffectiveConfig } from 'src/modules/providers/effective-provider-config';
-import type { ProviderParticipantPrivacy } from 'src/modules/providers/provider-config.types';
+import { computeEffectiveConfig, type ProviderParticipantPrivacy } from '@courthive/provider-config';
 import type { ITournamentStorage, IProviderStorage } from 'src/storage/interfaces';
 import { SUCCESS } from 'src/common/constants/app';
 

@@ -91,7 +91,8 @@
     "socket.io": "4.8.3",
     "tods-competition-factory": ">=3.4.1",
     "tods-tmx-classic-converter": "3.0.5",
-    "tslib": "^2.6.2"
+    "tslib": "^2.6.2",
+    "@courthive/provider-config": "^0.1.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.0.0",
@@ -142,7 +143,8 @@
   "pnpm": {
     "overrides": {
       "serve-static@<2": ">=2.2.0",
-      "tods-competition-factory": "link:../factory"
+      "tods-competition-factory": "link:../factory",
+      "@courthive/provider-config": "link:../provider-config"
     },
     "ignoredBuiltDependencies": [
       "@nestjs/core",

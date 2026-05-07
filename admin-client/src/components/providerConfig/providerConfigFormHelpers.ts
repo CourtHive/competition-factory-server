@@ -5,7 +5,7 @@
  * which sections appear and whether settings fields are cap-aware
  * (disabled with a "locked by provisioner" tooltip when a cap forbids).
  */
-import type { ValidationIssue } from 'types/providerConfig';
+import type { ValidationIssue } from '@courthive/provider-config';
 
 const CHECKBOX_ROW =
   'display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 4px 0;';

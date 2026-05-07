@@ -28,12 +28,12 @@ import {
   buildSectionHeader,
   buildTextField,
 } from './providerConfigFormHelpers';
+import { PERMISSION_GROUPS } from 'types/permissionGroups';
 import {
-  PERMISSION_GROUPS,
   type ProviderConfigCaps,
   type ProviderConfigSettings,
   type ValidationIssue,
-} from 'types/providerConfig';
+} from '@courthive/provider-config';
 
 interface OpenSettingsEditorParams {
   providerId: string;

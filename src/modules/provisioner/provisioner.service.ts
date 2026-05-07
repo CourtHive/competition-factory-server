@@ -1,8 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomBytes, createHash } from 'crypto';
 
-import { computeEffectiveConfig } from '../providers/effective-provider-config';
-import { validateCaps, validateSettings } from '../providers/provider-config.validator';
+import { computeEffectiveConfig, validateCaps, validateSettings } from '@courthive/provider-config';
 import { AuditService } from '../audit/audit.service';
 
 import {
