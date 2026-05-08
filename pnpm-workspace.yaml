@@ -1,6 +1,15 @@
 packages:
   - 'audit-worker'
 
+allowBuilds:
+  '@nestjs/core': true
+  '@scarf/scarf': true
+  '@swc/core': true
+  classic-level: true
+  core-js: true
+  esbuild: true
+  unrs-resolver: true
+
 ignoredBuiltDependencies:
   - '@nestjs/core'
   - '@scarf/scarf'
