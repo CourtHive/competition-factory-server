@@ -19,6 +19,7 @@
     "test:e2e:prod": "TEST_PROD=1 playwright test --config e2e/playwright.config.ts"
   },
   "dependencies": {
+    "@courthive/provider-config": "^0.1.0",
     "animate.css": "^4.1.1",
     "axios": "^1.13.0",
     "courthive-components": ">=1.3.0",
@@ -26,8 +27,7 @@
     "jwt-decode": "^4.0.0",
     "navigo": "^8.11.1",
     "tabulator-tables": "^6.3.1",
-    "tods-competition-factory": ">=3.4.1",
-    "@courthive/provider-config": "^0.1.0"
+    "tods-competition-factory": ">=3.4.1"
   },
   "pnpm": {
     "overrides": {
@@ -35,10 +35,16 @@
     }
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.59.1",
     "@storybook/addon-docs": "^10.2.17",
     "@storybook/html": "^10.2.17",
     "@storybook/html-vite": "^10.2.17",
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/parser": "^8.59.0",
+    "eslint": "^10.2.1",
+    "eslint-plugin-sonarjs": "^4.0.2",
+    "globals": "^17.0.0",
     "happy-dom": "^20.8.3",
     "storybook": "^10.2.17",
     "typescript": "^6.0.0",
