@@ -148,11 +148,14 @@
       "@courthive/provider-config": "link:../provider-config"
     },
     "ignoredBuiltDependencies": [
+      "@dep-tree/cli",
       "@nestjs/core",
       "@scarf/scarf",
       "@swc/core",
       "classic-level",
+      "core-js",
       "esbuild",
+      "rollup",
       "unrs-resolver"
     ]
   },
