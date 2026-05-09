@@ -1,0 +1,12 @@
+packages: []
+
+allowBuilds:
+  '@dep-tree/cli': true
+  '@nestjs/core': true
+  '@scarf/scarf': true
+  '@swc/core': true
+  classic-level: true
+  core-js: true
+  esbuild: true
+  rollup: true
+  unrs-resolver: true
