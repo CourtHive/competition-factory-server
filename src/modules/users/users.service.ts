@@ -39,22 +39,25 @@ export class UsersService {
   ];
 
   async findOne(email: string) {
+    const normalizedEmail = email?.toLowerCase().trim();
     const mode = this.configService.get('APP')?.mode;
-    const devModeTestUser = mode === 'development' && (await this.testUsers.find((user) => user.email === email));
+    const devModeTestUser =
+      mode === 'development' && (await this.testUsers.find((user) => user.email === normalizedEmail));
     if (devModeTestUser) return devModeTestUser;
-    return await this.userStorage.findOne(email);
+    return await this.userStorage.findOne(normalizedEmail);
   }
 
   async create(user: User) {
-    const { password, ...value } = user;
+    const { password, email, ...value } = user;
     if (!password) return { error: 'Password is required' };
-    const hashedUser = { ...value, password: await hashPassword(password) };
+    const hashedUser = { ...value, email: email?.toLowerCase().trim(), password: await hashPassword(password) };
     return await this.userStorage.create(hashedUser as any);
   }
 
   async remove(email: string) {
-    const result = await this.userStorage.remove(email);
-    console.log('remove result', { key: email }, result);
+    const normalizedEmail = email?.toLowerCase().trim();
+    const result = await this.userStorage.remove(normalizedEmail);
+    console.log('remove result', { key: normalizedEmail }, result);
     return { ...SUCCESS };
   }
 
@@ -75,11 +78,12 @@ export class UsersService {
 
   async requestMagicLink(email: string) {
     if (!email) return { error: 'Invalid request' };
+    const normalizedEmail = email.toLowerCase().trim();
 
-    const user = await this.userStorage.findOne(email);
+    const user = await this.userStorage.findOne(normalizedEmail);
     if (user) {
       const magicLinkCode = createUniqueKey();
-      await this.authCodeStorage.setAccessCode(magicLinkCode, email);
+      await this.authCodeStorage.setAccessCode(magicLinkCode, normalizedEmail);
 
       // TODO: The magic link URL will need to launch the web server / end user app
       /*
