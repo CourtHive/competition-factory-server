@@ -16,6 +16,9 @@ const BUILD_TIME = new Date().toISOString();
 
 export default defineConfig({
   base: '/admin/',
+  server: {
+    port: 5179,
+  },
   // Shim process.env.SERVER for the dev server. baseApi.ts reads it to
   // override the baseURL when admin-client runs on a different origin
   // than the NestJS server (e.g. e2e: vite on 5179, server on 3000).
