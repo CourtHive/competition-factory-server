@@ -43,13 +43,24 @@ import { MigrationRunnerService } from './postgres/migration-runner.service';
 import { PG_POOL, getPostgresConfig } from './postgres/postgres.config';
 
 import { TournamentStorageService } from './tournament-storage.service';
-import { Global, Module } from '@nestjs/common';
+import { Global, Inject, Injectable, Module, OnModuleDestroy } from '@nestjs/common';
 import { Pool } from 'pg';
 
 const pgPoolProvider = {
   provide: PG_POOL,
   useFactory: () => new Pool(getPostgresConfig()),
 };
+
+// Nest only invokes onModuleDestroy on class-provider instances, not on
+// values returned from a useFactory. This sibling provider holds the pool
+// and ends it on app.close() so Jest workers don't force-exit on idle sockets.
+@Injectable()
+class PgPoolLifecycle implements OnModuleDestroy {
+  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  async onModuleDestroy(): Promise<void> {
+    await this.pool.end();
+  }
+}
 
 function makeStorageProvider(token: symbol, storageClass: any) {
   return {
@@ -87,6 +98,7 @@ const userProvisionerStorageProvider = makeStorageProvider(USER_PROVISIONER_STOR
 @Module({
   providers: [
     pgPoolProvider,
+    PgPoolLifecycle,
     MigrationRunnerService,
     tournamentStorageProvider,
     userStorageProvider,

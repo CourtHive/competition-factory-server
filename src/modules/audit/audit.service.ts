@@ -10,6 +10,7 @@ const PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000; // daily
 export class AuditService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AuditService.name);
   private pruneTimer: ReturnType<typeof setInterval> | null = null;
+  private pruneStartupTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(@Inject(AUDIT_STORAGE) private readonly auditStorage: IAuditStorage) {}
 
@@ -18,12 +19,14 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Audit trail active — retention: ${retentionDays} days, prune interval: daily`);
 
     // Run prune once on startup (deferred) then on interval
-    setTimeout(() => this.pruneExpired(), 10_000);
+    this.pruneStartupTimer = setTimeout(() => this.pruneExpired(), 10_000);
+    this.pruneStartupTimer.unref(); // don't keep the process alive for the startup prune
     this.pruneTimer = setInterval(() => this.pruneExpired(), PRUNE_INTERVAL_MS);
     this.pruneTimer.unref(); // don't keep the process alive for pruning
   }
 
   onModuleDestroy() {
+    if (this.pruneStartupTimer) clearTimeout(this.pruneStartupTimer);
     if (this.pruneTimer) clearInterval(this.pruneTimer);
   }
 
