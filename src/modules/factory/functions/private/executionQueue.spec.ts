@@ -2,7 +2,9 @@ import { generateTournamentRecord } from '../../../../services/fileSystem/genera
 import { removeTournamentRecords } from '../../../../services/fileSystem/removeTournamentRecords';
 import { factoryConstants } from 'tods-competition-factory';
 import fileStorage from '../../../../services/fileSystem';
-import { TEST } from '../../../../common/constants/test';
+import { testTournamentId } from '../../../../common/constants/test';
+
+const tournamentId = testTournamentId(__filename);
 import { executionQueue } from './executionQueue';
 import 'dotenv/config';
 
@@ -20,13 +22,13 @@ const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
 describe('executionQueue', () => {
   it('can generate a tournamentRecord', async () => {
     // FIRST: remove any existing tournamentRecord with this tournamentId
-    let result: any = await removeTournamentRecords({ tournamentId: TEST });
+    let result: any = await removeTournamentRecords({ tournamentId });
     expect(result.success).toEqual(true);
 
     // SECOND: generate a tournamentRecord with this tournamentId and persist to storage
     result = await generateTournamentRecord(
       {
-        tournamentAttributes: { tournamentId: TEST },
+        tournamentAttributes: { tournamentId },
         drawProfiles: [{ drawSize: 16 }],
       },
       testUser,
@@ -40,11 +42,11 @@ describe('executionQueue', () => {
           params: {
             startDate: '2024-01-01',
             endDate: '2024-01-02',
-            tournamentId: TEST,
+            tournamentId,
           },
         },
       ],
-      tournamentIds: [TEST, 'test2'],
+      tournamentIds: [tournamentId, 'test2'],
     };
 
     // THIRD: execute a directive on the tournamentRecord
@@ -53,7 +55,7 @@ describe('executionQueue', () => {
 
     // FOURTH: attempt to execute a directive on a tournamentRecord that does not exist
     result = await executionQueue({
-      methods: [{ method: 'setTournamentDates', params: { tournamentId: TEST } }],
+      methods: [{ method: 'setTournamentDates', params: { tournamentId } }],
       tournamentIds: ['doesNotExist'],
     }, undefined, mockStorage);
     expect(result.error).toEqual(factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD);

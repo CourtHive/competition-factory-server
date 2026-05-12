@@ -9,7 +9,7 @@ import { PROVIDER_ADMIN } from 'src/common/constants/roles';
 
 import { getCalendarEntry } from 'src/helpers/getCalendarEntry';
 import { SUCCESS } from 'src/common/constants/app';
-import { TEST } from 'src/common/constants/test';
+import { isTestTournamentId } from 'src/common/constants/test';
 
 /**
  * Facade over ITournamentStorage that adds domain side-effects:
@@ -56,7 +56,7 @@ export class TournamentStorageService {
     if (!key) return { error: 'Invalid tournamentRecord' };
 
     const providerId = tournamentRecord.parentOrganisation?.organisationId;
-    if (!providerId && key !== TEST) return { error: 'Missing providerId' };
+    if (!providerId && !isTestTournamentId(key)) return { error: 'Missing providerId' };
 
     // Stamp createdByUserId on first save if a userId is available
     if (userId) {

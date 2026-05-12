@@ -6,7 +6,9 @@ import request from 'supertest';
 
 import { saveAndCommit } from 'src/tests/helpers/saveAndCommit';
 import { seededRng } from 'src/tests/helpers/seededRng';
-import { TEST, TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
+import { TEST_EMAIL, TEST_PASSWORD, testTournamentId } from 'src/common/constants/test';
+
+const tournamentId = testTournamentId(__filename);
 
 describe('FactoryService', () => {
   let app: INestApplication;
@@ -31,14 +33,14 @@ describe('FactoryService', () => {
   it('/POST executionQueue no auth', async () => {
     return await request(app.getHttpServer())
       .post('/factory')
-      .send({ tournamentIds: [TEST] })
+      .send({ tournamentIds: [tournamentId] })
       .expect(401);
   });
 
   it('/POST fetchTournamentRecords no auth', async () => {
     return await request(app.getHttpServer())
       .post('/factory/fetch')
-      .send({ tournamentIds: [TEST] })
+      .send({ tournamentIds: [tournamentId] })
       .expect(401);
   });
 
@@ -53,7 +55,7 @@ describe('FactoryService', () => {
     // ENSURE: tournamentRecord exists (use save to await persistence).
     // Seeded RNG keeps the generated tournament_name stable across runs.
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
-      tournamentAttributes: { tournamentId: TEST },
+      tournamentAttributes: { tournamentId },
       random: seededRng(1001),
     });
     await saveAndCommit(app.getHttpServer(), token, tournamentRecord);
@@ -67,12 +69,12 @@ describe('FactoryService', () => {
             params: {
               startDate: '2024-01-01',
               endDate: '2024-01-02',
-              tournamentId: TEST,
+              tournamentId,
             },
             method: 'setTournamentDates',
           },
         ],
-        tournamentId: TEST,
+        tournamentId,
       })
       .expect(200);
     expect(result.body.success).toEqual(true);
@@ -81,9 +83,9 @@ describe('FactoryService', () => {
       .post('/factory/query')
       .set('Authorization', 'Bearer ' + token)
       .send({
-        params: { tournamentId: TEST },
+        params: { tournamentId },
         method: 'getTournamentInfo',
-        tournamentId: TEST,
+        tournamentId,
       })
       .expect(200);
   });

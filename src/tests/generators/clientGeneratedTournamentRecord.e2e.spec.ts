@@ -6,7 +6,7 @@ import request from 'supertest';
 import { mocksEngine, factoryConstants } from 'tods-competition-factory';
 import { saveAndCommit } from '../helpers/saveAndCommit';
 import { seededRng } from '../helpers/seededRng';
-import { TEST, TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
+import { TEST_EMAIL, TEST_PASSWORD, testTournamentId } from '../../common/constants/test';
 
 const { SINGLES } = factoryConstants.eventConstants;
 
@@ -35,7 +35,7 @@ describe('ClientGeneratedTournamentRecord', () => {
   });
 
   it('can remove, create, save and fetch a tournamentRecord', async () => {
-    const tournamentId = TEST;
+    const tournamentId = testTournamentId(__filename);
 
     let result = await request(app.getHttpServer())
       .post('/factory/remove')

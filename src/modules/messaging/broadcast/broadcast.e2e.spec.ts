@@ -16,7 +16,9 @@ import { saveAndCommit } from 'src/tests/helpers/saveAndCommit';
 import { seededRng } from 'src/tests/helpers/seededRng';
 
 // constants
-import { TEST, TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
+import { TEST_EMAIL, TEST_PASSWORD, testTournamentId } from 'src/common/constants/test';
+
+const tournamentId = testTournamentId(__filename);
 
 describe('REST → Socket.IO broadcast', () => {
   let app: INestApplication;
@@ -49,7 +51,7 @@ describe('REST → Socket.IO broadcast', () => {
     const drawProfiles = [{ drawSize: 4 }];
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       drawProfiles,
-      tournamentAttributes: { tournamentId: TEST },
+      tournamentAttributes: { tournamentId },
       random: seededRng(3003),
     });
     await saveAndCommit(httpServer, token, tournamentRecord);
@@ -90,7 +92,7 @@ describe('REST → Socket.IO broadcast', () => {
 
     try {
       // Join the tournament room
-      tmxClient.emit('joinTournament', { tournamentId: TEST });
+      tmxClient.emit('joinTournament', { tournamentId });
       // Give the room join a moment to process
       await new Promise((r) => setTimeout(r, 200));
 
@@ -106,11 +108,11 @@ describe('REST → Socket.IO broadcast', () => {
         .post('/factory')
         .set('Authorization', `Bearer ${token}`)
         .send({
-          tournamentId: TEST,
+          tournamentId,
           methods: [
             {
               method: 'setTournamentDates',
-              params: { tournamentId: TEST, startDate: '2025-06-01', endDate: '2025-06-07' },
+              params: { tournamentId, startDate: '2025-06-01', endDate: '2025-06-07' },
             },
           ],
         })
@@ -122,7 +124,7 @@ describe('REST → Socket.IO broadcast', () => {
       const broadcast = await broadcastPromise;
 
       expect(broadcast).not.toBeNull();
-      expect(broadcast.tournamentIds).toContain(TEST);
+      expect(broadcast.tournamentIds).toContain(tournamentId);
       expect(broadcast.methods).toBeDefined();
       expect(broadcast.methods[0].method).toBe('setTournamentDates');
     } finally {
@@ -135,7 +137,7 @@ describe('REST → Socket.IO broadcast', () => {
 
     try {
       // Join the public tournament room
-      publicClient.emit('joinTournament', { tournamentId: TEST });
+      publicClient.emit('joinTournament', { tournamentId });
       await new Promise((r) => setTimeout(r, 200));
 
       // Listen for publicUpdate
@@ -149,9 +151,9 @@ describe('REST → Socket.IO broadcast', () => {
         .post('/factory/query')
         .set('Authorization', `Bearer ${token}`)
         .send({
-          tournamentId: TEST,
+          tournamentId,
           method: 'allTournamentMatchUps',
-          params: { tournamentId: TEST },
+          params: { tournamentId },
         })
         .expect(200);
 
@@ -164,12 +166,12 @@ describe('REST → Socket.IO broadcast', () => {
           .post('/factory')
           .set('Authorization', `Bearer ${token}`)
           .send({
-            tournamentId: TEST,
+            tournamentId,
             methods: [
               {
                 method: 'setMatchUpStatus',
                 params: {
-                  tournamentId: TEST,
+                  tournamentId,
                   drawId: matchUp.drawId,
                   matchUpId: matchUp.matchUpId,
                   outcome: {
@@ -193,7 +195,7 @@ describe('REST → Socket.IO broadcast', () => {
         // publicUpdate should contain matchUp data
         if (update) {
           expect(update.type).toBe('matchUpUpdate');
-          expect(update.tournamentId).toBe(TEST);
+          expect(update.tournamentId).toBe(tournamentId);
           expect(update.matchUps).toBeDefined();
         }
       }
@@ -206,7 +208,7 @@ describe('REST → Socket.IO broadcast', () => {
     const tmxClient = await connectTmxClient();
 
     try {
-      tmxClient.emit('joinTournament', { tournamentId: TEST });
+      tmxClient.emit('joinTournament', { tournamentId });
       await new Promise((r) => setTimeout(r, 200));
 
       let receivedBroadcast = false;
@@ -219,7 +221,7 @@ describe('REST → Socket.IO broadcast', () => {
         .post('/factory')
         .set('Authorization', `Bearer ${token}`)
         .send({
-          tournamentId: TEST,
+          tournamentId,
           methods: [{ method: 'addEvent', params: {} }],
         })
         .expect((res) => expect([200, 500]).toContain(res.status));

@@ -4,7 +4,9 @@ import { getCompetitionScheduleMatchUps } from '../public/getCompetitionSchedule
 import { queryTournamentRecords } from './queryTournamentRecords';
 import { getTournamentInfo } from '../public/getTournamentInfo';
 import fileStorage from '../../../../services/fileSystem';
-import { TEST } from '../../../../common/constants/test';
+import { testTournamentId } from '../../../../common/constants/test';
+
+const tournamentId = testTournamentId(__filename);
 import 'dotenv/config';
 
 import type { ITournamentStorage } from 'src/storage/interfaces';
@@ -16,13 +18,13 @@ const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
 describe('queryTournamentRecords', () => {
   it('can query a tournamentRecord', async () => {
     // FIRST: remove any existing tournamentRecord with this tournamentId
-    let result: any = await removeTournamentRecords({ tournamentId: TEST });
+    let result: any = await removeTournamentRecords({ tournamentId });
     expect(result.success).toEqual(true);
 
     // SECOND: generate a tournamentRecord with this tournamentId and persist to storage
     result = await generateTournamentRecord(
       {
-        tournamentAttributes: { tournamentId: TEST },
+        tournamentAttributes: { tournamentId },
         drawProfiles: [{ drawSize: 16 }],
       },
       testUser,
@@ -31,22 +33,22 @@ describe('queryTournamentRecords', () => {
 
     // THIRD: execute a directive on the tournamentRecord
     result = await queryTournamentRecords({
-      params: { tournamentId: TEST },
+      params: { tournamentId },
       method: 'getTournamentInfo',
-      tournamentId: TEST,
+      tournamentId,
     }, storage);
     expect(result.tournamentInfo).toBeDefined();
     expect(result.success).toEqual(true);
 
-    result = await getTournamentInfo({ tournamentId: TEST }, storage);
+    result = await getTournamentInfo({ tournamentId }, storage);
     expect(result.tournamentInfo).toBeDefined();
     expect(result.success).toEqual(true);
 
-    result = await getCompetitionScheduleMatchUps({ tournamentId: TEST }, storage);
+    result = await getCompetitionScheduleMatchUps({ tournamentId }, storage);
     expect(result.success).toEqual(true);
 
     // FOURTH: remove the tournamentRecord
-    result = await removeTournamentRecords({ tournamentId: TEST });
+    result = await removeTournamentRecords({ tournamentId });
     expect(result.success).toEqual(true);
   });
 });

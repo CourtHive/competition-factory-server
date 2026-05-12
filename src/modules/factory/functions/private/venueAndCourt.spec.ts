@@ -2,7 +2,9 @@ import { generateTournamentRecord } from '../../../../services/fileSystem/genera
 import { removeTournamentRecords } from '../../../../services/fileSystem/removeTournamentRecords';
 import { queryTournamentRecords } from './queryTournamentRecords';
 import fileStorage from '../../../../services/fileSystem';
-import { TEST } from '../../../../common/constants/test';
+import { testTournamentId } from '../../../../common/constants/test';
+
+const tournamentId = testTournamentId(__filename);
 import { executionQueue } from './executionQueue';
 import 'dotenv/config';
 
@@ -24,11 +26,11 @@ const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
 
 describe('addVenue and addCourt via executionQueue', () => {
   beforeAll(async () => {
-    await removeTournamentRecords({ tournamentId: TEST });
+    await removeTournamentRecords({ tournamentId });
 
     let result: any = await generateTournamentRecord(
       {
-        tournamentAttributes: { tournamentId: TEST },
+        tournamentAttributes: { tournamentId },
       },
       testUser,
     );
@@ -36,13 +38,13 @@ describe('addVenue and addCourt via executionQueue', () => {
   });
 
   afterAll(async () => {
-    await removeTournamentRecords({ tournamentId: TEST });
+    await removeTournamentRecords({ tournamentId });
   });
 
   it('can add a venue and court in a single executionQueue', async () => {
     let result: any = await executionQueue(
       {
-        tournamentId: TEST,
+        tournamentId,
         methods: [
           {
             method: 'addVenue',
@@ -74,8 +76,8 @@ describe('addVenue and addCourt via executionQueue', () => {
     result = await queryTournamentRecords(
       {
         method: 'getVenuesAndCourts',
-        params: { tournamentId: TEST },
-        tournamentId: TEST,
+        params: { tournamentId },
+        tournamentId,
       },
       queryStorage,
     );

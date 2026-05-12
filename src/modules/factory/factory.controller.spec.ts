@@ -10,7 +10,9 @@ import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
 import { FactoryService } from './factory.service';
 import { AuthModule } from '../auth/auth.module';
-import { TEST } from 'src/common/constants/test';
+import { testTournamentId } from 'src/common/constants/test';
+
+const tournamentId = testTournamentId(__filename);
 import { ConfigService } from '@nestjs/config';
 
 import { seededRng } from 'src/tests/helpers/seededRng';
@@ -42,23 +44,23 @@ describe('FactoryController', () => {
     // Seed RNG and pin tournamentId via tournamentAttributes so this spec
     // always UPSERTs the same Postgres row instead of inserting a new UUID.
     const result = await factoryController.generateTournamentRecord(
-      { tournamentAttributes: { tournamentId: TEST }, random: seededRng(1) },
+      { tournamentAttributes: { tournamentId }, random: seededRng(1) },
       testUser,
     );
     expect(result.success).toEqual(true);
   });
 
   it('cannot fetch tournamentRecords without login', async () => {
-    const result: any = await factoryController.fetchTournamentRecords({ tournamentId: TEST });
+    const result: any = await factoryController.fetchTournamentRecords({ tournamentId });
     expect(result.error).toBeDefined();
   });
 
   it('can generate a tournamentRecord and query for it', async () => {
     const result = await factoryController.generateTournamentRecord(
-      { tournamentAttributes: { tournamentId: TEST }, random: seededRng(2) },
+      { tournamentAttributes: { tournamentId }, random: seededRng(2) },
       testUser,
     );
-    expect(result.tournamentRecord.tournamentId).toBe(TEST);
+    expect(result.tournamentRecord.tournamentId).toBe(tournamentId);
   });
 
   describe('cacheFx preserves service context', () => {
