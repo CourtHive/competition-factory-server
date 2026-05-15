@@ -69,9 +69,15 @@ describe('REST → Socket.IO broadcast', () => {
         transports: ['websocket', 'polling'],
         reconnection: false,
       });
-      socket.on('connect', () => resolve(socket));
-      socket.on('connect_error', (err) => reject(err));
-      setTimeout(() => reject(new Error('Socket connection timeout')), 10000);
+      const timeout = setTimeout(() => reject(new Error('Socket connection timeout')), 10000);
+      socket.on('connect', () => {
+        clearTimeout(timeout);
+        resolve(socket);
+      });
+      socket.on('connect_error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
     });
   }
 
@@ -81,9 +87,15 @@ describe('REST → Socket.IO broadcast', () => {
         transports: ['websocket', 'polling'],
         reconnection: false,
       });
-      socket.on('connect', () => resolve(socket));
-      socket.on('connect_error', (err) => reject(err));
-      setTimeout(() => reject(new Error('Socket connection timeout')), 10000);
+      const timeout = setTimeout(() => reject(new Error('Socket connection timeout')), 10000);
+      socket.on('connect', () => {
+        clearTimeout(timeout);
+        resolve(socket);
+      });
+      socket.on('connect_error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
     });
   }
 
@@ -98,9 +110,11 @@ describe('REST → Socket.IO broadcast', () => {
 
       // Set up listener for broadcast BEFORE sending REST mutation
       const broadcastPromise = new Promise<any>((resolve) => {
-        tmxClient.on('tournamentMutation', (data) => resolve(data));
-        // Timeout after 5 seconds
-        setTimeout(() => resolve(null), 5000);
+        const timeout = setTimeout(() => resolve(null), 5000);
+        tmxClient.on('tournamentMutation', (data) => {
+          clearTimeout(timeout);
+          resolve(data);
+        });
       });
 
       // Send REST mutation
@@ -142,8 +156,11 @@ describe('REST → Socket.IO broadcast', () => {
 
       // Listen for publicUpdate
       const updatePromise = new Promise<any>((resolve) => {
-        publicClient.on('publicUpdate', (data) => resolve(data));
-        setTimeout(() => resolve(null), 5000);
+        const timeout = setTimeout(() => resolve(null), 5000);
+        publicClient.on('publicUpdate', (data) => {
+          clearTimeout(timeout);
+          resolve(data);
+        });
       });
 
       // Get a matchUp to score

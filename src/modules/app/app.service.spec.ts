@@ -17,6 +17,10 @@ describe('AppService', () => {
     }).compile();
   });
 
+  afterAll(async () => {
+    await app?.close();
+  });
+
   describe('factoryServer', () => {
     it('should be a redirect (void return — NestJS @Redirect handles the response)', () => {
       const appController = app.get(AppController);

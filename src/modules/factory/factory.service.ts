@@ -92,7 +92,13 @@ export class FactoryService {
     if (!validUser) return { error: 'Invalid user' };
     const { tournamentRecord, tournamentRecords } = await gen(params, user);
     const userId = userContext?.userId;
-    this.tournamentStorageService.saveTournamentRecords({ tournamentRecords, userId });
+    // Fire-and-forget save — catch rejections so an upstream storage error
+    // (or a pool that's been torn down during shutdown) doesn't surface as
+    // an unhandled rejection. Mirrors the same pattern used on lines 52 and
+    // 145 below for the mirror-enqueue and validation-queue fire-and-forgets.
+    this.tournamentStorageService
+      .saveTournamentRecords({ tournamentRecords, userId })
+      .catch((err: Error) => Logger.error(`saveTournamentRecords failed: ${err.message}`, 'FactoryService'));
     return { tournamentRecord, success: true };
   }
 

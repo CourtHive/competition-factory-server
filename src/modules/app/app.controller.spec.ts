@@ -7,16 +7,21 @@ import { AuthModule } from '../auth/auth.module';
 import { AppService } from './app.service';
 
 describe('AppController', () => {
+  let app: TestingModule;
   let appController: AppController;
 
   beforeEach(async () => {
-    const app: TestingModule = await Test.createTestingModule({
+    app = await Test.createTestingModule({
       imports: [AuthModule, UsersModule, CacheModule, StorageModule],
       controllers: [AppController],
       providers: [AppService],
     }).compile();
 
     appController = app.get<AppController>(AppController);
+  });
+
+  afterEach(async () => {
+    await app?.close();
   });
 
   it('should be defined', () => {

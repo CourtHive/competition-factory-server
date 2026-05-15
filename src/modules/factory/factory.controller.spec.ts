@@ -20,16 +20,21 @@ import { seededRng } from 'src/tests/helpers/seededRng';
 const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
 
 describe('FactoryController', () => {
+  let app: TestingModule;
   let factoryController: FactoryController;
 
   beforeEach(async () => {
-    const app: TestingModule = await Test.createTestingModule({
+    app = await Test.createTestingModule({
       imports: [AuthModule, UsersModule, ConfigsModule, CacheModule, StorageModule, BroadcastModule, AuditModule],
       providers: [FactoryService, AssignmentsService, ConfigService],
       controllers: [FactoryController],
     }).compile();
 
     factoryController = app.get<FactoryController>(FactoryController);
+  });
+
+  afterEach(async () => {
+    await app?.close();
   });
 
   it('should be defined', () => {

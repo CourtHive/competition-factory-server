@@ -6,15 +6,20 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
 describe('UsersService', () => {
+  let module: TestingModule;
   let service: UsersService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [UsersService, ConfigService, JwtService],
       imports: [ConfigsModule, StorageModule],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
+  });
+
+  afterEach(async () => {
+    await module?.close();
   });
 
   it('should be defined', () => {
