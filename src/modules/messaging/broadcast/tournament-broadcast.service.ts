@@ -1,6 +1,7 @@
 import { buildPublicLivePayloadFromMatchUp } from 'src/modules/projectors/transforms/public-live-from-matchup.transform';
+import { ProjectorService } from 'src/modules/projectors/projector.service';
 import { PublicGateway } from '../public/public.gateway';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { topicConstants, tools } from 'tods-competition-factory';
 import type { Server, Socket } from 'socket.io';
 
@@ -11,7 +12,10 @@ export class TournamentBroadcastService {
   private readonly logger = new Logger(TournamentBroadcastService.name);
   private tmxServer?: Server;
 
-  constructor(private readonly publicGateway: PublicGateway) {}
+  constructor(
+    private readonly publicGateway: PublicGateway,
+    @Optional() private readonly projectorService?: ProjectorService,
+  ) {}
 
   /**
    * Called by TmxGateway after the Socket.IO server initializes
@@ -132,6 +136,16 @@ export class TournamentBroadcastService {
           if (payload) {
             this.publicGateway.broadcastLiveScore(tournamentId, payload);
           }
+        }
+
+        // Phase 3 slice 6 — crowd writes. Notify score-relay so it can
+        // cancel any active crowd-scoring sessions for finalized matchUps.
+        // The projector filters out non-finalizing notices internally.
+        // Fire-and-forget — never blocks the mutation, never throws.
+        try {
+          this.projectorService?.projectMatchUpFinalized(matchUpNotices);
+        } catch (err) {
+          this.logger.warn(`projectMatchUpFinalized threw synchronously: ${(err as Error)?.message ?? err}`);
         }
       }
 

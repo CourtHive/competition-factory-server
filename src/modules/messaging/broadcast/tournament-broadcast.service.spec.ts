@@ -1,16 +1,22 @@
 import { TournamentBroadcastService } from './tournament-broadcast.service';
+import { ProjectorService } from 'src/modules/projectors/projector.service';
 import { PublicGateway } from '../public/public.gateway';
 import { topicConstants } from 'tods-competition-factory';
 
 describe('TournamentBroadcastService', () => {
   let service: TournamentBroadcastService;
   let publicGateway: { broadcastPublicUpdate: jest.Mock; broadcastLiveScore: jest.Mock };
+  let projectorService: { projectMatchUpFinalized: jest.Mock };
   let mockServer: { to: jest.Mock; in: jest.Mock };
   let mockSocket: { id: string; to: jest.Mock };
 
   beforeEach(() => {
     publicGateway = { broadcastPublicUpdate: jest.fn(), broadcastLiveScore: jest.fn() };
-    service = new TournamentBroadcastService(publicGateway as unknown as PublicGateway);
+    projectorService = { projectMatchUpFinalized: jest.fn() };
+    service = new TournamentBroadcastService(
+      publicGateway as unknown as PublicGateway,
+      projectorService as unknown as ProjectorService,
+    );
 
     // Mock Socket.IO server — server.to(room).emit() and server.in(room).fetchSockets()
     const emitFn = jest.fn();
@@ -289,6 +295,91 @@ describe('TournamentBroadcastService', () => {
 
         expect(publicGateway.broadcastLiveScore).not.toHaveBeenCalled();
         // The publicUpdate batch still fires even though the live transform rejects
+        expect(publicGateway.broadcastPublicUpdate).toHaveBeenCalled();
+      });
+    });
+
+    describe('Phase 3 slice 6 — matchup-finalized webhook trigger', () => {
+      it('invokes ProjectorService.projectMatchUpFinalized with the matchUp notices', () => {
+        const payload = { tournamentIds: ['t1'] };
+        const publicNotices = [
+          {
+            topic: topicConstants.MODIFY_MATCHUP,
+            tournamentId: 't1',
+            matchUp: { matchUpId: 'mu-1', winningSide: 1 },
+          },
+        ];
+
+        service.broadcastPublicNotices(payload, publicNotices);
+
+        expect(projectorService.projectMatchUpFinalized).toHaveBeenCalledTimes(1);
+        const passedNotices = projectorService.projectMatchUpFinalized.mock.calls[0][0];
+        expect(passedNotices).toHaveLength(1);
+        expect(passedNotices[0].matchUp.matchUpId).toBe('mu-1');
+      });
+
+      it('does not invoke the projector when there are no matchUp notices', () => {
+        const payload = { tournamentIds: ['t1'] };
+        const publicNotices = [
+          { topic: topicConstants.PUBLISH_EVENT, tournamentId: 't1', eventId: 'e1' },
+        ];
+
+        service.broadcastPublicNotices(payload, publicNotices);
+
+        expect(projectorService.projectMatchUpFinalized).not.toHaveBeenCalled();
+      });
+
+      it('invokes once per tournament when notices span multiple tournaments', () => {
+        const payload = { tournamentIds: ['t1', 't2'] };
+        const publicNotices = [
+          {
+            topic: topicConstants.MODIFY_MATCHUP,
+            tournamentId: 't1',
+            matchUp: { matchUpId: 'mu-1', winningSide: 1 },
+          },
+          {
+            topic: topicConstants.MODIFY_MATCHUP,
+            tournamentId: 't2',
+            matchUp: { matchUpId: 'mu-2', matchUpStatus: 'COMPLETED' },
+          },
+        ];
+
+        service.broadcastPublicNotices(payload, publicNotices);
+
+        // Once per tournament — each call carries that tournament's matchUp notices
+        expect(projectorService.projectMatchUpFinalized).toHaveBeenCalledTimes(2);
+      });
+
+      it('does not propagate a synchronous throw from the projector', () => {
+        projectorService.projectMatchUpFinalized.mockImplementation(() => {
+          throw new Error('projector boom');
+        });
+        const payload = { tournamentIds: ['t1'] };
+        const publicNotices = [
+          {
+            topic: topicConstants.MODIFY_MATCHUP,
+            tournamentId: 't1',
+            matchUp: { matchUpId: 'mu-1', winningSide: 1 },
+          },
+        ];
+
+        expect(() => service.broadcastPublicNotices(payload, publicNotices)).not.toThrow();
+        // Ensure broadcastPublicUpdate still fired (no shortcut)
+        expect(publicGateway.broadcastPublicUpdate).toHaveBeenCalled();
+      });
+
+      it('works when the projector service is not injected (disabled state)', () => {
+        const standaloneService = new TournamentBroadcastService(publicGateway as unknown as PublicGateway);
+        const payload = { tournamentIds: ['t1'] };
+        const publicNotices = [
+          {
+            topic: topicConstants.MODIFY_MATCHUP,
+            tournamentId: 't1',
+            matchUp: { matchUpId: 'mu-1', winningSide: 1 },
+          },
+        ];
+
+        expect(() => standaloneService.broadcastPublicNotices(payload, publicNotices)).not.toThrow();
         expect(publicGateway.broadcastPublicUpdate).toHaveBeenCalled();
       });
     });

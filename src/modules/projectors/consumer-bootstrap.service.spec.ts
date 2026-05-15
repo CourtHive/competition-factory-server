@@ -26,6 +26,8 @@ describe('ConsumerBootstrap', () => {
     delete process.env.SCORE_RELAY_API_KEY;
     delete process.env.EXPRESSION_API_KEY;
     delete process.env.VIDEO_BOARD_API_KEY;
+    delete process.env.SCORE_RELAY_INTERNAL_URL;
+    delete process.env.INTERNAL_WEBHOOK_SECRET;
   });
 
   afterEach(() => {
@@ -93,5 +95,48 @@ describe('ConsumerBootstrap', () => {
 
     expect(registry.list('scorebug')).toHaveLength(2); // score-relay + expression
     expect(registry.list('video-board')).toHaveLength(2); // score-relay + video-board-direct
+  });
+
+  describe('matchup-finalized consumer (Phase 3 slice 6)', () => {
+    it('does not register when neither var is set', () => {
+      bootstrap.onModuleInit();
+      expect(registry.list('matchup-finalized')).toHaveLength(0);
+    });
+
+    it('does not register when only SCORE_RELAY_INTERNAL_URL is set', () => {
+      process.env.SCORE_RELAY_INTERNAL_URL = 'http://localhost:8384';
+      bootstrap.onModuleInit();
+      expect(registry.list('matchup-finalized')).toHaveLength(0);
+    });
+
+    it('does not register when only INTERNAL_WEBHOOK_SECRET is set', () => {
+      process.env.INTERNAL_WEBHOOK_SECRET = 'secret';
+      bootstrap.onModuleInit();
+      expect(registry.list('matchup-finalized')).toHaveLength(0);
+    });
+
+    it('registers when both vars are set', () => {
+      process.env.SCORE_RELAY_INTERNAL_URL = 'http://localhost:8384';
+      process.env.INTERNAL_WEBHOOK_SECRET = 'shared-secret';
+      bootstrap.onModuleInit();
+
+      const consumers = registry.list('matchup-finalized');
+      expect(consumers).toHaveLength(1);
+      const endpoint = asHttp(consumers[0]);
+      expect(endpoint.id).toBe('score-relay-matchup-finalized');
+      expect(endpoint.url).toBe('http://localhost:8384/api/internal/matchup-finalized');
+      expect(endpoint.extraHeaders).toEqual({ 'X-Internal-Secret': 'shared-secret' });
+      expect(endpoint.singleShot).toBe(true);
+      expect(endpoint.enabled).toBe(true);
+    });
+
+    it('strips trailing slash from SCORE_RELAY_INTERNAL_URL', () => {
+      process.env.SCORE_RELAY_INTERNAL_URL = 'http://localhost:8384/';
+      process.env.INTERNAL_WEBHOOK_SECRET = 'shared-secret';
+      bootstrap.onModuleInit();
+
+      const endpoint = asHttp(registry.list('matchup-finalized')[0]);
+      expect(endpoint.url).toBe('http://localhost:8384/api/internal/matchup-finalized');
+    });
   });
 });

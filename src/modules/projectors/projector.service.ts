@@ -1,3 +1,4 @@
+import { buildMatchUpFinalizedPayload, isFinalizingNotice } from './transforms/matchup-finalized.transform';
 import { buildVideoBoardPayload } from './transforms/video-board.transform';
 import { buildPublicLivePayload } from './transforms/public-live.transform';
 import { buildScorebugPayload } from './transforms/scorebug.transform';
@@ -58,6 +59,32 @@ export class ProjectorService {
     // and emits `scorebug-tick` at 10Hz — no server involvement.
   }
 
+  /**
+   * Fire-and-forget POST to any registered `matchup-finalized` consumer
+   * for every notice whose matchUp has just been finalized (winningSide
+   * set or matchUpStatus === 'COMPLETED'). Used by the broadcast service
+   * to notify score-relay when a CFS mutation lands an authoritative
+   * result, so the relay can cancel any active crowd sessions.
+   *
+   * Non-finalizing notices (e.g. mid-game score changes) are skipped.
+   * Errors are logged but never propagated — the originating mutation
+   * has already succeeded and must not be affected by webhook outcomes.
+   */
+  projectMatchUpFinalized(notices: ReadonlyArray<unknown>): void {
+    if (!notices?.length) return;
+    const consumers = this.registry.list('matchup-finalized').filter((c) => c.enabled);
+    if (consumers.length === 0) return;
+
+    for (const notice of notices) {
+      if (!isFinalizingNotice(notice as any)) continue;
+      const payload = buildMatchUpFinalizedPayload(notice as any);
+      if (!payload) continue;
+      for (const consumer of consumers) {
+        void this.dispatch(consumer, payload);
+      }
+    }
+  }
+
   private nextSequence(matchUpId: string): number {
     const next = (this.sequencesByMatchUp.get(matchUpId) ?? 0) + 1;
     this.sequencesByMatchUp.set(matchUpId, next);
@@ -87,13 +114,19 @@ export class ProjectorService {
   }
 
   private async dispatchHttp(consumer: HttpConsumerEndpoint, payload: unknown): Promise<void> {
+    const maxAttempts = consumer.singleShot ? 1 : MAX_DISPATCH_ATTEMPTS;
     let attempt = 0;
     let lastError: unknown;
-    while (attempt < MAX_DISPATCH_ATTEMPTS) {
+    while (attempt < maxAttempts) {
       attempt += 1;
       try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (consumer.authHeader) headers.Authorization = consumer.authHeader;
+        if (consumer.extraHeaders) {
+          for (const [name, value] of Object.entries(consumer.extraHeaders)) {
+            headers[name] = value;
+          }
+        }
         const response = await fetch(consumer.url, {
           method: 'POST',
           headers,
@@ -105,13 +138,13 @@ export class ProjectorService {
         return;
       } catch (err) {
         lastError = err;
-        if (attempt < MAX_DISPATCH_ATTEMPTS) {
+        if (attempt < maxAttempts) {
           await this.delay(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
         }
       }
     }
     this.logger.error(
-      `dispatch to ${consumer.kind} consumer ${consumer.id} failed after ${MAX_DISPATCH_ATTEMPTS} attempts: ${
+      `dispatch to ${consumer.kind} consumer ${consumer.id} failed after ${maxAttempts} attempt(s): ${
         (lastError as Error)?.message ?? lastError
       }`,
     );

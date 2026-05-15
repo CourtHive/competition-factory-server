@@ -7,10 +7,16 @@ import { ConsumerEndpoint, ConsumerRegistryService } from './consumer-registry.s
  * with the in-memory ConsumerRegistryService.
  *
  * Env vars:
- *   SCORE_RELAY_URL          — base URL of the LAN score-relay (Decision 1 = C)
- *   EXPRESSION_URL           — direct URL of the Expression broadcast scorebug (optional)
- *   VIDEO_BOARD_URL          — direct URL of the in-arena video board renderer (optional)
- *   CLOUD_RELAY_API_KEY      — used as Bearer token for the score-relay route, if set
+ *   SCORE_RELAY_URL              — base URL of the LAN score-relay (Decision 1 = C)
+ *   EXPRESSION_URL               — direct URL of the Expression broadcast scorebug (optional)
+ *   VIDEO_BOARD_URL              — direct URL of the in-arena video board renderer (optional)
+ *   CLOUD_RELAY_API_KEY          — used as Bearer token for the score-relay route, if set
+ *   SCORE_RELAY_INTERNAL_URL     — base URL of score-relay's internal webhook intake
+ *                                  (Phase 3 slice 6 — crowd writes). When set together with
+ *                                  INTERNAL_WEBHOOK_SECRET, registers a `matchup-finalized`
+ *                                  consumer that fires on mutation finalization.
+ *   INTERNAL_WEBHOOK_SECRET      — shared secret between CFS and score-relay; sent as the
+ *                                  `X-Internal-Secret` header on the matchup-finalized POST.
  *
  * Registration shape: each consumer is registered with `kind: 'scorebug'`
  * and/or `kind: 'video-board'` so the projector dispatches the right
@@ -68,8 +74,30 @@ export class ConsumerBootstrap implements OnModuleInit {
       }));
     }
 
+    const internalRelayUrl = process.env.SCORE_RELAY_INTERNAL_URL?.trim();
+    const internalSecret = process.env.INTERNAL_WEBHOOK_SECRET?.trim();
+    if (internalRelayUrl && internalSecret) {
+      const base = internalRelayUrl.replace(/\/$/, '');
+      registered.push(this.registerOne({
+        id: 'score-relay-matchup-finalized',
+        kind: 'matchup-finalized',
+        url: `${base}/api/internal/matchup-finalized`,
+        extraHeaders: { 'X-Internal-Secret': internalSecret },
+        singleShot: true,
+        enabled: true,
+      }));
+    } else if (internalRelayUrl || internalSecret) {
+      this.logger.log(
+        'ConsumerBootstrap: matchup-finalized consumer disabled — both SCORE_RELAY_INTERNAL_URL and INTERNAL_WEBHOOK_SECRET must be set',
+      );
+    } else {
+      this.logger.log(
+        'ConsumerBootstrap: matchup-finalized consumer disabled (set SCORE_RELAY_INTERNAL_URL + INTERNAL_WEBHOOK_SECRET to enable)',
+      );
+    }
+
     if (registered.length === 0) {
-      this.logger.log('ConsumerBootstrap: no consumer endpoints configured (set SCORE_RELAY_URL / EXPRESSION_URL / VIDEO_BOARD_URL)');
+      this.logger.log('ConsumerBootstrap: no consumer endpoints configured (set SCORE_RELAY_URL / EXPRESSION_URL / VIDEO_BOARD_URL / SCORE_RELAY_INTERNAL_URL)');
     } else {
       this.logger.log(`ConsumerBootstrap: registered ${registered.length} consumer endpoint(s)`);
     }

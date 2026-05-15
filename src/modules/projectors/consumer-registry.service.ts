@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-export type ConsumerKind = 'scorebug' | 'video-board' | 'public-live';
+export type ConsumerKind = 'scorebug' | 'video-board' | 'public-live' | 'matchup-finalized';
 
 /**
  * Two consumer styles:
@@ -15,13 +15,21 @@ export type ConsumerKind = 'scorebug' | 'video-board' | 'public-live';
  *   the projector and shouldn't need an HTTP self-loop.
  *
  * A consumer is one or the other — never both.
+ *
+ * `extraHeaders` lets a consumer attach arbitrary headers beyond the
+ * Bearer auth pattern (e.g. score-relay's `X-Internal-Secret` for the
+ * crowd-scoring internal webhook). `singleShot: true` opts out of the
+ * default retry-with-backoff loop — the dispatch attempts exactly once
+ * and swallows the result whether 2xx or not.
  */
 export interface HttpConsumerEndpoint {
   id: string;
   kind: ConsumerKind;
   url: string;
   authHeader?: string;
+  extraHeaders?: Record<string, string>;
   rateLimitPerSec?: number;
+  singleShot?: boolean;
   enabled: boolean;
 }
 
