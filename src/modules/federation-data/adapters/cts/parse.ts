@@ -1,4 +1,4 @@
-export function parseCtsTournament({ tournamentId, doc }) {
+export function ctsParse({ tournamentId, doc }) {
   const details = doc.querySelector('.span6');
   if (!details) return { error: 'Parsing Error' };
 

@@ -1,4 +1,5 @@
 import { TournamentSyncModule } from '../tournament-sync/tournament-sync.module';
+import { FederationDataModule } from '../federation-data/federation-data.module';
 import { ProvisionerModule } from '../provisioner/provisioner.module';
 import { OfficiatingModule } from '../officiating/officiating.module';
 import { BoltHistoryModule } from '../bolt-history/bolt-history.module';
@@ -7,7 +8,6 @@ import { AuditModule } from '../audit/audit.module';
 import { isModuleEnabled } from '../../config/server-profile';
 import { MessagingModule } from '../messaging/messaging.module';
 import { ProvidersModule } from '../providers/providers.module';
-import { ServicesModule } from '../services/services.module';
 import { StorageModule } from '../../storage/storage.module';
 import { ConfigsModule } from '../../config/config.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
@@ -26,7 +26,7 @@ const coreModules = [
   ServeStaticModule.forRoot({ rootPath: join(process.cwd(), 'client') }),
   StorageModule,
   ConfigsModule,
-  ServicesModule,
+  FederationDataModule,
   UsersModule,
   AuthModule,
 ];

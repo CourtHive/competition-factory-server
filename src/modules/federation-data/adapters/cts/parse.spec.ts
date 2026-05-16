@@ -1,11 +1,11 @@
-import { parseCtsTournament } from './parseCtsTournament';
+import { ctsParse } from './parse';
 
-describe('parseCtsTournament', () => {
+describe('ctsParse', () => {
   it('returns error when no .span6 element found', () => {
     const doc = {
       querySelector: () => null,
     };
-    const result = parseCtsTournament({ tournamentId: '12345', doc });
+    const result = ctsParse({ tournamentId: '12345', doc });
     expect(result).toEqual({ error: 'Parsing Error' });
   });
 
@@ -13,6 +13,6 @@ describe('parseCtsTournament', () => {
     // Test category inference: '9' -> U10, '7'/'8' -> U12, etc.
     // We can't easily test full parsing without a real DOM, but we can test the error path
     const doc = { querySelector: () => null };
-    expect(parseCtsTournament({ tournamentId: '91234', doc })).toEqual({ error: 'Parsing Error' });
+    expect(ctsParse({ tournamentId: '91234', doc })).toEqual({ error: 'Parsing Error' });
   });
 });
