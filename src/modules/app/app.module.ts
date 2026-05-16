@@ -12,6 +12,7 @@ import { StorageModule } from '../../storage/storage.module';
 import { ConfigsModule } from '../../config/config.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { FactoryModule } from '../factory/factory.module';
+import { I18nModule } from '../i18n/i18n.module';
 import { RuntimeConfigController } from './runtime-config.controller';
 import { AppController } from './app.controller';
 import { CacheModule } from '../cache/cache.module';
@@ -27,6 +28,7 @@ const coreModules = [
   StorageModule,
   ConfigsModule,
   FederationDataModule,
+  I18nModule,
   UsersModule,
   AuthModule,
 ];
