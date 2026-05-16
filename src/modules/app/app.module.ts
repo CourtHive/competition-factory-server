@@ -1,5 +1,6 @@
 import { TournamentSyncModule } from '../tournament-sync/tournament-sync.module';
 import { FederationDataModule } from '../federation-data/federation-data.module';
+import { RankingsWebhookModule } from '../rankings-webhook/rankings-webhook.module';
 import { ProvisionerModule } from '../provisioner/provisioner.module';
 import { OfficiatingModule } from '../officiating/officiating.module';
 import { BoltHistoryModule } from '../bolt-history/bolt-history.module';
@@ -29,6 +30,7 @@ const coreModules = [
   ConfigsModule,
   FederationDataModule,
   I18nModule,
+  RankingsWebhookModule,
   UsersModule,
   AuthModule,
 ];
