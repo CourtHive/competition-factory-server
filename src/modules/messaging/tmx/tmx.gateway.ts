@@ -226,8 +226,9 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
         });
         if (result.error) {
           const tournamentInfo = result.tournamentIds ? ` | tournaments: ${JSON.stringify(result.tournamentIds)}` : '';
+          const contextInfo = result.context ? ` | context: ${JSON.stringify(result.context)}` : '';
           this.logger.error(
-            `${type} message errored: ${userId}: ${methods}${tournamentInfo} | error: ${JSON.stringify(result.error)}`,
+            `${type} message errored: ${userId}: ${methods}${tournamentInfo} | error: ${JSON.stringify(result.error)}${contextInfo}`,
           );
         } else {
           this.logger.debug(`${type} message successful: ${userId}: ${methods}`);

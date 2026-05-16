@@ -15,7 +15,14 @@ export const tmxMessages = {
       const { publicNotices, ...mutationResult } = result;
 
       const response = mutationResult.error
-        ? { ackId, error: mutationResult.error, ...(mutationResult.tournamentIds && { tournamentIds: mutationResult.tournamentIds }) }
+        ? {
+            ackId,
+            error: mutationResult.error,
+            ...(mutationResult.context && { context: mutationResult.context }),
+            ...(mutationResult.info && { info: mutationResult.info }),
+            ...(mutationResult.stack && { stack: mutationResult.stack }),
+            ...(mutationResult.tournamentIds && { tournamentIds: mutationResult.tournamentIds }),
+          }
         : { ackId, success: mutationResult.success };
       client.emit('ack', response);
       return { ...response, publicNotices };
