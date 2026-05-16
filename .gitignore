@@ -63,3 +63,4 @@ admin-client/node_modules/
 # trailing slash matches both the directory (on nest) and the symlink
 # (on mentat).
 score-relay
+i18n/

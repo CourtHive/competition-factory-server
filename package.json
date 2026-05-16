@@ -46,6 +46,9 @@
     "admin:reset-password": "node src/scripts/admin-user.mjs reset-password",
     "migrate:postgres": "node src/scripts/migrate-to-postgres.mjs",
     "migrate:postgres:dry": "node src/scripts/migrate-to-postgres.mjs --dry-run --verbose",
+    "sync-i18n": "node src/scripts/sync-i18n.mjs",
+    "postinstall": "node src/scripts/sync-i18n.mjs || true",
+    "prebuild": "node src/scripts/sync-i18n.mjs || true",
     "prepare": "husky",
     "storybook": "storybook dev -p 6007",
     "build-storybook": "storybook build",
@@ -93,7 +96,8 @@
     "tods-competition-factory": "3.6.0",
     "tods-tmx-classic-converter": "3.0.5",
     "tslib": "^2.6.2",
-    "@courthive/provider-config": "^0.1.0"
+    "@courthive/provider-config": "^0.1.0",
+    "@courthive/i18n": "link:../courthive-i18n"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.0",
@@ -145,7 +149,8 @@
     "overrides": {
       "serve-static@<2": ">=2.2.0",
       "tods-competition-factory": "link:../factory",
-      "@courthive/provider-config": "link:../provider-config"
+      "@courthive/provider-config": "link:../provider-config",
+      "@courthive/i18n": "link:../courthive-i18n"
     },
     "ignoredBuiltDependencies": [
       "@dep-tree/cli",
