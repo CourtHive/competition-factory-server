@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@courthive/i18n':
+        specifier: link:../courthive-i18n
+        version: link:../courthive-i18n
       '@courthive/provider-config':
         specifier: ^0.1.0
         version: 0.1.0
