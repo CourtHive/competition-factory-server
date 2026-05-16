@@ -1,9 +1,9 @@
-import { I18nController } from './i18n.controller';
+import { I18nAdminController, I18nController } from './i18n.controller';
 import { I18nService } from './i18n.service';
 import { Module } from '@nestjs/common';
 
 @Module({
-  controllers: [I18nController],
+  controllers: [I18nController, I18nAdminController],
   providers: [I18nService],
   exports: [I18nService],
 })
