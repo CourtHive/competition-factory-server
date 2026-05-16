@@ -33,7 +33,8 @@
   "pnpm": {
     "overrides": {
       "@courthive/provider-config": "link:../../provider-config"
-    }
+    },
+    "onlyBuiltDependencies": ["esbuild"]
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
