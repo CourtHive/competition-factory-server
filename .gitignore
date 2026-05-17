@@ -63,4 +63,6 @@ admin-client/node_modules/
 # trailing slash matches both the directory (on nest) and the symlink
 # (on mentat).
 score-relay
-i18n/
+# Runtime locale cache lives at the project-root i18n/ — anchor with the
+# leading slash so it doesn't also swallow src/modules/i18n/.
+/i18n/

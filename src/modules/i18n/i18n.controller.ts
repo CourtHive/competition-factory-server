@@ -2,10 +2,16 @@ import { Controller, Get, Header, Headers, HttpCode, HttpStatus, NotFoundExcepti
 import { Response } from 'express';
 
 import { ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
+import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/role.guard';
 import { I18nService } from './i18n.service';
 
+// Language files are required to render the UI before login (and for
+// public/demo flows where the user never logs in). Bypassing the global
+// AuthGuard here lets the TMX boot path fetch translations without a JWT.
+// The admin controller below remains guarded.
+@Public()
 @Controller('i18n')
 export class I18nController {
   constructor(private readonly service: I18nService) {}
