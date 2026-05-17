@@ -14,7 +14,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: ['fatal', 'verbose', 'debug', 'error', 'warn'] });
   app.enableCors({
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'If-None-Match'],
+    // Browsers hide non-safelisted response headers from cross-origin
+    // JavaScript by default. `ETag` is what TMX's i18n runtime-loader
+    // reads to detect locale versions and populate its localStorage
+    // cache — without exposing it explicitly here, `response.headers.etag`
+    // is `undefined` in the browser, the cache is never written, and
+    // language switching silently falls back to English on reload.
+    exposedHeaders: ['ETag'],
     origin: '*',
   });
 
