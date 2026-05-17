@@ -1,3 +1,4 @@
+-- AFFECTS: admin
 -- 021-add-provider-catalog-items.sql
 -- Per-provider catalog items shared across the Templates page (compositions,
 -- tieFormats) and the Policies page (policies). Topologies stay in their

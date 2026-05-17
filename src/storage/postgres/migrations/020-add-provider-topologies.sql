@@ -1,3 +1,4 @@
+-- AFFECTS: admin
 -- 020-add-provider-topologies.sql
 -- Per-provider topology catalog for the admin-client Templates page.
 -- Each row is a saved topology (bracket structure) authored by a

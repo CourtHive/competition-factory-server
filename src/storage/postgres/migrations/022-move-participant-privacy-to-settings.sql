@@ -1,3 +1,4 @@
+-- AFFECTS: mixed
 -- 022-move-participant-privacy-to-settings.sql
 -- Migrate participantPrivacy from providerConfigCaps to
 -- providerConfigSettings. Privacy is provider-owned (governs the
