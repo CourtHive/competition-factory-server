@@ -19,6 +19,7 @@ import { confirmModal, openModal } from 'components/modals/baseModal/baseModal';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { destroyTable } from 'pages/tournament/destroyTable';
 import { tmxToast } from 'services/notifications/tmxToast';
+import { buildSearchInput } from 'components/inputs/searchInput';
 import { renderForm } from 'courthive-components';
 import { t } from 'i18n';
 
@@ -45,11 +46,18 @@ export function renderProvisionersPanel({ container, providers }: RenderProvisio
   const toolbar = document.createElement('div');
   toolbar.className = 'system-users-toolbar';
 
-  const searchInput = document.createElement('input');
-  searchInput.type = 'text';
-  searchInput.placeholder = t('system.searchProvisioners');
-  searchInput.style.cssText =
-    'padding: 6px 10px; border: 1px solid var(--tmx-border-primary); border-radius: 4px; font-size: 0.85rem; min-width: 200px; background: var(--tmx-bg-elevated, #fff); color: var(--tmx-text-primary, #363636);';
+  const search = buildSearchInput({
+    placeholder: t('system.searchProvisioners'),
+    onInput: (value: string) => {
+      if (!listTable) return;
+      const lower = value.toLowerCase();
+      if (lower) {
+        listTable.setFilter('searchText', 'like', lower);
+      } else {
+        listTable.clearFilter(true);
+      }
+    },
+  });
 
   const createBtn = document.createElement('button');
   createBtn.className = 'btn-invite';
@@ -59,7 +67,7 @@ export function renderProvisionersPanel({ container, providers }: RenderProvisio
   toolbarActions.className = 'toolbar-actions';
   toolbarActions.appendChild(createBtn);
 
-  toolbar.appendChild(searchInput);
+  toolbar.appendChild(search.container);
   toolbar.appendChild(toolbarActions);
   container.appendChild(toolbar);
 
@@ -762,16 +770,6 @@ export function renderProvisionersPanel({ container, providers }: RenderProvisio
   };
 
   createBtn.addEventListener('click', openCreateProvisionerModal);
-
-  searchInput.addEventListener('input', (e: any) => {
-    if (!listTable) return;
-    const value = (e.target.value || '').toLowerCase();
-    if (value) {
-      listTable.setFilter('searchText', 'like', value);
-    } else {
-      listTable.clearFilter(true);
-    }
-  });
 
   refresh();
 }

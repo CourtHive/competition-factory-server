@@ -92,22 +92,22 @@ export function ensureSystemStyles(): void {
     }
 
     .btn-impersonate {
-      background: var(--tmx-accent-blue);
+      background: var(--tmx-accent-blue-bold);
       color: #fff;
     }
 
     .btn-edit {
-      background: var(--tmx-accent-green);
+      background: var(--tmx-accent-green-bold);
       color: #fff;
     }
 
     .btn-invite {
-      background: var(--tmx-accent-purple);
+      background: var(--tmx-accent-purple-bold);
       color: #fff;
     }
 
     .btn-remove {
-      background: var(--tmx-accent-red);
+      background: var(--tmx-accent-red-bold);
       color: #fff;
     }
 

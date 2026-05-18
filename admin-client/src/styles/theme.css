@@ -37,6 +37,16 @@ html {
   --tmx-accent-teal: #00b8a9;
   --tmx-accent-pink: #AA336A;
 
+  /* Accent bold variants — sized so white text clears WCAG AA (4.5:1).
+     Use these whenever the accent is the fill behind #fff text (buttons,
+     filled badges). The plain --tmx-accent-* tokens above are intentionally
+     lighter for chip backgrounds, borders, and outline use. */
+  --tmx-accent-blue-bold:   #2563eb;
+  --tmx-accent-green-bold:  #15803d;
+  --tmx-accent-purple-bold: #7c3aed;
+  --tmx-accent-red-bold:    #dc2626;
+  --tmx-accent-orange-bold: #c2410c;
+
   /* Status */
   --tmx-status-success: #48c774;
   --tmx-status-warning: #ffdd57;
@@ -132,6 +142,15 @@ html {
   --tmx-accent-orange: #ffb366;
   --tmx-accent-teal: #1a9e8f;
   --tmx-accent-pink: #CC4488;
+
+  /* Accent bold variants for dark mode — slightly brighter than light-mode
+     values so they read against the darker page bg while still keeping
+     white text at AA contrast. */
+  --tmx-accent-blue-bold:   #3b82f6;
+  --tmx-accent-green-bold:  #15803d;
+  --tmx-accent-purple-bold: #8b5cf6;
+  --tmx-accent-red-bold:    #dc2626;
+  --tmx-accent-orange-bold: #c2410c;
 
   /* Status */
   --tmx-status-success: #5cb878;

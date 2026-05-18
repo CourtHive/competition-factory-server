@@ -3,6 +3,7 @@ import { createSearchFilter } from 'components/tables/common/filters/createSearc
 import { setActiveProvider, clearActiveProvider } from 'services/provider/providerState';
 import { editProviderModal } from 'components/modals/editProvider';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
+import { buildSearchInput } from 'components/inputs/searchInput';
 import { destroyTable } from 'pages/tournament/destroyTable';
 import { openTmxImpersonate } from 'services/openTmxImpersonate';
 import { inviteModal } from 'components/modals/inviteUser';
@@ -26,11 +27,13 @@ export function renderProvidersPanel({ container, providers, users, onRefresh }:
   const toolbar = document.createElement('div');
   toolbar.className = 'system-users-toolbar';
 
-  const searchInput = document.createElement('input');
-  searchInput.type = 'text';
-  searchInput.placeholder = t('system.searchProviders');
-  searchInput.style.cssText =
-    'padding: 6px 10px; border: 1px solid var(--tmx-border-primary); border-radius: 4px; font-size: 0.85rem; min-width: 200px; background: var(--tmx-bg-elevated, #fff); color: var(--tmx-text-primary, #363636);';
+  // Wired below once the table exists; the closure lets us register the
+  // search input now and still call setSearchFilter once it's defined.
+  let applySearch: (value: string) => void = () => {};
+  const search = buildSearchInput({
+    placeholder: t('system.searchProviders'),
+    onInput: (value: string) => applySearch(value),
+  });
 
   const toolbarActions = document.createElement('div');
   toolbarActions.className = 'toolbar-actions';
@@ -42,7 +45,7 @@ export function renderProvidersPanel({ container, providers, users, onRefresh }:
 
   toolbarActions.appendChild(createBtn);
 
-  toolbar.appendChild(searchInput);
+  toolbar.appendChild(search.container);
   toolbar.appendChild(toolbarActions);
   container.appendChild(toolbar);
 
@@ -142,12 +145,8 @@ export function renderProvidersPanel({ container, providers, users, onRefresh }:
     }
   });
 
-  // Search filter
-  const setSearchFilter = createSearchFilter(table);
-  searchInput.addEventListener('input', (e: any) => setSearchFilter(e.target.value));
-  searchInput.addEventListener('keydown', (e: any) => {
-    if (e.keyCode === 8 && e.target.value.length === 1) setSearchFilter('');
-  });
+  // Search filter — now that the table exists, point the search input at it.
+  applySearch = createSearchFilter(table);
 }
 
 type RenderProviderDetailParams = {

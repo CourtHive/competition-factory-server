@@ -165,7 +165,7 @@ body {
   font-size: 0.8rem;
   font-weight: 500;
   color: #fff;
-  background: var(--tmx-accent-blue, #4a90d9);
+  background: var(--tmx-accent-blue-bold, #2563eb);
   transition: opacity 0.15s;
 }
 .btn-invite:hover,
@@ -190,17 +190,17 @@ body {
 
 .btn-impersonate {
   padding: 6px 14px;
-  border: 1px solid var(--tmx-accent-orange, #f5a623);
+  border: 1px solid var(--tmx-accent-orange-bold, #c2410c);
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.8rem;
   font-weight: 500;
-  color: var(--tmx-accent-orange, #f5a623);
+  color: var(--tmx-accent-orange-bold, #c2410c);
   background: transparent;
   transition: background 0.15s;
 }
 .btn-impersonate:hover {
-  background: var(--tmx-accent-orange, #f5a623);
+  background: var(--tmx-accent-orange-bold, #c2410c);
   color: #fff;
 }
 

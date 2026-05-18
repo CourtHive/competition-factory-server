@@ -2,6 +2,7 @@ import { showTMXsanctioning } from 'services/transitions/screenSlaver';
 import { removeAllChildNodes } from 'services/dom/transformers';
 import { statusBadgeFormatter } from './components/statusBadge';
 import { getSanctioningRecords } from 'services/apis/sanctioningApi';
+import { buildSearchInput } from 'components/inputs/searchInput';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { context } from 'services/context';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
@@ -47,13 +48,16 @@ export function renderSanctioningDashboard(): void {
     statusFilter.appendChild(opt);
   }
 
-  const searchInput = document.createElement('input');
-  searchInput.type = 'text';
-  searchInput.placeholder = 'Search tournament name...';
-  searchInput.style.cssText = 'padding: 4px 8px; border-radius: 4px; border: 1px solid var(--tmx-border-primary, #ddd); flex: 1; max-width: 300px;';
+  const search = buildSearchInput({
+    placeholder: 'Search tournament name...',
+    minWidth: '240px',
+    onInput: (value: string) => applyFilters(table, statusFilter.value, value),
+  });
+  search.container.style.flex = '1';
+  search.container.style.maxWidth = '300px';
 
   filterBar.appendChild(statusFilter);
-  filterBar.appendChild(searchInput);
+  filterBar.appendChild(search.container);
   container.appendChild(filterBar);
 
   // Table container
@@ -125,9 +129,8 @@ export function renderSanctioningDashboard(): void {
     }
   });
 
-  // Filters
-  statusFilter.addEventListener('change', () => applyFilters(table, statusFilter.value, searchInput.value));
-  searchInput.addEventListener('input', () => applyFilters(table, statusFilter.value, searchInput.value));
+  // Filter listener — the search input's own onInput is wired in buildSearchInput.
+  statusFilter.addEventListener('change', () => applyFilters(table, statusFilter.value, search.input.value));
 
   // Load data
   loadDashboardData(table);
