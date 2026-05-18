@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.2.0](https://github.com/CourtHive/competition-factory-server/compare/v2.1.0...v2.2.0) (2026-05-18)
+
+
+### Features
+
+* **i18n:** make /i18n/manifest + /i18n/locales/:code public ([d02fdd0](https://github.com/CourtHive/competition-factory-server/commit/d02fdd0db7f7c2ec75d4373dfb3ebdbd5666be0c))
+
+
+### Bug Fixes
+
+* **admin-client:** white-on-light button contrast + clearable search inputs ([de69c4e](https://github.com/CourtHive/competition-factory-server/commit/de69c4e328d86dd2f0a9c431a451b9a729234803))
+* **cors:** expose ETag header so TMX i18n cache populates ([13606b1](https://github.com/CourtHive/competition-factory-server/commit/13606b16d9e6a3eb790cf501de3d9eb22a05fb1a))
+
+
+### Documentation
+
+* **migrations:** annotate 020/021/022 with AFFECTS headers ([263561d](https://github.com/CourtHive/competition-factory-server/commit/263561d7ddf35cd5ffdde5cc0ff45f9103feaba5))
+
 ## [2.1.0](https://github.com/CourtHive/competition-factory-server/compare/v2.0.2...v2.1.0) (2026-05-16)
 
 
