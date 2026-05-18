@@ -12,8 +12,8 @@ importers:
         specifier: link:../courthive-i18n
         version: link:../courthive-i18n
       '@courthive/provider-config':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
       '@gridspace/net-level':
         specifier: 0.2.6
         version: 0.2.6(@babel/core@7.29.0)(@jest/transform@30.4.1)(@jest/types@30.4.1)(babel-jest@30.4.1(@babel/core@7.29.0))(esbuild@0.28.0)(jest-util@30.4.1)(jest@30.4.2(@types/node@25.8.0)(ts-node@10.9.2(@swc/core@1.15.33)(@types/node@25.8.0)(typescript@6.0.3)))(typescript@6.0.3)
@@ -567,8 +567,8 @@ packages:
       conventional-commits-parser:
         optional: true
 
-  '@courthive/provider-config@0.1.0':
-    resolution: {integrity: sha512-p2jfA/KXq/LRkxoFwzx1odTt78GR/NCDY99pO4XgwtM69UnQEs1GVE54luIhFi7JLfWRQ+fakCtCExggCR09iw==}
+  '@courthive/provider-config@0.2.0':
+    resolution: {integrity: sha512-Wdi+EiSvVfpDj+Qf8p8Vs85+HhcemcU9wyHMaBmuUOFrfCaDpulflMp8aw7He3XJVd9+P7v6vQnIcHEg+rpteg==}
     engines: {node: '>=20'}
 
   '@cspotcode/source-map-support@0.8.1':
@@ -6523,7 +6523,7 @@ snapshots:
     optionalDependencies:
       conventional-commits-parser: 6.4.0
 
-  '@courthive/provider-config@0.1.0': {}
+  '@courthive/provider-config@0.2.0': {}
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:

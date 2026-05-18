@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@courthive/provider-config':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
       animate.css:
         specifier: ^4.1.1
         version: 4.1.1
@@ -99,8 +99,8 @@ packages:
     resolution: {integrity: sha512-JiDShH45zKHWyGe4ZNVRrCjBz8Nh9TMmZG1kh4QTK8hCBTWBi8Da+i7s1fJw7/lYpM4ccepSNfqzZ/QvABBi5g==}
     engines: {node: '>=6.9.0'}
 
-  '@courthive/provider-config@0.1.0':
-    resolution: {integrity: sha512-p2jfA/KXq/LRkxoFwzx1odTt78GR/NCDY99pO4XgwtM69UnQEs1GVE54luIhFi7JLfWRQ+fakCtCExggCR09iw==}
+  '@courthive/provider-config@0.2.0':
+    resolution: {integrity: sha512-Wdi+EiSvVfpDj+Qf8p8Vs85+HhcemcU9wyHMaBmuUOFrfCaDpulflMp8aw7He3XJVd9+P7v6vQnIcHEg+rpteg==}
     engines: {node: '>=20'}
 
   '@emnapi/core@1.10.0':
@@ -2043,7 +2043,7 @@ snapshots:
 
   '@babel/runtime@7.29.2': {}
 
-  '@courthive/provider-config@0.1.0': {}
+  '@courthive/provider-config@0.2.0': {}
 
   '@emnapi/core@1.10.0':
     dependencies:
