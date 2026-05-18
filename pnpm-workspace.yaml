@@ -1,6 +1,13 @@
 packages:
   - 'audit-worker'
 
+# Disable pnpm v11's supply-chain minimumReleaseAge policy. Recent
+# CourtHive-owned packages (factory, provider-config, i18n) often fall
+# within the policy's freshness window but are overridden to local
+# `link:../` paths below — the lockfile entries are advisory, not
+# fetched. The policy false-positives on those and blocks install.
+minimumReleaseAge: 0
+
 allowBuilds:
   '@nestjs/core': true
   '@scarf/scarf': true
@@ -16,3 +23,10 @@ ignoredBuiltDependencies:
   - '@swc/core'
   - classic-level
   - unrs-resolver
+
+overrides:
+  'serve-static@<2': '>=2.2.0'
+  tods-competition-factory: link:../factory
+  '@courthive/provider-config': link:../provider-config
+  '@courthive/i18n': link:../courthive-i18n
+  courthive-ingest: link:../courthive-ingest

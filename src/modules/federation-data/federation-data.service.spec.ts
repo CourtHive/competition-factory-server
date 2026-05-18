@@ -7,13 +7,14 @@ import { FederationDataService } from './federation-data.service';
 
 class FakeAdapter implements FederationDataAdapter {
   readonly provider = 'FAKE';
+  readonly providerName = 'Fake Federation';
   readonly organizationId = '00000000-0000-0000-0000-000000000000';
   constructor(private readonly handles: (s: string) => boolean) {}
   canHandle(identifier: string): boolean {
     return this.handles(identifier);
   }
-  async fetchTournament(identifier: string) {
-    return { tournamentId: 'FAKE-1', tournamentName: 'Fake Cup', sourceIdentifier: identifier } as any;
+  async fetchTournament(identifier: string): Promise<any> {
+    return { tournamentId: 'FAKE-1', tournamentName: 'Fake Cup', sourceIdentifier: identifier };
   }
 }
 

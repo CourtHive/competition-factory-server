@@ -97,7 +97,8 @@
     "tods-tmx-classic-converter": "3.0.5",
     "tslib": "^2.6.2",
     "@courthive/provider-config": "^0.2.0",
-    "@courthive/i18n": "link:../courthive-i18n"
+    "@courthive/i18n": "link:../courthive-i18n",
+    "courthive-ingest": "link:../courthive-ingest"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.0",
@@ -144,25 +145,6 @@
     "*.{js,ts}": "eslint --cache --fix",
     "*": "prettier --ignore-unknown --write",
     "**/*.ts": "tsc --noEmit"
-  },
-  "pnpm": {
-    "overrides": {
-      "serve-static@<2": ">=2.2.0",
-      "tods-competition-factory": "link:../factory",
-      "@courthive/provider-config": "link:../provider-config",
-      "@courthive/i18n": "link:../courthive-i18n"
-    },
-    "ignoredBuiltDependencies": [
-      "@dep-tree/cli",
-      "@nestjs/core",
-      "@scarf/scarf",
-      "@swc/core",
-      "classic-level",
-      "core-js",
-      "esbuild",
-      "rollup",
-      "unrs-resolver"
-    ]
   },
   "jest": {
     "globalSetup": "./src/tests/config/setup.ts",
