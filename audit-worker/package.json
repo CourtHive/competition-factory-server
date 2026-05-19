@@ -15,7 +15,7 @@
     "dotenv": "^17.0.0",
     "express": "^5.1.0",
     "pg": "^8.16.0",
-    "tods-competition-factory": "3.8.0"
+    "tods-competition-factory": "3.9.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
@@ -25,6 +25,8 @@
     "vitest": "^4.0.16"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

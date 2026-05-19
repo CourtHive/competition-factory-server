@@ -28,13 +28,15 @@
     "jwt-decode": "^4.0.0",
     "navigo": "^8.11.1",
     "tabulator-tables": "^6.3.1",
-    "tods-competition-factory": "3.8.0"
+    "tods-competition-factory": "3.9.0"
   },
   "pnpm": {
     "overrides": {
       "@courthive/provider-config": "link:../../provider-config"
     },
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
