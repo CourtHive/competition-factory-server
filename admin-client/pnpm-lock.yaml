@@ -18,8 +18,8 @@ importers:
         specifier: ^1.13.0
         version: 1.16.1
       courthive-components:
-        specifier: 1.6.0
-        version: 1.6.0
+        specifier: 1.7.0
+        version: 1.7.0
       i18next:
         specifier: ^26.0.0
         version: 26.2.0(typescript@6.0.3)
@@ -33,8 +33,8 @@ importers:
         specifier: ^6.3.1
         version: 6.4.0
       tods-competition-factory:
-        specifier: 3.8.0
-        version: 3.8.0
+        specifier: 3.9.0
+        version: 3.9.0
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -1040,8 +1040,8 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  courthive-components@1.6.0:
-    resolution: {integrity: sha512-Xcni92P5wG/xI12wbsscrNwsCKB4XZ8fpjibvINWXneY0+ew+bCKod4SUU28gZaNpNlmbHguSe4AF3tbWPvwEA==}
+  courthive-components@1.7.0:
+    resolution: {integrity: sha512-vJCn+8CYdu2FezG5nzyjxx8jS6XXq3iULMHuAxUnBotbexiwZpkff43iYUomdB4/2dST4iHsnthIZNMscvTArw==}
     engines: {node: '>=22'}
 
   cross-spawn@7.0.6:
@@ -1860,12 +1860,8 @@ packages:
   tippy.js@6.3.7:
     resolution: {integrity: sha512-E1d3oP2emgJ9dRQZdf3Kkn0qJgI6ZLpyS5z6ZkY1DF3kaQaBsGZsndEpHwx+eC+tYM41HaSNvNtLx8tU57FzTQ==}
 
-  tods-competition-factory@3.7.0:
-    resolution: {integrity: sha512-0eoMVlE2ph3RVQipVLol0vUom5UQ51qgUX5kVm1z/US7yI1Nb7YazdGGtSqWzipHIXTqsAf/HEF1nSpWSS2ANg==}
-    engines: {node: '>=22'}
-
-  tods-competition-factory@3.8.0:
-    resolution: {integrity: sha512-BBttZP/bGIYFTKndBv7gQr+0fWyFl5GN3tB77e9xyeMUyiDXF60rxRiUwHA6wGqWg7hUe3QJr1dhfcthQwfbgg==}
+  tods-competition-factory@3.9.0:
+    resolution: {integrity: sha512-g8IBFwP9nBuUc9kI3qklmDOCzW/nX3Vyyk25KhvBHB2FpicDwkGWFZYkdFiTGr6WO0jV817KG57cF5IpCZ0H2A==}
     engines: {node: '>=22'}
 
   ts-api-utils@2.5.0:
@@ -2819,7 +2815,7 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  courthive-components@1.6.0:
+  courthive-components@1.7.0:
     dependencies:
       awesomplete: 1.1.7
       class-variance-authority: 0.7.1
@@ -2829,7 +2825,7 @@ snapshots:
       focus-trap: 8.0.1
       timepicker-ui: 4.2.2
       tippy.js: 6.3.7
-      tods-competition-factory: 3.7.0
+      tods-competition-factory: 3.9.0
       vanillajs-datepicker: 1.3.4
 
   cross-spawn@7.0.6:
@@ -3678,9 +3674,7 @@ snapshots:
     dependencies:
       '@popperjs/core': 2.11.8
 
-  tods-competition-factory@3.7.0: {}
-
-  tods-competition-factory@3.8.0: {}
+  tods-competition-factory@3.9.0: {}
 
   ts-api-utils@2.5.0(typescript@6.0.3):
     dependencies:
