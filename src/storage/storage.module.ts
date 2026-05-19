@@ -16,6 +16,7 @@ import { PROVIDER_STORAGE } from './interfaces/provider-storage.interface';
 import { TOPOLOGY_STORAGE } from './interfaces/topology-storage.interface';
 import { PROVIDER_CATALOG_STORAGE } from './interfaces/provider-catalog-storage.interface';
 import { CALENDAR_STORAGE } from './interfaces/calendar-storage.interface';
+import { POLICY_STORAGE } from './interfaces/policy-storage.interface';
 import { AUDIT_STORAGE } from './interfaces/audit-storage.interface';
 import { USER_STORAGE } from './interfaces/user-storage.interface';
 
@@ -38,6 +39,7 @@ import { PostgresTopologyStorage } from './postgres/postgres-topology.storage';
 import { PostgresProviderCatalogStorage } from './postgres/postgres-provider-catalog.storage';
 import { PostgresCalendarStorage } from './postgres/postgres-calendar.storage';
 import { PostgresAuthCodeStorage } from './postgres/postgres-auth-code.storage';
+import { PostgresPolicyStorage } from './postgres/postgres-policy.storage';
 import { PostgresUserStorage } from './postgres/postgres-user.storage';
 import { MigrationRunnerService } from './postgres/migration-runner.service';
 import { PG_POOL, getPostgresConfig } from './postgres/postgres.config';
@@ -93,6 +95,7 @@ const provisionerProviderStorageProvider = makeStorageProvider(PROVISIONER_PROVI
 const tournamentProvisionerStorageProvider = makeStorageProvider(TOURNAMENT_PROVISIONER_STORAGE, PostgresTournamentProvisionerStorage);
 const ssoIdentityStorageProvider = makeStorageProvider(SSO_IDENTITY_STORAGE, PostgresSsoIdentityStorage);
 const userProvisionerStorageProvider = makeStorageProvider(USER_PROVISIONER_STORAGE, PostgresUserProvisionerStorage);
+const policyStorageProvider = makeStorageProvider(POLICY_STORAGE, PostgresPolicyStorage);
 
 @Global()
 @Module({
@@ -120,6 +123,7 @@ const userProvisionerStorageProvider = makeStorageProvider(USER_PROVISIONER_STOR
     tournamentProvisionerStorageProvider,
     ssoIdentityStorageProvider,
     userProvisionerStorageProvider,
+    policyStorageProvider,
     TournamentStorageService,
   ],
   exports: [
@@ -144,6 +148,7 @@ const userProvisionerStorageProvider = makeStorageProvider(USER_PROVISIONER_STOR
     TOURNAMENT_PROVISIONER_STORAGE,
     SSO_IDENTITY_STORAGE,
     USER_PROVISIONER_STORAGE,
+    POLICY_STORAGE,
     TournamentStorageService,
   ],
 })
