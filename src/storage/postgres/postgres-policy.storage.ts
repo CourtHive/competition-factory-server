@@ -38,6 +38,15 @@ export class PostgresPolicyStorage implements IPolicyStorage {
     return { ...SUCCESS };
   }
 
+  async findById(policyId: string): Promise<{ policy?: PolicyRecord; error?: string }> {
+    const result = await this.pool.query(
+      `SELECT ${COLS} FROM policies WHERE policy_id = $1 AND deleted_at IS NULL`,
+      [policyId],
+    );
+    if (!result.rows.length) return {};
+    return { policy: mapRow(result.rows[0]) };
+  }
+
   async getPolicy({
     policyType,
     name,

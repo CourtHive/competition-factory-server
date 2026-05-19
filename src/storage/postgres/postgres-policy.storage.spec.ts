@@ -135,6 +135,23 @@ describe('PostgresPolicyStorage', () => {
     });
   });
 
+  describe('findById', () => {
+    it('returns mapped record when present and not deleted', async () => {
+      pool.query.mockResolvedValueOnce({ rows: [row()] });
+      let result: any = await storage.findById('p1');
+      expect(result.policy.policyId).toBe('p1');
+      const sql = pool.query.mock.calls[0][0];
+      expect(sql).toContain('policy_id = $1');
+      expect(sql).toContain('deleted_at IS NULL');
+    });
+
+    it('returns empty when not found', async () => {
+      pool.query.mockResolvedValueOnce({ rows: [] });
+      let result: any = await storage.findById('missing');
+      expect(result.policy).toBeUndefined();
+    });
+  });
+
   describe('listPolicies', () => {
     it('returns mapped rows', async () => {
       pool.query.mockResolvedValueOnce({

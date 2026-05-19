@@ -46,6 +46,8 @@ export interface IPolicyStorage {
 
   getPolicy(args: GetPolicyArgs): Promise<{ policy?: PolicyRecord; error?: string }>;
 
+  findById(policyId: string): Promise<{ policy?: PolicyRecord; error?: string }>;
+
   listPolicies(args: ListPoliciesArgs): Promise<{ policies?: PolicyRecord[]; error?: string }>;
 
   deletePolicy(args: { policyId: string }): Promise<{ success?: boolean; error?: string }>;

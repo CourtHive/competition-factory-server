@@ -5,6 +5,7 @@ import { ProvisionerModule } from '../provisioner/provisioner.module';
 import { OfficiatingModule } from '../officiating/officiating.module';
 import { BoltHistoryModule } from '../bolt-history/bolt-history.module';
 import { SanctioningModule } from '../sanctioning/sanctioning.module';
+import { PoliciesModule } from '../policies/policies.module';
 import { AuditModule } from '../audit/audit.module';
 import { isModuleEnabled } from '../../config/server-profile';
 import { MessagingModule } from '../messaging/messaging.module';
@@ -42,7 +43,7 @@ const tournamentModules = isModuleEnabled('tournament')
 
 // Provider modules — loaded for 'provider' and 'full' profiles
 const providerModules = isModuleEnabled('provider')
-  ? [SanctioningModule, OfficiatingModule]
+  ? [SanctioningModule, OfficiatingModule, PoliciesModule]
   : [];
 
 @Module({
