@@ -33,8 +33,8 @@ importers:
         specifier: ^6.3.1
         version: 6.4.0
       tods-competition-factory:
-        specifier: 3.7.0
-        version: 3.7.0
+        specifier: 3.8.0
+        version: 3.8.0
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -1864,6 +1864,10 @@ packages:
     resolution: {integrity: sha512-0eoMVlE2ph3RVQipVLol0vUom5UQ51qgUX5kVm1z/US7yI1Nb7YazdGGtSqWzipHIXTqsAf/HEF1nSpWSS2ANg==}
     engines: {node: '>=22'}
 
+  tods-competition-factory@3.8.0:
+    resolution: {integrity: sha512-BBttZP/bGIYFTKndBv7gQr+0fWyFl5GN3tB77e9xyeMUyiDXF60rxRiUwHA6wGqWg7hUe3QJr1dhfcthQwfbgg==}
+    engines: {node: '>=22'}
+
   ts-api-utils@2.5.0:
     resolution: {integrity: sha512-OJ/ibxhPlqrMM0UiNHJ/0CKQkoKF243/AEmplt3qpRgkW8VG7IfOS41h7V8TjITqdByHzrjcS/2si+y4lIh8NA==}
     engines: {node: '>=18.12'}
@@ -3675,6 +3679,8 @@ snapshots:
       '@popperjs/core': 2.11.8
 
   tods-competition-factory@3.7.0: {}
+
+  tods-competition-factory@3.8.0: {}
 
   ts-api-utils@2.5.0(typescript@6.0.3):
     dependencies:
