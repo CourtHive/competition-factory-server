@@ -18,6 +18,13 @@ const {
   POLICY_TYPE_RANKING_POINTS,
 } = policyConstants;
 
+// Factory 4.0.0 removed federation ranking-point fixtures from the bundle
+// (TENNIS_EUROPE, USTA_JUNIOR, LTA, TENNIS_AUSTRALIA, TENNIS_CANADA) and
+// moved them behind the new policyRegistry indirection. The five that
+// remain (BASIC, ATP, WTA, ITF_WTT, ITF_JUNIOR) still ship as fixtures.
+// Until admin-client adopts the registry, any removed constant comes back
+// as `undefined` here — guard the read so module load doesn't crash and
+// the catalog just drops the missing entries.
 const {
   policies: {
     POLICY_RANKING_POINTS_ATP,
@@ -38,6 +45,8 @@ const {
   },
 } = fixtures as any;
 
+const safePolicyData = (policy: any, type: string) => policy?.[type];
+
 export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
   {
     id: 'builtin-scheduling-default',
@@ -45,7 +54,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_SCHEDULING,
     source: 'builtin',
     description: 'Default match scheduling times, recovery periods, and daily limits',
-    policyData: POLICY_SCHEDULING_DEFAULT[POLICY_TYPE_SCHEDULING],
+    policyData: safePolicyData(POLICY_SCHEDULING_DEFAULT, POLICY_TYPE_SCHEDULING),
   },
   {
     id: 'builtin-scoring-default',
@@ -53,7 +62,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_SCORING,
     source: 'builtin',
     description: 'Default scoring formats and match completion rules',
-    policyData: POLICY_SCORING_DEFAULT[POLICY_TYPE_SCORING],
+    policyData: safePolicyData(POLICY_SCORING_DEFAULT, POLICY_TYPE_SCORING),
   },
   {
     id: 'builtin-scoring-usta',
@@ -61,7 +70,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_SCORING,
     source: 'builtin',
     description: 'USTA-flavored scoring rules',
-    policyData: POLICY_SCORING_USTA[POLICY_TYPE_SCORING],
+    policyData: safePolicyData(POLICY_SCORING_USTA, POLICY_TYPE_SCORING),
   },
   {
     id: 'builtin-seeding-default',
@@ -69,7 +78,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_SEEDING,
     source: 'builtin',
     description: 'Default seeding thresholds and positioning rules',
-    policyData: POLICY_SEEDING_DEFAULT[POLICY_TYPE_SEEDING],
+    policyData: safePolicyData(POLICY_SEEDING_DEFAULT, POLICY_TYPE_SEEDING),
   },
   {
     id: 'builtin-seeding-itf',
@@ -77,7 +86,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_SEEDING,
     source: 'builtin',
     description: 'ITF seeding pattern',
-    policyData: POLICY_SEEDING_ITF[POLICY_TYPE_SEEDING],
+    policyData: safePolicyData(POLICY_SEEDING_ITF, POLICY_TYPE_SEEDING),
   },
   {
     id: 'builtin-ranking-points-basic',
@@ -85,7 +94,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'Simple finishing-position points — works for any event regardless of category or level',
-    policyData: POLICY_RANKING_POINTS_BASIC[POLICY_TYPE_RANKING_POINTS],
+    policyData: safePolicyData(POLICY_RANKING_POINTS_BASIC, POLICY_TYPE_RANKING_POINTS),
   },
   {
     id: 'builtin-ranking-points-atp',
@@ -93,7 +102,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'PIF ATP Rankings — Grand Slams through ITF events, 15 tournament levels',
-    policyData: POLICY_RANKING_POINTS_ATP[POLICY_TYPE_RANKING_POINTS],
+    policyData: safePolicyData(POLICY_RANKING_POINTS_ATP, POLICY_TYPE_RANKING_POINTS),
   },
   {
     id: 'builtin-ranking-points-wta',
@@ -101,7 +110,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'PIF WTA Rankings — Grand Slams through WTA 125, with quality win bonuses',
-    policyData: POLICY_RANKING_POINTS_WTA[POLICY_TYPE_RANKING_POINTS],
+    policyData: safePolicyData(POLICY_RANKING_POINTS_WTA, POLICY_TYPE_RANKING_POINTS),
   },
   {
     id: 'builtin-ranking-points-itf-wtt',
@@ -109,7 +118,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'ITF World Tennis Tour — qualifying round points for $15K–$25K+H tournaments',
-    policyData: POLICY_RANKING_POINTS_ITF_WTT[POLICY_TYPE_RANKING_POINTS],
+    policyData: safePolicyData(POLICY_RANKING_POINTS_ITF_WTT, POLICY_TYPE_RANKING_POINTS),
   },
   {
     id: 'builtin-ranking-points-itf-junior',
@@ -117,7 +126,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'ITF Junior World Tour points',
-    policyData: POLICY_RANKING_POINTS_ITF_JUNIOR[POLICY_TYPE_RANKING_POINTS],
+    policyData: safePolicyData(POLICY_RANKING_POINTS_ITF_JUNIOR, POLICY_TYPE_RANKING_POINTS),
   },
   {
     id: 'builtin-ranking-points-tennis-europe',
@@ -125,7 +134,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'Tennis Europe Junior Tour points',
-    policyData: POLICY_RANKING_POINTS_TENNIS_EUROPE[POLICY_TYPE_RANKING_POINTS],
+    policyData: safePolicyData(POLICY_RANKING_POINTS_TENNIS_EUROPE, POLICY_TYPE_RANKING_POINTS),
   },
   {
     id: 'builtin-ranking-points-usta-junior',
@@ -133,7 +142,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'USTA Junior National & Section ranking points',
-    policyData: POLICY_RANKING_POINTS_USTA_JUNIOR[POLICY_TYPE_RANKING_POINTS],
+    policyData: safePolicyData(POLICY_RANKING_POINTS_USTA_JUNIOR, POLICY_TYPE_RANKING_POINTS),
   },
   {
     id: 'builtin-ranking-points-lta',
@@ -141,7 +150,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'Lawn Tennis Association ranking points',
-    policyData: POLICY_RANKING_POINTS_LTA[POLICY_TYPE_RANKING_POINTS],
+    policyData: safePolicyData(POLICY_RANKING_POINTS_LTA, POLICY_TYPE_RANKING_POINTS),
   },
   {
     id: 'builtin-ranking-points-tennis-australia',
@@ -149,7 +158,7 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'Tennis Australia ranking points',
-    policyData: POLICY_RANKING_POINTS_TENNIS_AUSTRALIA[POLICY_TYPE_RANKING_POINTS],
+    policyData: safePolicyData(POLICY_RANKING_POINTS_TENNIS_AUSTRALIA, POLICY_TYPE_RANKING_POINTS),
   },
   {
     id: 'builtin-ranking-points-tennis-canada',
@@ -157,6 +166,6 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     policyType: POLICY_TYPE_RANKING_POINTS,
     source: 'builtin',
     description: 'Tennis Canada ranking points',
-    policyData: POLICY_RANKING_POINTS_TENNIS_CANADA[POLICY_TYPE_RANKING_POINTS],
+    policyData: safePolicyData(POLICY_RANKING_POINTS_TENNIS_CANADA, POLICY_TYPE_RANKING_POINTS),
   },
-];
+].filter((item) => item.policyData !== undefined);
