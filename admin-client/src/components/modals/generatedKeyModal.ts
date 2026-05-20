@@ -22,8 +22,14 @@ export function generatedKeyModal({ apiKey, label, provisionerName }: GeneratedK
     wrap.style.cssText = 'display: flex; flex-direction: column; gap: .75rem;';
 
     const warn = document.createElement('div');
+    // Uses the existing yellow-panel theme tokens (both have dark-mode
+    // variants in styles/theme.css). Previous version used a token that
+    // wasn't defined (`--tmx-warning-bg`), falling through to a hardcoded
+    // light yellow in both themes — in dark mode the inherited white text
+    // rendered white-on-light-yellow and was unreadable. Also pins the text
+    // color explicitly so it doesn't depend on inheritance from the modal.
     warn.style.cssText =
-      'background: var(--tmx-warning-bg, #fff8e1); border: 1px solid var(--tmx-accent-orange, #f5a623); padding: .6rem .75rem; border-radius: 4px; font-size: .85rem;';
+      'background: var(--tmx-panel-yellow-bg); border: 1px solid var(--tmx-panel-yellow-border); color: var(--tmx-text-primary); padding: .6rem .75rem; border-radius: 4px; font-size: .85rem;';
     warn.textContent = t('system.keyRevealWarning');
     wrap.appendChild(warn);
 

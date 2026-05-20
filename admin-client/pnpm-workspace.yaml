@@ -7,5 +7,16 @@ packages: []
 # fetched. The policy false-positives on those and blocks install.
 minimumReleaseAge: 0
 
+# pnpm v11 no longer reads the `pnpm` field from package.json; settings
+# live here instead. `overrides` was previously
+# `package.json#pnpm.overrides`; `onlyBuiltDependencies` is now
+# `allowBuilds`. Without these here, pnpm install would silently drop
+# the provider-config link override (admin-client would resolve from
+# npm instead of the local sibling) and re-prompt for esbuild approval
+# on every install (which caused workspace yaml drift — pnpm rewrote
+# `esbuild: true` to `esbuild: set this to true or false`).
+overrides:
+  '@courthive/provider-config': link:../../provider-config
+
 allowBuilds:
   esbuild: true
