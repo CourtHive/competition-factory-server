@@ -66,15 +66,21 @@ export function getMutationEngine(services?, publicNotices?: any[]) {
       [topicConstants.PUBLISH_EVENT]: (params) => {
         if (Array.isArray(params)) {
           for (const item of params) {
-            if (item.tournamentId && item.eventData?.eventInfo?.eventId) {
-              const key = `ged|${item.tournamentId}|${item.eventData.eventInfo.eventId}`;
-              services?.cacheManager?.set(key, item.eventData, 60 * 3 * 1000); // 3 minutes
+            const eventId = item.eventData?.eventInfo?.eventId;
+            if (item.tournamentId && eventId) {
+              // Invalidate rather than seed: the controller's cacheFx wraps the
+              // factory result as { success, eventData, participants }, but
+              // item.eventData here is only the inner eventData object — seeding
+              // it directly would serve a participants-less shape to the next
+              // public reader for the full TTL, blanking every bracket side to TBD.
+              const eventDataKey = `ged|${item.tournamentId}|${eventId}`;
+              services?.cacheManager?.del(eventDataKey);
             }
             clearCache(item.tournamentId);
             publicNotices?.push({
               topic: topicConstants.PUBLISH_EVENT,
               tournamentId: item.tournamentId,
-              eventId: item.eventData?.eventInfo?.eventId,
+              eventId,
             });
           }
         }
