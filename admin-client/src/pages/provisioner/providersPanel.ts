@@ -36,10 +36,20 @@ export function renderProvisionerProvidersPanel({ container }: { container: HTML
 
   container.appendChild(toolbar);
 
+  const searchEl = document.createElement('input');
+  searchEl.type = 'search';
+  searchEl.placeholder = t('common.search');
+  searchEl.style.cssText =
+    'width: 100%; max-width: 320px; margin: 8px 0; padding: 6px 10px; font-size: .85rem;' +
+    ' border: 1px solid var(--tmx-border-secondary); border-radius: 6px;';
+  container.appendChild(searchEl);
+
   const tableEl = document.createElement('div');
   tableEl.id = TABLE_ID;
   tableEl.style.cssText = 'border: 1px solid var(--tmx-border-secondary); border-radius: 8px; padding: 12px;';
   container.appendChild(tableEl);
+
+  let table: any = null;
 
   const refresh = () => {
     listMyProviders().then(
@@ -50,21 +60,20 @@ export function renderProvisionerProvidersPanel({ container }: { container: HTML
 
   const renderTable = (providers: any[]) => {
     destroyTable({ anchorId: TABLE_ID });
-    new Tabulator(tableEl, {
+    table = new Tabulator(tableEl, {
       placeholder: t('provisioner.noProviders'),
       layout: 'fitColumns',
       maxHeight: 500,
       columns: [
         { title: t('system.providerName'), field: 'organisationName', headerSort: true },
         { title: t('system.providerAbbr'), field: 'organisationAbbreviation', headerSort: true, width: 120 },
-        { title: t('system.relationship'), field: 'relationship', headerSort: true, width: 120 },
         {
           title: '',
           width: 110,
           hozAlign: 'center',
           headerSort: false,
           formatter: () =>
-            `<button class="btn-edit-caps" style="font-size:.7rem;padding:2px 8px;">${t('providerConfig.editCapsButton')}</button>`,
+            `<button class="btn-edit-caps" style="font-size:.7rem;padding:2px 8px;">${t('common.edit')}</button>`,
           cellClick: (_e: any, cell: any) => {
             const row = cell.getRow().getData();
             openCapsEditor({
@@ -88,7 +97,24 @@ export function renderProvisionerProvidersPanel({ container }: { container: HTML
       ],
       data: providers,
     });
+    applyFilter();
   };
+
+  const applyFilter = () => {
+    if (!table) return;
+    const term = searchEl.value.trim().toLowerCase();
+    if (!term) {
+      table.clearFilter(true);
+      return;
+    }
+    table.setFilter(
+      (row: any) =>
+        (row.organisationName ?? '').toLowerCase().includes(term) ||
+        (row.organisationAbbreviation ?? '').toLowerCase().includes(term),
+    );
+  };
+
+  searchEl.addEventListener('input', applyFilter);
 
   function openInTmx(provider: any): void {
     const providerValue = {

@@ -282,30 +282,32 @@ export class ProvisionerService {
   }
 
   async listProviders(provisionerId: string) {
-    const allProviders = await this.providerStorage.getProviders();
+    // Scope to providers this provisioner has any association with —
+    // the prior implementation pulled all providers in the system and
+    // annotated each with `managed: boolean`, which leaked the existence
+    // of other provisioners' providers to whoever called the endpoint.
+    // A provisioner only ever needs to see what it manages.
     const associations = await this.providerAssocStorage.findByProvisioner(provisionerId);
     const assocMap = new Map(associations.map((a) => [a.providerId, a.relationship]));
 
-    const providers = allProviders.map((p) => {
-      const relationship = assocMap.get(p.key) ?? null;
-      const managed = relationship !== null;
-      return {
-        providerId: p.key,
-        organisationAbbreviation: p.value?.organisationAbbreviation,
-        organisationName: p.value?.organisationName,
-        managed,
-        relationship,
-        ...(managed
-          ? {
-              providerConfigCaps: p.value?.providerConfigCaps ?? {},
-              providerConfigSettings: p.value?.providerConfigSettings ?? {},
-            }
-          : {}),
-        inactive: p.value?.inactive ?? false,
-      };
-    });
+    const providers = await Promise.all(
+      Array.from(assocMap.entries()).map(async ([providerId, relationship]) => {
+        const provider = await this.providerStorage.getProvider(providerId);
+        if (!provider) return null;
+        return {
+          providerId,
+          organisationAbbreviation: provider.organisationAbbreviation,
+          organisationName: provider.organisationName,
+          managed: true,
+          relationship,
+          providerConfigCaps: provider.providerConfigCaps ?? {},
+          providerConfigSettings: provider.providerConfigSettings ?? {},
+          inactive: provider.inactive ?? false,
+        };
+      }),
+    );
 
-    return { providers };
+    return { providers: providers.filter((p): p is NonNullable<typeof p> => p !== null) };
   }
 
   async getProviderDetail(provisionerId: string, providerId: string) {
