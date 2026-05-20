@@ -4,6 +4,7 @@ import { PoliciesService } from './policies.service';
 import { IPolicyStorage, PolicyRecord } from 'src/storage/interfaces/policy-storage.interface';
 import { UserContext } from '../auth/decorators/user-context.decorator';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
+import { policyRegistry } from './factory-bridge';
 
 function makeMockStorage(): jest.Mocked<IPolicyStorage> {
   return {
@@ -50,7 +51,10 @@ describe('PoliciesService', () => {
   beforeEach(() => {
     storage = makeMockStorage();
     service = new PoliciesService(storage);
+    policyRegistry.clear();
   });
+
+  afterEach(() => policyRegistry.clear());
 
   describe('listPublicCatalog', () => {
     it('asks storage for global PUBLIC visibilities only', async () => {
@@ -130,6 +134,16 @@ describe('PoliciesService', () => {
       expect(storage.savePolicy).toHaveBeenCalledWith(
         expect.objectContaining({ providerId: 'prov-a', publishedBy: 'user-1' }),
       );
+    });
+
+    it('registers the saved policy in the embedded factory engine registry', async () => {
+      storage.savePolicy.mockResolvedValueOnce({ success: true });
+      const record = makeRecord();
+      storage.findById.mockResolvedValueOnce({ policy: record });
+
+      await service.save(baseInput, makeCtx());
+
+      expect(policyRegistry.lookup({ policyType: 'rankingPoints', name: 'USTA_JUNIOR_2026' })).toEqual(record.definition);
     });
 
     it('rejects a PROVIDER_ADMIN trying to publish to a different provider', async () => {

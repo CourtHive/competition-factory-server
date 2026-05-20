@@ -10,6 +10,7 @@ import {
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
 import { UserContext } from '../auth/decorators/user-context.decorator';
 import { SavePolicyDto } from './dto/save-policy.dto';
+import { policyRegistry } from './factory-bridge';
 import { validatePolicyForSave } from './policy-validator';
 
 const PUBLIC_VISIBILITIES: PolicyVisibility[] = ['SHARED_DEMO', 'TEMPLATE_REF'];
@@ -125,6 +126,17 @@ export class PoliciesService {
 
     const { policy } = await this.storage.findById(policyId);
     if (!policy) throw new NotFoundException('Saved policy could not be re-read');
+
+    // Keep the embedded factory engine's policyRegistry in sync without
+    // requiring a server restart. The hydrator does the initial bulk load
+    // at boot; this catches anything POSTed after.
+    policyRegistry.register({
+      policyType: policy.policyType,
+      name: policy.name,
+      version: policy.version,
+      definition: policy.definition,
+    });
+
     return { policy: toApi(policy) };
   }
 
