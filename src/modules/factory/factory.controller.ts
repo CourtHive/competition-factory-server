@@ -164,15 +164,23 @@ export class FactoryController {
   @Post('fetch')
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  fetchTournamentRecords(@Body() ftd: FetchTournamentRecordsDto, @User() user?: any) {
-    return this.factoryService.fetchTournamentRecords(ftd, user);
+  fetchTournamentRecords(
+    @Body() ftd: FetchTournamentRecordsDto,
+    @User() user?: any,
+    @UserCtx() userContext?: UserContext,
+  ) {
+    return this.factoryService.fetchTournamentRecords(ftd, user, userContext);
   }
 
   @Post('generate')
   @Roles([SUPER_ADMIN, GENERATE])
   @HttpCode(HttpStatus.OK)
-  generateTournamentRecord(@Body() gtd: any, @User() user?: any) {
-    return this.factoryService.generateTournamentRecord(gtd, user);
+  generateTournamentRecord(
+    @Body() gtd: any,
+    @User() user?: any,
+    @UserCtx() userContext?: UserContext,
+  ) {
+    return this.factoryService.generateTournamentRecord(gtd, user, userContext);
   }
 
   @Post('query')
@@ -196,8 +204,12 @@ export class FactoryController {
   @Post('save')
   @Roles([CLIENT, ADMIN, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  saveTournamentRecords(@Body() std: SaveTournamentRecordsDto, @User() user?: any) {
-    return this.factoryService.saveTournamentRecords(std, user);
+  saveTournamentRecords(
+    @Body() std: SaveTournamentRecordsDto,
+    @User() user?: any,
+    @UserCtx() userContext?: UserContext,
+  ) {
+    return this.factoryService.saveTournamentRecords(std, user, userContext);
   }
 
   @Get('save-status/:saveId')
