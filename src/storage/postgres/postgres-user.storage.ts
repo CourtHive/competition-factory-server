@@ -60,9 +60,28 @@ export class PostgresUserStorage implements IUserStorage {
   }
 
   async findAll(): Promise<{ success: boolean; users?: any[]; message?: string }> {
-    const result = await this.pool.query(
-      'SELECT user_id, email, provider_id, roles, permissions, data, last_access FROM users',
-    );
+    // LEFT JOIN user_providers so the admin UI can render multi-provider
+    // associations without a follow-up round trip. `provider_ids` is in
+    // addition to the legacy single `provider_id` column — both are kept
+    // for now (Phase 5 of the multi-provider plan retires the legacy
+    // column once all read paths have migrated).
+    const result = await this.pool.query(`
+      SELECT
+        u.user_id,
+        u.email,
+        u.provider_id,
+        u.roles,
+        u.permissions,
+        u.data,
+        u.last_access,
+        COALESCE(
+          ARRAY_AGG(up.provider_id ORDER BY up.created_at) FILTER (WHERE up.provider_id IS NOT NULL),
+          ARRAY[]::TEXT[]
+        ) AS provider_ids
+      FROM users u
+      LEFT JOIN user_providers up ON up.user_id = u.user_id
+      GROUP BY u.user_id, u.email, u.provider_id, u.roles, u.permissions, u.data, u.last_access
+    `);
     if (!result.rows.length) return { success: false, message: 'No users found' };
     // Spread `data` first so canonical column-derived fields win on conflict.
     // Identical bug to provider storage: a stale `data.lastAccess` migrated
@@ -74,6 +93,7 @@ export class PostgresUserStorage implements IUserStorage {
         userId: row.user_id,
         email: row.email,
         providerId: row.provider_id,
+        providerIds: row.provider_ids,
         roles: row.roles,
         permissions: row.permissions,
         lastAccess: row.last_access,

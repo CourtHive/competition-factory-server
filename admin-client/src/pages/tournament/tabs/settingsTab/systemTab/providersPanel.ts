@@ -240,7 +240,15 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
   detailPane.appendChild(assocSection);
 
   const filteredUsers = (users || [])
-    .filter((u) => u.value?.providerId === provider.organisationId)
+    .filter((u) => {
+      // Multi-provider associations live in user_providers; the server now
+      // returns them as `providerIds[]`. Fall back to the legacy single
+      // `providerId` column when the array is absent or empty (older server
+      // versions, or users with no user_providers rows yet).
+      const ids = u.value?.providerIds;
+      if (Array.isArray(ids) && ids.length) return ids.includes(provider.organisationId);
+      return u.value?.providerId === provider.organisationId;
+    })
     .map((u) => ({
       firstName: u.value?.firstName || '',
       lastName: u.value?.lastName || '',
