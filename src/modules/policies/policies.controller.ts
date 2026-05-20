@@ -12,6 +12,7 @@ import {
 
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/role.guard';
+import { Public } from '../auth/decorators/public.decorator';
 import { UserCtx, type UserContext } from '../auth/decorators/user-context.decorator';
 import { CLIENT, ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
 import { PoliciesService } from './policies.service';
@@ -21,7 +22,9 @@ import { SavePolicyDto } from './dto/save-policy.dto';
 export class PoliciesController {
   constructor(private readonly service: PoliciesService) {}
 
-  // Public — no guard. Returns SHARED_DEMO + TEMPLATE_REF policies.
+  // Public — explicit @Public() opts out of the global AuthGuard. Returns
+  // SHARED_DEMO + TEMPLATE_REF policies.
+  @Public()
   @Get('catalog')
   catalog(@Query('policyType') policyType?: string) {
     return this.service.listPublicCatalog({ policyType });
