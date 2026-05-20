@@ -42,6 +42,13 @@ describe('validatePolicyForSave', () => {
     }
   });
 
+  it('accepts date-style versions (2026.01) and short semver (1.0)', () => {
+    expect(validatePolicyForSave({ ...validBase, version: '2026.01' }).ok).toBe(true);
+    expect(validatePolicyForSave({ ...validBase, version: '1.0' }).ok).toBe(true);
+    expect(validatePolicyForSave({ ...validBase, version: '2026.01.05' }).ok).toBe(true);
+    expect(validatePolicyForSave({ ...validBase, version: '1.0.0-beta.1' }).ok).toBe(true);
+  });
+
   it('rejects a name with disallowed characters', () => {
     const result = validatePolicyForSave({ ...validBase, name: 'usta junior' });
     expect(result.ok).toBe(false);

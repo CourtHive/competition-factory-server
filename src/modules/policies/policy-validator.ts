@@ -5,7 +5,10 @@ export type PolicyValidationError = { path: string; message: string };
 export type PolicyValidationResult = { ok: true } | { ok: false; errors: PolicyValidationError[] };
 
 const VALID_VISIBILITIES: PolicyVisibility[] = ['PROVIDER_PRIVATE', 'SHARED_DEMO', 'TEMPLATE_REF'];
-const SEMVER_LIKE = /^\d+\.\d+\.\d+(?:-[\w.-]+)?$/;
+// Accepts semver (1.0.0), short semver (1.0), and date-style versions
+// (2026.01, 2026.01.05) which are common in federation policy documents.
+// Optional pre-release suffix is allowed: 1.0.0-beta.1, 2026.01-draft.
+const SEMVER_LIKE = /^\d+\.\d+(?:\.\d+)?(?:-[\w.-]+)?$/;
 const NAME_PATTERN = /^[A-Z][A-Z0-9_]{1,63}$/;
 
 export type ValidateSaveInput = {
