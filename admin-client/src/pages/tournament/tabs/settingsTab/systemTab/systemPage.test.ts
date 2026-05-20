@@ -202,16 +202,16 @@ describe('renderUsersPanel', () => {
     expect(data).toHaveLength(2);
     expect(data[0].firstName).toBe('Jane');
     expect(data[0].lastAccess).toBe('2026-04-18T14:00:00Z');
-    expect(data[0].providerName).toBe('Tennis Australia');
+    expect(data[0].providerNames).toBe('Tennis Australia');
     expect(data[1].lastAccess).toBe('');
-    expect(data[1].providerName).toBe('USTA');
+    expect(data[1].providerNames).toBe('USTA');
   });
 
   it('maps provider IDs to names via lookup', () => {
     renderUsersPanel({ container, providers: MOCK_PROVIDERS, users: MOCK_USERS, onRefresh: vi.fn() });
     const data = tabulatorInstances[0].options.data;
-    expect(data[0].providerName).toBe('Tennis Australia');
-    expect(data[1].providerName).toBe('USTA');
+    expect(data[0].providerNames).toBe('Tennis Australia');
+    expect(data[1].providerNames).toBe('USTA');
   });
 
   it('includes lastAccess column in users table', () => {
@@ -240,7 +240,7 @@ describe('renderUsersPanel', () => {
   it('includes all expected columns', () => {
     renderUsersPanel({ container, providers: MOCK_PROVIDERS, users: MOCK_USERS, onRefresh: vi.fn() });
     const fields = tabulatorInstances[0].options.columns.map((c) => c.field);
-    expect(fields).toEqual(['firstName', 'lastName', 'email', 'providerName', 'roles', 'lastAccess']);
+    expect(fields).toEqual(['firstName', 'lastName', 'email', 'providerNames', 'roles', 'lastAccess']);
   });
 
   it('handles empty users array', () => {

@@ -4,9 +4,11 @@ import { setActiveProvider, clearActiveProvider } from 'services/provider/provid
 import { editProviderModal } from 'components/modals/editProvider';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { buildSearchInput } from 'components/inputs/searchInput';
+import { removeUserProvider } from 'services/apis/servicesApi';
 import { destroyTable } from 'pages/tournament/destroyTable';
 import { openTmxImpersonate } from 'services/openTmxImpersonate';
 import { inviteModal } from 'components/modals/inviteUser';
+import { confirmModal } from 'components/modals/baseModal/baseModal';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { t } from 'i18n';
 
@@ -232,6 +234,12 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
   resetPwBtn.textContent = t('system.resetPassword');
   assocHeader.appendChild(resetPwBtn);
 
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'btn-remove';
+  removeBtn.style.fontSize = '0.75rem';
+  removeBtn.textContent = t('common.remove');
+  assocHeader.appendChild(removeBtn);
+
   assocSection.appendChild(assocHeader);
 
   const assocTableEl = document.createElement('div');
@@ -250,6 +258,7 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
       return u.value?.providerId === provider.organisationId;
     })
     .map((u) => ({
+      userId: u.value?.userId,
       firstName: u.value?.firstName || '',
       lastName: u.value?.lastName || '',
       email: u.value?.email || '',
@@ -295,6 +304,37 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
     resetPasswordModal({
       email: selected.email,
       displayName: `${selected.firstName} ${selected.lastName}`.trim() || selected.email,
+    });
+  });
+
+  removeBtn.addEventListener('click', () => {
+    const rows = assocTable.getSelectedRows();
+    const selected = rows?.[0]?.getData();
+    if (!selected) {
+      tmxToast({ message: t('system.selectUserFirst'), intent: 'is-warning' });
+      return;
+    }
+    if (!selected.userId) {
+      tmxToast({ message: 'User has no userId', intent: 'is-danger' });
+      return;
+    }
+    const displayName = `${selected.firstName} ${selected.lastName}`.trim() || selected.email;
+    confirmModal({
+      title: t('modals.editUser.removeProviderTitle'),
+      query: t('modals.editUser.removeProviderConfirm', {
+        provider: provider.organisationName || provider.organisationAbbreviation,
+      }) + ` (${displayName})`,
+      cancelAction: undefined,
+      okIntent: 'is-warning',
+      okAction: async () => {
+        try {
+          await removeUserProvider({ userId: selected.userId, providerId: provider.organisationId });
+          tmxToast({ message: t('modals.editUser.providerRemoved'), intent: 'is-success' });
+          onRefresh();
+        } catch {
+          // baseApi interceptor raises a toast on error.
+        }
+      },
     });
   });
 }

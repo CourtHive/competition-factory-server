@@ -79,12 +79,22 @@ export function renderUsersPanel({ container, providers, users, onRefresh }: Ren
   tableEl.id = USERS_TABLE;
   container.appendChild(tableEl);
 
+  // Resolve all associated provider names per user. Prefers the multi-
+  // provider `providerIds[]` (from user_providers) and falls back to the
+  // legacy single `providerId` for users with no user_providers rows yet.
+  const resolveProviderNames = (user: any): string => {
+    const ids: string[] = Array.isArray(user.value?.providerIds) && user.value.providerIds.length
+      ? user.value.providerIds
+      : (user.value?.providerId ? [user.value.providerId] : []);
+    return ids.map((id) => providerMap[id]).filter(Boolean).join(', ');
+  };
+
   const userData = (users || [])
     .map((u) => ({
       firstName: u.value?.firstName || '',
       lastName: u.value?.lastName || '',
       email: u.value?.email || '',
-      providerName: providerMap[u.value?.providerId] || '',
+      providerNames: resolveProviderNames(u),
       roles: (u.value?.roles || []).join(', '),
       lastAccess: u.value?.lastAccess || '',
       searchText: `${u.value?.firstName || ''} ${u.value?.lastName || ''} ${u.value?.email || ''}`.toLowerCase(),
@@ -115,7 +125,7 @@ export function renderUsersPanel({ container, providers, users, onRefresh }: Ren
       { title: t('system.firstName'), field: 'firstName', headerSort: true },
       { title: t('system.lastName'), field: 'lastName', headerSort: true },
       { title: 'Email', field: 'email', headerSort: true },
-      { title: t('system.provider'), field: 'providerName', headerSort: true },
+      { title: t('system.providers'), field: 'providerNames', headerSort: true },
       { title: t('system.roles'), field: 'roles', headerSort: false },
       {
         title: t('system.lastAccess'),
