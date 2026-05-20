@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post } from '@nestjs/common';
 import { UserCtx, type UserContext } from './decorators/user-context.decorator';
 import { ADMIN, SUPER_ADMIN, CLIENT } from 'src/common/constants/roles';
 import { Public } from './decorators/public.decorator';
@@ -97,6 +97,25 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   getProviders() {
     return this.authService.getUsers();
+  }
+
+  /**
+   * Persist the caller's last-selected provider for multi-provider session
+   * context. Reads userId from the JWT, validates the providerId against
+   * the caller's `user_providers` associations, and updates
+   * `users.last_selected_provider_id`. Pass `providerId: null` to clear.
+   *
+   * See Mentat/planning/MULTI_PROVIDER_SESSION_CONTEXT.md.
+   */
+  @Patch('me/last-selected-provider')
+  @Roles([CLIENT, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  updateLastSelectedProvider(
+    @Body() body: { providerId: string | null },
+    @UserCtx() userContext?: UserContext,
+  ) {
+    if (!userContext?.email) return { error: 'Authentication required' };
+    return this.authService.updateLastSelectedProvider(userContext.email, body?.providerId ?? null);
   }
 
   @Public()

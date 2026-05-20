@@ -7,4 +7,11 @@ export interface IUserStorage {
   remove(email: string): Promise<{ success: boolean }>;
   findAll(): Promise<{ success: boolean; users?: any[]; message?: string }>;
   updateLastAccess(email: string): Promise<void>;
+  /**
+   * Persist the user's last-selected provider for multi-provider session
+   * context. Pass `null` to clear. Called by PATCH /auth/me/last-selected-
+   * provider after the controller has validated the providerId is in the
+   * user's user_providers associations.
+   */
+  updateLastSelectedProviderId(email: string, providerId: string | null): Promise<{ success: boolean }>;
 }

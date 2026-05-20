@@ -11,7 +11,7 @@ export class PostgresUserStorage implements IUserStorage {
 
   async findOne(email: string): Promise<any | null> {
     const result = await this.pool.query(
-      'SELECT user_id, email, password, provider_id, roles, permissions, data FROM users WHERE email = $1',
+      'SELECT user_id, email, password, provider_id, last_selected_provider_id, roles, permissions, data FROM users WHERE email = $1',
       [email],
     );
     if (!result.rows.length) return null;
@@ -21,6 +21,7 @@ export class PostgresUserStorage implements IUserStorage {
       email: row.email,
       password: row.password,
       providerId: row.provider_id,
+      lastSelectedProviderId: row.last_selected_provider_id,
       roles: row.roles,
       permissions: row.permissions,
       ...row.data,
@@ -104,5 +105,16 @@ export class PostgresUserStorage implements IUserStorage {
 
   async updateLastAccess(email: string): Promise<void> {
     await this.pool.query('UPDATE users SET last_access = NOW() WHERE email = $1', [email]);
+  }
+
+  async updateLastSelectedProviderId(
+    email: string,
+    providerId: string | null,
+  ): Promise<{ success: boolean }> {
+    await this.pool.query(
+      'UPDATE users SET last_selected_provider_id = $2 WHERE email = $1',
+      [email, providerId],
+    );
+    return { ...SUCCESS };
   }
 }

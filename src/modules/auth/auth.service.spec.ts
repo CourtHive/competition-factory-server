@@ -44,6 +44,7 @@ describe('AuthService', () => {
     mockUserStorage = {
       update: jest.fn(),
       updateLastAccess: jest.fn().mockResolvedValue(undefined),
+      updateLastSelectedProviderId: jest.fn().mockResolvedValue({ success: true }),
     };
 
     const mockUserProvisionerStorage = {
@@ -162,6 +163,77 @@ describe('AuthService', () => {
       expect(result.token).toBeDefined();
       expect(warnSpy).toHaveBeenCalled();
       warnSpy.mockRestore();
+    });
+
+    it('embeds providerAssociations[] and lastSelectedProviderId in the JWT', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-1',
+        email: 'multi@test.com',
+        password: 'secret',
+        providerId: 'prov-ION',
+        lastSelectedProviderId: 'prov-BOBOCA',
+        roles: ['client'],
+      });
+      mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
+        { userId: 'u-1', providerId: 'prov-ION', providerRole: 'PROVIDER_ADMIN', organisationName: 'ION', organisationAbbreviation: 'ION' },
+        { userId: 'u-1', providerId: 'prov-BOBOCA', providerRole: 'PROVIDER_ADMIN', organisationName: 'Battle of Boca', organisationAbbreviation: 'BOBOCA' },
+      ]);
+      const result = await authService.signIn('multi@test.com', 'secret');
+      const decoded = await jwtService.verifyAsync(result.token);
+      expect(decoded.providerAssociations).toHaveLength(2);
+      expect(decoded.providerAssociations[0].organisationAbbreviation).toBe('ION');
+      expect(decoded.lastSelectedProviderId).toBe('prov-BOBOCA');
+    });
+
+    it('nullifies lastSelectedProviderId when it is no longer a current association', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-2',
+        email: 'stale@test.com',
+        password: 'secret',
+        providerId: 'prov-ION',
+        lastSelectedProviderId: 'prov-REVOKED',
+        roles: ['client'],
+      });
+      mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
+        { userId: 'u-2', providerId: 'prov-ION', providerRole: 'PROVIDER_ADMIN', organisationName: 'ION', organisationAbbreviation: 'ION' },
+      ]);
+      const result = await authService.signIn('stale@test.com', 'secret');
+      const decoded = await jwtService.verifyAsync(result.token);
+      expect(decoded.lastSelectedProviderId).toBeNull();
+    });
+  });
+
+  describe('updateLastSelectedProvider', () => {
+    it('rejects when caller is not associated with the provider', async () => {
+      mockUsersService.findOne.mockResolvedValue({ userId: 'u-1', email: 'a@test.com' });
+      mockUserProviderStorage.findByUserId.mockResolvedValue([
+        { userId: 'u-1', providerId: 'prov-ION', providerRole: 'PROVIDER_ADMIN' },
+      ]);
+      const result: any = await authService.updateLastSelectedProvider('a@test.com', 'prov-OTHER');
+      expect(result.error).toBe('Not authorised for that provider');
+      expect(mockUserStorage.updateLastSelectedProviderId).not.toHaveBeenCalled();
+    });
+
+    it('persists when caller has the association', async () => {
+      mockUsersService.findOne.mockResolvedValue({ userId: 'u-1', email: 'a@test.com' });
+      mockUserProviderStorage.findByUserId.mockResolvedValue([
+        { userId: 'u-1', providerId: 'prov-ION', providerRole: 'PROVIDER_ADMIN' },
+        { userId: 'u-1', providerId: 'prov-BOBOCA', providerRole: 'PROVIDER_ADMIN' },
+      ]);
+      const result: any = await authService.updateLastSelectedProvider('a@test.com', 'prov-BOBOCA');
+      expect(result.success).toBe(true);
+      expect(mockUserStorage.updateLastSelectedProviderId).toHaveBeenCalledWith('a@test.com', 'prov-BOBOCA');
+    });
+
+    it('accepts null (clear selection) without validation', async () => {
+      const result: any = await authService.updateLastSelectedProvider('a@test.com', null);
+      expect(result.success).toBe(true);
+      expect(mockUserStorage.updateLastSelectedProviderId).toHaveBeenCalledWith('a@test.com', null);
+    });
+
+    it('rejects missing email (defensive)', async () => {
+      const result: any = await authService.updateLastSelectedProvider('', 'prov-ION');
+      expect(result.error).toBe('Authentication required');
     });
   });
 

@@ -102,9 +102,57 @@ export class AuthService {
       }
     }
 
+    // Multi-provider session context. Load the user's full set of provider
+    // associations from user_providers so TMX can surface them in the
+    // provider switcher and resolve the active session provider. See
+    // Mentat/planning/MULTI_PROVIDER_SESSION_CONTEXT.md for the design.
+    //
+    // `lastSelectedProviderId` was loaded with the user record (above). If
+    // the persisted value no longer matches any current association (e.g.
+    // the association was revoked between sessions), nullify it so the
+    // TMX-side precedence falls through to the legacy provider_id default.
+    if (user.userId) {
+      try {
+        const enriched = await this.userProviderStorage.findByUserIdEnriched(user.userId);
+        const associations = enriched.map((row) => ({
+          providerId: row.providerId,
+          providerRole: row.providerRole,
+          organisationName: row.organisationName,
+          organisationAbbreviation: row.organisationAbbreviation,
+        }));
+        userDetails.providerAssociations = associations;
+        if (userDetails.lastSelectedProviderId) {
+          const stillValid = associations.some((a) => a.providerId === userDetails.lastSelectedProviderId);
+          if (!stillValid) userDetails.lastSelectedProviderId = null;
+        }
+      } catch (err) {
+        Logger.warn(`Failed to load providerAssociations for ${email}: ${(err as Error).message}`);
+        userDetails.providerAssociations = [];
+      }
+    }
+
     const payload = userDetails;
     const token = await this.jwtService.signAsync(payload, { expiresIn: '1d' });
     return { token };
+  }
+
+  /**
+   * PATCH /auth/me/last-selected-provider — persist the user's active
+   * provider context across devices. Caller's userId comes from the
+   * authenticated JWT. Validates `providerId` against `user_providers`;
+   * rejects with `{ error: ... }` if the caller is not associated.
+   * Pass `null` to clear.
+   */
+  async updateLastSelectedProvider(email: string, providerId: string | null) {
+    if (!email) return { error: 'Authentication required' };
+    if (providerId !== null) {
+      const user = await this.usersService.findOne(email);
+      if (!user?.userId) return { error: 'User not found' };
+      const associations = await this.userProviderStorage.findByUserId(user.userId);
+      const allowed = associations.some((a) => a.providerId === providerId);
+      if (!allowed) return { error: 'Not authorised for that provider' };
+    }
+    return await this.userStorage.updateLastSelectedProviderId(email, providerId);
   }
 
   /**
