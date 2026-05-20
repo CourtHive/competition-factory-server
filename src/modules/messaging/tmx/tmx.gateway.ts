@@ -13,6 +13,10 @@ import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import {
   USER_PROVIDER_STORAGE,
   type IUserProviderStorage,
+  USER_PROVISIONER_STORAGE,
+  type IUserProvisionerStorage,
+  PROVISIONER_PROVIDER_STORAGE,
+  type IProvisionerProviderStorage,
   USER_STORAGE,
   type IUserStorage,
   PROVIDER_STORAGE,
@@ -60,6 +64,9 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   constructor(
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
+    @Inject(USER_PROVISIONER_STORAGE) private readonly userProvisionerStorage: IUserProvisionerStorage,
+    @Inject(PROVISIONER_PROVIDER_STORAGE)
+    private readonly provisionerProviderStorage: IProvisionerProviderStorage,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     private readonly tournamentStorageService: TournamentStorageService,
@@ -461,7 +468,11 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     try {
       const fullUser = await this.usersService.findOne(jwtUser.email);
       if (!fullUser) return undefined;
-      return await buildUserContext(fullUser, this.userProviderStorage);
+      return await buildUserContext(fullUser, {
+        userProviderStorage: this.userProviderStorage,
+        userProvisionerStorage: this.userProvisionerStorage,
+        provisionerProviderStorage: this.provisionerProviderStorage,
+      });
     } catch {
       return undefined;
     }

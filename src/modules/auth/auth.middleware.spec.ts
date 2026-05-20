@@ -16,7 +16,15 @@ describe('AuthMiddleware', () => {
     mockUserProviderStorage = {
       findByUserId: jest.fn().mockResolvedValue([]),
     };
-    middleware = new AuthMiddleware(mockAuthService, mockUsersService, mockUserProviderStorage);
+    const mockUserProvisionerStorage: any = { findProvisionerIdsByUser: jest.fn().mockResolvedValue([]) };
+    const mockProvisionerProviderStorage: any = { findByProvisioner: jest.fn().mockResolvedValue([]) };
+    middleware = new AuthMiddleware(
+      mockAuthService,
+      mockUsersService,
+      mockUserProviderStorage,
+      mockUserProvisionerStorage,
+      mockProvisionerProviderStorage,
+    );
   });
 
   it('calls next immediately for empty baseUrl', async () => {

@@ -239,7 +239,9 @@ export class ProvidersController {
   @Get(':providerId/effective-config')
   @Roles([CLIENT, ADMIN, SUPER_ADMIN])
   getEffectiveConfig(@Param('providerId') providerId: string, @UserCtx() ctx: UserContext) {
-    if (!ctx?.isSuperAdmin && !ctx?.providerIds?.includes(providerId)) {
+    const directHit = ctx?.providerIds?.includes(providerId);
+    const provisionerHit = ctx?.provisionerProviderIds?.includes(providerId);
+    if (!ctx?.isSuperAdmin && !directHit && !provisionerHit) {
       throw new ForbiddenException('No access to this provider');
     }
     return this.providers.getEffectiveProviderConfig(providerId);

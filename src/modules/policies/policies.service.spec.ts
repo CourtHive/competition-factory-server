@@ -40,6 +40,7 @@ function makeCtx(overrides: Partial<UserContext> = {}): UserContext {
     globalRoles: ['client'],
     providerRoles: { 'prov-a': PROVIDER_ADMIN },
     providerIds: ['prov-a'],
+    provisionerProviderIds: [],
     ...overrides,
   };
 }

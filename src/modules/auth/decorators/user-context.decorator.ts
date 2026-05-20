@@ -21,6 +21,23 @@ export interface UserContext {
   providerRoles: Record<string, string>;
   /** Convenience: Object.keys(providerRoles). */
   providerIds: string[];
+  /**
+   * Flattened set of providerIds whose owner / subsidiary relationship
+   * is held by ANY provisioner the caller administers. Empty for users
+   * without the PROVISIONER role; populated by buildUserContext for
+   * users with provisioner_id rows in `user_provisioners`.
+   *
+   * Authorization checks that previously required `providerIds.includes`
+   * should also accept hits in `provisionerProviderIds` — the impersonation
+   * handoff from /admin lets a provisioner act on providers they manage
+   * via the provisioner relationship rather than a direct user_providers
+   * row.
+   *
+   * Optional so existing UserContext fixtures (tests, the provisioner
+   * middleware's API-key path) don't have to spell out an empty array
+   * — all consumers treat absent-or-empty as "no provisioner access".
+   */
+  provisionerProviderIds?: string[];
 }
 
 /**

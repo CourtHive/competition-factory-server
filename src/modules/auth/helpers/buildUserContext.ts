@@ -4,14 +4,40 @@
  * Shared by the HTTP AuthMiddleware and the WebSocket TmxGateway so
  * the multi-provider identity hydration is consistent across transports.
  */
-import { SUPER_ADMIN, ADMIN, PROVIDER_ADMIN } from 'src/common/constants/roles';
-import type { IUserProviderStorage } from 'src/storage/interfaces';
+import { SUPER_ADMIN, ADMIN, PROVIDER_ADMIN, PROVISIONER } from 'src/common/constants/roles';
+import type {
+  IUserProviderStorage,
+  IUserProvisionerStorage,
+  IProvisionerProviderStorage,
+} from 'src/storage/interfaces';
 import type { UserContext } from '../decorators/user-context.decorator';
 
+export interface BuildUserContextDeps {
+  userProviderStorage: IUserProviderStorage;
+  userProvisionerStorage?: IUserProvisionerStorage;
+  provisionerProviderStorage?: IProvisionerProviderStorage;
+}
+
+/**
+ * Overload kept for back-compat: pre-provisioner callers passed just the
+ * user_providers storage. New callers should pass the full deps bag so the
+ * resulting context carries `provisionerProviderIds` — without it,
+ * provisioner-admin requests are denied at endpoints that gate on
+ * `providerIds.includes(...)`.
+ */
 export async function buildUserContext(
   user: any,
-  userProviderStorage: IUserProviderStorage,
+  deps: IUserProviderStorage | BuildUserContextDeps,
 ): Promise<UserContext> {
+  const {
+    userProviderStorage,
+    userProvisionerStorage,
+    provisionerProviderStorage,
+  }: BuildUserContextDeps =
+    'findByUserId' in (deps as any)
+      ? { userProviderStorage: deps as IUserProviderStorage }
+      : (deps as BuildUserContextDeps);
+
   const globalRoles: string[] = user.roles ?? [];
   const isSuperAdmin = globalRoles.includes(SUPER_ADMIN);
 
@@ -40,6 +66,34 @@ export async function buildUserContext(
     providerRoles[user.providerId] = 'DIRECTOR';
   }
 
+  // Provisioner-inherited provider visibility. Only fired when the user
+  // carries the PROVISIONER global role AND the caller passed both
+  // storages — without that, fall back to an empty set so existing code
+  // paths that haven't migrated are no worse than before.
+  let provisionerProviderIds: string[] = [];
+  if (
+    !isSuperAdmin &&
+    globalRoles.includes(PROVISIONER) &&
+    userProvisionerStorage &&
+    provisionerProviderStorage
+  ) {
+    try {
+      const provisionerIds = await userProvisionerStorage.findProvisionerIdsByUser(
+        user.userId ?? user.user_id,
+      );
+      const seen = new Set<string>();
+      for (const provisionerId of provisionerIds) {
+        const rows = await provisionerProviderStorage.findByProvisioner(provisionerId);
+        for (const row of rows) seen.add(row.providerId);
+      }
+      provisionerProviderIds = Array.from(seen);
+    } catch {
+      // Either table may be absent on a legacy storage backend — fall
+      // back to an empty set; existing direct-association checks still
+      // apply, so we degrade rather than crash.
+    }
+  }
+
   return {
     userId: user.userId ?? user.user_id ?? '',
     email: user.email,
@@ -47,5 +101,6 @@ export async function buildUserContext(
     globalRoles,
     providerRoles,
     providerIds: Object.keys(providerRoles),
+    provisionerProviderIds,
   };
 }

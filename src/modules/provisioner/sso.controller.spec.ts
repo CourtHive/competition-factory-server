@@ -65,12 +65,17 @@ describe('SsoController', () => {
     userProviderStorage = makeMockUserProviderStorage();
     providerStorage = makeMockProviderStorage();
 
+    const userProvisionerStorage: any = { findProvisionerIdsByUser: jest.fn().mockResolvedValue([]) };
+    const provisionerProviderStorage: any = { findByProvisioner: jest.fn().mockResolvedValue([]) };
+
     controller = new SsoController(
       ssoTokenService as any,
       jwtService as any,
       ssoIdentityStorage as any,
       userStorage as any,
       userProviderStorage as any,
+      userProvisionerStorage,
+      provisionerProviderStorage,
       providerStorage as any,
     );
   });

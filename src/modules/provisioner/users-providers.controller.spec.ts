@@ -19,6 +19,7 @@ function ctx(overrides: Partial<UserContext> = {}): UserContext {
     globalRoles: ['client'],
     providerRoles: {},
     providerIds: [],
+    provisionerProviderIds: [],
     ...overrides,
   };
 }

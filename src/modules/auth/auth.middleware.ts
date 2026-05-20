@@ -1,6 +1,13 @@
 import { Inject, Injectable, NestMiddleware } from '@nestjs/common';
 
-import { USER_PROVIDER_STORAGE, type IUserProviderStorage } from 'src/storage/interfaces';
+import {
+  USER_PROVIDER_STORAGE,
+  USER_PROVISIONER_STORAGE,
+  PROVISIONER_PROVIDER_STORAGE,
+  type IUserProviderStorage,
+  type IUserProvisionerStorage,
+  type IProvisionerProviderStorage,
+} from 'src/storage/interfaces';
 import { buildUserContext } from './helpers/buildUserContext';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
@@ -11,6 +18,9 @@ export class AuthMiddleware implements NestMiddleware {
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
+    @Inject(USER_PROVISIONER_STORAGE) private readonly userProvisionerStorage: IUserProvisionerStorage,
+    @Inject(PROVISIONER_PROVIDER_STORAGE)
+    private readonly provisionerProviderStorage: IProvisionerProviderStorage,
   ) {}
 
   async use(req, _res, next: () => void): Promise<void> {
@@ -40,7 +50,11 @@ export class AuthMiddleware implements NestMiddleware {
       // This runs on every authenticated request so role changes take
       // effect immediately without forced re-login.
       if (user) {
-        req.userContext = await buildUserContext(user, this.userProviderStorage);
+        req.userContext = await buildUserContext(user, {
+          userProviderStorage: this.userProviderStorage,
+          userProvisionerStorage: this.userProvisionerStorage,
+          provisionerProviderStorage: this.provisionerProviderStorage,
+        });
       }
     }
 

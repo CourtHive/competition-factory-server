@@ -11,6 +11,11 @@ import type { UserContext } from 'src/modules/auth/decorators/user-context.decor
  *
  * When `userContext` is available it takes precedence — its providerIds
  * come from the `user_providers` table and are always current.
+ *
+ * Also honors `userContext.provisionerProviderIds` — the impersonation
+ * handoff from /admin lets a provisioner admin act on tournaments owned
+ * by providers their provisioner manages, even without a direct
+ * user_providers row.
  */
 export function checkProvider({ tournamentRecords, user, userContext }: {
   tournamentRecords: any;
@@ -21,14 +26,18 @@ export function checkProvider({ tournamentRecords, user, userContext }: {
   if (userContext?.isSuperAdmin) return true;
   if (user?.roles?.includes(SUPER_ADMIN)) return true;
 
-  // Resolve the user's provider ID list from the best available source
-  const providerIds = userContext?.providerIds?.length
+  // Resolve the user's provider ID list from the best available source.
+  // Concatenate provisioner-inherited provider IDs so impersonation can
+  // pass the gate (empty set for non-provisioner users).
+  const directIds = userContext?.providerIds?.length
     ? userContext.providerIds
     : user?.providerIds?.length
       ? user.providerIds
       : user?.providerId
         ? [user.providerId]
         : [];
+  const provisionerIds = userContext?.provisionerProviderIds ?? [];
+  const providerIds = [...directIds, ...provisionerIds];
 
   for (const tournamentId in tournamentRecords ?? {}) {
     const providerId = tournamentRecords[tournamentId]?.parentOrganisation?.organisationId;

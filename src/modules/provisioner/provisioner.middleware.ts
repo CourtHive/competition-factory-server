@@ -136,6 +136,7 @@ export class ProvisionerMiddleware implements NestMiddleware {
           globalRoles: [CLIENT, GENERATE, SCORE],
           providerRoles: { [providerId]: 'PROVIDER_ADMIN' },
           providerIds: [providerId],
+          provisionerProviderIds: [],
         } satisfies UserContext;
       }
     }

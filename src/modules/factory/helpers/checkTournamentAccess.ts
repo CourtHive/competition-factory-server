@@ -60,6 +60,11 @@ export function canViewTournament(
   const providerId = getTournamentProviderId(tournament);
   if (!providerId) return true; // No provider → unscoped tournament (demo/sandbox), always visible.
 
+  // Provisioner-inherited access — a user administering a provisioner that
+  // owns/subsidiaries this provider gets PROVIDER_ADMIN-equivalent visibility
+  // even without a direct user_providers row.
+  if (userContext.provisionerProviderIds?.includes(providerId)) return true;
+
   const roleAtProvider = userContext.providerRoles[providerId];
   if (!roleAtProvider) return false; // User has no association with this provider.
 
@@ -108,6 +113,8 @@ export function scopeCalendarForUser(
   return tournaments.filter((entry) => {
     const providerId = entry?.providerId;
     if (!providerId) return true; // Unscoped entry.
+
+    if (userContext.provisionerProviderIds?.includes(providerId)) return true;
 
     const roleAtProvider = userContext.providerRoles[providerId];
     if (!roleAtProvider) return false;

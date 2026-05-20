@@ -65,10 +65,14 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
   const usersService: any = { findOne: jest.fn().mockResolvedValue(null) };
   const cacheManager: any = { get: jest.fn(), set: jest.fn(), del: jest.fn() };
   const userProviderStorage: any = { findByEmail: jest.fn().mockResolvedValue([]) };
+  const userProvisionerStorage: any = { findProvisionerIdsByUser: jest.fn().mockResolvedValue([]) };
+  const provisionerProviderStorage: any = { findByProvisioner: jest.fn().mockResolvedValue([]) };
 
   const gateway = new TmxGateway(
     cacheManager,
     userProviderStorage,
+    userProvisionerStorage,
+    provisionerProviderStorage,
     userStorage,
     providerStorage,
     tournamentStorageService,

@@ -11,6 +11,10 @@ import {
   type IUserStorage,
   USER_PROVIDER_STORAGE,
   type IUserProviderStorage,
+  USER_PROVISIONER_STORAGE,
+  type IUserProvisionerStorage,
+  PROVISIONER_PROVIDER_STORAGE,
+  type IProvisionerProviderStorage,
   PROVIDER_STORAGE,
   type IProviderStorage,
 } from 'src/storage/interfaces';
@@ -24,6 +28,9 @@ export class SsoController {
     @Inject(SSO_IDENTITY_STORAGE) private readonly ssoIdentityStorage: ISsoIdentityStorage,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
+    @Inject(USER_PROVISIONER_STORAGE) private readonly userProvisionerStorage: IUserProvisionerStorage,
+    @Inject(PROVISIONER_PROVIDER_STORAGE)
+    private readonly provisionerProviderStorage: IProvisionerProviderStorage,
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
   ) {}
 
@@ -89,7 +96,11 @@ export class SsoController {
     }
 
     // Build user context for the JWT
-    const userContext = await buildUserContext(user, this.userProviderStorage);
+    const userContext = await buildUserContext(user, {
+      userProviderStorage: this.userProviderStorage,
+      userProvisionerStorage: this.userProvisionerStorage,
+      provisionerProviderStorage: this.provisionerProviderStorage,
+    });
 
     // Issue JWT — strip password from payload
     const userDetails = { ...user };
