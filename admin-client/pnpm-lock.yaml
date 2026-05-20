@@ -21,8 +21,8 @@ importers:
         specifier: ^1.13.0
         version: 1.16.1
       courthive-components:
-        specifier: 1.7.0
-        version: 1.7.0
+        specifier: 1.7.1
+        version: 1.7.1
       i18next:
         specifier: ^26.0.0
         version: 26.2.0(typescript@6.0.3)
@@ -1039,8 +1039,8 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  courthive-components@1.7.0:
-    resolution: {integrity: sha512-vJCn+8CYdu2FezG5nzyjxx8jS6XXq3iULMHuAxUnBotbexiwZpkff43iYUomdB4/2dST4iHsnthIZNMscvTArw==}
+  courthive-components@1.7.1:
+    resolution: {integrity: sha512-fl+c189YMgsL0UfR0GN7161lZ7wHUzvgY/kmFwDvZnwhv5iGgXILiU0Z8c1P1IYaKFwSbYyYzNQl5DNYycSoJw==}
     engines: {node: '>=22'}
 
   cross-spawn@7.0.6:
@@ -1858,10 +1858,6 @@ packages:
 
   tippy.js@6.3.7:
     resolution: {integrity: sha512-E1d3oP2emgJ9dRQZdf3Kkn0qJgI6ZLpyS5z6ZkY1DF3kaQaBsGZsndEpHwx+eC+tYM41HaSNvNtLx8tU57FzTQ==}
-
-  tods-competition-factory@3.9.0:
-    resolution: {integrity: sha512-g8IBFwP9nBuUc9kI3qklmDOCzW/nX3Vyyk25KhvBHB2FpicDwkGWFZYkdFiTGr6WO0jV817KG57cF5IpCZ0H2A==}
-    engines: {node: '>=22'}
 
   tods-competition-factory@4.0.0:
     resolution: {integrity: sha512-ZpSVmepDJz7enn4lsXDoHcue1T9QhDh6/PJcsY7Aamd8g9nnarncAi5catsJnSVAlToQfUwyR+E99B6InywBbw==}
@@ -2816,7 +2812,7 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  courthive-components@1.7.0:
+  courthive-components@1.7.1:
     dependencies:
       awesomplete: 1.1.7
       class-variance-authority: 0.7.1
@@ -2826,7 +2822,7 @@ snapshots:
       focus-trap: 8.0.1
       timepicker-ui: 4.2.2
       tippy.js: 6.3.7
-      tods-competition-factory: 3.9.0
+      tods-competition-factory: 4.0.0
       vanillajs-datepicker: 1.3.4
 
   cross-spawn@7.0.6:
@@ -3674,8 +3670,6 @@ snapshots:
   tippy.js@6.3.7:
     dependencies:
       '@popperjs/core': 2.11.8
-
-  tods-competition-factory@3.9.0: {}
 
   tods-competition-factory@4.0.0: {}
 
