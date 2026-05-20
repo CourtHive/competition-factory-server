@@ -1,0 +1,259 @@
+{
+  "providerId": null,
+  "policyType": "rankingPoints",
+  "name": "TENNIS_AUSTRALIA",
+  "version": "2025.01",
+  "visibility": "TEMPLATE_REF",
+  "definition": {
+    "policyName": "Tennis Australia Junior Tour",
+    "policyVersion": "2025.01",
+    "validDateRange": {
+      "startDate": "2025-10-01"
+    },
+    "pointPoolModel": "per-category",
+    "awardProfiles": [
+      {
+        "profileName": "Standard Singles",
+        "levels": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 1000,
+              "2": 500,
+              "3": 250,
+              "4": 125
+            }
+          },
+          "2": {
+            "level": {
+              "1": 600,
+              "2": 300,
+              "3": 150,
+              "4": 75
+            }
+          },
+          "4": {
+            "level": {
+              "1": 360,
+              "2": 180,
+              "3": 90,
+              "4": 45
+            }
+          },
+          "8": {
+            "level": {
+              "1": 216,
+              "2": 108,
+              "3": 54,
+              "4": 27
+            }
+          },
+          "16": {
+            "level": {
+              "1": 130,
+              "2": 65,
+              "3": 32,
+              "4": 16
+            }
+          },
+          "32": {
+            "level": {
+              "1": 78,
+              "2": 39,
+              "3": 19,
+              "4": 10
+            }
+          }
+        }
+      },
+      {
+        "profileName": "Standard Doubles",
+        "levels": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 1000,
+              "2": 500,
+              "3": 250,
+              "4": 125
+            }
+          },
+          "2": {
+            "level": {
+              "1": 600,
+              "2": 300,
+              "3": 150,
+              "4": 75
+            }
+          },
+          "4": {
+            "level": {
+              "1": 360,
+              "2": 180,
+              "3": 90,
+              "4": 45
+            }
+          },
+          "8": {
+            "level": {
+              "1": 216,
+              "2": 108,
+              "3": 54,
+              "4": 27
+            }
+          },
+          "16": {
+            "level": {
+              "1": 130,
+              "2": 65,
+              "3": 32,
+              "4": 16
+            }
+          }
+        }
+      }
+    ],
+    "aggregationRules": {
+      "rollingPeriodDays": 365,
+      "separateByGender": true,
+      "perCategory": true,
+      "countingBuckets": [
+        {
+          "bucketName": "singles",
+          "eventTypes": [
+            "SINGLES"
+          ],
+          "bestOfCount": 8,
+          "pointComponents": [
+            "positionPoints"
+          ]
+        },
+        {
+          "bucketName": "doubles",
+          "eventTypes": [
+            "DOUBLES"
+          ],
+          "bestOfCount": 8,
+          "pointComponents": [
+            "positionPoints"
+          ]
+        }
+      ],
+      "categoryAggregation": [
+        {
+          "ruleName": "Non-12u → 12u (cap 3 each event type)",
+          "source": {
+            "ageCategoryCodes": [
+              "14U",
+              "16U"
+            ]
+          },
+          "target": {
+            "ageCategoryCodes": [
+              "12U"
+            ]
+          },
+          "multiplier": 1,
+          "maxCarriedResults": 3,
+          "subjectToBucketLimits": true,
+          "excludedSourceFilters": [
+            {
+              "levels": [
+                1
+              ],
+              "ageEligibility": "agingUpToTarget"
+            }
+          ]
+        },
+        {
+          "ruleName": "Non-14u → 14u (cap 3 each event type)",
+          "source": {
+            "ageCategoryCodes": [
+              "12U",
+              "16U"
+            ]
+          },
+          "target": {
+            "ageCategoryCodes": [
+              "14U"
+            ]
+          },
+          "multiplier": 1,
+          "maxCarriedResults": 3,
+          "subjectToBucketLimits": true,
+          "excludedSourceFilters": [
+            {
+              "levels": [
+                1
+              ],
+              "ageEligibility": "agingUpToTarget"
+            }
+          ]
+        },
+        {
+          "ruleName": "J125 18u-rating → 12u",
+          "source": {
+            "ageCategoryCodes": [
+              "18U"
+            ],
+            "ratingTypes": [
+              "J125-RATED"
+            ]
+          },
+          "target": {
+            "ageCategoryCodes": [
+              "12U"
+            ]
+          },
+          "multiplier": 1
+        },
+        {
+          "ruleName": "J125 18u-rating → 14u",
+          "source": {
+            "ageCategoryCodes": [
+              "18U"
+            ],
+            "ratingTypes": [
+              "J125-RATED"
+            ]
+          },
+          "target": {
+            "ageCategoryCodes": [
+              "14U"
+            ]
+          },
+          "multiplier": 1
+        }
+      ]
+    },
+    "doublesAttribution": "fullToEach",
+    "categoryResolution": "eventCategory"
+  },
+  "metadata": {
+    "source": "tods-competition-factory@3.x fixtures",
+    "fixtureKey": "POLICY_RANKING_POINTS_TENNIS_AUSTRALIA",
+    "generatedAt": "2026-05-20T09:50:42.511Z"
+  }
+}

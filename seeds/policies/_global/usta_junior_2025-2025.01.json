@@ -1,0 +1,1372 @@
+{
+  "providerId": null,
+  "policyType": "rankingPoints",
+  "name": "USTA_JUNIOR_2025",
+  "version": "2025.01",
+  "visibility": "SHARED_DEMO",
+  "definition": {
+    "policyName": "USTA Junior 2025",
+    "policyVersion": "2025.01",
+    "validDateRange": {
+      "startDate": "2025-01-01",
+      "endDate": "2025-12-31"
+    },
+    "pointPoolModel": "per-category",
+    "awardProfiles": [
+      {
+        "profileName": "RR Playoff L3-5: Champion Bracket Main Draw",
+        "drawTypes": [
+          "ROUND_ROBIN_WITH_PLAYOFF"
+        ],
+        "levels": [
+          3,
+          4,
+          5
+        ],
+        "participationOrder": 2,
+        "stages": [
+          "MAIN"
+        ],
+        "perWinPoints": {
+          "level": {
+            "3": 229,
+            "4": 137,
+            "5": 76
+          }
+        }
+      },
+      {
+        "profileName": "RR Playoff L3-5: Champion Bracket Consolation",
+        "drawTypes": [
+          "ROUND_ROBIN_WITH_PLAYOFF"
+        ],
+        "levels": [
+          3,
+          4,
+          5
+        ],
+        "participationOrder": 3,
+        "stages": [
+          "CONSOLATION"
+        ],
+        "perWinPoints": {
+          "level": {
+            "3": 71,
+            "4": 43,
+            "5": 24
+          }
+        }
+      },
+      {
+        "profileName": "RR Playoff L3-5: Placement Brackets (2nd/3rd/4th)",
+        "drawTypes": [
+          "ROUND_ROBIN_WITH_PLAYOFF"
+        ],
+        "levels": [
+          3,
+          4,
+          5
+        ],
+        "stages": [
+          "PLAY_OFF"
+        ],
+        "perWinPoints": {
+          "level": {
+            "3": 41,
+            "4": 25,
+            "5": 14
+          }
+        }
+      },
+      {
+        "profileName": "RR Playoff L3-5: Preliminary RR",
+        "drawTypes": [
+          "ROUND_ROBIN_WITH_PLAYOFF"
+        ],
+        "levels": [
+          3,
+          4,
+          5
+        ],
+        "participationOrder": 1,
+        "perWinPoints": {
+          "level": {
+            "3": 71,
+            "4": 43,
+            "5": 24
+          }
+        }
+      },
+      {
+        "profileName": "RR Playoff L6-7",
+        "drawTypes": [
+          "ROUND_ROBIN_WITH_PLAYOFF"
+        ],
+        "levels": [
+          6,
+          7
+        ],
+        "perWinPoints": [
+          {
+            "participationOrders": [
+              1
+            ],
+            "level": {
+              "6": 20,
+              "7": 12
+            }
+          },
+          {
+            "participationOrders": [
+              2
+            ],
+            "level": {
+              "6": 20,
+              "7": 12
+            }
+          },
+          {
+            "participationOrders": [
+              3,
+              4,
+              5,
+              6
+            ],
+            "level": {
+              "6": 10,
+              "7": 6
+            }
+          }
+        ],
+        "maxCountableMatches": 4,
+        "bonusPoints": [
+          {
+            "finishingPositions": [
+              1
+            ],
+            "value": {
+              "level": {
+                "6": 15,
+                "7": 8
+              }
+            }
+          },
+          {
+            "finishingPositions": [
+              2
+            ],
+            "value": {
+              "level": {
+                "6": 10,
+                "7": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "profileName": "Round Robin L3-5",
+        "drawTypes": [
+          "ROUND_ROBIN"
+        ],
+        "levels": [
+          3,
+          4,
+          5
+        ],
+        "perWinPoints": {
+          "level": {
+            "3": 225,
+            "4": 135,
+            "5": 75
+          }
+        },
+        "maxCountableMatches": 5
+      },
+      {
+        "profileName": "Round Robin L6-7",
+        "drawTypes": [
+          "ROUND_ROBIN"
+        ],
+        "levels": [
+          6,
+          7
+        ],
+        "perWinPoints": {
+          "level": {
+            "6": 20,
+            "7": 12
+          }
+        },
+        "maxCountableMatches": 4,
+        "bonusPoints": [
+          {
+            "finishingPositions": [
+              1
+            ],
+            "value": {
+              "level": {
+                "6": 15,
+                "7": 8
+              }
+            }
+          },
+          {
+            "finishingPositions": [
+              2
+            ],
+            "value": {
+              "level": {
+                "6": 10,
+                "7": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "profileName": "Team Tournaments",
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "eventTypes": [
+          "TEAM"
+        ],
+        "perWinPoints": {
+          "level": {
+            "1": {
+              "line": [
+                300,
+                275,
+                250,
+                225,
+                200,
+                175
+              ]
+            },
+            "2": {
+              "line": [
+                180,
+                156,
+                131,
+                108,
+                84,
+                59
+              ]
+            },
+            "3": {
+              "line": [
+                156,
+                133,
+                109,
+                86,
+                62,
+                51
+              ],
+              "limit": 5
+            },
+            "4": {
+              "line": [
+                105,
+                91,
+                78,
+                65,
+                53,
+                39
+              ],
+              "limit": 5
+            },
+            "5": {
+              "line": [
+                57,
+                49,
+                42,
+                35,
+                29,
+                21
+              ],
+              "limit": 4
+            },
+            "6": {
+              "line": [
+                24,
+                21,
+                18,
+                15,
+                12,
+                10
+              ],
+              "limit": 4
+            },
+            "7": {
+              "line": [
+                14,
+                12,
+                10,
+                9,
+                7,
+                6
+              ],
+              "limit": 4
+            }
+          }
+        },
+        "maxCountableMatches": {
+          "level": {
+            "3": 5,
+            "4": 5,
+            "5": 5,
+            "6": 4,
+            "7": 4
+          }
+        }
+      },
+      {
+        "profileName": "Flighted L4",
+        "drawTypes": [
+          "MODIFIED_FEED_IN_CHAMPIONSHIP",
+          "COMPASS",
+          "FIRST_MATCH_LOSER_CONSOLATION",
+          "SINGLE_ELIMINATION",
+          "FEED_IN_CHAMPIONSHIP",
+          "FEED_IN_CHAMPIONSHIP_TO_SF"
+        ],
+        "levels": [
+          4
+        ],
+        "maxFlightNumber": 4,
+        "maxDrawSize": 16,
+        "finishingPositionPoints": {
+          "participationOrders": [
+            1
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": {
+            "flights": [
+              540,
+              351,
+              270,
+              189
+            ]
+          },
+          "2": {
+            "flights": [
+              405,
+              263,
+              203,
+              142
+            ]
+          },
+          "3": {
+            "flights": [
+              324,
+              211,
+              162,
+              113
+            ]
+          },
+          "4": {
+            "flights": [
+              270,
+              176,
+              135,
+              95
+            ]
+          },
+          "8": {
+            "flights": [
+              76,
+              49,
+              38,
+              26
+            ]
+          }
+        },
+        "perWinPoints": {
+          "participationOrders": [
+            2,
+            3,
+            4,
+            5
+          ],
+          "level": {
+            "4": {
+              "f": [
+                57,
+                37,
+                28,
+                20
+              ]
+            }
+          }
+        }
+      },
+      {
+        "profileName": "Flighted L5",
+        "drawTypes": [
+          "MODIFIED_FEED_IN_CHAMPIONSHIP",
+          "COMPASS",
+          "FIRST_MATCH_LOSER_CONSOLATION",
+          "SINGLE_ELIMINATION",
+          "FEED_IN_CHAMPIONSHIP",
+          "FEED_IN_CHAMPIONSHIP_TO_SF"
+        ],
+        "levels": [
+          5
+        ],
+        "maxFlightNumber": 4,
+        "maxDrawSize": 16,
+        "finishingPositionPoints": {
+          "participationOrders": [
+            1
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": {
+            "flights": [
+              300,
+              195,
+              150,
+              105
+            ]
+          },
+          "2": {
+            "flights": [
+              225,
+              146,
+              113,
+              79
+            ]
+          },
+          "3": {
+            "flights": [
+              180,
+              117,
+              90,
+              63
+            ]
+          },
+          "4": {
+            "flights": [
+              150,
+              98,
+              75,
+              53
+            ]
+          },
+          "8": {
+            "flights": [
+              42,
+              27,
+              21,
+              15
+            ]
+          }
+        },
+        "perWinPoints": {
+          "participationOrders": [
+            2,
+            3,
+            4,
+            5
+          ],
+          "level": {
+            "5": {
+              "f": [
+                32,
+                20,
+                16,
+                11
+              ]
+            }
+          }
+        }
+      },
+      {
+        "profileName": "Curtis Consolation L1-5",
+        "drawTypes": [
+          "CURTIS_CONSOLATION"
+        ],
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 3000,
+              "2": 1650,
+              "3": 900,
+              "4": 540,
+              "5": 300
+            }
+          },
+          "2": {
+            "level": {
+              "1": 2400,
+              "2": 1238,
+              "3": 675,
+              "4": 405,
+              "5": 225
+            }
+          },
+          "3": {
+            "level": {
+              "1": 1950,
+              "2": 990,
+              "3": 540,
+              "4": 324,
+              "5": 180
+            }
+          },
+          "4": {
+            "level": {
+              "1": 1800,
+              "2": 825,
+              "3": 450,
+              "4": 270,
+              "5": 150
+            }
+          },
+          "5": {
+            "level": {
+              "1": 1350,
+              "2": 578,
+              "3": 315,
+              "4": 189,
+              "5": 105
+            }
+          },
+          "6": {
+            "level": {
+              "1": 1050,
+              "2": 528,
+              "3": 288,
+              "4": 173,
+              "5": 96
+            }
+          },
+          "8": {
+            "level": {
+              "1": 930,
+              "2": 479,
+              "3": 261,
+              "4": 157,
+              "5": 87
+            }
+          },
+          "12": {
+            "level": {
+              "1": 840,
+              "2": 429,
+              "3": 234,
+              "4": 140,
+              "5": 78
+            }
+          },
+          "16": {
+            "level": {
+              "1": 750,
+              "2": 396,
+              "3": 216,
+              "4": 130,
+              "5": 72
+            }
+          },
+          "32": {
+            "level": {
+              "1": 390,
+              "2": 87,
+              "3": 47,
+              "4": 28,
+              "5": 16
+            }
+          }
+        },
+        "pointsPerWin": {
+          "level": {
+            "1": 60,
+            "2": 54,
+            "3": 29,
+            "4": 18,
+            "5": 10
+          }
+        }
+      },
+      {
+        "profileName": "FIC through QF L1-5",
+        "drawTypes": [
+          "FEED_IN_CHAMPIONSHIP_TO_QF"
+        ],
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 3000,
+              "2": 1650,
+              "3": 900,
+              "4": 540,
+              "5": 300
+            }
+          },
+          "2": {
+            "level": {
+              "1": 2400,
+              "2": 1238,
+              "3": 675,
+              "4": 405,
+              "5": 225
+            }
+          },
+          "3": {
+            "level": {
+              "1": 1950,
+              "2": 990,
+              "3": 540,
+              "4": 324,
+              "5": 180
+            }
+          },
+          "4": {
+            "level": {
+              "1": 1800,
+              "2": 825,
+              "3": 450,
+              "4": 270,
+              "5": 150
+            }
+          },
+          "5": {
+            "level": {
+              "1": 1350,
+              "2": 578,
+              "3": 315,
+              "4": 189,
+              "5": 105
+            }
+          },
+          "6": {
+            "level": {
+              "1": 1050,
+              "2": 495,
+              "3": 270,
+              "4": 162,
+              "5": 90
+            }
+          },
+          "8": {
+            "level": {
+              "1": 900,
+              "2": 396,
+              "3": 216,
+              "4": 130,
+              "5": 72
+            }
+          },
+          "12": {
+            "level": {
+              "1": 750,
+              "2": 347,
+              "3": 189,
+              "4": 113,
+              "5": 63
+            }
+          },
+          "16": {
+            "level": {
+              "1": 600,
+              "2": 297,
+              "3": 162,
+              "4": 97,
+              "5": 54
+            }
+          },
+          "24": {
+            "level": {
+              "1": 450,
+              "2": 231,
+              "3": 126,
+              "4": 76,
+              "5": 42
+            }
+          },
+          "32": {
+            "level": {
+              "1": 360,
+              "2": 198,
+              "3": 108,
+              "4": 65,
+              "5": 36
+            }
+          },
+          "48": {
+            "level": {
+              "1": 300,
+              "2": 149,
+              "3": 81,
+              "4": 49,
+              "5": 27
+            }
+          },
+          "64": {
+            "level": {
+              "1": 210,
+              "2": 116,
+              "3": 63,
+              "4": 38,
+              "5": 21
+            }
+          },
+          "96": {
+            "level": {
+              "1": 150,
+              "2": 83,
+              "3": 45,
+              "4": 27,
+              "5": 15
+            }
+          },
+          "128": {
+            "level": {
+              "1": 90,
+              "2": 50,
+              "3": 27,
+              "4": 16,
+              "5": 9
+            }
+          },
+          "192": {
+            "level": {
+              "1": 60,
+              "2": 33,
+              "3": 18,
+              "4": 11,
+              "5": 6
+            }
+          },
+          "256": {
+            "level": {
+              "1": 30,
+              "2": 17,
+              "3": 9,
+              "4": 5,
+              "5": 3
+            }
+          }
+        }
+      },
+      {
+        "profileName": "FIC through R16 + QF Playoffs L1-5",
+        "drawTypes": [
+          "FEED_IN_CHAMPIONSHIP_TO_R16"
+        ],
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 3000,
+              "2": 1650,
+              "3": 900,
+              "4": 540,
+              "5": 300
+            }
+          },
+          "2": {
+            "level": {
+              "1": 2400,
+              "2": 1238,
+              "3": 675,
+              "4": 405,
+              "5": 225
+            }
+          },
+          "3": {
+            "level": {
+              "1": 1950,
+              "2": 990,
+              "3": 540,
+              "4": 324,
+              "5": 180
+            }
+          },
+          "4": {
+            "level": {
+              "1": 1800,
+              "2": 825,
+              "3": 450,
+              "4": 270,
+              "5": 150
+            }
+          },
+          "5": {
+            "level": {
+              "1": 1350,
+              "2": 578,
+              "3": 315,
+              "4": 189,
+              "5": 105
+            }
+          },
+          "6": {
+            "level": {
+              "1": 1080,
+              "2": 528,
+              "3": 288,
+              "4": 173,
+              "5": 96
+            }
+          },
+          "8": {
+            "level": {
+              "1": 960,
+              "2": 462,
+              "3": 252,
+              "4": 151,
+              "5": 84
+            }
+          },
+          "9": {
+            "level": {
+              "1": 840,
+              "2": 429,
+              "3": 234,
+              "4": 140,
+              "5": 78
+            }
+          },
+          "10": {
+            "level": {
+              "1": 720,
+              "2": 363,
+              "3": 198,
+              "4": 119,
+              "5": 66
+            }
+          },
+          "12": {
+            "level": {
+              "1": 630,
+              "2": 314,
+              "3": 171,
+              "4": 103,
+              "5": 57
+            }
+          },
+          "16": {
+            "level": {
+              "1": 540,
+              "2": 264,
+              "3": 144,
+              "4": 86,
+              "5": 48
+            }
+          },
+          "24": {
+            "level": {
+              "1": 450,
+              "2": 231,
+              "3": 126,
+              "4": 76,
+              "5": 42
+            }
+          },
+          "32": {
+            "level": {
+              "1": 360,
+              "2": 198,
+              "3": 108,
+              "4": 65,
+              "5": 36
+            }
+          },
+          "48": {
+            "level": {
+              "1": 270,
+              "2": 149,
+              "3": 81,
+              "4": 49,
+              "5": 27
+            }
+          },
+          "64": {
+            "level": {
+              "1": 210,
+              "2": 116,
+              "3": 63,
+              "4": 38,
+              "5": 21
+            }
+          },
+          "96": {
+            "level": {
+              "1": 150,
+              "2": 83,
+              "3": 45,
+              "4": 27,
+              "5": 15
+            }
+          },
+          "128": {
+            "level": {
+              "1": 105,
+              "2": 66,
+              "3": 36,
+              "4": 22,
+              "5": 12
+            }
+          },
+          "192": {
+            "level": {
+              "1": 90,
+              "2": 58,
+              "3": 32,
+              "4": 19,
+              "5": 11
+            }
+          },
+          "256": {
+            "level": {
+              "1": 75,
+              "2": 53,
+              "3": 29,
+              "4": 17,
+              "5": 10
+            }
+          }
+        }
+      },
+      {
+        "profileName": "Elimination L1-5",
+        "drawTypes": [
+          "MODIFIED_FEED_IN_CHAMPIONSHIP",
+          "COMPASS",
+          "FIRST_MATCH_LOSER_CONSOLATION",
+          "SINGLE_ELIMINATION",
+          "FEED_IN_CHAMPIONSHIP",
+          "FEED_IN_CHAMPIONSHIP_TO_SF"
+        ],
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "finishingPositionPoints": {
+          "participationOrders": [
+            1
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 3000,
+              "2": 1650,
+              "3": 900,
+              "4": 540,
+              "5": 300
+            }
+          },
+          "2": {
+            "level": {
+              "1": 2400,
+              "2": 1238,
+              "3": 675,
+              "4": 405,
+              "5": 225
+            }
+          },
+          "3": {
+            "level": {
+              "1": 1950,
+              "2": 990,
+              "3": 540,
+              "4": 324,
+              "5": 180
+            }
+          },
+          "4": {
+            "level": {
+              "1": 1800,
+              "2": 825,
+              "3": 450,
+              "4": 270,
+              "5": 150
+            }
+          },
+          "8": {
+            "level": {
+              "1": 1110,
+              "2": 578,
+              "3": 315,
+              "4": 189,
+              "5": 105
+            }
+          },
+          "16": {
+            "level": {
+              "1": 750,
+              "2": 297,
+              "3": 162,
+              "4": 97,
+              "5": 54
+            }
+          },
+          "32": {
+            "level": {
+              "1": 450,
+              "2": 165,
+              "3": 90,
+              "4": 54,
+              "5": 30
+            }
+          },
+          "64": {
+            "level": {
+              "1": 270,
+              "2": 99,
+              "3": 54,
+              "4": 32,
+              "5": 18
+            }
+          },
+          "128": {
+            "level": {
+              "1": 120,
+              "2": 66,
+              "3": 36,
+              "4": 22,
+              "5": 12
+            }
+          },
+          "256": {
+            "level": {
+              "1": 90,
+              "2": 33,
+              "3": 18,
+              "4": 11,
+              "5": 6
+            }
+          }
+        },
+        "perWinPoints": [
+          {
+            "participationOrders": [
+              2,
+              3,
+              4,
+              5
+            ],
+            "level": {
+              "1": 105,
+              "2": 62,
+              "3": 32,
+              "4": 19,
+              "5": 11
+            }
+          }
+        ]
+      },
+      {
+        "profileName": "Elimination L6-7",
+        "drawTypes": [
+          "MODIFIED_FEED_IN_CHAMPIONSHIP",
+          "COMPASS",
+          "FIRST_MATCH_LOSER_CONSOLATION",
+          "SINGLE_ELIMINATION",
+          "FEED_IN_CHAMPIONSHIP",
+          "FEED_IN_CHAMPIONSHIP_TO_SF",
+          "FEED_IN_CHAMPIONSHIP_TO_QF",
+          "FEED_IN_CHAMPIONSHIP_TO_R16",
+          "CURTIS_CONSOLATION",
+          "VOLUNTARY_CONSOLATION"
+        ],
+        "levels": [
+          6,
+          7
+        ],
+        "perWinPoints": [
+          {
+            "participationOrders": [
+              1
+            ],
+            "level": {
+              "6": 20,
+              "7": 12
+            }
+          },
+          {
+            "participationOrders": [
+              2,
+              3,
+              4,
+              5
+            ],
+            "level": {
+              "6": 10,
+              "7": 6
+            }
+          }
+        ],
+        "maxCountableMatches": 4,
+        "bonusPoints": [
+          {
+            "finishingPositions": [
+              1
+            ],
+            "value": {
+              "level": {
+                "6": 15,
+                "7": 8
+              }
+            }
+          },
+          {
+            "finishingPositions": [
+              2
+            ],
+            "value": {
+              "level": {
+                "6": 10,
+                "7": 6
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "qualityWinProfiles": [
+      {
+        "rankingScaleName": "USTA_JUNIOR",
+        "rankingSnapshot": "tournamentStart",
+        "unrankedOpponentBehavior": "noBonus",
+        "includeWalkovers": false,
+        "rankingRanges": [
+          {
+            "rankRange": [
+              1,
+              10
+            ],
+            "value": 225
+          },
+          {
+            "rankRange": [
+              11,
+              25
+            ],
+            "value": 203
+          },
+          {
+            "rankRange": [
+              26,
+              50
+            ],
+            "value": 169
+          },
+          {
+            "rankRange": [
+              51,
+              75
+            ],
+            "value": 135
+          },
+          {
+            "rankRange": [
+              76,
+              100
+            ],
+            "value": 101
+          },
+          {
+            "rankRange": [
+              101,
+              150
+            ],
+            "value": 68
+          },
+          {
+            "rankRange": [
+              151,
+              250
+            ],
+            "value": 45
+          },
+          {
+            "rankRange": [
+              251,
+              350
+            ],
+            "value": 23
+          },
+          {
+            "rankRange": [
+              351,
+              500
+            ],
+            "value": 11
+          }
+        ]
+      }
+    ],
+    "aggregationRules": {
+      "rollingPeriodDays": 365,
+      "separateByGender": true,
+      "perCategory": true,
+      "countingBuckets": [
+        {
+          "bucketName": "Singles",
+          "eventTypes": [
+            "SINGLES"
+          ],
+          "bestOfCount": 6,
+          "pointComponents": [
+            "positionPoints",
+            "perWinPoints",
+            "bonusPoints"
+          ]
+        },
+        {
+          "bucketName": "Doubles",
+          "eventTypes": [
+            "DOUBLES"
+          ],
+          "bestOfCount": 2,
+          "pointComponents": [
+            "positionPoints",
+            "perWinPoints",
+            "bonusPoints"
+          ]
+        },
+        {
+          "bucketName": "Quality Wins",
+          "pointComponents": [
+            "qualityWinPoints"
+          ],
+          "bestOfCount": 0
+        }
+      ],
+      "tiebreakCriteria": [
+        "highestSingleResult",
+        "mostCountingResults"
+      ],
+      "categoryAggregation": [
+        {
+          "ruleName": "12U \u2192 14U (20%)",
+          "source": {
+            "ageCategoryCodes": [
+              "12U"
+            ]
+          },
+          "target": {
+            "ageCategoryCodes": [
+              "14U"
+            ]
+          },
+          "multiplier": 0.2
+        },
+        {
+          "ruleName": "14U \u2192 16U (20%)",
+          "source": {
+            "ageCategoryCodes": [
+              "14U"
+            ]
+          },
+          "target": {
+            "ageCategoryCodes": [
+              "16U"
+            ]
+          },
+          "multiplier": 0.2
+        },
+        {
+          "ruleName": "16U \u2192 18U (20%)",
+          "source": {
+            "ageCategoryCodes": [
+              "16U"
+            ]
+          },
+          "target": {
+            "ageCategoryCodes": [
+              "18U"
+            ]
+          },
+          "multiplier": 0.2
+        },
+        {
+          "ruleName": "14U play-up \u2192 12U",
+          "source": {
+            "ageCategoryCodes": [
+              "14U"
+            ]
+          },
+          "target": {
+            "ageCategoryCodes": [
+              "12U"
+            ]
+          },
+          "multiplier": 1,
+          "requireParticipationInTarget": true
+        },
+        {
+          "ruleName": "16U play-up \u2192 14U",
+          "source": {
+            "ageCategoryCodes": [
+              "16U"
+            ]
+          },
+          "target": {
+            "ageCategoryCodes": [
+              "14U"
+            ]
+          },
+          "multiplier": 1,
+          "requireParticipationInTarget": true
+        },
+        {
+          "ruleName": "18U play-up \u2192 16U",
+          "source": {
+            "ageCategoryCodes": [
+              "18U"
+            ]
+          },
+          "target": {
+            "ageCategoryCodes": [
+              "16U"
+            ]
+          },
+          "multiplier": 1,
+          "requireParticipationInTarget": true
+        }
+      ]
+    },
+    "doublesAttribution": "fullToEach",
+    "categoryResolution": "eventCategory"
+  },
+  "metadata": {
+    "source": "tods-competition-factory@3.x fixtures",
+    "fixtureKey": "POLICY_RANKING_POINTS_USTA_JUNIOR_2025",
+    "generatedAt": "2026-05-20T09:50:42.510Z"
+  }
+}

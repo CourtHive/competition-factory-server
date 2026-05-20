@@ -1,0 +1,33 @@
+{
+  "providerId": null,
+  "policyType": "rankingPoints",
+  "name": "BASIC",
+  "version": "1.0",
+  "visibility": "TEMPLATE_REF",
+  "definition": {
+    "policyName": "Basic Ranking Points",
+    "policyVersion": "1.0",
+    "awardProfiles": [
+      {
+        "profileName": "Basic finishing position points",
+        "finishingPositionRanges": {
+          "1": 100,
+          "2": 70,
+          "4": 50,
+          "8": 30,
+          "16": 15,
+          "32": 8,
+          "64": 4,
+          "128": 1
+        }
+      }
+    ],
+    "requireWinForPoints": true,
+    "doublesAttribution": "fullToEach"
+  },
+  "metadata": {
+    "source": "tods-competition-factory@3.x fixtures",
+    "fixtureKey": "POLICY_RANKING_POINTS_BASIC",
+    "generatedAt": "2026-05-20T09:50:42.504Z"
+  }
+}

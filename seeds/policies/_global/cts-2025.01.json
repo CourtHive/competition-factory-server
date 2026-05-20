@@ -1,0 +1,3035 @@
+{
+  "providerId": null,
+  "policyType": "rankingPoints",
+  "name": "CTS",
+  "version": "2025.01",
+  "visibility": "TEMPLATE_REF",
+  "definition": {
+    "policyName": "ČTS Klasifikační řád 2025",
+    "policyVersion": "2025.01",
+    "validDateRange": {
+      "startDate": "2025-01-01"
+    },
+    "pointPoolModel": "per-category",
+    "awardProfiles": [
+      {
+        "profileName": "CTS SINGLES Cat 1",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          1
+        ],
+        "finishingPositionRanges": {
+          "1": 10,
+          "2": 7,
+          "4": 5,
+          "8": 4,
+          "16": 3,
+          "32": 2,
+          "64": 1,
+          "128": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 2",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          2
+        ],
+        "finishingPositionRanges": {
+          "1": 15,
+          "2": 11,
+          "4": 7,
+          "8": 5,
+          "16": 4,
+          "32": 3,
+          "64": 2,
+          "128": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 3",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          3
+        ],
+        "finishingPositionRanges": {
+          "1": 20,
+          "2": 14,
+          "4": 10,
+          "8": 7,
+          "16": 5,
+          "32": 4,
+          "64": 3,
+          "128": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 4",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          4
+        ],
+        "finishingPositionRanges": {
+          "1": 30,
+          "2": 20,
+          "4": 14,
+          "8": 10,
+          "16": 7,
+          "32": 5,
+          "64": 4,
+          "128": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 5",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          5
+        ],
+        "finishingPositionRanges": {
+          "1": 40,
+          "2": 27,
+          "4": 19,
+          "8": 13,
+          "16": 9,
+          "32": 6,
+          "64": 4,
+          "128": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 6",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          6
+        ],
+        "finishingPositionRanges": {
+          "1": 50,
+          "2": 34,
+          "4": 23,
+          "8": 16,
+          "16": 11,
+          "32": 8,
+          "64": 5,
+          "128": 3
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 7",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          7
+        ],
+        "finishingPositionRanges": {
+          "1": 60,
+          "2": 41,
+          "4": 28,
+          "8": 19,
+          "16": 13,
+          "32": 9,
+          "64": 6,
+          "128": 4
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          8
+        ],
+        "finishingPositionRanges": {
+          "1": 80,
+          "2": 55,
+          "4": 38,
+          "8": 25,
+          "16": 17,
+          "32": 12,
+          "64": 8,
+          "128": 6
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 9",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          9
+        ],
+        "finishingPositionRanges": {
+          "1": 100,
+          "2": 69,
+          "4": 48,
+          "8": 33,
+          "16": 22,
+          "32": 15,
+          "64": 10,
+          "128": 7
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 10",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          10
+        ],
+        "finishingPositionRanges": {
+          "1": 120,
+          "2": 82,
+          "4": 57,
+          "8": 39,
+          "16": 27,
+          "32": 18,
+          "64": 12,
+          "128": 8
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 11",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          11
+        ],
+        "finishingPositionRanges": {
+          "1": 170,
+          "2": 117,
+          "4": 81,
+          "8": 56,
+          "16": 39,
+          "32": 27,
+          "64": 19,
+          "128": 13
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 12",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          12
+        ],
+        "finishingPositionRanges": {
+          "1": 200,
+          "2": 138,
+          "4": 96,
+          "8": 67,
+          "16": 47,
+          "32": 33,
+          "64": 23,
+          "128": 16
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 13",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          13
+        ],
+        "finishingPositionRanges": {
+          "1": 230,
+          "2": 159,
+          "4": 110,
+          "8": 76,
+          "16": 53,
+          "32": 37,
+          "64": 26,
+          "128": 18
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 14",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          14
+        ],
+        "finishingPositionRanges": {
+          "1": 260,
+          "2": 180,
+          "4": 125,
+          "8": 87,
+          "16": 60,
+          "32": 42,
+          "64": 29,
+          "128": 20
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 15",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          15
+        ],
+        "finishingPositionRanges": {
+          "1": 300,
+          "2": 207,
+          "4": 143,
+          "8": 99,
+          "16": 69,
+          "32": 48,
+          "64": 34,
+          "128": 23
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          16
+        ],
+        "finishingPositionRanges": {
+          "1": 340,
+          "2": 235,
+          "4": 163,
+          "8": 113,
+          "16": 78,
+          "32": 54,
+          "64": 38,
+          "128": 26
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 17",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          17
+        ],
+        "finishingPositionRanges": {
+          "1": 380,
+          "2": 263,
+          "4": 182,
+          "8": 126,
+          "16": 87,
+          "32": 60,
+          "64": 42,
+          "128": 29
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 18",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          18
+        ],
+        "finishingPositionRanges": {
+          "1": 420,
+          "2": 290,
+          "4": 200,
+          "8": 138,
+          "16": 96,
+          "32": 67,
+          "64": 47,
+          "128": 32
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 19",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          19
+        ],
+        "finishingPositionRanges": {
+          "1": 460,
+          "2": 318,
+          "4": 220,
+          "8": 152,
+          "16": 105,
+          "32": 73,
+          "64": 51,
+          "128": 35
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 20",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          20
+        ],
+        "finishingPositionRanges": {
+          "1": 500,
+          "2": 345,
+          "4": 238,
+          "8": 165,
+          "16": 114,
+          "32": 79,
+          "64": 55,
+          "128": 38
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 21",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          21
+        ],
+        "finishingPositionRanges": {
+          "1": 600,
+          "2": 414,
+          "4": 286,
+          "8": 198,
+          "16": 137,
+          "32": 95,
+          "64": 66,
+          "128": 46
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 1",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          1
+        ],
+        "finishingPositionRanges": {
+          "1": 5,
+          "2": 4,
+          "4": 3,
+          "8": 2,
+          "16": 1,
+          "32": 0
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 2",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          2
+        ],
+        "finishingPositionRanges": {
+          "1": 7,
+          "2": 5,
+          "4": 4,
+          "8": 3,
+          "16": 2,
+          "32": 0
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 3",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          3
+        ],
+        "finishingPositionRanges": {
+          "1": 10,
+          "2": 7,
+          "4": 5,
+          "8": 4,
+          "16": 3,
+          "32": 0
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 4",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          4
+        ],
+        "finishingPositionRanges": {
+          "1": 14,
+          "2": 10,
+          "4": 7,
+          "8": 5,
+          "16": 4,
+          "32": 0
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 5",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          5
+        ],
+        "finishingPositionRanges": {
+          "1": 19,
+          "2": 13,
+          "4": 9,
+          "8": 6,
+          "16": 4,
+          "32": 0
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 6",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          6
+        ],
+        "finishingPositionRanges": {
+          "1": 23,
+          "2": 16,
+          "4": 11,
+          "8": 8,
+          "16": 5,
+          "32": 3,
+          "64": 1
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 7",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          7
+        ],
+        "finishingPositionRanges": {
+          "1": 28,
+          "2": 19,
+          "4": 13,
+          "8": 9,
+          "16": 6,
+          "32": 4,
+          "64": 2
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          8
+        ],
+        "finishingPositionRanges": {
+          "1": 38,
+          "2": 25,
+          "4": 17,
+          "8": 12,
+          "16": 8,
+          "32": 6,
+          "64": 4,
+          "128": 2
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 9",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          9
+        ],
+        "finishingPositionRanges": {
+          "1": 48,
+          "2": 33,
+          "4": 22,
+          "8": 15,
+          "16": 10,
+          "32": 7,
+          "64": 5,
+          "128": 3
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 10",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          10
+        ],
+        "finishingPositionRanges": {
+          "1": 57,
+          "2": 39,
+          "4": 27,
+          "8": 18,
+          "16": 12,
+          "32": 8,
+          "64": 6,
+          "128": 4
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 11",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          11
+        ],
+        "finishingPositionRanges": {
+          "1": 81,
+          "2": 56,
+          "4": 39,
+          "8": 27,
+          "16": 19,
+          "32": 13,
+          "64": 9,
+          "128": 6
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 12",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          12
+        ],
+        "finishingPositionRanges": {
+          "1": 96,
+          "2": 67,
+          "4": 47,
+          "8": 33,
+          "16": 23,
+          "32": 16,
+          "64": 11,
+          "128": 7
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 13",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          13
+        ],
+        "finishingPositionRanges": {
+          "1": 110,
+          "2": 76,
+          "4": 53,
+          "8": 37,
+          "16": 26,
+          "32": 18,
+          "64": 12,
+          "128": 8
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 14",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          14
+        ],
+        "finishingPositionRanges": {
+          "1": 125,
+          "2": 87,
+          "4": 60,
+          "8": 42,
+          "16": 29,
+          "32": 20,
+          "64": 14,
+          "128": 10
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 15",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          15
+        ],
+        "finishingPositionRanges": {
+          "1": 143,
+          "2": 99,
+          "4": 69,
+          "8": 48,
+          "16": 34,
+          "32": 23,
+          "64": 16,
+          "128": 11
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          16
+        ],
+        "finishingPositionRanges": {
+          "1": 163,
+          "2": 113,
+          "4": 78,
+          "8": 54,
+          "16": 38,
+          "32": 26,
+          "64": 16,
+          "128": 12
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 17",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          17
+        ],
+        "finishingPositionRanges": {
+          "1": 182,
+          "2": 126,
+          "4": 87,
+          "8": 60,
+          "16": 42,
+          "32": 29,
+          "64": 20,
+          "128": 14
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 18",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          18
+        ],
+        "finishingPositionRanges": {
+          "1": 200,
+          "2": 138,
+          "4": 96,
+          "8": 67,
+          "16": 47,
+          "32": 32,
+          "64": 22,
+          "128": 15
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 19",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          19
+        ],
+        "finishingPositionRanges": {
+          "1": 220,
+          "2": 152,
+          "4": 105,
+          "8": 73,
+          "16": 51,
+          "32": 35,
+          "64": 24,
+          "128": 16
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 20",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          20
+        ],
+        "finishingPositionRanges": {
+          "1": 238,
+          "2": 165,
+          "4": 114,
+          "8": 79,
+          "16": 55,
+          "32": 38,
+          "64": 26,
+          "128": 18
+        }
+      },
+      {
+        "profileName": "CTS DOUBLES Cat 21",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "levels": [
+          21
+        ],
+        "finishingPositionRanges": {
+          "1": 286,
+          "2": 198,
+          "4": 137,
+          "8": 95,
+          "16": 66,
+          "32": 46,
+          "64": 32,
+          "128": 22
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 1 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          1
+        ],
+        "finishingPositionRanges": {
+          "2": 3,
+          "4": 2,
+          "8": 1
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 1 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          1
+        ],
+        "finishingPositionRanges": {
+          "2": 2,
+          "4": 1,
+          "8": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 1 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          1
+        ],
+        "finishingPositionRanges": {
+          "2": 1,
+          "4": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 1 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          1
+        ],
+        "finishingPositionRanges": {
+          "2": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 2 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          2
+        ],
+        "finishingPositionRanges": {
+          "2": 4,
+          "4": 3,
+          "8": 2
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 2 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          2
+        ],
+        "finishingPositionRanges": {
+          "2": 3,
+          "4": 2,
+          "8": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 2 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          2
+        ],
+        "finishingPositionRanges": {
+          "2": 2,
+          "4": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 2 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          2
+        ],
+        "finishingPositionRanges": {
+          "2": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 3 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          3
+        ],
+        "finishingPositionRanges": {
+          "2": 5,
+          "4": 4,
+          "8": 3
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 3 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          3
+        ],
+        "finishingPositionRanges": {
+          "2": 4,
+          "4": 3,
+          "8": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 3 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          3
+        ],
+        "finishingPositionRanges": {
+          "2": 3,
+          "4": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 3 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          3
+        ],
+        "finishingPositionRanges": {
+          "2": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 4 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          4
+        ],
+        "finishingPositionRanges": {
+          "2": 7,
+          "4": 5,
+          "8": 4
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 4 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          4
+        ],
+        "finishingPositionRanges": {
+          "2": 5,
+          "4": 4,
+          "8": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 4 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          4
+        ],
+        "finishingPositionRanges": {
+          "2": 4,
+          "4": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 4 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          4
+        ],
+        "finishingPositionRanges": {
+          "2": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 5 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          5
+        ],
+        "finishingPositionRanges": {
+          "2": 9,
+          "4": 6,
+          "8": 4
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 5 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          5
+        ],
+        "finishingPositionRanges": {
+          "2": 6,
+          "4": 4,
+          "8": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 5 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          5
+        ],
+        "finishingPositionRanges": {
+          "2": 4,
+          "4": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 5 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          5
+        ],
+        "finishingPositionRanges": {
+          "2": 0
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 6 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          6
+        ],
+        "finishingPositionRanges": {
+          "2": 11,
+          "4": 8,
+          "8": 5
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 6 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          6
+        ],
+        "finishingPositionRanges": {
+          "2": 8,
+          "4": 5,
+          "8": 3
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 6 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          6
+        ],
+        "finishingPositionRanges": {
+          "2": 5,
+          "4": 3,
+          "8": 1
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 6 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          6
+        ],
+        "finishingPositionRanges": {
+          "2": 3,
+          "4": 1
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 7 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          7
+        ],
+        "finishingPositionRanges": {
+          "2": 13,
+          "4": 9,
+          "8": 6
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 7 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          7
+        ],
+        "finishingPositionRanges": {
+          "2": 9,
+          "4": 6,
+          "8": 4
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 7 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          7
+        ],
+        "finishingPositionRanges": {
+          "2": 6,
+          "4": 4,
+          "8": 2
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 7 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          7
+        ],
+        "finishingPositionRanges": {
+          "2": 4,
+          "4": 2
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 8 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          8
+        ],
+        "finishingPositionRanges": {
+          "2": 17,
+          "4": 12,
+          "8": 8
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 8 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          8
+        ],
+        "finishingPositionRanges": {
+          "2": 12,
+          "4": 8,
+          "8": 6
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 8 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          8
+        ],
+        "finishingPositionRanges": {
+          "2": 8,
+          "4": 6,
+          "8": 4
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 8 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          8
+        ],
+        "finishingPositionRanges": {
+          "2": 6,
+          "4": 4,
+          "8": 2
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 9 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          9
+        ],
+        "finishingPositionRanges": {
+          "2": 22,
+          "4": 15,
+          "8": 10
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 9 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          9
+        ],
+        "finishingPositionRanges": {
+          "2": 15,
+          "4": 10,
+          "8": 7
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 9 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          9
+        ],
+        "finishingPositionRanges": {
+          "2": 10,
+          "4": 7,
+          "8": 5
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 9 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          9
+        ],
+        "finishingPositionRanges": {
+          "2": 7,
+          "4": 5,
+          "8": 3
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 10 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          10
+        ],
+        "finishingPositionRanges": {
+          "2": 27,
+          "4": 18,
+          "8": 12
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 10 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          10
+        ],
+        "finishingPositionRanges": {
+          "2": 18,
+          "4": 12,
+          "8": 8
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 10 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          10
+        ],
+        "finishingPositionRanges": {
+          "2": 12,
+          "4": 8,
+          "8": 6
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 10 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          10
+        ],
+        "finishingPositionRanges": {
+          "2": 8,
+          "4": 6,
+          "8": 4
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 11 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          11
+        ],
+        "finishingPositionRanges": {
+          "2": 39,
+          "4": 27,
+          "8": 19
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 11 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          11
+        ],
+        "finishingPositionRanges": {
+          "2": 27,
+          "4": 19,
+          "8": 13
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 11 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          11
+        ],
+        "finishingPositionRanges": {
+          "2": 19,
+          "4": 13,
+          "8": 9
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 11 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          11
+        ],
+        "finishingPositionRanges": {
+          "2": 13,
+          "4": 9,
+          "8": 6
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 12 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          12
+        ],
+        "finishingPositionRanges": {
+          "2": 47,
+          "4": 33,
+          "8": 23
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 12 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          12
+        ],
+        "finishingPositionRanges": {
+          "2": 33,
+          "4": 23,
+          "8": 16
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 12 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          12
+        ],
+        "finishingPositionRanges": {
+          "2": 23,
+          "4": 16,
+          "8": 11
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 12 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          12
+        ],
+        "finishingPositionRanges": {
+          "2": 16,
+          "4": 11,
+          "8": 7
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 13 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          13
+        ],
+        "finishingPositionRanges": {
+          "2": 53,
+          "4": 37,
+          "8": 26
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 13 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          13
+        ],
+        "finishingPositionRanges": {
+          "2": 37,
+          "4": 26,
+          "8": 18
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 13 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          13
+        ],
+        "finishingPositionRanges": {
+          "2": 26,
+          "4": 18,
+          "8": 12
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 13 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          13
+        ],
+        "finishingPositionRanges": {
+          "2": 18,
+          "4": 12,
+          "8": 8
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 14 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          14
+        ],
+        "finishingPositionRanges": {
+          "2": 60,
+          "4": 42,
+          "8": 29
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 14 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          14
+        ],
+        "finishingPositionRanges": {
+          "2": 42,
+          "4": 29,
+          "8": 20
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 14 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          14
+        ],
+        "finishingPositionRanges": {
+          "2": 29,
+          "4": 20,
+          "8": 14
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 14 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          14
+        ],
+        "finishingPositionRanges": {
+          "2": 20,
+          "4": 14,
+          "8": 10
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 15 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          15
+        ],
+        "finishingPositionRanges": {
+          "2": 69,
+          "4": 48,
+          "8": 34
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 15 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          15
+        ],
+        "finishingPositionRanges": {
+          "2": 48,
+          "4": 34,
+          "8": 23
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 15 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          15
+        ],
+        "finishingPositionRanges": {
+          "2": 34,
+          "4": 23,
+          "8": 16
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 15 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          15
+        ],
+        "finishingPositionRanges": {
+          "2": 23,
+          "4": 16,
+          "8": 11
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 16 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          16
+        ],
+        "finishingPositionRanges": {
+          "2": 78,
+          "4": 54,
+          "8": 38
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 16 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          16
+        ],
+        "finishingPositionRanges": {
+          "2": 54,
+          "4": 38,
+          "8": 26
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 16 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          16
+        ],
+        "finishingPositionRanges": {
+          "2": 38,
+          "4": 26,
+          "8": 16
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 16 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          16
+        ],
+        "finishingPositionRanges": {
+          "2": 26,
+          "4": 16,
+          "8": 12
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 17 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          17
+        ],
+        "finishingPositionRanges": {
+          "2": 87,
+          "4": 60,
+          "8": 42
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 17 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          17
+        ],
+        "finishingPositionRanges": {
+          "2": 60,
+          "4": 42,
+          "8": 29
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 17 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          17
+        ],
+        "finishingPositionRanges": {
+          "2": 42,
+          "4": 29,
+          "8": 20
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 17 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          17
+        ],
+        "finishingPositionRanges": {
+          "2": 29,
+          "4": 20,
+          "8": 14
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 18 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          18
+        ],
+        "finishingPositionRanges": {
+          "2": 96,
+          "4": 67,
+          "8": 47
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 18 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          18
+        ],
+        "finishingPositionRanges": {
+          "2": 67,
+          "4": 47,
+          "8": 32
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 18 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          18
+        ],
+        "finishingPositionRanges": {
+          "2": 47,
+          "4": 32,
+          "8": 22
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 18 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          18
+        ],
+        "finishingPositionRanges": {
+          "2": 32,
+          "4": 22,
+          "8": 15
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 19 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          19
+        ],
+        "finishingPositionRanges": {
+          "2": 105,
+          "4": 73,
+          "8": 51
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 19 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          19
+        ],
+        "finishingPositionRanges": {
+          "2": 73,
+          "4": 51,
+          "8": 35
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 19 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          19
+        ],
+        "finishingPositionRanges": {
+          "2": 51,
+          "4": 35,
+          "8": 24
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 19 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          19
+        ],
+        "finishingPositionRanges": {
+          "2": 35,
+          "4": 24,
+          "8": 16
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 20 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          20
+        ],
+        "finishingPositionRanges": {
+          "2": 114,
+          "4": 79,
+          "8": 55
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 20 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          20
+        ],
+        "finishingPositionRanges": {
+          "2": 79,
+          "4": 55,
+          "8": 38
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 20 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          20
+        ],
+        "finishingPositionRanges": {
+          "2": 55,
+          "4": 38,
+          "8": 26
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 20 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          20
+        ],
+        "finishingPositionRanges": {
+          "2": 38,
+          "4": 26,
+          "8": 18
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 21 Q→MAIN-8",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          8
+        ],
+        "levels": [
+          21
+        ],
+        "finishingPositionRanges": {
+          "2": 137,
+          "4": 95,
+          "8": 66
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 21 Q→MAIN-16",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          16
+        ],
+        "levels": [
+          21
+        ],
+        "finishingPositionRanges": {
+          "2": 95,
+          "4": 66,
+          "8": 46
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 21 Q→MAIN-32",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          32
+        ],
+        "levels": [
+          21
+        ],
+        "finishingPositionRanges": {
+          "2": 66,
+          "4": 46,
+          "8": 32
+        }
+      },
+      {
+        "profileName": "CTS SINGLES Cat 21 Q→MAIN-64",
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "drawSizes": [
+          64
+        ],
+        "levels": [
+          21
+        ],
+        "finishingPositionRanges": {
+          "2": 46,
+          "4": 32,
+          "8": 22
+        }
+      }
+    ],
+    "aggregationRules": {
+      "rollingPeriodDays": 365,
+      "separateByGender": true,
+      "perCategory": true,
+      "countingBuckets": [
+        {
+          "bucketName": "singles",
+          "eventTypes": [
+            "SINGLES"
+          ],
+          "bestOfCount": 8,
+          "pointComponents": [
+            "positionPoints"
+          ]
+        },
+        {
+          "bucketName": "doubles",
+          "eventTypes": [
+            "DOUBLES"
+          ],
+          "bestOfCount": 8,
+          "pointComponents": [
+            "positionPoints"
+          ]
+        }
+      ],
+      "categoryAggregation": []
+    },
+    "derivedRankings": [
+      {
+        "category": {
+          "ageCategoryCodes": [
+            "U16"
+          ]
+        },
+        "derivedFrom": {
+          "ageCategoryCodes": [
+            "U18"
+          ]
+        },
+        "filter": {
+          "ageRange": {
+            "max": 16
+          }
+        }
+      }
+    ],
+    "tierToLevel": {
+      "CTS": {
+        "MČR": 15,
+        "P": 13,
+        "A": 12,
+        "B": 8,
+        "C": 3,
+        "D": 2,
+        "E": 1
+      }
+    },
+    "doublesAttribution": "fullToEach",
+    "categoryResolution": "eventCategory"
+  },
+  "metadata": {
+    "source": "tods-competition-factory@3.x fixtures",
+    "fixtureKey": "POLICY_RANKING_POINTS_CTS",
+    "generatedAt": "2026-05-20T09:50:42.512Z"
+  }
+}

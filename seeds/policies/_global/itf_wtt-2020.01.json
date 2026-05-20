@@ -1,0 +1,86 @@
+{
+  "providerId": null,
+  "policyType": "rankingPoints",
+  "name": "ITF_WTT",
+  "version": "2020.01",
+  "visibility": "TEMPLATE_REF",
+  "definition": {
+    "policyName": "ITF World Tennis Tour 2020",
+    "policyVersion": "2020.01",
+    "validDateRange": {
+      "startDate": "2020-01-01"
+    },
+    "awardProfiles": [
+      {
+        "profileName": "ITF WTT Qualifying Singles",
+        "levels": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 4,
+              "2": 3,
+              "3": 3,
+              "4": 2
+            }
+          },
+          "2": 1
+        }
+      },
+      {
+        "profileName": "ITF WTT Qualifying Doubles",
+        "levels": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "drawTypes": [
+          "SINGLE_ELIMINATION"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 4,
+              "2": 3,
+              "3": 3,
+              "4": 2
+            }
+          },
+          "2": 1
+        }
+      }
+    ],
+    "aggregationRules": {
+      "rollingPeriodDays": 364,
+      "separateByGender": true,
+      "perCategory": false,
+      "bestOfCount": 14
+    },
+    "doublesAttribution": "fullToEach"
+  },
+  "metadata": {
+    "source": "tods-competition-factory@3.x fixtures",
+    "fixtureKey": "POLICY_RANKING_POINTS_ITF_WTT",
+    "generatedAt": "2026-05-20T09:50:42.509Z"
+  }
+}

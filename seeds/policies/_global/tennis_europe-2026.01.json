@@ -1,0 +1,818 @@
+{
+  "providerId": null,
+  "policyType": "rankingPoints",
+  "name": "TENNIS_EUROPE",
+  "version": "2026.01",
+  "visibility": "SHARED_DEMO",
+  "definition": {
+    "policyName": "Tennis Europe Junior Tour 2026",
+    "policyVersion": "2026.01",
+    "validDateRange": {
+      "startDate": "2026-01-01"
+    },
+    "pointPoolModel": "per-category",
+    "awardProfiles": [
+      {
+        "profileName": "TE 16&U European Championships",
+        "levels": [
+          1
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "16U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 500,
+          "2": 360,
+          "4": 240,
+          "8": 160,
+          "16": 100,
+          "32": 60,
+          "64": 40,
+          "128": 20
+        }
+      },
+      {
+        "profileName": "TE 16&U Super",
+        "levels": [
+          2
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "16U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 360,
+          "2": 300,
+          "4": 200,
+          "8": 140,
+          "16": 80,
+          "32": 50,
+          "64": 30
+        }
+      },
+      {
+        "profileName": "TE 16&U Category 1",
+        "levels": [
+          3
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "16U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 240,
+          "2": 200,
+          "4": 150,
+          "8": 100,
+          "16": 60,
+          "32": 40,
+          "64": 20
+        }
+      },
+      {
+        "profileName": "TE 16&U Category 2",
+        "levels": [
+          4
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "16U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 160,
+          "2": 130,
+          "4": 100,
+          "8": 60,
+          "16": 40,
+          "32": 30
+        }
+      },
+      {
+        "profileName": "TE 16&U Category 3",
+        "levels": [
+          5
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "16U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 120,
+          "2": 100,
+          "4": 60,
+          "8": 40,
+          "16": 30,
+          "32": 20
+        }
+      },
+      {
+        "profileName": "TE 14&U European Championships",
+        "levels": [
+          1
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "14U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 250,
+          "2": 180,
+          "4": 120,
+          "8": 80,
+          "16": 50,
+          "32": 30,
+          "64": 20,
+          "128": 10
+        }
+      },
+      {
+        "profileName": "TE 14&U Super",
+        "levels": [
+          2
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "14U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 180,
+          "2": 150,
+          "4": 100,
+          "8": 70,
+          "16": 40,
+          "32": 25,
+          "64": 15
+        }
+      },
+      {
+        "profileName": "TE 14&U Category 1",
+        "levels": [
+          3
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "14U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 120,
+          "2": 100,
+          "4": 75,
+          "8": 50,
+          "16": 30,
+          "32": 20,
+          "64": 10
+        }
+      },
+      {
+        "profileName": "TE 14&U Category 2",
+        "levels": [
+          4
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "14U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 80,
+          "2": 65,
+          "4": 50,
+          "8": 30,
+          "16": 20,
+          "32": 15
+        }
+      },
+      {
+        "profileName": "TE 14&U Category 3",
+        "levels": [
+          5
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "14U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 60,
+          "2": 50,
+          "4": 30,
+          "8": 20,
+          "16": 15,
+          "32": 10
+        }
+      },
+      {
+        "profileName": "TE 16&U Qualifying",
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "16U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 0,
+              "2": 20,
+              "3": 14,
+              "4": 8,
+              "5": 4
+            }
+          },
+          "2": {
+            "level": {
+              "1": 0,
+              "2": 14,
+              "3": 10
+            }
+          }
+        }
+      },
+      {
+        "profileName": "TE 14&U Qualifying",
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "14U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 0,
+              "2": 10,
+              "3": 7,
+              "4": 4,
+              "5": 2
+            }
+          },
+          "2": {
+            "level": {
+              "1": 0,
+              "2": 7,
+              "3": 5
+            }
+          }
+        }
+      },
+      {
+        "profileName": "TE 16&U Bonus Draw",
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "CONSOLATION"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "16U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 40,
+              "2": 30,
+              "3": 20,
+              "4": 12,
+              "5": 6
+            }
+          },
+          "2": {
+            "level": {
+              "1": 32,
+              "2": 20,
+              "3": 10,
+              "4": 8,
+              "5": 4
+            }
+          },
+          "4": {
+            "level": {
+              "1": 20,
+              "2": 18,
+              "3": 8,
+              "4": 0,
+              "5": 0
+            }
+          },
+          "8": {
+            "level": {
+              "1": 14,
+              "2": 10,
+              "3": 6,
+              "4": 0,
+              "5": 0
+            }
+          }
+        }
+      },
+      {
+        "profileName": "TE 14&U Bonus Draw",
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "CONSOLATION"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "14U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 20,
+              "2": 15,
+              "3": 10,
+              "4": 6,
+              "5": 3
+            }
+          },
+          "2": {
+            "level": {
+              "1": 16,
+              "2": 10,
+              "3": 5,
+              "4": 4,
+              "5": 2
+            }
+          },
+          "4": {
+            "level": {
+              "1": 10,
+              "2": 9,
+              "3": 4,
+              "4": 0,
+              "5": 0
+            }
+          },
+          "8": {
+            "level": {
+              "1": 7,
+              "2": 5,
+              "3": 3,
+              "4": 0,
+              "5": 0
+            }
+          }
+        }
+      },
+      {
+        "profileName": "TE 16&U Doubles",
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "16U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 130,
+              "2": 100,
+              "3": 60,
+              "4": 40,
+              "5": 30
+            }
+          },
+          "2": {
+            "level": {
+              "1": 90,
+              "2": 60,
+              "3": 50,
+              "4": 30,
+              "5": 20
+            }
+          },
+          "4": {
+            "level": {
+              "1": 60,
+              "2": 50,
+              "3": 40,
+              "4": 20,
+              "5": 10
+            }
+          },
+          "8": {
+            "level": {
+              "1": 30,
+              "2": 24,
+              "3": 20,
+              "4": 10,
+              "5": 4
+            }
+          },
+          "16": {
+            "level": {
+              "1": 20,
+              "2": 14,
+              "3": 10,
+              "4": 0,
+              "5": 0
+            }
+          }
+        }
+      },
+      {
+        "profileName": "TE 14&U Doubles",
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "14U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 65,
+              "2": 50,
+              "3": 30,
+              "4": 20,
+              "5": 15
+            }
+          },
+          "2": {
+            "level": {
+              "1": 45,
+              "2": 30,
+              "3": 25,
+              "4": 15,
+              "5": 10
+            }
+          },
+          "4": {
+            "level": {
+              "1": 30,
+              "2": 25,
+              "3": 20,
+              "4": 10,
+              "5": 5
+            }
+          },
+          "8": {
+            "level": {
+              "1": 15,
+              "2": 12,
+              "3": 10,
+              "4": 5,
+              "5": 2
+            }
+          },
+          "16": {
+            "level": {
+              "1": 10,
+              "2": 7,
+              "3": 5,
+              "4": 0,
+              "5": 0
+            }
+          }
+        }
+      },
+      {
+        "profileName": "TE 12 Cat 1 starting points",
+        "levels": [
+          6
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "12U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 25,
+          "2": 15,
+          "4": 10,
+          "8": 6
+        }
+      },
+      {
+        "profileName": "TE 12 Cat 2 starting points",
+        "levels": [
+          7
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "12U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 15,
+          "2": 9,
+          "4": 5,
+          "8": 3
+        }
+      },
+      {
+        "profileName": "TE 12 Cat 1 starting points - Qualifying",
+        "levels": [
+          6
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "12U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 4
+        }
+      },
+      {
+        "profileName": "TE 12 Cat 2 starting points - Qualifying",
+        "levels": [
+          7
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "12U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 2
+        }
+      },
+      {
+        "profileName": "TE 12 Cat 1 starting points - Doubles",
+        "levels": [
+          6
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "12U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 11,
+          "2": 7
+        }
+      },
+      {
+        "profileName": "TE 12 Cat 2 starting points - Doubles",
+        "levels": [
+          7
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "category": {
+          "ageCategoryCodes": [
+            "12U"
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 5,
+          "2": 3
+        }
+      }
+    ],
+    "aggregationRules": {
+      "rollingPeriodDays": 365,
+      "separateByGender": true,
+      "perCategory": true,
+      "countingBuckets": [
+        {
+          "bucketName": "singles",
+          "eventTypes": [
+            "SINGLES"
+          ],
+          "bestOfCount": 6,
+          "pointComponents": [
+            "positionPoints"
+          ]
+        },
+        {
+          "bucketName": "doubles",
+          "eventTypes": [
+            "DOUBLES"
+          ],
+          "bestOfCount": 2,
+          "pointComponents": [
+            "positionPoints"
+          ]
+        }
+      ],
+      "categoryAggregation": [
+        {
+          "ruleName": "16&U \u2192 14&U list (cap 2 of 6 singles)",
+          "source": {
+            "ageCategoryCodes": [
+              "16U"
+            ]
+          },
+          "target": {
+            "ageCategoryCodes": [
+              "14U"
+            ]
+          },
+          "multiplier": 1,
+          "maxCarriedResults": 2,
+          "subjectToBucketLimits": true
+        },
+        {
+          "ruleName": "14&U \u2192 16&U list (no cap; appears on both)",
+          "source": {
+            "ageCategoryCodes": [
+              "14U"
+            ]
+          },
+          "target": {
+            "ageCategoryCodes": [
+              "16U"
+            ]
+          },
+          "multiplier": 1
+        },
+        {
+          "ruleName": "12&U starting points \u2192 14&U (on age transition)",
+          "source": {
+            "ageCategoryCodes": [
+              "12U"
+            ],
+            "categoryNames": [
+              "STARTING_POINTS"
+            ]
+          },
+          "target": {
+            "ageCategoryCodes": [
+              "14U"
+            ]
+          },
+          "multiplier": 1
+        }
+      ]
+    },
+    "doublesAttribution": "fullToEach",
+    "categoryResolution": "eventCategory"
+  },
+  "metadata": {
+    "source": "tods-competition-factory@3.x fixtures",
+    "fixtureKey": "POLICY_RANKING_POINTS_TENNIS_EUROPE",
+    "generatedAt": "2026-05-20T09:50:42.510Z"
+  }
+}

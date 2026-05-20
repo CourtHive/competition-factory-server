@@ -1,0 +1,530 @@
+{
+  "providerId": null,
+  "policyType": "rankingPoints",
+  "name": "ATP",
+  "version": "2026.01",
+  "visibility": "TEMPLATE_REF",
+  "definition": {
+    "policyName": "PIF ATP Rankings 2026",
+    "policyVersion": "2026.01",
+    "validDateRange": {
+      "startDate": "2026-01-01"
+    },
+    "awardProfiles": [
+      {
+        "profileName": "ATP Finals Singles",
+        "levels": [
+          2
+        ],
+        "drawTypes": [
+          "ROUND_ROBIN_WITH_PLAYOFF"
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "finishingPositionPoints": {
+          "participationOrders": [
+            2
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 900,
+          "2": 400,
+          "4": 0
+        },
+        "perWinPoints": {
+          "participationOrders": [
+            1
+          ],
+          "value": 200
+        }
+      },
+      {
+        "profileName": "ATP Finals Doubles",
+        "levels": [
+          2
+        ],
+        "drawTypes": [
+          "ROUND_ROBIN_WITH_PLAYOFF"
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "finishingPositionPoints": {
+          "participationOrders": [
+            2
+          ]
+        },
+        "finishingPositionRanges": {
+          "1": 900,
+          "2": 400,
+          "4": 0
+        },
+        "perWinPoints": {
+          "participationOrders": [
+            1
+          ],
+          "value": 200
+        }
+      },
+      {
+        "profileName": "Grand Slam Singles",
+        "levels": [
+          1
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 2000,
+          "2": 1300,
+          "4": 800,
+          "8": 400,
+          "16": 200,
+          "32": 100,
+          "64": 50,
+          "128": 10
+        }
+      },
+      {
+        "profileName": "Grand Slam Qualifying Singles",
+        "levels": [
+          1
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "finishingPositionRanges": {
+          "1": 30,
+          "2": 16,
+          "4": 8
+        }
+      },
+      {
+        "profileName": "Grand Slam Doubles",
+        "levels": [
+          1
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 2000,
+          "2": 1200,
+          "4": 720,
+          "8": 360,
+          "16": 180,
+          "32": 90
+        }
+      },
+      {
+        "profileName": "ATP 1000 Singles",
+        "levels": [
+          3,
+          4
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 1000,
+          "2": 650,
+          "4": 400,
+          "8": 200,
+          "16": 100,
+          "32": 50,
+          "64": {
+            "level": {
+              "3": 30,
+              "4": 10
+            }
+          },
+          "128": {
+            "level": {
+              "3": 10
+            }
+          }
+        }
+      },
+      {
+        "profileName": "ATP 1000 Doubles",
+        "levels": [
+          3,
+          4
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 1000,
+          "2": 600,
+          "4": 360,
+          "8": 180,
+          "16": 90
+        }
+      },
+      {
+        "profileName": "ATP 500 Singles",
+        "levels": [
+          5,
+          6
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 500,
+          "2": 330,
+          "4": 200,
+          "8": 100,
+          "16": 50,
+          "32": {
+            "level": {
+              "5": 25
+            }
+          }
+        }
+      },
+      {
+        "profileName": "ATP 500 Doubles",
+        "levels": [
+          5,
+          6
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 500,
+          "2": 300,
+          "4": 180,
+          "8": 90
+        }
+      },
+      {
+        "profileName": "ATP 250 Singles",
+        "levels": [
+          7,
+          8
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 250,
+          "2": 165,
+          "4": 100,
+          "8": 50,
+          "16": 25,
+          "32": {
+            "level": {
+              "7": 13
+            }
+          }
+        }
+      },
+      {
+        "profileName": "ATP 250 Doubles",
+        "levels": [
+          7,
+          8
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 250,
+          "2": 150,
+          "4": 90,
+          "8": 45,
+          "16": {
+            "level": {
+              "7": 20
+            }
+          }
+        }
+      },
+      {
+        "profileName": "Qualifying Singles",
+        "levels": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "3": 20,
+              "4": 30,
+              "5": 16,
+              "6": 25,
+              "7": 8,
+              "8": 13,
+              "9": 6,
+              "10": 5,
+              "11": 4,
+              "12": 4,
+              "13": 3
+            }
+          },
+          "2": {
+            "level": {
+              "3": 10,
+              "4": 16,
+              "5": 8,
+              "6": 13,
+              "7": 4,
+              "8": 7,
+              "9": 3,
+              "10": 3,
+              "11": 2,
+              "12": 2,
+              "13": 1
+            }
+          }
+        }
+      },
+      {
+        "profileName": "Challenger & ITF Singles",
+        "levels": [
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "9": 175,
+              "10": 125,
+              "11": 100,
+              "12": 75,
+              "13": 50,
+              "14": 25,
+              "15": 15
+            }
+          },
+          "2": {
+            "level": {
+              "9": 90,
+              "10": 64,
+              "11": 50,
+              "12": 44,
+              "13": 25,
+              "14": 14,
+              "15": 8
+            }
+          },
+          "4": {
+            "level": {
+              "9": 50,
+              "10": 35,
+              "11": 25,
+              "12": 22,
+              "13": 14,
+              "14": 7,
+              "15": 4
+            }
+          },
+          "8": {
+            "level": {
+              "9": 25,
+              "10": 16,
+              "11": 14,
+              "12": 12,
+              "13": 8,
+              "14": 3,
+              "15": 2
+            }
+          },
+          "16": {
+            "level": {
+              "9": 13,
+              "10": 8,
+              "11": 7,
+              "12": 6,
+              "13": 4,
+              "14": 1,
+              "15": 1
+            }
+          }
+        }
+      },
+      {
+        "profileName": "Challenger & ITF Doubles",
+        "levels": [
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "9": 175,
+              "10": 125,
+              "11": 100,
+              "12": 75,
+              "13": 50,
+              "14": 25,
+              "15": 15
+            }
+          },
+          "2": {
+            "level": {
+              "9": 100,
+              "10": 75,
+              "11": 60,
+              "12": 50,
+              "13": 30,
+              "14": 14,
+              "15": 8
+            }
+          },
+          "4": {
+            "level": {
+              "9": 60,
+              "10": 45,
+              "11": 36,
+              "12": 30,
+              "13": 17,
+              "14": 7,
+              "15": 4
+            }
+          },
+          "8": {
+            "level": {
+              "9": 32,
+              "10": 25,
+              "11": 20,
+              "12": 16,
+              "13": 9,
+              "14": 3,
+              "15": 2
+            }
+          }
+        }
+      },
+      {
+        "profileName": "United Cup",
+        "eventTypes": [
+          "TEAM"
+        ],
+        "finishingPositionRanges": {
+          "1": 500
+        }
+      }
+    ],
+    "aggregationRules": {
+      "rollingPeriodDays": 364,
+      "separateByGender": false,
+      "perCategory": false,
+      "countingBuckets": [
+        {
+          "bucketName": "Singles",
+          "eventTypes": [
+            "SINGLES"
+          ],
+          "bestOfCount": 19,
+          "pointComponents": [
+            "positionPoints",
+            "perWinPoints",
+            "bonusPoints"
+          ],
+          "mandatoryRules": [
+            {
+              "ruleName": "Grand Slams",
+              "levels": [
+                1
+              ]
+            },
+            {
+              "ruleName": "ATP 1000",
+              "levels": [
+                3,
+                4
+              ]
+            }
+          ]
+        },
+        {
+          "bucketName": "Doubles",
+          "eventTypes": [
+            "DOUBLES"
+          ],
+          "bestOfCount": 18,
+          "pointComponents": [
+            "positionPoints",
+            "perWinPoints",
+            "bonusPoints"
+          ]
+        }
+      ]
+    },
+    "doublesAttribution": "fullToEach"
+  },
+  "metadata": {
+    "source": "tods-competition-factory@3.x fixtures",
+    "fixtureKey": "POLICY_RANKING_POINTS_ATP",
+    "generatedAt": "2026-05-20T09:50:42.509Z"
+  }
+}

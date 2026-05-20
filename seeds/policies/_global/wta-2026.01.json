@@ -1,0 +1,541 @@
+{
+  "providerId": null,
+  "policyType": "rankingPoints",
+  "name": "WTA",
+  "version": "2026.01",
+  "visibility": "TEMPLATE_REF",
+  "definition": {
+    "policyName": "PIF WTA Rankings 2026",
+    "policyVersion": "2026.01",
+    "validDateRange": {
+      "startDate": "2026-01-01"
+    },
+    "awardProfiles": [
+      {
+        "profileName": "WTA Finals Singles",
+        "levels": [
+          2
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "finishingPositionRanges": {
+          "1": 1500,
+          "2": 1080,
+          "4": 750,
+          "8": 375
+        }
+      },
+      {
+        "profileName": "WTA Finals Doubles",
+        "levels": [
+          2
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "finishingPositionRanges": {
+          "1": 1500,
+          "2": 1080,
+          "4": 750,
+          "8": 375
+        }
+      },
+      {
+        "profileName": "Grand Slam Singles",
+        "levels": [
+          1
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 2000,
+          "2": 1300,
+          "4": 780,
+          "8": 430,
+          "16": 240,
+          "32": 130,
+          "64": 70,
+          "128": 10
+        }
+      },
+      {
+        "profileName": "Grand Slam Doubles",
+        "levels": [
+          1
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 2000,
+          "2": 1300,
+          "4": 780,
+          "8": 430,
+          "16": 240,
+          "32": 130,
+          "64": 10
+        }
+      },
+      {
+        "profileName": "Grand Slam Doubles Qualifying",
+        "levels": [
+          1
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "finishingPositionRanges": {
+          "1": 40
+        }
+      },
+      {
+        "profileName": "WTA 1000 Singles",
+        "levels": [
+          3
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 1000,
+          "2": 650,
+          "4": 390,
+          "8": 215,
+          "16": 120,
+          "32": 65,
+          "64": [
+            {
+              "drawSize": 64,
+              "threshold": true,
+              "value": 35
+            },
+            {
+              "value": 10
+            }
+          ],
+          "128": 10
+        }
+      },
+      {
+        "profileName": "WTA 1000 Doubles",
+        "levels": [
+          3
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 1000,
+          "2": 650,
+          "4": 390,
+          "8": 215,
+          "16": 120,
+          "32": 10
+        }
+      },
+      {
+        "profileName": "WTA 500 Singles",
+        "levels": [
+          4
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 500,
+          "2": 325,
+          "4": 195,
+          "8": 108,
+          "16": 60,
+          "32": [
+            {
+              "drawSize": 48,
+              "threshold": true,
+              "value": 32
+            },
+            {
+              "value": 1
+            }
+          ],
+          "64": 1
+        }
+      },
+      {
+        "profileName": "WTA 500 Doubles",
+        "levels": [
+          4
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 500,
+          "2": 325,
+          "4": 195,
+          "8": 108,
+          "16": 1
+        }
+      },
+      {
+        "profileName": "WTA 250 Singles",
+        "levels": [
+          5
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 250,
+          "2": 163,
+          "4": 98,
+          "8": 54,
+          "16": 30,
+          "32": 1
+        }
+      },
+      {
+        "profileName": "WTA 125 Singles",
+        "levels": [
+          6
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 125,
+          "2": 81,
+          "4": 49,
+          "8": 27,
+          "16": 15,
+          "32": 1
+        }
+      },
+      {
+        "profileName": "WTA Qualifying Singles",
+        "levels": [
+          1,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 40,
+              "3": 30,
+              "4": 25,
+              "5": 18,
+              "6": 6,
+              "7": 5,
+              "8": 3,
+              "9": 2,
+              "10": 1
+            }
+          },
+          "2": {
+            "level": {
+              "1": 30,
+              "3": 20,
+              "4": 13,
+              "5": 12,
+              "6": 4,
+              "7": 3,
+              "8": 2,
+              "9": 1
+            }
+          },
+          "4": {
+            "level": {
+              "1": 20,
+              "3": 2,
+              "4": 1,
+              "5": 1,
+              "6": 1
+            }
+          },
+          "8": {
+            "level": {
+              "1": 2
+            }
+          }
+        }
+      },
+      {
+        "profileName": "ITF Circuit Singles",
+        "levels": [
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "7": 100,
+              "8": 75,
+              "9": 50,
+              "10": 35,
+              "11": 15
+            }
+          },
+          "2": {
+            "level": {
+              "7": 65,
+              "8": 49,
+              "9": 33,
+              "10": 23,
+              "11": 10
+            }
+          },
+          "4": {
+            "level": {
+              "7": 39,
+              "8": 29,
+              "9": 20,
+              "10": 14,
+              "11": 6
+            }
+          },
+          "8": {
+            "level": {
+              "7": 21,
+              "8": 16,
+              "9": 11,
+              "10": 8,
+              "11": 3
+            }
+          },
+          "16": [
+            {
+              "drawSize": 48,
+              "threshold": true,
+              "level": {
+                "7": 7,
+                "8": 5,
+                "9": 6,
+                "10": 4,
+                "11": 1
+              }
+            },
+            {
+              "level": {
+                "7": 12,
+                "8": 9,
+                "9": 6,
+                "10": 3,
+                "11": 1
+              }
+            }
+          ],
+          "32": [
+            {
+              "drawSize": 48,
+              "threshold": true,
+              "level": {
+                "7": 1,
+                "8": 1,
+                "9": 3,
+                "10": 2
+              }
+            },
+            {
+              "level": {
+                "7": 1,
+                "8": 1,
+                "9": 1
+              }
+            }
+          ],
+          "64": {
+            "level": {
+              "9": 1,
+              "10": 1
+            }
+          }
+        }
+      },
+      {
+        "profileName": "WTA 250–ITF W35 Doubles",
+        "levels": [
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "5": 250,
+              "6": 125,
+              "7": 100,
+              "8": 75,
+              "9": 50,
+              "10": 35
+            }
+          },
+          "2": {
+            "level": {
+              "5": 163,
+              "6": 81,
+              "7": 65,
+              "8": 49,
+              "9": 33,
+              "10": 23
+            }
+          },
+          "4": {
+            "level": {
+              "5": 98,
+              "6": 49,
+              "7": 39,
+              "8": 29,
+              "9": 20,
+              "10": 14
+            }
+          },
+          "8": {
+            "level": {
+              "5": 54,
+              "6": 27,
+              "7": 21,
+              "8": 16,
+              "9": 11,
+              "10": 8
+            }
+          },
+          "16": 1
+        }
+      },
+      {
+        "profileName": "ITF W15 Doubles",
+        "levels": [
+          11
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": 15,
+          "2": 10,
+          "4": 6,
+          "8": 3
+        }
+      }
+    ],
+    "aggregationRules": {
+      "rollingPeriodDays": 364,
+      "separateByGender": false,
+      "perCategory": false,
+      "minCountableResults": 3,
+      "countingBuckets": [
+        {
+          "bucketName": "Singles",
+          "eventTypes": [
+            "SINGLES"
+          ],
+          "bestOfCount": 19,
+          "pointComponents": [
+            "positionPoints",
+            "perWinPoints",
+            "bonusPoints"
+          ],
+          "mandatoryRules": [
+            {
+              "ruleName": "Grand Slams",
+              "levels": [
+                1
+              ]
+            },
+            {
+              "ruleName": "WTA 1000 Combined",
+              "levels": [
+                3
+              ],
+              "bestOfCount": 6
+            }
+          ]
+        },
+        {
+          "bucketName": "Doubles",
+          "eventTypes": [
+            "DOUBLES"
+          ],
+          "bestOfCount": 12,
+          "pointComponents": [
+            "positionPoints",
+            "perWinPoints",
+            "bonusPoints"
+          ]
+        }
+      ],
+      "tiebreakCriteria": [
+        "highestSingleResult",
+        "mostCountingResults"
+      ]
+    },
+    "doublesAttribution": "fullToEach"
+  },
+  "metadata": {
+    "source": "tods-competition-factory@3.x fixtures",
+    "fixtureKey": "POLICY_RANKING_POINTS_WTA",
+    "generatedAt": "2026-05-20T09:50:42.509Z"
+  }
+}

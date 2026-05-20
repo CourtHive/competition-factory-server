@@ -1,0 +1,262 @@
+{
+  "providerId": null,
+  "policyType": "rankingPoints",
+  "name": "TENNIS_CANADA",
+  "version": "2025.01",
+  "visibility": "TEMPLATE_REF",
+  "definition": {
+    "policyName": "Tennis Canada Junior Rankings",
+    "policyVersion": "2025.01",
+    "validDateRange": {
+      "startDate": "2025-01-01"
+    },
+    "pointPoolModel": "shared",
+    "awardProfiles": [
+      {
+        "profileName": "Standard Singles",
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 1500,
+              "2": 600,
+              "3": 1000,
+              "4": 300,
+              "5": 150
+            }
+          },
+          "2": {
+            "level": {
+              "1": 900,
+              "2": 360,
+              "3": 600,
+              "4": 180,
+              "5": 90
+            }
+          },
+          "4": {
+            "level": {
+              "1": 540,
+              "2": 216,
+              "3": 360,
+              "4": 108,
+              "5": 54
+            }
+          },
+          "8": {
+            "level": {
+              "1": 324,
+              "2": 130,
+              "3": 216,
+              "4": 65,
+              "5": 32
+            }
+          },
+          "16": {
+            "level": {
+              "1": 194,
+              "2": 78,
+              "3": 130,
+              "4": 39,
+              "5": 19
+            }
+          },
+          "32": {
+            "level": {
+              "1": 117,
+              "2": 66,
+              "3": 78,
+              "4": 23,
+              "5": 12
+            }
+          },
+          "64": {
+            "level": {
+              "1": 70,
+              "2": 51,
+              "3": 47,
+              "4": 14,
+              "5": 7
+            }
+          }
+        }
+      },
+      {
+        "profileName": "Qualifying Singles",
+        "levels": [
+          1,
+          2,
+          3
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "QUALIFYING"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 117,
+              "2": 47,
+              "3": 78
+            }
+          },
+          "2": {
+            "level": {
+              "1": 70,
+              "2": 28,
+              "3": 47
+            }
+          },
+          "4": {
+            "level": {
+              "1": 42,
+              "2": 17,
+              "3": 28
+            }
+          }
+        }
+      },
+      {
+        "profileName": "Consolation Singles",
+        "levels": [
+          1,
+          2,
+          3
+        ],
+        "eventTypes": [
+          "SINGLES"
+        ],
+        "stages": [
+          "CONSOLATION"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 194,
+              "2": 78,
+              "3": 130
+            }
+          },
+          "2": {
+            "level": {
+              "1": 117,
+              "2": 47,
+              "3": 78
+            }
+          },
+          "4": {
+            "level": {
+              "1": 70,
+              "2": 28,
+              "3": 47
+            }
+          }
+        }
+      },
+      {
+        "profileName": "Standard Doubles",
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "eventTypes": [
+          "DOUBLES"
+        ],
+        "stages": [
+          "MAIN"
+        ],
+        "finishingPositionRanges": {
+          "1": {
+            "level": {
+              "1": 1500,
+              "2": 600,
+              "3": 1000,
+              "4": 300,
+              "5": 150
+            }
+          },
+          "2": {
+            "level": {
+              "1": 900,
+              "2": 360,
+              "3": 600,
+              "4": 180,
+              "5": 90
+            }
+          },
+          "4": {
+            "level": {
+              "1": 540,
+              "2": 216,
+              "3": 360,
+              "4": 108,
+              "5": 54
+            }
+          },
+          "8": {
+            "level": {
+              "1": 324,
+              "2": 130,
+              "3": 216,
+              "4": 65,
+              "5": 32
+            }
+          }
+        }
+      }
+    ],
+    "aggregationRules": {
+      "rollingPeriodDays": 365,
+      "separateByGender": true,
+      "perCategory": true,
+      "countingBuckets": [
+        {
+          "bucketName": "singles",
+          "eventTypes": [
+            "SINGLES"
+          ],
+          "bestOfCount": 5,
+          "pointComponents": [
+            "positionPoints"
+          ]
+        },
+        {
+          "bucketName": "doubles",
+          "eventTypes": [
+            "DOUBLES"
+          ],
+          "bestOfCount": 5,
+          "pointComponents": [
+            "positionPoints"
+          ]
+        }
+      ],
+      "categoryAggregation": []
+    },
+    "requireWinForPoints": true,
+    "doublesAttribution": "fullToEach",
+    "categoryResolution": "eventCategory"
+  },
+  "metadata": {
+    "source": "tods-competition-factory@3.x fixtures",
+    "fixtureKey": "POLICY_RANKING_POINTS_TENNIS_CANADA",
+    "generatedAt": "2026-05-20T09:50:42.511Z"
+  }
+}
