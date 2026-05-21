@@ -1,5 +1,36 @@
 # Changelog
 
+## [2.3.0](https://github.com/CourtHive/competition-factory-server/compare/v2.2.0...v2.3.0) (2026-05-21)
+
+
+### Features
+
+* **admin:** Users column shows all providers + remove from provider on detail pane ([4856148](https://github.com/CourtHive/competition-factory-server/commit/485614843cd864fe0e66f8761e0ba24340bd3b7b))
+* **auth:** multi-provider session context (Phase 1 — CFS) ([2d30ee5](https://github.com/CourtHive/competition-factory-server/commit/2d30ee5c6811d73884c39f0b4978a96cafc3216d))
+* **policies:** add delivery endpoints + service + validator ([b071403](https://github.com/CourtHive/competition-factory-server/commit/b071403d6c3a285d2022704dd64e8a9dadb41921))
+* **policies:** add IPolicyStorage + Postgres impl + migration 024 ([cf79da8](https://github.com/CourtHive/competition-factory-server/commit/cf79da8b9933a893dcf5be29d136b41879d5f6b6))
+* **policies:** add seed loader + generation script ([7227ee9](https://github.com/CourtHive/competition-factory-server/commit/7227ee9b9bb8782e6c3f00c802922fbae5f4d511))
+* **policies:** hydrate factory engine registry from POLICY_STORAGE ([30ec6f6](https://github.com/CourtHive/competition-factory-server/commit/30ec6f669c5b0d8f77fa775318140326e4865310))
+* **policies:** seed global ranking-points policies ([51dab16](https://github.com/CourtHive/competition-factory-server/commit/51dab16e4c66831593a353f3b39cadd9ca1f1f7e))
+
+
+### Bug Fixes
+
+* **admin-client:** guard policy fixtures removed in factory 4.0.0 ([827077b](https://github.com/CourtHive/competition-factory-server/commit/827077b5b1bc9c819a131f5d20bd6eb051f62642))
+* **admin:** dark-mode-readable API key modal + stabilise pnpm v11 config ([40c2550](https://github.com/CourtHive/competition-factory-server/commit/40c2550be6846a95d47a6d0fe7cb54895a7d14c6))
+* **admin:** surface multi-provider associations in providers panel ([b7241cc](https://github.com/CourtHive/competition-factory-server/commit/b7241ccf6182a8d699e4d95e30e16ad221da4303))
+* **auth:** provisioner inherits provider access for impersonation ([02e23e3](https://github.com/CourtHive/competition-factory-server/commit/02e23e3e6e26b4991370208e627ce09fec8d60d4))
+* **cache:** invalidate ged|... on PUBLISH_EVENT instead of seeding wrong shape ([c6701ad](https://github.com/CourtHive/competition-factory-server/commit/c6701ad12945f530b62d260559a6623cbea9c731))
+* **deps:** update dependency tods-competition-factory to v4.0.0 ([5bf7c71](https://github.com/CourtHive/competition-factory-server/commit/5bf7c71f40e85972e9aeda7fc50dee558d07cdce))
+* **factory:** wire userContext through fetch/save/generate ([df5ad02](https://github.com/CourtHive/competition-factory-server/commit/df5ad029eaad464bd7eb4dbf08621373b8a39678))
+* **policies:** mark /policies/catalog @Public so anon callers reach it ([a9fffe8](https://github.com/CourtHive/competition-factory-server/commit/a9fffe85b219c99b9aa61a709f9d869376f84cab))
+* **provisioner:** scope provider listing + tighten providers panel UI ([17c777b](https://github.com/CourtHive/competition-factory-server/commit/17c777bc07e7f71bb67fadf3819d6f10c2b09123))
+
+
+### Documentation
+
+* **policies:** seeds/policies/README.md ([0a84775](https://github.com/CourtHive/competition-factory-server/commit/0a847758caa25cd26f7c9cacc5f2664887d73711))
+
 ## [2.2.0](https://github.com/CourtHive/competition-factory-server/compare/v2.1.0...v2.2.0) (2026-05-18)
 
 
