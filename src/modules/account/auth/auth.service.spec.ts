@@ -45,6 +45,8 @@ describe('AuthService', () => {
       findByContactEmail: jest.fn().mockResolvedValue(null),
       findByUserId: jest.fn().mockResolvedValue(null),
       setPasswordByUserId: jest.fn().mockResolvedValue({ success: true }),
+      setContactEmail: jest.fn().mockResolvedValue({ success: true }),
+      markEmailVerified: jest.fn().mockResolvedValue({ success: true }),
     };
 
     const mockUserProvisionerStorage = {
@@ -405,6 +407,75 @@ describe('AuthService', () => {
 
       expect(mockUserProviderStorage.upsert).not.toHaveBeenCalled();
     });
+
+    it('emails the new user when a valid contactEmail is provided (B4)', async () => {
+      mockUsersService.findOne
+        .mockResolvedValueOnce(null) // collision check
+        .mockResolvedValueOnce({ userId: 'u-new', email: 'new@test.com' }); // post-create lookup
+      mockUsersService.create.mockResolvedValue({ email: 'new@test.com' });
+
+      const result: any = await authService.adminCreateUser(
+        {
+          email: 'new@test.com',
+          contactEmail: 'real@example.com',
+          firstName: 'Alice',
+          providerId: 'p-1',
+        },
+        superAdminCtx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.mode).toBe('email-sent');
+      expect(result.contactEmail).toBe('real@example.com');
+      expect(result.password).toBeUndefined(); // password is NOT returned on email path
+      expect(mockUserStorage.setContactEmail).toHaveBeenCalledWith('u-new', 'real@example.com');
+      expect(mockEmailService.sendTemplated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'real@example.com',
+          template: 'admin-created-account',
+          tag: 'admin-onboard',
+          data: expect.objectContaining({ firstName: 'Alice' }),
+        }),
+      );
+    });
+
+    it('falls back to clipboard handoff when contactEmail is not RFC-shaped', async () => {
+      mockUsersService.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ userId: 'u-new', email: 'new@test.com' });
+      mockUsersService.create.mockResolvedValue({ email: 'new@test.com' });
+
+      const result: any = await authService.adminCreateUser(
+        { email: 'new@test.com', contactEmail: 'not-an-email', providerId: 'p-1' },
+        superAdminCtx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.mode).toBe('password-returned');
+      expect(typeof result.password).toBe('string');
+      expect(mockEmailService.sendTemplated).not.toHaveBeenCalled();
+      expect(mockUserStorage.setContactEmail).not.toHaveBeenCalled();
+    });
+
+    it('falls back to clipboard handoff when the email send fails', async () => {
+      mockUsersService.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ userId: 'u-new', email: 'new@test.com' });
+      mockUsersService.create.mockResolvedValue({ email: 'new@test.com' });
+      mockEmailService.sendTemplated.mockRejectedValueOnce(new Error('SMTP down'));
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+
+      const result: any = await authService.adminCreateUser(
+        { email: 'new@test.com', contactEmail: 'real@example.com', providerId: 'p-1' },
+        superAdminCtx,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.mode).toBe('password-returned');
+      expect(typeof result.password).toBe('string');
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
   });
 
   describe('completeFirstLogin', () => {
@@ -606,6 +677,40 @@ describe('AuthService', () => {
           tag: 'password-reset-confirmation',
         }),
       );
+    });
+
+    it('marks email_verified_at when previously unverified (B4 admin-onboard piggyback)', async () => {
+      const token = await jwtService.signAsync(
+        { userId: 'u-1', contactEmail: 'alice@example.com', purpose: 'password-reset' },
+        { expiresIn: '7d' },
+      );
+      // Admin-created user: contact_email set but never verified
+      mockUserStorage.findByUserId.mockResolvedValue({
+        userId: 'u-1',
+        contactEmail: 'alice@example.com',
+        emailVerifiedAt: null,
+        firstName: 'Alice',
+      });
+
+      await authService.resetPassword(token, 'newPass');
+
+      expect(mockUserStorage.markEmailVerified).toHaveBeenCalledWith('u-1');
+    });
+
+    it('does NOT re-mark email_verified_at when already verified', async () => {
+      const token = await jwtService.signAsync(
+        { userId: 'u-1', contactEmail: 'alice@example.com', purpose: 'password-reset' },
+        { expiresIn: '1h' },
+      );
+      mockUserStorage.findByUserId.mockResolvedValue({
+        userId: 'u-1',
+        contactEmail: 'alice@example.com',
+        emailVerifiedAt: '2026-05-22T00:00:00Z',
+      });
+
+      await authService.resetPassword(token, 'newPass');
+
+      expect(mockUserStorage.markEmailVerified).not.toHaveBeenCalled();
     });
   });
 

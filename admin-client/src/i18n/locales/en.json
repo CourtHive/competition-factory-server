@@ -1253,8 +1253,12 @@
     "createUser": {
       "title": "Create User",
       "create": "Create",
+      "loginEmail": "Login id",
+      "contactEmail": "Contact email (optional)",
       "password": "Password",
       "successCopied": "Created {{email}}. Temporary password copied to clipboard.",
+      "successEmailed": "Created. A \"set your password\" link was sent to {{email}}.",
+      "successPlain": "Created {{email}}.",
       "failed": "Failed to create user.",
       "emailExists": "A user with email {{email}} already exists."
     },
