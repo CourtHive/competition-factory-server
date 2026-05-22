@@ -47,6 +47,10 @@ export const SYNC = 'sync';
 export const TMX_VERIFY_EMAIL = 'tmxVerifyEmail';
 export const VERIFY_EMAIL = 'verify-email';
 
+// Reset password (public landing for password-reset link)
+export const TMX_RESET_PASSWORD = 'tmxResetPassword';
+export const RESET_PASSWORD = 'reset-password';
+
 // Navigation targets
 export const TOURNAMENT_SETTINGS = 'tournamentSettings';
 export const TMX_TOURNAMENTS = 'tournaments';

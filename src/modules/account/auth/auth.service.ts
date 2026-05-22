@@ -2,7 +2,9 @@ import { BadRequestException, ConflictException, ForbiddenException, Inject, Inj
 import { VALID_GLOBAL_ROLES, VALID_PROVIDER_ROLES } from 'src/common/constants/roles';
 import { computeEffectiveConfig } from '@courthive/provider-config';
 import { createUniqueKey } from './helpers/createUniqueKey';
+import { EmailService } from '../email/email.service';
 import { UsersService } from '../../users/users.service';
+import { ConfigService } from '@nestjs/config';
 import { hashPassword } from './helpers/hashPassword';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';
@@ -13,8 +15,6 @@ import { PROVISIONER as PROVISIONER_ROLE, SUPER_ADMIN } from 'src/common/constan
 import {
   PROVIDER_STORAGE,
   type IProviderStorage,
-  AUTH_CODE_STORAGE,
-  type IAuthCodeStorage,
   USER_STORAGE,
   type IUserStorage,
   USER_PROVISIONER_STORAGE,
@@ -27,6 +27,10 @@ import {
 import { assertProviderEditor } from './helpers/assertProviderEditor';
 import type { UserContext } from './decorators/user-context.decorator';
 
+const PASSWORD_RESET_TOKEN_TTL = '1h';
+const PASSWORD_RESET_TOKEN_TTL_MINUTES = 60;
+const PASSWORD_RESET_PURPOSE = 'password-reset';
+
 const ALLOWED_ROLE_SET = new Set([...VALID_GLOBAL_ROLES, ...VALID_PROVIDER_ROLES, 'admin', 'official', 'director']);
 
 @Injectable()
@@ -34,14 +38,31 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
-    @Inject(AUTH_CODE_STORAGE) private readonly authCodeStorage: IAuthCodeStorage,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
     @Inject(USER_PROVISIONER_STORAGE) private readonly userProvisionerStorage: IUserProvisionerStorage,
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
     @Inject(PROVISIONER_PROVIDER_STORAGE)
     private readonly provisionerProviderStorage: IProvisionerProviderStorage,
   ) {}
+
+  /**
+   * Build the password-reset URL placed in the email body. Same shape
+   * as the email-verification URL: lands on the admin-client public
+   * route which extracts the token, shows a "Set new password" form,
+   * POSTs to /auth/reset-password. POST-not-GET so link-previewers
+   * can't accidentally consume the single-use token.
+   */
+  private buildResetUrl(token: string): string {
+    const appConfig: any = this.configService.get('app');
+    const base = String(appConfig?.baseUrl ?? process.env.APP_BASE_URL ?? '').replace(/\/+$/, '');
+    if (!base) {
+      throw new Error('APP_BASE_URL is not set; cannot generate password-reset link.');
+    }
+    return `${base}/admin/#/reset-password/${token}`;
+  }
 
   async signIn(email: string, clearTextPassword: string) {
     if (!email) throw new UnauthorizedException();
@@ -165,33 +186,129 @@ export class AuthService {
     return await this.userStorage.updateLastSelectedProviderId(email, providerId);
   }
 
-  // TODO: implement forgot password code
-  async forgotPassword(email: string) {
-    const user = await this.usersService.findOne(email);
-    if (!user) return { error: 'User not found' };
-    const code = Math.floor(100000 + Math.random() * 900000);
-    await this.authCodeStorage.setResetCode(String(code), email);
-
-    /**
-    await sendEmailHTML({
-      to: email,
-      subject: `Reset Password Code: ${code}`,
-      templateName: 'resetPassword',
-      templateData: { code },
-    });
-    */
-    return email;
+  /**
+   * Request a password reset.
+   *
+   * The contract is *enumeration-defensive*: this endpoint always
+   * returns `{ ok: true }` regardless of whether the contact address
+   * is registered, verified, or unknown. A caller probing the API
+   * gets no signal about which contact emails are real accounts.
+   *
+   * Mail is sent only when ALL three are true:
+   *   - a user exists with this contact_email (case-insensitive)
+   *   - the user's email_verified_at is non-null
+   *   - the user has a userId
+   *
+   * Any failure inside the send branch is logged and swallowed — the
+   * response is `{ ok: true }` regardless so timing/error-shape can't
+   * be used to enumerate either.
+   *
+   * Token: signed JWT with `purpose: 'password-reset'`, includes
+   * `userId` (stable) and `contactEmail` (so a contact-email change
+   * between issue and use invalidates the link — same defense pattern
+   * as B2's email-verification). 1h expiry.
+   */
+  async forgotPassword(contactEmail: string): Promise<{ ok: true }> {
+    const trimmed = (contactEmail ?? '').trim();
+    if (!trimmed) return { ok: true };
+    try {
+      const user = await this.userStorage.findByContactEmail(trimmed);
+      if (user && user.emailVerifiedAt && user.userId && user.contactEmail) {
+        const token = await this.jwtService.signAsync(
+          {
+            userId: user.userId,
+            contactEmail: user.contactEmail,
+            purpose: PASSWORD_RESET_PURPOSE,
+          },
+          { expiresIn: PASSWORD_RESET_TOKEN_TTL },
+        );
+        await this.emailService.sendTemplated({
+          to: user.contactEmail,
+          subject: 'Reset your CourtHive password',
+          template: 'password-reset-request',
+          data: {
+            firstName: user.firstName ?? '',
+            resetUrl: this.buildResetUrl(token),
+            expiresInMinutes: PASSWORD_RESET_TOKEN_TTL_MINUTES,
+          },
+          tag: 'password-reset',
+        });
+        Logger.log(`Sent password-reset mail to ${user.contactEmail} for user ${user.userId}`);
+      } else {
+        Logger.verbose(
+          `forgotPassword: no eligible recipient for "${trimmed}" (verified=${!!user?.emailVerifiedAt})`,
+        );
+      }
+    } catch (err) {
+      // Log loudly so we can spot misdelivery / template bugs, but never
+      // surface a different response shape to the caller — that would
+      // leak whether an address is registered.
+      Logger.warn(`forgotPassword silently swallowed error: ${(err as Error).message}`);
+    }
+    return { ok: true };
   }
 
-  // TODO: implement password reset
-  async resetPassword(code: string, newPassword: string) {
-    const resetDetails: any = await this.authCodeStorage.getResetCode(code);
-    await this.authCodeStorage.deleteResetCode(code);
-    if (!resetDetails?.email) return { error: 'Invalid reset code' };
-    const user = await this.usersService.findOne(resetDetails?.email);
-    if (!user) return { error: 'User not found' };
-    user.password = await hashPassword(newPassword);
-    await this.userStorage.update(user.email, user);
+  /**
+   * Apply a password-reset token.
+   *
+   * Verifies the JWT (`purpose: 'password-reset'`), looks up the user
+   * by userId, confirms the contact_email in the token still matches
+   * the user's current contact_email (stale-token defense), writes the
+   * new hashed password, and sends a confirmation email.
+   *
+   * Throws UnauthorizedException for token shape / expiry / purpose
+   * problems and ForbiddenException for stale tokens whose contact
+   * email has been changed since issue time.
+   */
+  async resetPassword(token: string, newPassword: string) {
+    if (!token || !newPassword) return { error: 'token and newPassword are required' };
+    let claims: any;
+    try {
+      claims = await this.jwtService.verifyAsync(token);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired reset link');
+    }
+    if (claims?.purpose !== PASSWORD_RESET_PURPOSE || !claims?.userId) {
+      throw new UnauthorizedException('Token is not a password-reset token');
+    }
+
+    const user = await this.userStorage.findByUserId(claims.userId);
+    if (!user) throw new UnauthorizedException();
+
+    // Stale-token defense: if contact_email was changed (which clears
+    // email_verified_at via setContactEmail), reject. Same defense as
+    // IdentityService.verifyEmailToken.
+    if (
+      claims.contactEmail &&
+      String(user.contactEmail ?? '').toLowerCase() !== String(claims.contactEmail).toLowerCase()
+    ) {
+      throw new ForbiddenException('Contact email has changed since this reset link was issued');
+    }
+
+    const hashed = await hashPassword(newPassword);
+    await this.userStorage.setPasswordByUserId(user.userId, hashed);
+
+    // Security notification — fire-and-forget so a mail failure can't
+    // roll back the password change. Logged at warn level so we notice.
+    if (user.contactEmail) {
+      this.emailService
+        .sendTemplated({
+          to: user.contactEmail,
+          subject: 'Your CourtHive password was changed',
+          template: 'password-reset-confirmation',
+          data: {
+            firstName: user.firstName ?? '',
+            changedAt: new Date().toISOString(),
+          },
+          tag: 'password-reset-confirmation',
+        })
+        .catch((err) => {
+          Logger.warn(
+            `Failed to send password-reset confirmation to ${user.contactEmail}: ${(err as Error).message}`,
+          );
+        });
+    }
+
     return { ...SUCCESS };
   }
 

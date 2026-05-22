@@ -40,4 +40,17 @@ export interface IUserStorage {
    * successful token validation.
    */
   markEmailVerified(userId: string): Promise<{ success: boolean }>;
+  /**
+   * Look up a user by uuid primary key. Used by the B3 password-reset
+   * flow which carries `userId` in the reset token rather than `email`
+   * (the login id can change in principle; userId is stable).
+   */
+  findByUserId(userId: string): Promise<any | null>;
+  /**
+   * Atomic password write keyed by `userId`. Also clears
+   * `must_change_password` because a successful password reset is an
+   * explicit user-initiated set — no need to force them to change it
+   * again on next login.
+   */
+  setPasswordByUserId(userId: string, hashedPassword: string): Promise<{ success: boolean }>;
 }

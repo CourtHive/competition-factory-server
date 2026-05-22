@@ -7,8 +7,9 @@ describe('AuthService', () => {
   let authService: AuthService;
   let mockUsersService: any;
   let jwtService: JwtService;
+  let mockEmailService: any;
+  let mockConfigService: any;
   let mockProviderStorage: any;
-  let mockAuthCodeStorage: any;
   let mockUserStorage: any;
   let mockUserProviderStorage: any;
   let mockProvisionerProviderStorage: any;
@@ -23,15 +24,17 @@ describe('AuthService', () => {
       remove: jest.fn(),
     };
 
+    mockEmailService = {
+      sendTemplated: jest.fn().mockResolvedValue({ id: 'msg-123' }),
+    };
+
+    mockConfigService = {
+      get: jest.fn().mockReturnValue({ baseUrl: 'https://nest.test.example' }),
+    };
+
     mockProviderStorage = {
       getProvider: jest.fn(),
       updateLastAccess: jest.fn().mockResolvedValue(undefined),
-    };
-
-    mockAuthCodeStorage = {
-      setResetCode: jest.fn(),
-      getResetCode: jest.fn(),
-      deleteResetCode: jest.fn(),
     };
 
     mockUserStorage = {
@@ -39,6 +42,9 @@ describe('AuthService', () => {
       updateLastAccess: jest.fn().mockResolvedValue(undefined),
       updateLastSelectedProviderId: jest.fn().mockResolvedValue({ success: true }),
       completeFirstLogin: jest.fn().mockResolvedValue({ success: true }),
+      findByContactEmail: jest.fn().mockResolvedValue(null),
+      findByUserId: jest.fn().mockResolvedValue(null),
+      setPasswordByUserId: jest.fn().mockResolvedValue({ success: true }),
     };
 
     const mockUserProvisionerStorage = {
@@ -70,8 +76,9 @@ describe('AuthService', () => {
     authService = new AuthService(
       mockUsersService,
       jwtService,
+      mockEmailService,
+      mockConfigService,
       mockProviderStorage,
-      mockAuthCodeStorage,
       mockUserStorage,
       mockUserProvisionerStorage as any,
       mockUserProviderStorage,
@@ -453,41 +460,152 @@ describe('AuthService', () => {
   });
 
   describe('forgotPassword', () => {
-    it('returns error when user not found', async () => {
-      mockUsersService.findOne.mockResolvedValue(null);
-      const result = await authService.forgotPassword('missing@test.com');
-      expect(result).toEqual({ error: 'User not found' });
+    // The contract is enumeration-defensive: always return { ok: true }
+    // regardless of input. The signal of whether a real account exists
+    // never leaks via response shape, status code, or timing-distinct
+    // failure paths.
+
+    it('returns { ok: true } for an empty address and sends nothing', async () => {
+      const result: any = await authService.forgotPassword('');
+      expect(result).toEqual({ ok: true });
+      expect(mockEmailService.sendTemplated).not.toHaveBeenCalled();
     });
 
-    it('sets reset code and returns email', async () => {
-      mockUsersService.findOne.mockResolvedValue({ email: 'user@test.com' });
-      const result = await authService.forgotPassword('user@test.com');
-      expect(result).toBe('user@test.com');
-      expect(mockAuthCodeStorage.setResetCode).toHaveBeenCalled();
+    it('returns { ok: true } when no user has this contact_email', async () => {
+      mockUserStorage.findByContactEmail.mockResolvedValue(null);
+      const result: any = await authService.forgotPassword('unknown@test.com');
+      expect(result).toEqual({ ok: true });
+      expect(mockEmailService.sendTemplated).not.toHaveBeenCalled();
+    });
+
+    it('returns { ok: true } when the user exists but has not verified their contact_email', async () => {
+      mockUserStorage.findByContactEmail.mockResolvedValue({
+        userId: 'u-1',
+        contactEmail: 'alice@example.com',
+        emailVerifiedAt: null,
+      });
+      const result: any = await authService.forgotPassword('alice@example.com');
+      expect(result).toEqual({ ok: true });
+      expect(mockEmailService.sendTemplated).not.toHaveBeenCalled();
+    });
+
+    it('sends a password-reset email when the user has a verified contact_email', async () => {
+      mockUserStorage.findByContactEmail.mockResolvedValue({
+        userId: 'u-1',
+        contactEmail: 'alice@example.com',
+        emailVerifiedAt: '2026-05-22T00:00:00Z',
+        firstName: 'Alice',
+      });
+      const result: any = await authService.forgotPassword('alice@example.com');
+      expect(result).toEqual({ ok: true });
+      expect(mockEmailService.sendTemplated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'alice@example.com',
+          template: 'password-reset-request',
+          tag: 'password-reset',
+          data: expect.objectContaining({ firstName: 'Alice' }),
+        }),
+      );
+      const sendCall = (mockEmailService.sendTemplated as jest.Mock).mock.calls[0][0];
+      expect(sendCall.data.resetUrl).toMatch(/^https:\/\/nest\.test\.example\/admin\/#\/reset-password\//);
+    });
+
+    it('still returns { ok: true } when the email send fails (no enumeration leak)', async () => {
+      mockUserStorage.findByContactEmail.mockResolvedValue({
+        userId: 'u-1',
+        contactEmail: 'alice@example.com',
+        emailVerifiedAt: '2026-05-22T00:00:00Z',
+      });
+      mockEmailService.sendTemplated.mockRejectedValueOnce(new Error('SMTP down'));
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+      const result: any = await authService.forgotPassword('alice@example.com');
+      expect(result).toEqual({ ok: true });
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
     });
   });
 
   describe('resetPassword', () => {
-    it('returns error for invalid reset code', async () => {
-      mockAuthCodeStorage.getResetCode.mockResolvedValue(null);
-      const result = await authService.resetPassword('bad-code', 'new-pass');
-      expect(result).toEqual({ error: 'Invalid reset code' });
+    it('returns error when token is missing', async () => {
+      const result: any = await authService.resetPassword('', 'newPass');
+      expect(result.error).toContain('required');
     });
 
-    it('returns error when user not found', async () => {
-      mockAuthCodeStorage.getResetCode.mockResolvedValue({ email: 'gone@test.com' });
-      mockUsersService.findOne.mockResolvedValue(null);
-      const result = await authService.resetPassword('valid-code', 'new-pass');
-      expect(result).toEqual({ error: 'User not found' });
+    it('returns error when newPassword is missing', async () => {
+      const result: any = await authService.resetPassword('token', '');
+      expect(result.error).toContain('required');
     });
 
-    it('updates password and returns success', async () => {
-      mockAuthCodeStorage.getResetCode.mockResolvedValue({ email: 'user@test.com' });
-      mockUsersService.findOne.mockResolvedValue({ email: 'user@test.com', password: 'old' });
-      mockUserStorage.update.mockResolvedValue(undefined);
-      const result: any = await authService.resetPassword('valid-code', 'new-pass');
+    it('throws UnauthorizedException when the token is malformed', async () => {
+      await expect(authService.resetPassword('not-a-jwt', 'newPass')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('throws UnauthorizedException for a token without the password-reset purpose', async () => {
+      const wrong = await jwtService.signAsync(
+        { userId: 'u-1', purpose: 'something-else' },
+        { expiresIn: '5m' },
+      );
+      await expect(authService.resetPassword(wrong, 'newPass')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('throws UnauthorizedException when the user no longer exists', async () => {
+      const token = await jwtService.signAsync(
+        { userId: 'u-1', contactEmail: 'alice@example.com', purpose: 'password-reset' },
+        { expiresIn: '1h' },
+      );
+      mockUserStorage.findByUserId.mockResolvedValue(null);
+      await expect(authService.resetPassword(token, 'newPass')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('throws ForbiddenException when the user changed their contact_email after the token was issued', async () => {
+      const token = await jwtService.signAsync(
+        { userId: 'u-1', contactEmail: 'alice@example.com', purpose: 'password-reset' },
+        { expiresIn: '1h' },
+      );
+      mockUserStorage.findByUserId.mockResolvedValue({
+        userId: 'u-1',
+        contactEmail: 'bob@example.com', // changed since the token was issued
+        emailVerifiedAt: null,
+      });
+      await expect(authService.resetPassword(token, 'newPass')).rejects.toThrow(/changed/);
+      expect(mockUserStorage.setPasswordByUserId).not.toHaveBeenCalled();
+    });
+
+    it('writes the new password, returns success, and sends a confirmation email', async () => {
+      const token = await jwtService.signAsync(
+        { userId: 'u-1', contactEmail: 'alice@example.com', purpose: 'password-reset' },
+        { expiresIn: '1h' },
+      );
+      mockUserStorage.findByUserId.mockResolvedValue({
+        userId: 'u-1',
+        contactEmail: 'alice@example.com',
+        emailVerifiedAt: '2026-05-22T00:00:00Z',
+        firstName: 'Alice',
+      });
+
+      const result: any = await authService.resetPassword(token, 'brand-new-password');
+
       expect(result.success).toBe(true);
-      expect(mockUserStorage.update).toHaveBeenCalledWith('user@test.com', expect.objectContaining({ email: 'user@test.com' }));
+      expect(mockUserStorage.setPasswordByUserId).toHaveBeenCalledWith(
+        'u-1',
+        expect.any(String), // the bcrypt hash, not the cleartext
+      );
+      // Confirmation email is fire-and-forget — flush microtasks before asserting.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(mockEmailService.sendTemplated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'alice@example.com',
+          template: 'password-reset-confirmation',
+          tag: 'password-reset-confirmation',
+        }),
+      );
     });
   });
 

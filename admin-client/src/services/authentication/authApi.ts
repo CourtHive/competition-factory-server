@@ -46,12 +46,21 @@ export async function confirmEmail(emailConfirmationId) {
   return baseApi.get(`/auth/confirm/${emailConfirmationId}`);
 }
 
-export async function forgotPassword(email) {
-  return baseApi.post('/auth/forgot-password', { email });
+/**
+ * Request a password reset. Server is enumeration-defensive — always
+ * returns `{ ok: true }`, never confirms registration.
+ */
+export async function forgotPassword(contactEmail: string) {
+  return baseApi.post('/auth/forgot-password', { contactEmail });
 }
 
-export async function resetPassword(email, password, code) {
-  return baseApi.post('/auth/reset-password', { email, password, code });
+/**
+ * Apply a password reset using the JWT from the email link. Server
+ * verifies the token (purpose: 'password-reset', 1h expiry) and writes
+ * the new password atomically.
+ */
+export async function resetPassword(token: string, newPassword: string) {
+  return baseApi.post('/auth/reset-password', { token, newPassword });
 }
 
 export async function ssoLoginWithToken(token: string) {

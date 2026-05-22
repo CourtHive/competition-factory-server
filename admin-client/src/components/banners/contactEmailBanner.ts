@@ -14,7 +14,7 @@
  */
 import { getLoginState } from 'services/authentication/loginState';
 import { contactEmailModal } from 'components/modals/contactEmail';
-import { VERIFY_EMAIL } from 'constants/tmxConstants';
+import { VERIFY_EMAIL, RESET_PASSWORD } from 'constants/tmxConstants';
 import { t } from 'i18n';
 
 const DISMISS_KEY = 'admin_contact_email_banner_dismissed_until';
@@ -37,8 +37,12 @@ export function renderContactEmailBanner(): void {
   if (!container) return;
   container.innerHTML = '';
 
-  // The verify-email landing page is a public route; never nag on it.
+  // Public email-link landing pages are routes a non-logged-in user may
+  // be on; never nag on them. (The banner only fires when logged in
+  // anyway, but these guards short-circuit cleanly if a session is
+  // somehow active during a reset/verify flow.)
   if (globalThis.location.hash.startsWith(`#/${VERIFY_EMAIL}/`)) return;
+  if (globalThis.location.hash.startsWith(`#/${RESET_PASSWORD}/`)) return;
 
   const state: any = getLoginState();
   if (!state) return; // not logged in
