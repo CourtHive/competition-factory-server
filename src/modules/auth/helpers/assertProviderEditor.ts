@@ -3,9 +3,9 @@
  *
  * The "may this editor manage user-provider associations at provider P"
  * decision shows up in three endpoints (GET / PUT / DELETE on
- * `/provisioner/users/:userId/providers/:providerId`) plus the
- * existing-email-detection branch of `/auth/invite`. Centralising it
- * here keeps the rule consistent and testable in isolation.
+ * `/provisioner/users/:userId/providers/:providerId`) plus the new-user
+ * scope check in `/auth/admin-create-user`. Centralising it here keeps
+ * the rule consistent and testable in isolation.
  *
  * Rule (per planning/MULTI_PROVIDER_USER_EDIT.md, Resolved Decisions):
  *

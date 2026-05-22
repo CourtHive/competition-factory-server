@@ -47,7 +47,13 @@ const {
 
 const safePolicyData = (policy: any, type: string) => policy?.[type];
 
-export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
+// `satisfies` (not `:`) so TS keeps the literal types of `source: 'builtin'`
+// without widening them to `string`. With the explicit `: PolicyCatalogItem[]`
+// annotation the array elements widen and PolicySource = 'builtin' | 'user'
+// fails to match — `tsc --noEmit` flags it even though the build (which uses
+// a different tsconfig) compiles. Caught after the courthive-components 1.7.1
+// release tightened PolicySource.
+export const BUILTIN_POLICIES = ([
   {
     id: 'builtin-scheduling-default',
     name: 'Default Scheduling',
@@ -168,4 +174,4 @@ export const BUILTIN_POLICIES: PolicyCatalogItem[] = [
     description: 'Tennis Canada ranking points',
     policyData: safePolicyData(POLICY_RANKING_POINTS_TENNIS_CANADA, POLICY_TYPE_RANKING_POINTS),
   },
-].filter((item) => item.policyData !== undefined);
+] satisfies PolicyCatalogItem[]).filter((item) => item.policyData !== undefined);
