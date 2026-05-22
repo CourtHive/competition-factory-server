@@ -230,9 +230,17 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       // Stamp the JWT-verified identity onto the payload so downstream
       // consumers (audit hook, executionQueue) see the authenticated
       // user rather than whatever the client happened to send.
+      //
+      // Only assign `userId` when the JWT actually carries a UUID-shaped
+      // identifier — `audit_log.user_id` is UUID-typed (and nullable),
+      // so falling back to `email` here would crash the INSERT with
+      // `invalid input syntax for type uuid: "..."`. The email belongs in
+      // `userEmail` (which maps to `audit_log.user_email TEXT`).
       if (verifiedUser?.email) {
         payload.userEmail = verifiedUser.email;
-        payload.userId = verifiedUser.userId ?? verifiedUser.sub ?? verifiedUser.email;
+      }
+      if (verifiedUser?.userId || verifiedUser?.sub) {
+        payload.userId = verifiedUser.userId ?? verifiedUser.sub;
       }
 
       try {
