@@ -4,7 +4,7 @@ import { TOURNAMENT_STORAGE, type ITournamentStorage } from './interfaces/tourna
 import { PROVIDER_STORAGE, type IProviderStorage } from './interfaces/provider-storage.interface';
 import { CALENDAR_STORAGE, type ICalendarStorage } from './interfaces/calendar-storage.interface';
 import { CREATED_BY_USER_ID } from 'src/modules/factory/helpers/checkTournamentAccess';
-import type { UserContext } from 'src/modules/auth/decorators/user-context.decorator';
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
 
 import { getCalendarEntry } from 'src/helpers/getCalendarEntry';

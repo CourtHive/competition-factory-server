@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Inject, Inj
 import { VALID_GLOBAL_ROLES, VALID_PROVIDER_ROLES } from 'src/common/constants/roles';
 import { computeEffectiveConfig } from '@courthive/provider-config';
 import { createUniqueKey } from './helpers/createUniqueKey';
-import { UsersService } from '../users/users.service';
+import { UsersService } from '../../users/users.service';
 import { hashPassword } from './helpers/hashPassword';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcryptjs';

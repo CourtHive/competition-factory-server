@@ -6,7 +6,7 @@ import { ProviderCatalogService } from './provider-catalog.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
-import { AuthModule } from '../auth/auth.module';
+import { AuthModule } from '../account/auth/auth.module';
 import { ConfigService } from '@nestjs/config';
 
 describe('ProvidersService', () => {

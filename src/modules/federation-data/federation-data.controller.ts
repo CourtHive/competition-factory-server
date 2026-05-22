@@ -2,8 +2,8 @@ import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs
 
 import { tournamentDetailsDto } from './dto/tournamentDetails.dto';
 import { ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { RolesGuard } from '../auth/guards/role.guard';
+import { Roles } from '../account/auth/decorators/roles.decorator';
+import { RolesGuard } from '../account/auth/guards/role.guard';
 import { FederationDataService } from './federation-data.service';
 
 // Two endpoints, one handler:

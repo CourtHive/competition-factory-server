@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 
-import { Roles } from 'src/modules/auth/decorators/roles.decorator';
+import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
 import { TournamentSyncService } from './tournament-sync.service';
 

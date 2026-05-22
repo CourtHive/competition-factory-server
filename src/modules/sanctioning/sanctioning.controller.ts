@@ -1,7 +1,7 @@
 import { Controller, Post, HttpCode, HttpStatus, Body, UseGuards, Logger, ForbiddenException } from '@nestjs/common';
-import { Roles } from 'src/modules/auth/decorators/roles.decorator';
-import { User } from 'src/modules/auth/decorators/user.decorator';
-import { RolesGuard } from 'src/modules/auth/guards/role.guard';
+import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
+import { User } from 'src/modules/account/auth/decorators/user.decorator';
+import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
 import { CLIENT, ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
 import { SanctioningService } from './sanctioning.service';
 import {

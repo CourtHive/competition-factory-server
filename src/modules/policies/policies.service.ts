@@ -8,7 +8,7 @@ import {
   PolicyVisibility,
 } from 'src/storage/interfaces/policy-storage.interface';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
-import { UserContext } from '../auth/decorators/user-context.decorator';
+import { UserContext } from '../account/auth/decorators/user-context.decorator';
 import { SavePolicyDto } from './dto/save-policy.dto';
 import { policyRegistry } from './factory-bridge';
 import { validatePolicyForSave } from './policy-validator';

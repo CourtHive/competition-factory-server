@@ -1,5 +1,5 @@
 import { scopeCalendarForUser } from 'src/modules/factory/helpers/checkTournamentAccess';
-import type { UserContext } from 'src/modules/auth/decorators/user-context.decorator';
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { computeEffectiveConfig, validateSettings } from '@courthive/provider-config';
 import { Inject, Injectable } from '@nestjs/common';

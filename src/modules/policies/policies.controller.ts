@@ -10,10 +10,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { Roles } from '../auth/decorators/roles.decorator';
-import { RolesGuard } from '../auth/guards/role.guard';
-import { Public } from '../auth/decorators/public.decorator';
-import { UserCtx, type UserContext } from '../auth/decorators/user-context.decorator';
+import { Roles } from '../account/auth/decorators/roles.decorator';
+import { RolesGuard } from '../account/auth/guards/role.guard';
+import { Public } from '../account/auth/decorators/public.decorator';
+import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { CLIENT, ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
 import { PoliciesService } from './policies.service';
 import { SavePolicyDto } from './dto/save-policy.dto';

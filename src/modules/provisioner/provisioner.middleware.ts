@@ -11,7 +11,7 @@ import {
   type IProvisionerStorage,
 } from 'src/storage/interfaces';
 import { CLIENT, GENERATE, SCORE, PROVISIONER as PROVISIONER_ROLE } from 'src/common/constants/roles';
-import type { UserContext } from '../auth/decorators/user-context.decorator';
+import type { UserContext } from '../account/auth/decorators/user-context.decorator';
 
 const PROV_PREFIX = 'prov_';
 

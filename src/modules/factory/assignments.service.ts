@@ -10,7 +10,7 @@ import {
   type IUserStorage,
 } from 'src/storage/interfaces';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
-import type { UserContext } from '../auth/decorators/user-context.decorator';
+import type { UserContext } from '../account/auth/decorators/user-context.decorator';
 
 @Injectable()
 export class AssignmentsService {

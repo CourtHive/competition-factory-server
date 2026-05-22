@@ -20,7 +20,7 @@
  */
 import { isTournamentAccessScopingEnabled } from 'src/common/constants/feature-flags';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
-import type { UserContext } from 'src/modules/auth/decorators/user-context.decorator';
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
 /** Extension name used on tournament records to store the creating user's UUID. */
 export const CREATED_BY_USER_ID = 'createdByUserId';

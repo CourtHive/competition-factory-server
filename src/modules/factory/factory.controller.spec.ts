@@ -9,7 +9,7 @@ import { ConfigsModule } from 'src/config/config.module';
 import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
 import { FactoryService } from './factory.service';
-import { AuthModule } from '../auth/auth.module';
+import { AuthModule } from '../account/auth/auth.module';
 import { testTournamentId } from 'src/common/constants/test';
 
 const tournamentId = testTournamentId(__filename);

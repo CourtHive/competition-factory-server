@@ -1,5 +1,5 @@
-import { createUniqueKey } from '../auth/helpers/createUniqueKey';
-import { hashPassword } from '../auth/helpers/hashPassword';
+import { createUniqueKey } from '../account/auth/helpers/createUniqueKey';
+import { hashPassword } from '../account/auth/helpers/hashPassword';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';

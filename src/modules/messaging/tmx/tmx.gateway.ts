@@ -2,13 +2,13 @@ import { computeEffectiveConfig, isMutationAllowed } from '@courthive/provider-c
 import { TournamentBroadcastService } from '../broadcast/tournament-broadcast.service';
 import { canViewTournament, canMutateTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
-import { buildUserContext } from 'src/modules/auth/helpers/buildUserContext';
+import { buildUserContext } from 'src/modules/account/auth/helpers/buildUserContext';
 import { AssignmentsService } from 'src/modules/factory/assignments.service';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
-import { Roles } from 'src/modules/auth/decorators/roles.decorator';
-import { SocketGuard } from 'src/modules/auth/guards/socket.guard';
+import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
+import { SocketGuard } from 'src/modules/account/auth/guards/socket.guard';
 import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
-import { Public } from '../../auth/decorators/public.decorator';
+import { Public } from '../../account/auth/decorators/public.decorator';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import {
   USER_PROVIDER_STORAGE,

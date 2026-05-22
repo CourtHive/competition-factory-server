@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles } from '../account/auth/decorators/roles.decorator';
 import { AuditService } from './audit.service';
 
 @Controller('audit')

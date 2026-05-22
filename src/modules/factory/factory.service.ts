@@ -19,7 +19,7 @@ import { checkUser } from './helpers/checkUser';
 import publicQueries from './functions/public';
 
 // types and interfaces
-import type { UserContext } from 'src/modules/auth/decorators/user-context.decorator';
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { TOURNAMENT_STORAGE, type ITournamentStorage, TOURNAMENT_PROVISIONER_STORAGE, type ITournamentProvisionerStorage, PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
 
 @Injectable()

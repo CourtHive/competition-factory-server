@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
-import { RolesGuard } from '../auth/guards/role.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../account/auth/guards/role.guard';
+import { Roles } from '../account/auth/decorators/roles.decorator';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
 import { ProvisionerService } from './provisioner.service';
 

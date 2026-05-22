@@ -10,7 +10,7 @@ import {
 } from 'src/storage/interfaces';
 import { buildUserContext } from './helpers/buildUserContext';
 import { AuthService } from './auth.service';
-import { UsersService } from '../users/users.service';
+import { UsersService } from '../../users/users.service';
 
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {

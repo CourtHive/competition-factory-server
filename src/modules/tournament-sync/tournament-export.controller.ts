@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Logger, Headers, UnauthorizedException } from '@nestjs/common';
 
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
-import { Public } from 'src/modules/auth/decorators/public.decorator';
+import { Public } from 'src/modules/account/auth/decorators/public.decorator';
 import { RelayConfig } from '../relay/relay.config';
 
 /**
