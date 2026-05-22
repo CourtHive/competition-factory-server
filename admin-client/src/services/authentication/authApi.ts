@@ -10,6 +10,13 @@ export async function systemLogin(email, password) {
 export async function adminCreateUser(payload: {
   email: string;
   password?: string;
+  /**
+   * Optional deliverable address. When supplied and RFC-shaped, the
+   * server emails a 7-day "set your password" link and the response
+   * carries `mode: 'email-sent'` instead of `password`. Falls back to
+   * the clipboard-handoff when absent.
+   */
+  contactEmail?: string;
   providerId?: string;
   providerRole?: 'PROVIDER_ADMIN' | 'DIRECTOR';
   firstName?: string;

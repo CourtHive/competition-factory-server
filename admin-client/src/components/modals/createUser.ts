@@ -72,15 +72,28 @@ export function createUserModal(callback, providers = [], selectedProviderId?: s
       [
         {
           iconLeft: 'fa-regular fa-envelope',
-          placeholder: 'valid@email.com',
+          placeholder: 'login id (often an email, not required to be one)',
           validator: validators.emailValidator,
           autocomplete: 'off',
-          label: t('email'),
+          label: t('modals.createUser.loginEmail'),
           field: 'email',
+        },
+        // Optional contact email — when provided AND deliverable, the
+        // server emails the new user a "Welcome, set your password" link
+        // and the clipboard-handoff is suppressed. When left blank, the
+        // existing clipboard flow runs as before.
+        {
+          iconLeft: 'fa-solid fa-paper-plane',
+          placeholder: 'you@example.com (optional)',
+          autocomplete: 'off',
+          label: t('modals.createUser.contactEmail'),
+          field: 'contactEmail',
         },
         // Password field — pre-filled with a generated 12-char password.
         // Admin can edit, regenerate, or copy. Server-side will also
         // generate one if the field is left empty (defensive double-fill).
+        // Ignored when contactEmail is set: the user will set their own
+        // password via the email link.
         {
           value: initialPassword,
           label: t('modals.createUser.password'),
@@ -208,6 +221,7 @@ export function createUserModal(callback, providers = [], selectedProviderId?: s
   const submitCreate = () => {
     const email = inputs.email.value;
     const password = (inputs.password?.value || '').trim() || undefined;
+    const contactEmail = (inputs.contactEmail?.value || '').trim() || undefined;
     const providerId = values.providerId || inputs.providerId?.value || undefined;
     const providerRole = (inputs.providerRole?.value === 'PROVIDER_ADMIN'
       ? 'PROVIDER_ADMIN'
@@ -219,18 +233,33 @@ export function createUserModal(callback, providers = [], selectedProviderId?: s
     const response = (res) => {
       const data = res?.data ?? {};
 
-      if (data?.success && data?.password) {
-        // The server returns the assigned password — copy it to the admin's
-        // clipboard so they can hand it to the new user. The user MUST
-        // change it on first login (must_change_password=true on the row).
+      if (!data?.success) {
+        const errMessage = data.error || data.message;
+        tmxToast({ message: errMessage || t('modals.createUser.failed'), intent: 'is-danger' });
+      } else if (data.mode === 'email-sent') {
+        // Server already emailed the new user a "set your password" link.
+        // No password to clipboard — the user picks their own.
+        tmxToast({
+          message: t('modals.createUser.successEmailed', {
+            email: data.contactEmail || contactEmail || '',
+          }),
+          intent: 'is-success',
+        });
+      } else if (data?.password) {
+        // Classic clipboard handoff — server didn't email (no contactEmail
+        // given, or its email send failed and the server fell back).
         copyClick(data.password);
         tmxToast({
           message: t('modals.createUser.successCopied', { email: data.email || email }),
           intent: 'is-success',
         });
       } else {
-        const errMessage = data.error || data.message;
-        tmxToast({ message: errMessage || t('modals.createUser.failed'), intent: 'is-danger' });
+        // Defensive: success: true but neither mode signal we understand —
+        // surface a generic confirmation rather than silently doing nothing.
+        tmxToast({
+          message: t('modals.createUser.successPlain', { email: data.email || email }),
+          intent: 'is-success',
+        });
       }
 
       if (isFunction(callback)) callback(res);
@@ -239,6 +268,7 @@ export function createUserModal(callback, providers = [], selectedProviderId?: s
     adminCreateUser({
       email,
       password,
+      contactEmail,
       providerId,
       providerRole,
       roles: userRoles as string[],

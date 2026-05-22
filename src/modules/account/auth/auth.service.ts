@@ -28,8 +28,34 @@ import { assertProviderEditor } from './helpers/assertProviderEditor';
 import type { UserContext } from './decorators/user-context.decorator';
 
 const PASSWORD_RESET_TOKEN_TTL = '1h';
-const PASSWORD_RESET_TOKEN_TTL_MINUTES = 60;
+const ADMIN_ONBOARD_TOKEN_TTL = '7d';
 const PASSWORD_RESET_PURPOSE = 'password-reset';
+
+// Conservative RFC-shaped email check — same regex as the migration backfill
+// and IdentityService. Used to decide whether an admin-supplied contact_email
+// is plausible enough to attempt delivery.
+const EMAIL_REGEX = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+
+/**
+ * Parse a short JWT-style duration ('1h', '7d', '30m', '90s', '2w') into
+ * minutes for the email-body interpolation. Falls back to 60 if the shape
+ * is unrecognised — the email still renders sensibly even if the number
+ * is off, and the actual JWT verification uses the original string.
+ */
+function parseDurationToMinutes(duration: string): number {
+  const match = /^(\d+)\s*([smhdw])$/i.exec(duration ?? '');
+  if (!match) return 60;
+  const value = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  switch (unit) {
+    case 's': return Math.max(1, Math.round(value / 60));
+    case 'm': return value;
+    case 'h': return value * 60;
+    case 'd': return value * 60 * 24;
+    case 'w': return value * 60 * 24 * 7;
+    default:  return 60;
+  }
+}
 
 const ALLOWED_ROLE_SET = new Set([...VALID_GLOBAL_ROLES, ...VALID_PROVIDER_ROLES, 'admin', 'official', 'director']);
 
@@ -187,6 +213,42 @@ export class AuthService {
   }
 
   /**
+   * Issue a password-reset (or admin-onboard) JWT for the given user
+   * and send the matching template. Shared by:
+   *   - forgotPassword: gated on emailVerifiedAt, 1h TTL, 'password-reset' template
+   *   - adminCreateUser: ungated (admin vouches), 7d TTL, 'admin-created-account' template
+   *
+   * The token shape is identical (`purpose: 'password-reset'`) for both
+   * call sites, so the same `/auth/reset-password` endpoint accepts
+   * either. Centralising the token+send logic keeps the two flows in
+   * sync without spreading JWT-claim shape across the service.
+   */
+  private async issueAndSendResetEmail(
+    user: { userId: string; contactEmail: string; firstName?: string },
+    opts: { expiresIn: string; template: 'password-reset-request' | 'admin-created-account'; subject: string; tag: string },
+  ): Promise<void> {
+    const token = await this.jwtService.signAsync(
+      { userId: user.userId, contactEmail: user.contactEmail, purpose: PASSWORD_RESET_PURPOSE },
+      { expiresIn: opts.expiresIn as any },
+    );
+    // Compute expiry in minutes for the template. Parses simple units
+    // (s/m/h/d/w); falls back to the literal string if shape is unknown
+    // (templates render it as a sentence either way).
+    const expiresInMinutes = parseDurationToMinutes(opts.expiresIn);
+    await this.emailService.sendTemplated({
+      to: user.contactEmail,
+      subject: opts.subject,
+      template: opts.template,
+      data: {
+        firstName: user.firstName ?? '',
+        resetUrl: this.buildResetUrl(token),
+        expiresInMinutes,
+      },
+      tag: opts.tag,
+    });
+  }
+
+  /**
    * Request a password reset.
    *
    * The contract is *enumeration-defensive*: this endpoint always
@@ -202,11 +264,6 @@ export class AuthService {
    * Any failure inside the send branch is logged and swallowed — the
    * response is `{ ok: true }` regardless so timing/error-shape can't
    * be used to enumerate either.
-   *
-   * Token: signed JWT with `purpose: 'password-reset'`, includes
-   * `userId` (stable) and `contactEmail` (so a contact-email change
-   * between issue and use invalidates the link — same defense pattern
-   * as B2's email-verification). 1h expiry.
    */
   async forgotPassword(contactEmail: string): Promise<{ ok: true }> {
     const trimmed = (contactEmail ?? '').trim();
@@ -214,25 +271,15 @@ export class AuthService {
     try {
       const user = await this.userStorage.findByContactEmail(trimmed);
       if (user && user.emailVerifiedAt && user.userId && user.contactEmail) {
-        const token = await this.jwtService.signAsync(
+        await this.issueAndSendResetEmail(
+          { userId: user.userId, contactEmail: user.contactEmail, firstName: user.firstName },
           {
-            userId: user.userId,
-            contactEmail: user.contactEmail,
-            purpose: PASSWORD_RESET_PURPOSE,
+            expiresIn: PASSWORD_RESET_TOKEN_TTL,
+            template: 'password-reset-request',
+            subject: 'Reset your CourtHive password',
+            tag: 'password-reset',
           },
-          { expiresIn: PASSWORD_RESET_TOKEN_TTL },
         );
-        await this.emailService.sendTemplated({
-          to: user.contactEmail,
-          subject: 'Reset your CourtHive password',
-          template: 'password-reset-request',
-          data: {
-            firstName: user.firstName ?? '',
-            resetUrl: this.buildResetUrl(token),
-            expiresInMinutes: PASSWORD_RESET_TOKEN_TTL_MINUTES,
-          },
-          tag: 'password-reset',
-        });
         Logger.log(`Sent password-reset mail to ${user.contactEmail} for user ${user.userId}`);
       } else {
         Logger.verbose(
@@ -288,6 +335,21 @@ export class AuthService {
     const hashed = await hashPassword(newPassword);
     await this.userStorage.setPasswordByUserId(user.userId, hashed);
 
+    // Admin-onboard piggyback: a user who just clicked an email link and
+    // set their password has proven they control the contact_email. If
+    // it isn't already verified, stamp it now — this is how admin-created
+    // accounts (B4) gain a verified address without a separate
+    // verify-email click.
+    if (!user.emailVerifiedAt) {
+      try {
+        await this.userStorage.markEmailVerified(user.userId);
+      } catch (err) {
+        Logger.warn(
+          `Failed to stamp email_verified_at after reset for ${user.userId}: ${(err as Error).message}`,
+        );
+      }
+    }
+
     // Security notification — fire-and-forget so a mail failure can't
     // roll back the password change. Logged at warn level so we notice.
     if (user.contactEmail) {
@@ -330,6 +392,7 @@ export class AuthService {
     body: {
       email: string;
       password?: string;
+      contactEmail?: string;
       providerId?: string;
       providerRole?: string;
       firstName?: string;
@@ -374,6 +437,14 @@ export class AuthService {
       );
     }
 
+    // Decide upfront whether the admin gave us a deliverable contact_email.
+    // When yes, the new user gets an onboard email with a "set your password"
+    // link instead of a clipboard-handoff password. The link tokens reuse
+    // the password-reset shape so the existing /auth/reset-password endpoint
+    // handles them — see issueAndSendResetEmail().
+    const contactEmailRaw = (body?.contactEmail ?? '').trim();
+    const willEmail = !!contactEmailRaw && EMAIL_REGEX.test(contactEmailRaw);
+
     const supplied = (body?.password ?? '').trim();
     const password = supplied || createUniqueKey().slice(0, 12);
 
@@ -390,21 +461,62 @@ export class AuthService {
     } as any);
     if (result?.error) return result;
 
-    if (providerId) {
-      const created = await this.usersService.findOne(email);
-      const userId = created?.userId ?? created?.user_id;
-      if (userId) {
-        try {
-          await this.userProviderStorage.upsert({ userId, providerId, providerRole });
-        } catch (err) {
-          Logger.warn(
-            `Failed to upsert user_providers row for ${email}: ${(err as Error).message}`,
-          );
-        }
+    const created = await this.usersService.findOne(email);
+    const userId = created?.userId ?? created?.user_id;
+
+    if (providerId && userId) {
+      try {
+        await this.userProviderStorage.upsert({ userId, providerId, providerRole });
+      } catch (err) {
+        Logger.warn(
+          `Failed to upsert user_providers row for ${email}: ${(err as Error).message}`,
+        );
       }
     }
 
-    return { success: true, email, password, providerId, providerRole };
+    // Email-onboard path: stamp the contact_email (unverified), issue a
+    // 7-day password-reset token, and send the welcoming template.
+    // Successful click of that link verifies the address as a side effect
+    // (see resetPassword above). The clipboard password is NOT returned
+    // — the new user sets their own when they click the link.
+    if (willEmail && userId) {
+      try {
+        await this.userStorage.setContactEmail(userId, contactEmailRaw);
+        await this.issueAndSendResetEmail(
+          { userId, contactEmail: contactEmailRaw, firstName: body.firstName },
+          {
+            expiresIn: ADMIN_ONBOARD_TOKEN_TTL,
+            template: 'admin-created-account',
+            subject: 'Welcome to CourtHive — set your password',
+            tag: 'admin-onboard',
+          },
+        );
+        Logger.log(`Sent admin-onboard mail to ${contactEmailRaw} for user ${userId}`);
+        return {
+          success: true,
+          email,
+          providerId,
+          providerRole,
+          mode: 'email-sent' as const,
+          contactEmail: contactEmailRaw,
+        };
+      } catch (err) {
+        // Fall through to the clipboard path so admin onboarding never
+        // gets stuck on a transient mail failure. Log loudly so we notice.
+        Logger.warn(
+          `adminCreateUser email-onboard fell back to clipboard for ${email}: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    return {
+      success: true,
+      email,
+      password,
+      providerId,
+      providerRole,
+      mode: 'password-returned' as const,
+    };
   }
 
   /**
