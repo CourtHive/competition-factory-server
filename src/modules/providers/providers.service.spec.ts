@@ -1,3 +1,6 @@
+import { ProviderLifecycleService } from './provider-lifecycle.service';
+import { ProviderCleanupService } from './provider-cleanup.service';
+import { ProviderArchiveService } from './provider-archive.service';
 import { ProvidersController } from './providers.controller';
 import { StorageModule } from 'src/storage/storage.module';
 import { ProvidersService } from './providers.service';
@@ -16,7 +19,15 @@ describe('ProvidersService', () => {
   beforeAll(async () => {
     app = await Test.createTestingModule({
       imports: [AuthModule, UsersModule, CacheModule, StorageModule],
-      providers: [ProvidersService, TopologiesService, ProviderCatalogService, ConfigService],
+      providers: [
+        ProvidersService,
+        TopologiesService,
+        ProviderCatalogService,
+        ProviderArchiveService,
+        ProviderCleanupService,
+        ProviderLifecycleService,
+        ConfigService,
+      ],
       controllers: [ProvidersController],
     }).compile();
 

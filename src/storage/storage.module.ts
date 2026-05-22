@@ -6,6 +6,7 @@ import { USER_PROVIDER_STORAGE } from './interfaces/user-provider-storage.interf
 import { PROVISIONER_STORAGE } from './interfaces/provisioner-storage.interface';
 import { SSO_IDENTITY_STORAGE } from './interfaces/sso-identity-storage.interface';
 import { USER_PROVISIONER_STORAGE } from './interfaces/user-provisioner-storage.interface';
+import { PROVIDER_ARCHIVE_STORAGE } from './interfaces/provider-archive-storage.interface';
 import { OFFICIATING_STORAGE } from './interfaces/officiating-storage.interface';
 import { SANCTIONING_STORAGE } from './interfaces/sanctioning-storage.interface';
 import { BOLT_HISTORY_STORAGE } from './interfaces/bolt-history.interface';
@@ -28,6 +29,7 @@ import { PostgresUserProviderStorage } from './postgres/postgres-user-provider.s
 import { PostgresProvisionerStorage } from './postgres/postgres-provisioner.storage';
 import { PostgresSsoIdentityStorage } from './postgres/postgres-sso-identity.storage';
 import { PostgresUserProvisionerStorage } from './postgres/postgres-user-provisioner.storage';
+import { PostgresProviderArchiveStorage } from './postgres/postgres-provider-archive.storage';
 import { PostgresSanctioningStorage } from './postgres/postgres-sanctioning.storage';
 import { PostgresOfficiatingStorage } from './postgres/postgres-officiating.storage';
 import { PostgresAuditStorage } from './postgres/postgres-audit.storage';
@@ -95,6 +97,7 @@ const provisionerProviderStorageProvider = makeStorageProvider(PROVISIONER_PROVI
 const tournamentProvisionerStorageProvider = makeStorageProvider(TOURNAMENT_PROVISIONER_STORAGE, PostgresTournamentProvisionerStorage);
 const ssoIdentityStorageProvider = makeStorageProvider(SSO_IDENTITY_STORAGE, PostgresSsoIdentityStorage);
 const userProvisionerStorageProvider = makeStorageProvider(USER_PROVISIONER_STORAGE, PostgresUserProvisionerStorage);
+const providerArchiveStorageProvider = makeStorageProvider(PROVIDER_ARCHIVE_STORAGE, PostgresProviderArchiveStorage);
 const policyStorageProvider = makeStorageProvider(POLICY_STORAGE, PostgresPolicyStorage);
 
 @Global()
@@ -123,6 +126,7 @@ const policyStorageProvider = makeStorageProvider(POLICY_STORAGE, PostgresPolicy
     tournamentProvisionerStorageProvider,
     ssoIdentityStorageProvider,
     userProvisionerStorageProvider,
+    providerArchiveStorageProvider,
     policyStorageProvider,
     TournamentStorageService,
   ],
@@ -148,6 +152,7 @@ const policyStorageProvider = makeStorageProvider(POLICY_STORAGE, PostgresPolicy
     TOURNAMENT_PROVISIONER_STORAGE,
     SSO_IDENTITY_STORAGE,
     USER_PROVISIONER_STORAGE,
+    PROVIDER_ARCHIVE_STORAGE,
     POLICY_STORAGE,
     TournamentStorageService,
   ],

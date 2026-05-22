@@ -13,6 +13,9 @@ import {
 } from '@nestjs/common';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { ADMIN, CLIENT, PROVIDER_ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
+import { ProviderLifecycleService } from './provider-lifecycle.service';
+import { ArchiveProviderDto } from './dto/archiveProvider.dto';
+import { DeleteProviderDto } from './dto/deleteProvider.dto';
 import { ModifyProviderDto } from './dto/modifyProvider.dto';
 import { Public } from '../account/auth/decorators/public.decorator';
 import { Roles } from '../account/auth/decorators/roles.decorator';
@@ -31,7 +34,65 @@ export class ProvidersController {
     private readonly providers: ProvidersService,
     private readonly topologies: TopologiesService,
     private readonly catalog: ProviderCatalogService,
+    private readonly lifecycle: ProviderLifecycleService,
   ) {}
+
+  /**
+   * Plan A — read-only preview of what would be destroyed by a
+   * subsequent archive or delete call. Used by the admin UI to show
+   * the operator the blast radius before they type the confirmation
+   * abbreviation.
+   *
+   * SUPER_ADMIN only.
+   */
+  @Post(':providerId/preview-archive')
+  @Roles([CLIENT, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  previewArchive(@Param('providerId') providerId: string, @UserCtx() ctx: UserContext) {
+    return this.lifecycle.preview(providerId, ctx);
+  }
+
+  /**
+   * Plan A — archive (export to disk + wipe from live DB).
+   *
+   * SUPER_ADMIN only. Requires `confirm` body field matching the
+   * provider's organisationAbbreviation. Recoverable via
+   * `src/scripts/revive-provider.mjs`.
+   */
+  @Post(':providerId/archive')
+  @Roles([CLIENT, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  archiveProvider(
+    @Param('providerId') providerId: string,
+    @Body() body: ArchiveProviderDto,
+    @UserCtx() ctx: UserContext,
+  ) {
+    return this.lifecycle.archive(providerId, body?.confirm ?? '', ctx);
+  }
+
+  /**
+   * Plan A — DESTRUCTIVE delete (no export, no provider_archives row,
+   * no revive). For demo providers and the like — providers whose data
+   * has no value worth preserving.
+   *
+   * SUPER_ADMIN only. Requires `confirm` body field matching the
+   * abbreviation AND `acknowledgeDataLoss: true`.
+   */
+  @Post(':providerId/delete')
+  @Roles([CLIENT, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  deleteProvider(
+    @Param('providerId') providerId: string,
+    @Body() body: DeleteProviderDto,
+    @UserCtx() ctx: UserContext,
+  ) {
+    return this.lifecycle.delete(
+      providerId,
+      body?.confirm ?? '',
+      body?.acknowledgeDataLoss === true,
+      ctx,
+    );
+  }
 
   /**
    * Per-provider topology catalog. PROVIDER_ADMIN of the target provider

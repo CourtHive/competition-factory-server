@@ -61,3 +61,8 @@ export {
   type IUserProvisionerStorage,
   type UserProvisionerRow,
 } from './user-provisioner-storage.interface';
+export {
+  PROVIDER_ARCHIVE_STORAGE,
+  type IProviderArchiveStorage,
+  type ProviderArchiveRow,
+} from './provider-archive-storage.interface';
