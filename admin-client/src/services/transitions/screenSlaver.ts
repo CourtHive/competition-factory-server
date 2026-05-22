@@ -2,11 +2,11 @@
  * Screen state management for admin app content areas.
  * Controls visibility of the admin and system page containers.
  */
-import { TMX_ADMIN, TMX_SYSTEM, TMX_PROVISIONER, TMX_SANCTIONING, TMX_SYNC, TMX_TEMPLATES, TMX_POLICIES } from 'constants/tmxConstants';
+import { TMX_ADMIN, TMX_SYSTEM, TMX_PROVISIONER, TMX_SANCTIONING, TMX_SYNC, TMX_TEMPLATES, TMX_POLICIES, TMX_VERIFY_EMAIL } from 'constants/tmxConstants';
 
 let content: string | undefined;
 
-const PAGE_IDS = [TMX_SYSTEM, TMX_ADMIN, TMX_PROVISIONER, TMX_SANCTIONING, TMX_SYNC, TMX_TEMPLATES, TMX_POLICIES];
+const PAGE_IDS = [TMX_SYSTEM, TMX_ADMIN, TMX_PROVISIONER, TMX_SANCTIONING, TMX_SYNC, TMX_TEMPLATES, TMX_POLICIES, TMX_VERIFY_EMAIL];
 
 function selectDisplay(which: string): void {
   for (const id of PAGE_IDS) {
@@ -95,5 +95,12 @@ export const showTMXpolicies = (): void => {
   const titleEl = document.getElementById('pageTitle');
   if (titleEl) titleEl.textContent = 'Policies';
   content = TMX_POLICIES;
+  selectDisplay(content);
+};
+
+export const showTMXverifyEmail = (): void => {
+  const titleEl = document.getElementById('pageTitle');
+  if (titleEl) titleEl.textContent = 'Verify Email';
+  content = TMX_VERIFY_EMAIL;
   selectDisplay(content);
 };

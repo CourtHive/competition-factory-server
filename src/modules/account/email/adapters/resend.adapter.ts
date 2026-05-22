@@ -40,7 +40,7 @@ export class ResendAdapter implements EmailAdapter {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       ResendCtor = require('resend').Resend;
-    } catch (err) {
+    } catch {
       throw new Error(
         "Resend SDK is not installed. Run `pnpm install` in competition-factory-server " +
         "to pick up the new `resend` dependency, then restart the server.",

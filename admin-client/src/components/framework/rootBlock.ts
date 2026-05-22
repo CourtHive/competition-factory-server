@@ -2,13 +2,20 @@
  * Root application block for the admin client.
  * Creates navbar, main content area with page containers.
  */
-import { NONE, TMX_ADMIN, TMX_SYSTEM, TMX_PROVISIONER, TMX_SANCTIONING, TMX_SYNC, TMX_TEMPLATES, TMX_POLICIES, TMX_DRAWER } from 'constants/tmxConstants';
+import { NONE, TMX_ADMIN, TMX_SYSTEM, TMX_PROVISIONER, TMX_SANCTIONING, TMX_SYNC, TMX_TEMPLATES, TMX_POLICIES, TMX_VERIFY_EMAIL, TMX_DRAWER } from 'constants/tmxConstants';
 
 const flexColFlexGrow = 'flexcol flexgrow';
 
 export function rootBlock(): HTMLElement {
   const app = document.getElementById('app')!;
   app.appendChild(createNavbar());
+
+  // Global banner host — sits between the navbar and the page containers.
+  // Populated by services like the contactEmail nag banner on every nav.
+  // Renders nothing when no banner is active.
+  const globalBanner = document.createElement('div');
+  globalBanner.id = 'globalBanner';
+  document.getElementById('navMain')!.parentElement?.insertBefore(globalBanner, document.getElementById('navMain'));
 
   const main = document.getElementById('navMain')!;
 
@@ -60,6 +67,13 @@ export function rootBlock(): HTMLElement {
   policies.style.display = NONE;
   policies.id = TMX_POLICIES;
   main.appendChild(policies);
+
+  // Verify-email landing (public route, opened from the email-verification link)
+  const verifyEmail = document.createElement('div');
+  verifyEmail.className = flexColFlexGrow;
+  verifyEmail.style.display = NONE;
+  verifyEmail.id = TMX_VERIFY_EMAIL;
+  main.appendChild(verifyEmail);
 
   // Drawer
   const drawer = document.createElement('section');

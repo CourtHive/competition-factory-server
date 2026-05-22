@@ -12,12 +12,13 @@
  * infrastructure that both processes need) are documented in the
  * boundary planning doc.
  */
+import { IdentityModule } from './identity/identity.module';
 import { EmailModule } from './email/email.module';
 import { AuthModule } from './auth/auth.module';
 import { Module } from '@nestjs/common';
 
 @Module({
-  imports: [AuthModule, EmailModule],
-  exports: [AuthModule, EmailModule],
+  imports: [AuthModule, EmailModule, IdentityModule],
+  exports: [AuthModule, EmailModule, IdentityModule],
 })
 export class AccountModule {}

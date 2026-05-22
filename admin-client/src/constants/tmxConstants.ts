@@ -43,6 +43,10 @@ export const POLICIES = 'policies';
 export const TMX_SYNC = 'tmxSync';
 export const SYNC = 'sync';
 
+// Verify email (public landing for email-verification link)
+export const TMX_VERIFY_EMAIL = 'tmxVerifyEmail';
+export const VERIFY_EMAIL = 'verify-email';
+
 // Navigation targets
 export const TOURNAMENT_SETTINGS = 'tournamentSettings';
 export const TMX_TOURNAMENTS = 'tournaments';

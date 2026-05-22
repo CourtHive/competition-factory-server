@@ -38,6 +38,20 @@ export interface UserContext {
    * — all consumers treat absent-or-empty as "no provisioner access".
    */
   provisionerProviderIds?: string[];
+  /**
+   * Verified contact email — RFC 5322-shaped, distinct from `email`
+   * (the login identifier). Set via POST /account/contact-email/set,
+   * confirmed via the verification link. Used as the destination for
+   * password recovery and notifications. Optional so existing UserContext
+   * fixtures stay valid.
+   */
+  contactEmail?: string | null;
+  /**
+   * ISO timestamp when `contactEmail` was confirmed via the verification
+   * link. Null until verified. The admin client nags users whose
+   * contactEmail is missing or unverified.
+   */
+  emailVerifiedAt?: string | null;
 }
 
 /**

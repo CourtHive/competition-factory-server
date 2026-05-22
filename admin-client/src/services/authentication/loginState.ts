@@ -34,6 +34,12 @@ export function logIn({ data, callback }: { data: { token: string }; callback?: 
     tmxToast({ message: t('toasts.loggedIn'), intent: 'is-success' });
     styleLogin(state);
 
+    // Show the contact-email nag banner immediately on login (the router's
+    // before-hook handles the post-login navigation, so without this the
+    // banner would only appear after the next manual navigation).
+    // Dynamic import to keep the static graph acyclic.
+    import('components/banners/contactEmailBanner').then((m) => m.renderContactEmailBanner());
+
     if (callback) {
       callback();
     } else {
