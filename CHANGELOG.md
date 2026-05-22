@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.4.0](https://github.com/CourtHive/competition-factory-server/compare/v2.3.0...v2.4.0) (2026-05-22)
+
+
+### Features
+
+* **account:** admin-create-user emails the new user (Phase B4) ([ba010f6](https://github.com/CourtHive/competition-factory-server/commit/ba010f612eb0409550f5156918fe0c4cff035079))
+* **account:** contact-email + verification flow (Phase B2) ([15dc9a0](https://github.com/CourtHive/competition-factory-server/commit/15dc9a0cb608c9203a5a7342691296d8458af97e))
+* **account:** contact-email + verification flow (Phase B2) ([bfbb6c5](https://github.com/CourtHive/competition-factory-server/commit/bfbb6c50ffd5718f5b629fb0fc1bf3cd044a361d))
+* **account:** module boundary + EmailService skeleton (Phase B1) ([1fc5c88](https://github.com/CourtHive/competition-factory-server/commit/1fc5c88c3c0f6a5637ef1e7021904638d681bf65))
+* **account:** module boundary + EmailService skeleton (Phase B1) ([bbb1dec](https://github.com/CourtHive/competition-factory-server/commit/bbb1dec9cbcd084a45275f267e075bed4077193e))
+* **account:** password reset via link-token + confirmation email (Phase B3) ([b7c2229](https://github.com/CourtHive/competition-factory-server/commit/b7c222988771faa3c6222ba2877153da5fb20368))
+* **account:** password reset via link-token + confirmation email (Phase B3) ([ce069ef](https://github.com/CourtHive/competition-factory-server/commit/ce069ef24c723909f90b4f65a772a04751430ef7))
+* **audit:** wire AuditService into TmxGateway socket path ([a20d28b](https://github.com/CourtHive/competition-factory-server/commit/a20d28bd338ea56236ca466c5f5ca0e9cc272f9a))
+* **audit:** wire AuditService into TmxGateway socket path ([a3422c9](https://github.com/CourtHive/competition-factory-server/commit/a3422c92195d62b0c686352621bea51945302efc))
+* **auth:** admin-create-user direct flow with first-login password change ([02f76e4](https://github.com/CourtHive/competition-factory-server/commit/02f76e4e5941ab6bc8a2ab3545083cadf677dd0b))
+* **auth:** admin-create-user direct flow with first-login password change ([f66ef0e](https://github.com/CourtHive/competition-factory-server/commit/f66ef0e285bce2a657b5c5eaaf6e4cce0d1db360))
+* **providers:** archive + delete + revive (Plan A) ([108b044](https://github.com/CourtHive/competition-factory-server/commit/108b04429bc25c36ddb530532241bbddcec5cb56))
+* **providers:** archive + delete + revive (Plan A) ([69878d3](https://github.com/CourtHive/competition-factory-server/commit/69878d3f8446affe2ba80c0a547522ca96cdecfb))
+
+
+### Bug Fixes
+
+* **admin-client:** bump notification font-size from 0.9rem to 1rem ([7d4cc89](https://github.com/CourtHive/competition-factory-server/commit/7d4cc898c63e6f44126682dc2c9101ece7c98603))
+* **admin-client:** satisfies on BUILTIN_POLICIES so check-types passes ([b03a1ec](https://github.com/CourtHive/competition-factory-server/commit/b03a1ecf53876e4a993d08e14d721309582deb5e))
+* **audit:** don't fall back to email when stamping userId in TmxGateway ([54ba0fa](https://github.com/CourtHive/competition-factory-server/commit/54ba0fa1da3d4dd0641f97b6a66c8889243185b7))
+
 ## [2.3.0](https://github.com/CourtHive/competition-factory-server/compare/v2.2.0...v2.3.0) (2026-05-21)
 
 
