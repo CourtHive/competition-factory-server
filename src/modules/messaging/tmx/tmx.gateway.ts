@@ -4,6 +4,7 @@ import { canViewTournament, canMutateTournament } from 'src/modules/factory/help
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { buildUserContext } from 'src/modules/account/auth/helpers/buildUserContext';
 import { AssignmentsService } from 'src/modules/factory/assignments.service';
+import { AuditService } from 'src/modules/audit/audit.service';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
 import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/modules/account/auth/guards/socket.guard';
@@ -73,6 +74,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     private readonly broadcastService: TournamentBroadcastService,
     private readonly assignmentsService: AssignmentsService,
     private readonly usersService: UsersService,
+    private readonly auditService: AuditService,
   ) {}
 
   private readonly logger = new Logger(TmxGateway.name);
@@ -212,6 +214,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
 
     if (tmxMessages[type]) {
       const methods = tools.unique(payload?.methods?.map((directive) => directive.method) ?? []).join('|');
+      const ackId = payload?.ackId;
 
       // Per-tournament gates: tournament-access (canMutateTournament) +
       // provider-permission (MUTATION_PERMISSIONS). Returns an error
@@ -220,8 +223,16 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       const requestedMethods: string[] = (payload?.methods ?? []).map((m: any) => m?.method).filter(Boolean);
       const denial = await this.gatePerTournament(userContext, payload.tournamentIds ?? [], requestedMethods, userId, methods);
       if (denial) {
-        client.emit('ack', { ackId: payload?.ackId, error: denial });
+        client.emit('ack', { ackId, error: denial });
         return;
+      }
+
+      // Stamp the JWT-verified identity onto the payload so downstream
+      // consumers (audit hook, executionQueue) see the authenticated
+      // user rather than whatever the client happened to send.
+      if (verifiedUser?.email) {
+        payload.userEmail = verifiedUser.email;
+        payload.userId = verifiedUser.userId ?? verifiedUser.sub ?? verifiedUser.email;
       }
 
       try {
@@ -230,12 +241,18 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
           payload,
           services: { cacheManager: this.cacheManager },
           storage: this.tournamentStorageService,
+          auditService: this.auditService,
         });
         if (result.error) {
           const tournamentInfo = result.tournamentIds ? ` | tournaments: ${JSON.stringify(result.tournamentIds)}` : '';
           const contextInfo = result.context ? ` | context: ${JSON.stringify(result.context)}` : '';
+          // Include ackId + full methods (params and all) in error logs so
+          // production incidents are triageable without needing the audit
+          // DB. Capped at 2000 chars per log to avoid excessive spam from
+          // large batches.
+          const methodsDetail = safeJson(payload?.methods, 2000);
           this.logger.error(
-            `${type} message errored: ${userId}: ${methods}${tournamentInfo} | error: ${JSON.stringify(result.error)}${contextInfo}`,
+            `${type} message errored: ${userId}: ${methods}${tournamentInfo} | ackId: ${ackId} | error: ${JSON.stringify(result.error)}${contextInfo} | methods: ${methodsDetail}`,
           );
         } else {
           this.logger.debug(`${type} message successful: ${userId}: ${methods}`);
@@ -246,8 +263,10 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        this.logger.error(`${type} message threw: ${userId}: ${methods} | error: ${message}`);
-        const ackId = payload?.ackId;
+        const methodsDetail = safeJson(payload?.methods, 2000);
+        this.logger.error(
+          `${type} message threw: ${userId}: ${methods} | ackId: ${ackId} | error: ${message} | methods: ${methodsDetail}`,
+        );
         client.emit('ack', { ackId, error: message });
       }
     } else {
@@ -493,5 +512,15 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
 
     this.logger.debug(`test route successful`);
     return { event: 'ack', data }; // emit to client
+  }
+}
+
+function safeJson(value: unknown, maxLen: number): string {
+  try {
+    const s = JSON.stringify(value);
+    if (s == null) return String(s);
+    return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s;
+  } catch {
+    return '[unserializable]';
   }
 }

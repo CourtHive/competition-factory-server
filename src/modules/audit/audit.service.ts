@@ -44,8 +44,9 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     methods: Array<{ method: string; params?: any }>;
     status: 'applied' | 'rejected' | 'partial';
     errorCode?: string;
+    metadata?: Record<string, any>;
   }): Promise<void> {
-    const { tournamentIds, userId, userEmail, source, methods, status, errorCode } = params;
+    const { tournamentIds, userId, userEmail, source, methods, status, errorCode, metadata } = params;
 
     for (const tournamentId of tournamentIds) {
       const row: AuditRow = {
@@ -59,6 +60,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
         methods,
         status,
         errorCode,
+        ...(metadata && Object.keys(metadata).length ? { metadata } : {}),
       };
 
       try {

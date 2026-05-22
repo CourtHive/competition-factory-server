@@ -45,6 +45,41 @@ describe('AuditService', () => {
         }),
       ).resolves.not.toThrow();
     });
+
+    it('persists optional metadata (e.g. ackId for client correlation)', async () => {
+      await service.recordMutation({
+        tournamentIds: ['t-1'],
+        methods: [{ method: 'addEvent', params: { eventName: 'Test' } }],
+        status: 'applied',
+        metadata: { ackId: 'ack-xyz', tmxVersion: '1.2.3' },
+      });
+      const row = mockStorage.append.mock.calls[0][0];
+      expect(row.metadata).toEqual({ ackId: 'ack-xyz', tmxVersion: '1.2.3' });
+    });
+
+    it('omits metadata when undefined or empty', async () => {
+      await service.recordMutation({
+        tournamentIds: ['t-1'],
+        methods: [{ method: 'addEvent' }],
+        status: 'applied',
+        metadata: {},
+      });
+      const row = mockStorage.append.mock.calls[0][0];
+      expect(row.metadata).toBeUndefined();
+    });
+
+    it('captures errorCode + status=rejected for failed mutations', async () => {
+      await service.recordMutation({
+        tournamentIds: ['t-1'],
+        methods: [{ method: 'modifyCourt', params: { courtId: 'ghost-1' } }],
+        status: 'rejected',
+        errorCode: 'ERR_NOT_FOUND_COURT',
+      });
+      const row = mockStorage.append.mock.calls[0][0];
+      expect(row.status).toBe('rejected');
+      expect(row.errorCode).toBe('ERR_NOT_FOUND_COURT');
+      expect(row.methods[0].params.courtId).toBe('ghost-1');
+    });
   });
 
   describe('recordDeletion', () => {
