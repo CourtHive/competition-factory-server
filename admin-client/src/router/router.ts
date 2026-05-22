@@ -2,6 +2,8 @@ import { renderSanctioningDashboard } from 'pages/sanctioning/renderSanctioningD
 import { renderSanctioningWizard } from 'pages/sanctioning/renderSanctioningWizard';
 import { renderSanctioningDetail } from 'pages/sanctioning/renderSanctioningDetail';
 import { renderProvisionerPage } from 'pages/provisioner/renderProvisionerPage';
+import { renderContactEmailBanner } from 'components/banners/contactEmailBanner';
+import { renderVerifyEmail } from 'pages/verifyEmail/renderVerifyEmail';
 import { renderSystemPage } from 'pages/system/renderSystemPage';
 import { renderAdminPage } from 'pages/admin/renderAdminPage';
 import { renderSyncPage } from 'pages/sync/renderSyncPage';
@@ -12,7 +14,7 @@ import { updateNavVisibility } from 'services/navigation/navVisibility';
 import { context } from 'services/context';
 import Navigo from 'navigo';
 
-import { SUPER_ADMIN, PROVISIONER, SYSTEM, PROVISIONER_ROUTE, SANCTIONING, SYNC, TEMPLATES, POLICIES } from 'constants/tmxConstants';
+import { SUPER_ADMIN, PROVISIONER, SYSTEM, PROVISIONER_ROUTE, SANCTIONING, SYNC, TEMPLATES, POLICIES, VERIFY_EMAIL } from 'constants/tmxConstants';
 
 export function routeAdmin(): void {
   const router = new Navigo('/', { hash: true });
@@ -37,6 +39,7 @@ export function routeAdmin(): void {
   router.hooks({
     before(done) {
       updateNavVisibility();
+      renderContactEmailBanner();
       done();
     },
   });
@@ -119,6 +122,14 @@ export function routeAdmin(): void {
       return;
     }
     renderSyncPage();
+  });
+
+  // Public route: email-verification link lands here with the token in the
+  // path. No auth check — the token IS the auth, and IdentityService verifies
+  // it on the server. The page renders a "Verify" button so a link-previewer
+  // can't accidentally consume the single-use token by GET-fetching the URL.
+  router.on(`/${VERIFY_EMAIL}/:token`, (match) => {
+    renderVerifyEmail(match?.data?.token ?? '');
   });
 
   router.on('/', () => {

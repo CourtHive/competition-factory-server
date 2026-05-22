@@ -102,5 +102,9 @@ export async function buildUserContext(
     providerRoles,
     providerIds: Object.keys(providerRoles),
     provisionerProviderIds,
+    contactEmail: user.contactEmail ?? null,
+    emailVerifiedAt: user.emailVerifiedAt
+      ? new Date(user.emailVerifiedAt).toISOString()
+      : null,
   };
 }

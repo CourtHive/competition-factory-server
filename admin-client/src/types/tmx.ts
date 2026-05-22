@@ -20,6 +20,10 @@ export interface LoginState {
   provider?: ProviderValue;
   providerId?: string;
   providerIds?: string[];
+  /** Verified contact email (B2). Distinct from `email` (login id). */
+  contactEmail?: string | null;
+  /** ISO timestamp when contactEmail was verified; null until the user clicks the link. */
+  emailVerifiedAt?: string | null;
   exp: number;
 }
 

@@ -11,7 +11,7 @@ export class PostgresUserStorage implements IUserStorage {
 
   async findOne(email: string): Promise<any | null> {
     const result = await this.pool.query(
-      'SELECT user_id, email, password, provider_id, last_selected_provider_id, must_change_password, roles, permissions, data FROM users WHERE email = $1',
+      'SELECT user_id, email, password, provider_id, last_selected_provider_id, must_change_password, contact_email, email_verified_at, roles, permissions, data FROM users WHERE email = $1',
       [email],
     );
     if (!result.rows.length) return null;
@@ -23,6 +23,33 @@ export class PostgresUserStorage implements IUserStorage {
       providerId: row.provider_id,
       lastSelectedProviderId: row.last_selected_provider_id,
       mustChangePassword: row.must_change_password,
+      contactEmail: row.contact_email,
+      emailVerifiedAt: row.email_verified_at,
+      roles: row.roles,
+      permissions: row.permissions,
+      ...row.data,
+    };
+  }
+
+  async findByContactEmail(contactEmail: string): Promise<any | null> {
+    const result = await this.pool.query(
+      `SELECT user_id, email, password, provider_id, last_selected_provider_id, must_change_password, contact_email, email_verified_at, roles, permissions, data
+         FROM users
+        WHERE LOWER(contact_email) = LOWER($1)
+        LIMIT 1`,
+      [contactEmail],
+    );
+    if (!result.rows.length) return null;
+    const row = result.rows[0];
+    return {
+      userId: row.user_id,
+      email: row.email,
+      password: row.password,
+      providerId: row.provider_id,
+      lastSelectedProviderId: row.last_selected_provider_id,
+      mustChangePassword: row.must_change_password,
+      contactEmail: row.contact_email,
+      emailVerifiedAt: row.email_verified_at,
       roles: row.roles,
       permissions: row.permissions,
       ...row.data,
@@ -81,6 +108,34 @@ export class PostgresUserStorage implements IUserStorage {
               updated_at = NOW()
         WHERE email = $1`,
       [email, hashedPassword],
+    );
+    return { ...SUCCESS };
+  }
+
+  async setContactEmail(userId: string, contactEmail: string): Promise<{ success: boolean }> {
+    // Atomic one-query write: stamps the new contact_email and (importantly)
+    // CLEARS email_verified_at so an already-verified user changing their
+    // contact email has to verify again. Without the clear, a malicious
+    // user could swap their contact email after a stolen session and gain
+    // a verified channel they don't own.
+    await this.pool.query(
+      `UPDATE users
+          SET contact_email = $2,
+              email_verified_at = NULL,
+              updated_at = NOW()
+        WHERE user_id = $1`,
+      [userId, contactEmail],
+    );
+    return { ...SUCCESS };
+  }
+
+  async markEmailVerified(userId: string): Promise<{ success: boolean }> {
+    await this.pool.query(
+      `UPDATE users
+          SET email_verified_at = NOW(),
+              updated_at = NOW()
+        WHERE user_id = $1`,
+      [userId],
     );
     return { ...SUCCESS };
   }

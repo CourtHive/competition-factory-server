@@ -21,4 +21,23 @@ export interface IUserStorage {
    * field updates on the same row.
    */
   completeFirstLogin(email: string, hashedPassword: string): Promise<{ success: boolean }>;
+  /**
+   * Case-insensitive lookup by contact_email — used by the eventual
+   * forgot-password flow (B3) to find a user from the contact address
+   * they typed. Returns the same shape as `findOne`.
+   */
+  findByContactEmail(contactEmail: string): Promise<any | null>;
+  /**
+   * Write a new contact email and CLEAR `email_verified_at` atomically.
+   * Re-verification is required after any change — otherwise a session
+   * holder could swap to an address they don't control and inherit
+   * the previous verified-state.
+   */
+  setContactEmail(userId: string, contactEmail: string): Promise<{ success: boolean }>;
+  /**
+   * Stamp `email_verified_at = NOW()` after the user clicks the link in
+   * the verification email. The verify endpoint calls this on
+   * successful token validation.
+   */
+  markEmailVerified(userId: string): Promise<{ success: boolean }>;
 }

@@ -26,6 +26,22 @@ export async function completeFirstLogin(limitedToken: string, newPassword: stri
   return baseApi.post('/auth/complete-first-login', { limitedToken, newPassword });
 }
 
+export async function setContactEmail(contactEmail: string) {
+  return baseApi.post('/account/contact-email/set', { contactEmail });
+}
+
+export async function resendVerification() {
+  return baseApi.post('/account/contact-email/resend-verification', {});
+}
+
+export async function verifyEmail(token: string) {
+  return baseApi.post('/auth/verify-email', { token });
+}
+
+export async function getMe() {
+  return baseApi.get('/auth/me');
+}
+
 export async function confirmEmail(emailConfirmationId) {
   return baseApi.get(`/auth/confirm/${emailConfirmationId}`);
 }

@@ -1011,6 +1011,7 @@
     "yes": "Yes",
     "no": "No",
     "confirm": "Confirm",
+    "dismiss": "Dismiss",
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
@@ -1259,6 +1260,19 @@
       "failed": "Failed to set new password.",
       "tokenExpired": "Your sign-in expired. Please log in again."
     },
+    "contactEmail": {
+      "title": "Contact email",
+      "label": "Email address",
+      "save": "Save",
+      "resend": "Resend verification",
+      "savedPending": "Verification email sent to {{email}}. Check your inbox.",
+      "resent": "Verification email re-sent.",
+      "alreadyVerified": "Your contact email is already verified.",
+      "failed": "Could not save contact email.",
+      "statusNotSet": "No contact email is set yet. Set one so you can recover your password by email.",
+      "statusPending": "Pending verification: {{email}}. Click the link in your inbox.",
+      "statusVerified": "Verified: {{email}}"
+    },
     "editUser": {
       "providers": "Providers",
       "noProviders": "This user has no provider associations.",
@@ -1491,6 +1505,29 @@
         "FEED_IN": "Staggered entry draw where participants enter the bracket at different rounds."
       }
     }
+  },
+
+  "banners": {
+    "contactEmail": {
+      "missing": "Set up a contact email so you can recover your password by email.",
+      "pending": "Verify {{email}} so you can recover your password by email.",
+      "setUp": "Set up email",
+      "review": "Review"
+    }
+  },
+
+  "verifyEmail": {
+    "title": "Verify your email",
+    "intro": "Click the button below to confirm that this email is yours.",
+    "verifyButton": "Verify email",
+    "verifying": "Verifying…",
+    "success": "Verified ✓ — you can now receive password-recovery email at {{email}}. You may close this tab.",
+    "successPlain": "Verified ✓. You may close this tab.",
+    "missingToken": "This verification link is missing its token. Try clicking the link in your email again, or request a fresh one from the contact-email settings.",
+    "tokenExpired": "This verification link has expired. Request a fresh one from your contact-email settings.",
+    "tokenMismatch": "This link no longer matches your current contact email — it was probably superseded by a more recent change.",
+    "tryAgain": "Try again",
+    "failed": "Verification failed. Try requesting a fresh link."
   },
 
   "toasts": {
