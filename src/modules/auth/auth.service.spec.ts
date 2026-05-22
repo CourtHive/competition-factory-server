@@ -7,7 +7,6 @@ describe('AuthService', () => {
   let authService: AuthService;
   let mockUsersService: any;
   let jwtService: JwtService;
-  let mockCacheManager: any;
   let mockProviderStorage: any;
   let mockAuthCodeStorage: any;
   let mockUserStorage: any;
@@ -22,12 +21,6 @@ describe('AuthService', () => {
       findAll: jest.fn(),
       create: jest.fn(),
       remove: jest.fn(),
-    };
-
-    mockCacheManager = {
-      get: jest.fn(),
-      set: jest.fn(),
-      del: jest.fn(),
     };
 
     mockProviderStorage = {
@@ -45,6 +38,7 @@ describe('AuthService', () => {
       update: jest.fn(),
       updateLastAccess: jest.fn().mockResolvedValue(undefined),
       updateLastSelectedProviderId: jest.fn().mockResolvedValue({ success: true }),
+      completeFirstLogin: jest.fn().mockResolvedValue({ success: true }),
     };
 
     const mockUserProvisionerStorage = {
@@ -76,7 +70,6 @@ describe('AuthService', () => {
     authService = new AuthService(
       mockUsersService,
       jwtService,
-      mockCacheManager,
       mockProviderStorage,
       mockAuthCodeStorage,
       mockUserStorage,
@@ -178,7 +171,7 @@ describe('AuthService', () => {
         { userId: 'u-1', providerId: 'prov-ION', providerRole: 'PROVIDER_ADMIN', organisationName: 'ION', organisationAbbreviation: 'ION' },
         { userId: 'u-1', providerId: 'prov-BOBOCA', providerRole: 'PROVIDER_ADMIN', organisationName: 'Battle of Boca', organisationAbbreviation: 'BOBOCA' },
       ]);
-      const result = await authService.signIn('multi@test.com', 'secret');
+      const result: any = await authService.signIn('multi@test.com', 'secret');
       const decoded = await jwtService.verifyAsync(result.token);
       expect(decoded.providerAssociations).toHaveLength(2);
       expect(decoded.providerAssociations[0].organisationAbbreviation).toBe('ION');
@@ -197,9 +190,28 @@ describe('AuthService', () => {
       mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
         { userId: 'u-2', providerId: 'prov-ION', providerRole: 'PROVIDER_ADMIN', organisationName: 'ION', organisationAbbreviation: 'ION' },
       ]);
-      const result = await authService.signIn('stale@test.com', 'secret');
+      const result: any = await authService.signIn('stale@test.com', 'secret');
       const decoded = await jwtService.verifyAsync(result.token);
       expect(decoded.lastSelectedProviderId).toBeNull();
+    });
+
+    it('returns a limited token when user.mustChangePassword=true', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'fresh@test.com',
+        password: 'temp-pass',
+        roles: ['client'],
+        mustChangePassword: true,
+      });
+      const result: any = await authService.signIn('fresh@test.com', 'temp-pass');
+      expect(result.mustChangePassword).toBe(true);
+      expect(typeof result.limitedToken).toBe('string');
+      expect(result.token).toBeUndefined();
+      // The provider load + association queries should be skipped.
+      expect(mockProviderStorage.getProvider).not.toHaveBeenCalled();
+      expect(mockUserProviderStorage.findByUserIdEnriched).not.toHaveBeenCalled();
+      const decoded = await jwtService.verifyAsync(result.limitedToken);
+      expect(decoded.purpose).toBe('first-login-password-change');
+      expect(decoded.email).toBe('fresh@test.com');
     });
   });
 
@@ -237,7 +249,7 @@ describe('AuthService', () => {
     });
   });
 
-  describe('invite', () => {
+  describe('adminCreateUser', () => {
     const superAdminCtx = {
       userContext: {
         userId: 'admin-uuid',
@@ -250,105 +262,193 @@ describe('AuthService', () => {
     };
 
     it('returns error when email is empty', async () => {
-      const result = await authService.invite({}, superAdminCtx);
+      const result: any = await authService.adminCreateUser({ email: '' }, superAdminCtx);
       expect(result.error).toBe('Email is required');
     });
 
-    it('returns error when providerId is missing', async () => {
-      mockUsersService.findOne.mockResolvedValue(null);
-      const result = await authService.invite(
-        { email: 'new@test.com' },
+    it('returns error when an invalid role is requested', async () => {
+      const result: any = await authService.adminCreateUser(
+        { email: 'new@test.com', roles: ['not-a-real-role'] },
         superAdminCtx,
       );
-      expect(result.error).toBe('providerId required');
+      expect(result.error).toContain('Invalid role');
     });
 
-    it('rejects when editor lacks scope at the chosen provider', async () => {
-      const result: any = await authService
-        .invite(
-          { email: 'new@test.com', providerId: 'p-1' },
+    it('throws BadRequest when non-super-admin omits providerId', async () => {
+      await expect(
+        authService.adminCreateUser(
+          { email: 'new@test.com' },
           {
             userContext: {
               userId: 'u-1',
               email: 'admin@test.com',
               isSuperAdmin: false,
               globalRoles: ['client'],
-              providerRoles: { 'p-other': 'PROVIDER_ADMIN' },
-              providerIds: ['p-other'],
+              providerRoles: { 'p-1': 'PROVIDER_ADMIN' },
+              providerIds: ['p-1'],
             },
           },
-        )
-        .catch((e) => e);
-      // assertProviderEditor throws ForbiddenException
-      expect(result?.status).toBe(403);
+        ),
+      ).rejects.toMatchObject({ status: 400 });
     });
 
-    it('upserts user_providers row for an existing email and skips invite code', async () => {
-      mockUsersService.findOne.mockResolvedValue({
-        email: 'existing@test.com',
-        userId: 'existing-uuid',
-      });
-      const result: any = await authService.invite(
-        { email: 'existing@test.com', providerId: 'p-1', providerRole: 'DIRECTOR' },
-        superAdminCtx,
-      );
-      expect(result.existingUser).toBe(true);
-      expect(result.providerId).toBe('p-1');
-      expect(result.providerRole).toBe('DIRECTOR');
-      expect(result.inviteCode).toBeUndefined();
-      expect(mockUserProviderStorage.upsert).toHaveBeenCalledWith({
-        userId: 'existing-uuid',
-        providerId: 'p-1',
-        providerRole: 'DIRECTOR',
-      });
-      expect(mockCacheManager.set).not.toHaveBeenCalled();
+    it('throws Forbidden when non-super-admin scope check fails', async () => {
+      await expect(
+        authService.adminCreateUser(
+          { email: 'new@test.com', providerId: 'p-other' },
+          {
+            userContext: {
+              userId: 'u-1',
+              email: 'admin@test.com',
+              isSuperAdmin: false,
+              globalRoles: ['client'],
+              providerRoles: { 'p-1': 'PROVIDER_ADMIN' },
+              providerIds: ['p-1'],
+            },
+          },
+        ),
+      ).rejects.toMatchObject({ status: 403 });
     });
 
-    it('returns invite code for new user and persists provider context in cache', async () => {
-      mockUsersService.findOne.mockResolvedValue(null);
-      const result: any = await authService.invite(
-        { email: 'new@test.com', roles: ['client'], providerId: 'p-1', providerRole: 'PROVIDER_ADMIN' },
-        superAdminCtx,
-      );
-      expect(result.existingUser).toBe(false);
-      expect(result.inviteCode).toBeDefined();
-      expect(mockCacheManager.set).toHaveBeenCalled();
-      const cachedPayload = (mockCacheManager.set as jest.Mock).mock.calls[0][1];
-      expect(cachedPayload.providerId).toBe('p-1');
-      expect(cachedPayload.providerRole).toBe('PROVIDER_ADMIN');
+    it('throws Conflict when the email already exists', async () => {
+      mockUsersService.findOne.mockResolvedValue({ email: 'existing@test.com', userId: 'u-existing' });
+      await expect(
+        authService.adminCreateUser(
+          { email: 'existing@test.com', providerId: 'p-1' },
+          superAdminCtx,
+        ),
+      ).rejects.toMatchObject({ status: 409 });
     });
 
-    it('defaults providerRole to DIRECTOR when not specified', async () => {
-      mockUsersService.findOne.mockResolvedValue(null);
-      const result: any = await authService.invite(
+    it('auto-generates a 12-char password when none supplied', async () => {
+      mockUsersService.findOne
+        .mockResolvedValueOnce(null) // collision check
+        .mockResolvedValueOnce({ userId: 'u-new', email: 'new@test.com' }); // post-create lookup
+      mockUsersService.create.mockResolvedValue({ email: 'new@test.com' });
+
+      const result: any = await authService.adminCreateUser(
         { email: 'new@test.com', providerId: 'p-1' },
         superAdminCtx,
       );
-      expect(result.inviteCode).toBeDefined();
-      const cachedPayload = (mockCacheManager.set as jest.Mock).mock.calls[0][1];
-      expect(cachedPayload.providerRole).toBe('DIRECTOR');
+
+      expect(result.success).toBe(true);
+      expect(typeof result.password).toBe('string');
+      expect(result.password.length).toBe(12);
+      // create() was called with the same password and mustChangePassword=true
+      const createCall = (mockUsersService.create as jest.Mock).mock.calls[0][0];
+      expect(createCall.password).toBe(result.password);
+      expect(createCall.mustChangePassword).toBe(true);
+    });
+
+    it('uses the supplied password when one is provided', async () => {
+      mockUsersService.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ userId: 'u-new', email: 'new@test.com' });
+      mockUsersService.create.mockResolvedValue({ email: 'new@test.com' });
+
+      const result: any = await authService.adminCreateUser(
+        { email: 'new@test.com', providerId: 'p-1', password: 'admin-chose-this' },
+        superAdminCtx,
+      );
+
+      expect(result.password).toBe('admin-chose-this');
+      const createCall = (mockUsersService.create as jest.Mock).mock.calls[0][0];
+      expect(createCall.password).toBe('admin-chose-this');
+    });
+
+    it('upserts user_providers row when providerId is supplied', async () => {
+      mockUsersService.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ userId: 'u-new', email: 'new@test.com' });
+      mockUsersService.create.mockResolvedValue({ email: 'new@test.com' });
+
+      await authService.adminCreateUser(
+        { email: 'new@test.com', providerId: 'p-1', providerRole: 'PROVIDER_ADMIN' },
+        superAdminCtx,
+      );
+
+      expect(mockUserProviderStorage.upsert).toHaveBeenCalledWith({
+        userId: 'u-new',
+        providerId: 'p-1',
+        providerRole: 'PROVIDER_ADMIN',
+      });
+    });
+
+    it('defaults providerRole to DIRECTOR when an invalid value is given', async () => {
+      mockUsersService.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ userId: 'u-new', email: 'new@test.com' });
+      mockUsersService.create.mockResolvedValue({ email: 'new@test.com' });
+
+      const result: any = await authService.adminCreateUser(
+        { email: 'new@test.com', providerId: 'p-1', providerRole: 'NOT_A_ROLE' as any },
+        superAdminCtx,
+      );
+
+      expect(result.providerRole).toBe('DIRECTOR');
+    });
+
+    it('skips user_providers upsert when no providerId is given (super-admin only)', async () => {
+      mockUsersService.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ userId: 'u-new', email: 'unassociated@test.com' });
+      mockUsersService.create.mockResolvedValue({ email: 'unassociated@test.com' });
+
+      await authService.adminCreateUser({ email: 'unassociated@test.com' }, superAdminCtx);
+
+      expect(mockUserProviderStorage.upsert).not.toHaveBeenCalled();
     });
   });
 
-  describe('register', () => {
-    it('throws when invitation code is invalid', async () => {
-      mockCacheManager.get.mockResolvedValue(null);
-      await expect(authService.register({ code: 'bad-code' })).rejects.toThrow(UnauthorizedException);
+  describe('completeFirstLogin', () => {
+    it('returns error when limitedToken is missing', async () => {
+      const result: any = await authService.completeFirstLogin('', 'newPass');
+      expect(result.error).toContain('required');
     });
 
-    it('creates user with valid invitation code', async () => {
-      mockCacheManager.get.mockResolvedValue({ email: 'new@test.com', roles: ['client'] });
-      mockUsersService.create.mockResolvedValue({ email: 'new@test.com' });
-      const result: any = await authService.register({ code: 'valid-code', password: 'pass123' });
-      expect(result.success).toBe(true);
-      expect(mockCacheManager.del).toHaveBeenCalledWith('invite:valid-code');
+    it('returns error when newPassword is missing', async () => {
+      const result: any = await authService.completeFirstLogin('token', '');
+      expect(result.error).toContain('required');
     });
 
-    it('returns error if user creation fails', async () => {
-      mockCacheManager.get.mockResolvedValue({ email: 'new@test.com' });
-      mockUsersService.create.mockResolvedValue({ error: 'Email exists' });
-      const result = await authService.register({ code: 'valid-code' });
-      expect(result.error).toBe('Email exists');
+    it('throws UnauthorizedException when the token is malformed', async () => {
+      await expect(authService.completeFirstLogin('not-a-jwt', 'newPass')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('throws UnauthorizedException when the token purpose is not first-login', async () => {
+      const wrongPurposeToken = await jwtService.signAsync(
+        { email: 'fresh@test.com', purpose: 'something-else' },
+        { expiresIn: '5m' },
+      );
+      await expect(
+        authService.completeFirstLogin(wrongPurposeToken, 'newPass'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('clears the flag, sets the password, and returns a full session token', async () => {
+      const limitedToken = await jwtService.signAsync(
+        { email: 'fresh@test.com', purpose: 'first-login-password-change' },
+        { expiresIn: '5m' },
+      );
+      // Two findOne calls: one inside completeFirstLogin, one inside signIn
+      // that completeFirstLogin invokes after clearing the flag.
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'fresh@test.com',
+        password: await bcrypt.hash('newPass', 10),
+        roles: ['client'],
+        mustChangePassword: false, // flag has been cleared by completeFirstLogin
+      });
+
+      const result: any = await authService.completeFirstLogin(limitedToken, 'newPass');
+
+      expect(mockUserStorage.completeFirstLogin).toHaveBeenCalledWith(
+        'fresh@test.com',
+        expect.any(String), // hashed password
+      );
+      expect(result.token).toBeDefined();
+      expect(typeof result.token).toBe('string');
     });
   });
 

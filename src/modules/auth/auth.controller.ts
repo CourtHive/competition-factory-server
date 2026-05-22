@@ -1,14 +1,13 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post } from '@nestjs/common';
 import { UserCtx, type UserContext } from './decorators/user-context.decorator';
-import { ADMIN, SUPER_ADMIN, CLIENT } from 'src/common/constants/roles';
+import { AdminCreateUserDto } from './dto/adminCreateUser.dto';
+import { SUPER_ADMIN, CLIENT } from 'src/common/constants/roles';
 import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { User } from './decorators/user.decorator';
 import { ModifyUserDto } from './dto/modifyUser.dto';
-import { RegisterDto } from './dto/register.dto';
 import { AuthService } from './auth.service';
 import { SignInDto } from './dto/signIn.dto';
-import { InviteDto } from './dto/invite.dto';
 import { RemoveDto } from './dto/remove.dto';
 
 @Controller('auth')
@@ -33,13 +32,27 @@ export class AuthController {
     return this.authService.signIn(signIn.email, signIn.password);
   }
 
-  @Post('invite')
-  @Roles([ADMIN, SUPER_ADMIN])
-  invite(@Body() invitation: InviteDto, @User() user?: any, @UserCtx() userContext?: UserContext) {
-    return this.authService.invite(invitation, {
+  @Post('admin-create-user')
+  // CLIENT is the broad gate; service-layer narrows to SUPER_ADMIN OR
+  // PROVIDER_ADMIN/PROVISIONER scoped via assertProviderEditor().
+  @Roles([CLIENT, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  adminCreateUser(
+    @Body() body: AdminCreateUserDto,
+    @User() user?: any,
+    @UserCtx() userContext?: UserContext,
+  ) {
+    return this.authService.adminCreateUser(body, {
       userContext,
       provisionerIds: user?.provisionerIds,
     });
+  }
+
+  @Public()
+  @Post('complete-first-login')
+  @HttpCode(HttpStatus.OK)
+  completeFirstLogin(@Body() body: { limitedToken: string; newPassword: string }) {
+    return this.authService.completeFirstLogin(body?.limitedToken, body?.newPassword);
   }
 
   @Post('modify')
@@ -118,10 +131,4 @@ export class AuthController {
     return this.authService.updateLastSelectedProvider(userContext.email, body?.providerId ?? null);
   }
 
-  @Public()
-  @Post('register')
-  @HttpCode(HttpStatus.OK)
-  register(@Body() register: RegisterDto) {
-    return this.authService.register(register);
-  }
 }

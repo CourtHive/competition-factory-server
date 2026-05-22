@@ -1,6 +1,5 @@
-import { ForbiddenException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { VALID_GLOBAL_ROLES, VALID_PROVIDER_ROLES } from 'src/common/constants/roles';
-import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { computeEffectiveConfig } from '@courthive/provider-config';
 import { createUniqueKey } from './helpers/createUniqueKey';
 import { UsersService } from '../users/users.service';
@@ -35,7 +34,6 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     @Inject(AUTH_CODE_STORAGE) private readonly authCodeStorage: IAuthCodeStorage,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
@@ -58,6 +56,18 @@ export class AuthService {
     const passwordMatch =
       user && (password === clearTextPassword || (await bcrypt.compare(clearTextPassword, user?.password)));
     if (!passwordMatch) throw new UnauthorizedException();
+
+    // Admin-assigned passwords gate into a forced-change flow before a
+    // full session is issued. Return a short-lived limited token whose
+    // sole purpose is to authenticate the /auth/complete-first-login call.
+    if (user.mustChangePassword) {
+      const limitedToken = await this.jwtService.signAsync(
+        { email: user.email, purpose: 'first-login-password-change' },
+        { expiresIn: '5m' },
+      );
+      return { mustChangePassword: true, limitedToken };
+    }
+
     if (user.providerId) {
       const provider = await this.providerStorage.getProvider(user.providerId);
       userDetails.provider = provider;
@@ -155,108 +165,6 @@ export class AuthService {
     return await this.userStorage.updateLastSelectedProviderId(email, providerId);
   }
 
-  /**
-   * Invite a user to a provider.
-   *
-   * Two paths:
-   *
-   *   - Existing email — skip user creation, upsert a user_providers row
-   *     at the inviter's chosen provider, return `{ existingUser: true }`.
-   *     No invite code; the user already has credentials.
-   *
-   *   - New email — create the invite code as today, but also persist
-   *     `providerId` + `providerRole` in the cached invite payload so
-   *     `register()` can lay down the corresponding user_providers row
-   *     when the invitee accepts.
-   *
-   * Authorization: the inviter must have edit authority at `providerId`.
-   * Super-admins are unrestricted; PROVIDER_ADMIN editors are confined
-   * to their own provider; provisioners are confined to providers they
-   * administer. Enforced via `assertProviderEditor`.
-   */
-  async invite(
-    invitation: any,
-    editor?: { userContext?: UserContext; provisionerIds?: string[] },
-  ) {
-    const email = invitation?.email ?? '';
-    if (!email) return { error: 'Email is required' };
-
-    // Validate roles against the whitelist — reject unknown role strings
-    const requestedRoles: string[] = invitation?.roles ?? [];
-    const invalidRoles = requestedRoles.filter((r) => !ALLOWED_ROLE_SET.has(r));
-    if (invalidRoles.length) {
-      return { error: `Invalid role(s): ${invalidRoles.join(', ')}` };
-    }
-
-    const providerId: string | undefined = invitation?.providerId;
-    const providerRole: string =
-      invitation?.providerRole === 'PROVIDER_ADMIN' ? 'PROVIDER_ADMIN' : 'DIRECTOR';
-
-    if (!providerId) return { error: 'providerId required' };
-
-    // Editor must have authority at the chosen provider — same rule
-    // applied by the user-provider CRUD controller.
-    await assertProviderEditor({
-      userContext: editor?.userContext,
-      providerId,
-      provisionerIds: editor?.provisionerIds,
-      provisionerProviderStorage: this.provisionerProviderStorage,
-    });
-
-    const user = await this.usersService.findOne(email);
-    if (user?.email) {
-      // Existing-email path: associate, no invite code.
-      const userId = user.userId ?? user.user_id;
-      if (!userId) return { error: 'Existing user has no userId' };
-      await this.userProviderStorage.upsert({ userId, providerId, providerRole });
-      return { success: true, existingUser: true, providerId, providerRole };
-    }
-
-    // New-email path: persist provider context in the cached invite so
-    // register() can stamp the user_providers row on accept.
-    const inviteCode = createUniqueKey();
-    const cachedInvite = { ...invitation, providerId, providerRole };
-    await this.cacheManager.set(`invite:${inviteCode}`, cachedInvite, 60 * 60 * 24 * 1000);
-
-    Logger.verbose(`Invite code: ${inviteCode}, Email: ${email}`);
-    return { success: true, existingUser: false, inviteCode };
-  }
-
-  async register(invitation: any) {
-    const { code, ...details } = invitation;
-    const invite: any = await this.cacheManager.get(`invite:${code}`);
-    if (!invite) throw new UnauthorizedException('Invalid invitation code');
-    await this.cacheManager.del(`invite:${code}`);
-
-    const result: any = await this.usersService.create({ ...details, ...invite });
-    if (result.error) return result;
-
-    // If the invite carried a provider context, lay down the
-    // user_providers row now so the new user lands with the correct
-    // per-provider scope role.
-    if (invite.providerId && invite.providerRole) {
-      const created = await this.usersService.findOne(invite.email);
-      const userId = created?.userId ?? created?.user_id;
-      if (userId) {
-        try {
-          await this.userProviderStorage.upsert({
-            userId,
-            providerId: invite.providerId,
-            providerRole: invite.providerRole,
-          });
-        } catch (err) {
-          // Non-fatal: user is created, association can be repaired by
-          // an admin later. Log so we know if this surfaces.
-          Logger.warn(
-            `Failed to upsert user_providers row for ${invite.email}: ${(err as Error).message}`,
-          );
-        }
-      }
-    }
-
-    return { ...SUCCESS };
-  }
-
   // TODO: implement forgot password code
   async forgotPassword(email: string) {
     const user = await this.usersService.findOne(email);
@@ -285,6 +193,135 @@ export class AuthService {
     user.password = await hashPassword(newPassword);
     await this.userStorage.update(user.email, user);
     return { ...SUCCESS };
+  }
+
+  /**
+   * Create a user directly with an assigned password. Replaces the
+   * invite-by-URL flow. Returns the assigned password ONCE so the admin
+   * can hand it to the new user; the DB stores only the bcrypt hash.
+   *
+   * Authorization:
+   *   - SUPER_ADMIN: unrestricted, providerId optional
+   *   - PROVIDER_ADMIN / PROVISIONER: providerId REQUIRED, scope enforced
+   *     via assertProviderEditor()
+   *
+   * The created user is flagged `mustChangePassword=true`, which gates the
+   * signIn path into a limited-token response that the client must satisfy
+   * by POSTing to /auth/complete-first-login before receiving a full JWT.
+   */
+  async adminCreateUser(
+    body: {
+      email: string;
+      password?: string;
+      providerId?: string;
+      providerRole?: string;
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      roles?: string[];
+      permissions?: string[];
+      services?: string[];
+    },
+    editor?: { userContext?: UserContext; provisionerIds?: string[] },
+  ) {
+    const email = (body?.email ?? '').toLowerCase().trim();
+    if (!email) return { error: 'Email is required' };
+
+    const requestedRoles: string[] = body?.roles ?? [];
+    const invalidRoles = requestedRoles.filter((r) => !ALLOWED_ROLE_SET.has(r));
+    if (invalidRoles.length) {
+      return { error: `Invalid role(s): ${invalidRoles.join(', ')}` };
+    }
+
+    const providerRole: string =
+      body?.providerRole === 'PROVIDER_ADMIN' ? 'PROVIDER_ADMIN' : 'DIRECTOR';
+
+    const providerId = body?.providerId?.trim() || undefined;
+    const editorContext = editor?.userContext;
+    if (!editorContext?.isSuperAdmin) {
+      if (!providerId) {
+        throw new BadRequestException('providerId is required when the editor is not SUPER_ADMIN');
+      }
+      await assertProviderEditor({
+        userContext: editorContext,
+        providerId,
+        provisionerIds: editor?.provisionerIds,
+        provisionerProviderStorage: this.provisionerProviderStorage,
+      });
+    }
+
+    const existing = await this.usersService.findOne(email);
+    if (existing?.email) {
+      throw new ConflictException(
+        'A user with that email already exists. Use the existing-user association flow to add them to a provider.',
+      );
+    }
+
+    const supplied = (body?.password ?? '').trim();
+    const password = supplied || createUniqueKey().slice(0, 12);
+
+    const result: any = await this.usersService.create({
+      firstName: body.firstName,
+      lastName: body.lastName,
+      phone: body.phone,
+      roles: body.roles ?? [],
+      permissions: body.permissions ?? [],
+      services: body.services,
+      email,
+      password,
+      mustChangePassword: true,
+    } as any);
+    if (result?.error) return result;
+
+    if (providerId) {
+      const created = await this.usersService.findOne(email);
+      const userId = created?.userId ?? created?.user_id;
+      if (userId) {
+        try {
+          await this.userProviderStorage.upsert({ userId, providerId, providerRole });
+        } catch (err) {
+          Logger.warn(
+            `Failed to upsert user_providers row for ${email}: ${(err as Error).message}`,
+          );
+        }
+      }
+    }
+
+    return { success: true, email, password, providerId, providerRole };
+  }
+
+  /**
+   * Complete the forced first-login password change. Called after signIn
+   * returns `{ mustChangePassword: true, limitedToken }` for a user whose
+   * password was assigned by an admin. The limited token's `purpose` claim
+   * is verified, the new password is hashed and written, the flag is
+   * cleared atomically, and a full JWT is issued via a fresh signIn.
+   */
+  async completeFirstLogin(limitedToken: string, newPassword: string) {
+    if (!limitedToken || !newPassword) {
+      return { error: 'limitedToken and newPassword are required' };
+    }
+    let claims: any;
+    try {
+      claims = await this.jwtService.verifyAsync(limitedToken);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired first-login token');
+    }
+    if (claims?.purpose !== 'first-login-password-change' || !claims?.email) {
+      throw new UnauthorizedException('Token is not a first-login token');
+    }
+    const email = String(claims.email).toLowerCase().trim();
+    const user = await this.usersService.findOne(email);
+    if (!user) throw new UnauthorizedException();
+    if (!user.mustChangePassword) {
+      // Idempotent: if the flag was already cleared (e.g. user retried),
+      // still attempt the password set so they aren't locked out, but
+      // emit a warning.
+      Logger.warn(`completeFirstLogin called for ${email} but mustChangePassword is already false`);
+    }
+    const hashed = await hashPassword(newPassword);
+    await this.userStorage.completeFirstLogin(email, hashed);
+    return await this.signIn(email, newPassword);
   }
 
   /**

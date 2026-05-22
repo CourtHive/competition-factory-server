@@ -14,4 +14,11 @@ export interface IUserStorage {
    * user's user_providers associations.
    */
   updateLastSelectedProviderId(email: string, providerId: string | null): Promise<{ success: boolean }>;
+  /**
+   * Atomic one-query operation for /auth/complete-first-login: writes the
+   * new hashed password and clears `must_change_password` in a single
+   * UPDATE. Avoids a read-modify-write that would race with concurrent
+   * field updates on the same row.
+   */
+  completeFirstLogin(email: string, hashedPassword: string): Promise<{ success: boolean }>;
 }

@@ -44,6 +44,5 @@ export const TMX_SYNC = 'tmxSync';
 export const SYNC = 'sync';
 
 // Navigation targets
-export const INVITE = 'invite';
 export const TOURNAMENT_SETTINGS = 'tournamentSettings';
 export const TMX_TOURNAMENTS = 'tournaments';

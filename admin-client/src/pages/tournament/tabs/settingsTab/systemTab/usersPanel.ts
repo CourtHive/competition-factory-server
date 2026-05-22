@@ -4,14 +4,11 @@ import { confirmModal } from 'components/modals/baseModal/baseModal';
 import { editUserModal } from 'components/modals/editUserModal';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { buildSearchInput } from 'components/inputs/searchInput';
-import { inviteModal } from 'components/modals/inviteUser';
+import { createUserModal } from 'components/modals/createUser';
 import { removeUser } from 'services/apis/servicesApi';
 import { destroyTable } from 'pages/tournament/destroyTable';
 import { tmxToast } from 'services/notifications/tmxToast';
-import { copyClick } from 'services/dom/copyClick';
 import { t } from 'i18n';
-
-import { INVITE } from 'constants/tmxConstants';
 
 const USERS_TABLE = 'systemUsersTable';
 
@@ -49,9 +46,9 @@ export function renderUsersPanel({ container, providers, users, onRefresh }: Ren
   const toolbarActions = document.createElement('div');
   toolbarActions.className = 'toolbar-actions';
 
-  const inviteBtn = document.createElement('button');
-  inviteBtn.className = 'btn-invite';
-  inviteBtn.textContent = t('system.inviteUser');
+  const createBtn = document.createElement('button');
+  createBtn.className = 'btn-invite';
+  createBtn.textContent = t('system.createUser');
 
   const editBtn = document.createElement('button');
   editBtn.className = 'btn-edit';
@@ -65,7 +62,7 @@ export function renderUsersPanel({ container, providers, users, onRefresh }: Ren
   removeBtn.className = 'btn-remove';
   removeBtn.textContent = t('system.removeUser');
 
-  toolbarActions.appendChild(inviteBtn);
+  toolbarActions.appendChild(createBtn);
   toolbarActions.appendChild(editBtn);
   toolbarActions.appendChild(resetPwBtn);
   toolbarActions.appendChild(removeBtn);
@@ -160,18 +157,12 @@ export function renderUsersPanel({ container, providers, users, onRefresh }: Ren
     return rows?.[0]?.getData();
   };
 
-  // Invite button
-  inviteBtn.addEventListener('click', () => {
-    const processInviteResult = (inviteResult) => {
-      const inviteCode = inviteResult?.data?.inviteCode;
-      console.log('Invite result:', inviteResult);
-      if (inviteCode) {
-        const inviteURL = `${globalThis.location.origin}${globalThis.location.pathname}/#/${INVITE}/${inviteCode}`;
-        copyClick(inviteURL);
-      }
-      onRefresh();
-    };
-    inviteModal(processInviteResult, providers as any);
+  // Create user button — opens the createUserModal which calls
+  // POST /auth/admin-create-user and copies the assigned password to the
+  // admin's clipboard. The new user is forced through a change-password
+  // flow on first login (server returns a limited token until they do).
+  createBtn.addEventListener('click', () => {
+    createUserModal(() => onRefresh(), providers as any);
   });
 
   // Edit button

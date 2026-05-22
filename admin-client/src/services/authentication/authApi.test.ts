@@ -12,9 +12,8 @@ vi.mock('../apis/baseApi', () => ({
 
 import {
   systemLogin,
-  inviteUser,
-  systemRegister,
-  setPassword,
+  adminCreateUser,
+  completeFirstLogin,
   confirmEmail,
   forgotPassword,
   resetPassword,
@@ -38,57 +37,48 @@ describe('authApi', () => {
     });
   });
 
-  describe('inviteUser', () => {
-    it('posts to /auth/invite with all parameters and a default DIRECTOR providerRole', async () => {
-      mockPost.mockResolvedValue({ data: { inviteCode: 'abc123' } });
-      await inviteUser('new@test.com', 'org-1', ['admin', 'client'], ['devMode'], ['tournamentProfile']);
-      expect(mockPost).toHaveBeenCalledWith('/auth/invite', {
+  describe('adminCreateUser', () => {
+    it('posts the full payload to /auth/admin-create-user', async () => {
+      mockPost.mockResolvedValue({ data: { success: true, password: 'gen12345abcd' } });
+      await adminCreateUser({
         email: 'new@test.com',
         providerId: 'org-1',
         providerRole: 'DIRECTOR',
-        roles: ['admin', 'client'],
+        roles: ['client'],
         permissions: ['devMode'],
         services: ['tournamentProfile'],
-      });
-    });
-
-    it('forwards an explicit PROVIDER_ADMIN providerRole', async () => {
-      mockPost.mockResolvedValue({ data: { inviteCode: 'abc123' } });
-      await inviteUser(
-        'new@test.com',
-        'org-1',
-        ['admin', 'client'],
-        ['devMode'],
-        ['tournamentProfile'],
-        'PROVIDER_ADMIN',
-      );
-      expect(mockPost).toHaveBeenCalledWith(
-        '/auth/invite',
-        expect.objectContaining({ providerRole: 'PROVIDER_ADMIN' }),
-      );
-    });
-  });
-
-  describe('systemRegister', () => {
-    it('posts to /auth/register with user details and invite code', async () => {
-      mockPost.mockResolvedValue({ data: { success: true } });
-      await systemRegister('Jane', 'Doe', 'password1', 'invite-code');
-      expect(mockPost).toHaveBeenCalledWith('/auth/register', {
         firstName: 'Jane',
         lastName: 'Doe',
-        password: 'password1',
-        code: 'invite-code',
+      });
+      expect(mockPost).toHaveBeenCalledWith('/auth/admin-create-user', {
+        email: 'new@test.com',
+        providerId: 'org-1',
+        providerRole: 'DIRECTOR',
+        roles: ['client'],
+        permissions: ['devMode'],
+        services: ['tournamentProfile'],
+        firstName: 'Jane',
+        lastName: 'Doe',
+      });
+    });
+
+    it('omits password when caller wants the server to generate one', async () => {
+      mockPost.mockResolvedValue({ data: { success: true, password: 'auto12345abc' } });
+      await adminCreateUser({ email: 'new@test.com', providerId: 'org-1' });
+      expect(mockPost).toHaveBeenCalledWith('/auth/admin-create-user', {
+        email: 'new@test.com',
+        providerId: 'org-1',
       });
     });
   });
 
-  describe('setPassword', () => {
-    it('posts to /auth/set-password with password and token', async () => {
-      mockPost.mockResolvedValue({ data: { success: true } });
-      await setPassword('newPass', 'token-xyz');
-      expect(mockPost).toHaveBeenCalledWith('/auth/set-password', {
-        password: 'newPass',
-        setPasswordToken: 'token-xyz',
+  describe('completeFirstLogin', () => {
+    it('posts the limited token + new password to /auth/complete-first-login', async () => {
+      mockPost.mockResolvedValue({ data: { token: 'jwt-full' } });
+      await completeFirstLogin('limited-jwt', 'newSecret');
+      expect(mockPost).toHaveBeenCalledWith('/auth/complete-first-login', {
+        limitedToken: 'limited-jwt',
+        newPassword: 'newSecret',
       });
     });
   });

@@ -1,31 +1,29 @@
 import { validators, renderForm } from 'courthive-components';
-import { inviteUser } from 'services/authentication/authApi';
+import { adminCreateUser } from 'services/authentication/authApi';
 import { getLoginState } from 'services/authentication/loginState';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { labelWithRoleTip } from './roleDefinitions';
 import { copyClick } from 'services/dom/copyClick';
 import { openModal } from './baseModal/baseModal';
-import { INVITE, SUPER_ADMIN } from 'constants/tmxConstants';
+import { SUPER_ADMIN } from 'constants/tmxConstants';
 import { isFunction } from 'functions/typeOf';
 import { t } from 'i18n';
 
-/**
- * Build the accept-invite URL the invitee should follow to register.
- * Mirrors the route registered in `router/router.ts`:
- *   router.on(`/${INVITE}/:inviteKey`, registrationModal)
- *
- * Strips a trailing '/' from pathname so a root-mounted app produces
- * `https://host/#/invite/<code>` instead of `https://host//#/invite/<code>`.
- */
-export function buildInviteUrl(inviteCode: string): string {
-  const { origin, pathname } = globalThis.location;
-  const base = pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
-  return `${origin}${base}/#/${INVITE}/${inviteCode}`;
+// Mirrors resetPasswordModal.generatePassword(): unambiguous alphanumeric
+// set (no 0/O/1/l/I) so admins reading the value over a call don't get
+// tripped up. 12 chars matches the server-side default.
+function generatePassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let result = '';
+  for (let i = 0; i < 12; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }
 
-export function inviteModal(callback, providers = [], selectedProviderId?: string) {
-  // Provider-admin inviting users get their own provider pre-filled and
-  // locked — they can't invite users into a provider they don't admin.
+export function createUserModal(callback, providers = [], selectedProviderId?: string) {
+  // Provider-admin creating users get their own provider pre-filled and
+  // locked — they can't create users into a provider they don't admin.
   // Super-admins choose freely.
   const editor = getLoginState();
   const editorIsSuperAdmin = !!editor?.roles?.includes(SUPER_ADMIN);
@@ -55,8 +53,8 @@ export function inviteModal(callback, providers = [], selectedProviderId?: strin
   const enableSubmit = ({ inputs }) => {
     const value = inputs['email'].value;
     const isValid = validators.emailValidator(value);
-    const inviteButton: any = document.getElementById('inviteUser');
-    if (inviteButton) inviteButton.disabled = !isValid;
+    const createButton: any = document.getElementById('createUser');
+    if (createButton) createButton.disabled = !isValid;
   };
 
   const relationships = [
@@ -65,6 +63,8 @@ export function inviteModal(callback, providers = [], selectedProviderId?: strin
       control: 'email',
     },
   ];
+
+  const initialPassword = generatePassword();
 
   const content = (elem) =>
     (inputs = renderForm(
@@ -77,6 +77,14 @@ export function inviteModal(callback, providers = [], selectedProviderId?: strin
           autocomplete: 'off',
           label: t('email'),
           field: 'email',
+        },
+        // Password field — pre-filled with a generated 12-char password.
+        // Admin can edit, regenerate, or copy. Server-side will also
+        // generate one if the field is left empty (defensive double-fill).
+        {
+          value: initialPassword,
+          label: t('modals.createUser.password'),
+          field: 'password',
         },
         {
           text: t('modals.inviteUser.roles'),
@@ -129,7 +137,7 @@ export function inviteModal(callback, providers = [], selectedProviderId?: strin
         },
         // Super-admins pick any provider via typeahead; everyone else
         // (PROVIDER_ADMIN / PROVISIONER) gets their own provider pre-filled
-        // and the field disabled — they cannot invite users into a provider
+        // and the field disabled — they cannot create users into a provider
         // they don't administer. The server enforces this regardless via
         // assertProviderEditor.
         editorIsSuperAdmin
@@ -147,8 +155,7 @@ export function inviteModal(callback, providers = [], selectedProviderId?: strin
               disabled: true,
             },
         // Provider-scope role at the chosen provider — what the new user's
-        // user_providers row will be set to on accept (for new emails) or
-        // upserted as right now (for existing emails).
+        // user_providers row will be set to.
         {
           options: [
             { label: 'DIRECTOR', value: 'DIRECTOR' },
@@ -197,9 +204,11 @@ export function inviteModal(callback, providers = [], selectedProviderId?: strin
   const roles = ['client', 'admin', 'score', 'developer', 'generate', 'director', 'official'];
   const permissions = ['devMode', 'editTennisId', 'deleteTournament'];
   const services = ['tournamentProfile'];
-  const submitInvite = () => {
+
+  const submitCreate = () => {
     const email = inputs.email.value;
-    const providerId = values.providerId || inputs.providerId?.value;
+    const password = (inputs.password?.value || '').trim() || undefined;
+    const providerId = values.providerId || inputs.providerId?.value || undefined;
     const providerRole = (inputs.providerRole?.value === 'PROVIDER_ADMIN'
       ? 'PROVIDER_ADMIN'
       : 'DIRECTOR') as 'PROVIDER_ADMIN' | 'DIRECTOR';
@@ -210,51 +219,51 @@ export function inviteModal(callback, providers = [], selectedProviderId?: strin
     const response = (res) => {
       const data = res?.data ?? {};
 
-      // Two server response shapes:
-      //   { existingUser: true, providerId, providerRole } — email already
-      //     exists; server upserted user_providers row directly. No invite
-      //     code, nothing to copy. Toast and close.
-      //   { existingUser: false, inviteCode }  — new user. Build accept URL
-      //     and copy to clipboard.
-      if (data.existingUser) {
-        const providerLabel =
-          providerList.find((p) => p.value === data.providerId)?.label || data.providerId;
+      if (data?.success && data?.password) {
+        // The server returns the assigned password — copy it to the admin's
+        // clipboard so they can hand it to the new user. The user MUST
+        // change it on first login (must_change_password=true on the row).
+        copyClick(data.password);
         tmxToast({
-          message: t('modals.inviteUser.existingUserAdded', {
-            email,
-            provider: providerLabel,
-            role: data.providerRole,
-          }),
+          message: t('modals.createUser.successCopied', { email: data.email || email }),
           intent: 'is-success',
         });
-      } else if (data.inviteCode) {
-        const inviteURL = buildInviteUrl(data.inviteCode);
-        console.log('Invite URL:', inviteURL);
-        copyClick(inviteURL);
       } else {
         const errMessage = data.error || data.message;
-        console.warn('Invite failed — no inviteCode in response:', data);
-        tmxToast({ message: errMessage || t('system.inviteFailed'), intent: 'is-danger' });
+        tmxToast({ message: errMessage || t('modals.createUser.failed'), intent: 'is-danger' });
       }
 
       if (isFunction(callback)) callback(res);
     };
 
-    inviteUser(email, providerId, userRoles, userPermissions, userServices, providerRole).then(
-      response,
-      (err) => {
-        console.warn('[inviteModal] inviteUser failed', err);
-        tmxToast({ message: err?.message || t('system.inviteFailed'), intent: 'is-danger' });
-      },
-    );
+    adminCreateUser({
+      email,
+      password,
+      providerId,
+      providerRole,
+      roles: userRoles as string[],
+      permissions: userPermissions as string[],
+      services: userServices as string[],
+    }).then(response, (err) => {
+      const status = err?.response?.status;
+      const message = err?.response?.data?.message || err?.message;
+      if (status === 409) {
+        tmxToast({
+          message: t('modals.createUser.emailExists', { email }),
+          intent: 'is-danger',
+        });
+      } else {
+        tmxToast({ message: message || t('modals.createUser.failed'), intent: 'is-danger' });
+      }
+    });
   };
 
   openModal({
-    title: t('modals.inviteUser.title'),
+    title: t('modals.createUser.title'),
     content,
     buttons: [
       { label: t('common.cancel'), intent: 'none', close: true },
-      { label: t('modals.inviteUser.invite'), intent: 'is-primary', id: 'inviteUser', disabled: true, onClick: submitInvite, close: true },
+      { label: t('modals.createUser.create'), intent: 'is-primary', id: 'createUser', disabled: true, onClick: submitCreate, close: true },
     ],
   });
 }

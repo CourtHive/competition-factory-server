@@ -7,7 +7,7 @@ import { buildSearchInput } from 'components/inputs/searchInput';
 import { removeUserProvider } from 'services/apis/servicesApi';
 import { destroyTable } from 'pages/tournament/destroyTable';
 import { openTmxImpersonate } from 'services/openTmxImpersonate';
-import { inviteModal } from 'components/modals/inviteUser';
+import { createUserModal } from 'components/modals/createUser';
 import { confirmModal } from 'components/modals/baseModal/baseModal';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { t } from 'i18n';
@@ -200,24 +200,20 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
     editProviderModal({ provider: providerValue, callback: () => onRefresh() });
   });
 
-  const inviteBtn = document.createElement('button');
-  inviteBtn.className = 'btn-invite';
-  inviteBtn.textContent = t('system.inviteUser');
-  // inviteModal handles the URL log + clipboard copy and surfaces failures via
-  // toast — refresh the provider/user lists whenever an inviteCode came back.
-  inviteBtn.addEventListener('click', () => {
-    inviteModal(
-      (result: any) => {
-        if (result?.data?.inviteCode) onRefresh();
-      },
-      providers as any,
-      provider.organisationId,
-    );
+  const createBtn = document.createElement('button');
+  createBtn.className = 'btn-invite';
+  createBtn.textContent = t('system.createUser');
+  // createUserModal POSTs to /auth/admin-create-user with the assigned
+  // password and copies it to the admin's clipboard. The new user is
+  // forced through the first-login change-password flow on their next
+  // sign-in (must_change_password = TRUE on the row).
+  createBtn.addEventListener('click', () => {
+    createUserModal(() => onRefresh(), providers as any, provider.organisationId);
   });
 
   actions.appendChild(impersonateBtn);
   actions.appendChild(editBtn);
-  actions.appendChild(inviteBtn);
+  actions.appendChild(createBtn);
   detailPane.appendChild(actions);
 
   // Associated users

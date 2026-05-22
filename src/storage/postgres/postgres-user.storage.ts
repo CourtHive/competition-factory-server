@@ -11,7 +11,7 @@ export class PostgresUserStorage implements IUserStorage {
 
   async findOne(email: string): Promise<any | null> {
     const result = await this.pool.query(
-      'SELECT user_id, email, password, provider_id, last_selected_provider_id, roles, permissions, data FROM users WHERE email = $1',
+      'SELECT user_id, email, password, provider_id, last_selected_provider_id, must_change_password, roles, permissions, data FROM users WHERE email = $1',
       [email],
     );
     if (!result.rows.length) return null;
@@ -22,6 +22,7 @@ export class PostgresUserStorage implements IUserStorage {
       password: row.password,
       providerId: row.provider_id,
       lastSelectedProviderId: row.last_selected_provider_id,
+      mustChangePassword: row.must_change_password,
       roles: row.roles,
       permissions: row.permissions,
       ...row.data,
@@ -29,28 +30,57 @@ export class PostgresUserStorage implements IUserStorage {
   }
 
   async create(user: { email: string; password: string; [key: string]: any }): Promise<any> {
-    const { email, password, providerId, roles = [], permissions = [], ...rest } = user;
+    const { email, password, providerId, roles = [], permissions = [], mustChangePassword, ...rest } = user;
     await this.pool.query(
-      `INSERT INTO users (email, password, provider_id, roles, permissions, data)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO users (email, password, provider_id, roles, permissions, must_change_password, data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (email) DO UPDATE SET
          password = EXCLUDED.password,
          provider_id = EXCLUDED.provider_id,
          roles = EXCLUDED.roles,
          permissions = EXCLUDED.permissions,
+         must_change_password = EXCLUDED.must_change_password,
          data = EXCLUDED.data,
          updated_at = NOW()`,
-      [email, password, providerId ?? null, JSON.stringify(roles), JSON.stringify(permissions), JSON.stringify(rest)],
+      [
+        email,
+        password,
+        providerId ?? null,
+        JSON.stringify(roles),
+        JSON.stringify(permissions),
+        Boolean(mustChangePassword),
+        JSON.stringify(rest),
+      ],
     );
     return user;
   }
 
   async update(email: string, data: any): Promise<{ success: boolean }> {
-    const { password, providerId, roles = [], permissions = [], ...rest } = data;
+    const { password, providerId, roles = [], permissions = [], mustChangePassword, ...rest } = data;
     await this.pool.query(
-      `UPDATE users SET password = $2, provider_id = $3, roles = $4, permissions = $5, data = $6, updated_at = NOW()
+      `UPDATE users SET password = $2, provider_id = $3, roles = $4, permissions = $5, must_change_password = $6, data = $7, updated_at = NOW()
        WHERE email = $1`,
-      [email, password, providerId ?? null, JSON.stringify(roles), JSON.stringify(permissions), JSON.stringify(rest)],
+      [
+        email,
+        password,
+        providerId ?? null,
+        JSON.stringify(roles),
+        JSON.stringify(permissions),
+        Boolean(mustChangePassword),
+        JSON.stringify(rest),
+      ],
+    );
+    return { ...SUCCESS };
+  }
+
+  async completeFirstLogin(email: string, hashedPassword: string): Promise<{ success: boolean }> {
+    await this.pool.query(
+      `UPDATE users
+          SET password = $2,
+              must_change_password = FALSE,
+              updated_at = NOW()
+        WHERE email = $1`,
+      [email, hashedPassword],
     );
     return { ...SUCCESS };
   }

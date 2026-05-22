@@ -42,7 +42,11 @@ export class AuthMiddleware implements NestMiddleware {
       }
     }
 
-    if (jwtPayload?.email != null) {
+    // Limited-purpose tokens (e.g. first-login-password-change) carry a
+    // `purpose` claim and must not authenticate normal endpoints. They are
+    // verified by the endpoint that issued them (currently
+    // /auth/complete-first-login) using a body-field token, not Authorization.
+    if (jwtPayload?.email != null && !jwtPayload?.purpose) {
       const user = await this.usersService.findOne(jwtPayload.email);
       req.user = user;
 

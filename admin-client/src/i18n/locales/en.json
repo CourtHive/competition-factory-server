@@ -304,6 +304,7 @@
     "roles": "Roles",
     "searchUsers": "Search users...",
     "inviteUser": "Invite User",
+    "createUser": "Create User",
     "editUser": "Edit User",
     "editUserTitle": "Edit User",
     "removeUser": "Remove User",
@@ -1238,6 +1239,25 @@
       "invite": "Invite",
       "providerRole": "Provider Role",
       "existingUserAdded": "{{email}} already had an account — added to {{provider}} as {{role}}."
+    },
+    "createUser": {
+      "title": "Create User",
+      "create": "Create",
+      "password": "Password",
+      "successCopied": "Created {{email}}. Temporary password copied to clipboard.",
+      "failed": "Failed to create user.",
+      "emailExists": "A user with email {{email}} already exists."
+    },
+    "firstLogin": {
+      "title": "Set Your Password",
+      "intro": "Your administrator assigned you a temporary password. Please choose a new password to continue.",
+      "newPasswordLabel": "New Password",
+      "newPasswordPlaceholder": "At least 8 characters",
+      "confirmPasswordLabel": "Confirm Password",
+      "confirmPasswordPlaceholder": "Re-enter new password",
+      "setPassword": "Set Password",
+      "failed": "Failed to set new password.",
+      "tokenExpired": "Your sign-in expired. Please log in again."
     },
     "editUser": {
       "providers": "Providers",

@@ -7,38 +7,23 @@ export async function systemLogin(email, password) {
   });
 }
 
-export async function inviteUser(
-  email: string,
-  providerId: string,
-  roles: string[],
-  permissions: string[],
-  services: string[],
-  providerRole: 'PROVIDER_ADMIN' | 'DIRECTOR' = 'DIRECTOR',
-) {
-  return baseApi.post('/auth/invite', {
-    permissions,
-    providerId,
-    providerRole,
-    services,
-    email,
-    roles,
-  });
+export async function adminCreateUser(payload: {
+  email: string;
+  password?: string;
+  providerId?: string;
+  providerRole?: 'PROVIDER_ADMIN' | 'DIRECTOR';
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  roles?: string[];
+  permissions?: string[];
+  services?: string[];
+}) {
+  return baseApi.post('/auth/admin-create-user', payload);
 }
 
-export async function systemRegister(firstName, lastName, password, code) {
-  return baseApi.post('/auth/register', {
-    firstName,
-    lastName,
-    password,
-    code,
-  });
-}
-
-export async function setPassword(password, setPasswordToken) {
-  return baseApi.post('/auth/set-password', {
-    setPasswordToken,
-    password,
-  });
+export async function completeFirstLogin(limitedToken: string, newPassword: string) {
+  return baseApi.post('/auth/complete-first-login', { limitedToken, newPassword });
 }
 
 export async function confirmEmail(emailConfirmationId) {
