@@ -2,16 +2,29 @@ import { executionQueue } from 'src/modules/factory/functions/private/executionQ
 import { Logger } from '@nestjs/common';
 
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import type { AuditService } from 'src/modules/audit/audit.service';
 
 const logger = new Logger('TmxMessages');
 
 export const tmxMessages = {
-  executionQueue: async ({ client, payload, services, storage }: { client: any; payload: any; services: any; storage: TournamentStorageService }) => {
+  executionQueue: async ({
+    client,
+    payload,
+    services,
+    storage,
+    auditService,
+  }: {
+    client: any;
+    payload: any;
+    services: any;
+    storage: TournamentStorageService;
+    auditService?: AuditService;
+  }) => {
     const ackId = payload?.ackId;
     const tournamentIds = payload?.tournamentIds || (payload?.tournamentId && [payload.tournamentId]) || [];
 
     try {
-      const result = await executionQueue(payload, services, storage);
+      const result = await executionQueue(payload, services, storage, auditService);
       const { publicNotices, ...mutationResult } = result;
 
       const response = mutationResult.error

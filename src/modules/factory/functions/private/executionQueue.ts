@@ -87,6 +87,7 @@ export async function executionQueue(
           methods: methods.map((m: any) => ({ method: m.method, params: m.params })),
           status: innerResult.success ? 'applied' : innerResult.error ? 'rejected' : 'partial',
           errorCode: innerResult.error ? String(innerResult.error) : undefined,
+          metadata: buildAuditMetadata(payload),
         }).catch((err) => Logger.error(`Audit hook failed: ${err.message}`, 'executionQueue'));
       }
 
@@ -98,8 +99,37 @@ export async function executionQueue(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     Logger.error(`executionQueue exception for tournaments [${tournamentIds.join(', ')}]: ${message}`);
+    // Capture exceptions in the audit log too — these are the most opaque
+    // failures (e.g. storage timeout, lock acquisition failure) and the
+    // ones most useful to triage post-incident.
+    if (auditService) {
+      auditService.recordMutation({
+        tournamentIds,
+        userId: payload?.userId,
+        userEmail: payload?.userEmail,
+        source: payload?.auditSource?.type === 'provisioner' ? 'provisioner' : payload?.source ?? 'tmx',
+        methods: methods.map((m: any) => ({ method: m.method, params: m.params })),
+        status: 'rejected',
+        errorCode: message,
+        metadata: buildAuditMetadata(payload),
+      }).catch((auditErr) => Logger.error(`Audit hook failed (catch branch): ${auditErr.message}`, 'executionQueue'));
+    }
     return { error: message, tournamentIds };
   }
+}
+
+/**
+ * Pack the durable correlation fields from a TMX payload into the audit
+ * `metadata` JSONB. Keys that aren't present in the payload are omitted so
+ * the JSONB stays compact for REST/provisioner paths that don't supply them.
+ */
+function buildAuditMetadata(payload: any): Record<string, any> | undefined {
+  const meta: Record<string, any> = {};
+  if (payload?.ackId) meta.ackId = payload.ackId;
+  if (payload?.tmxVersion) meta.tmxVersion = payload.tmxVersion;
+  if (payload?.factoryVersion) meta.factoryVersion = payload.factoryVersion;
+  if (payload?.timestamp) meta.clientTimestamp = payload.timestamp;
+  return Object.keys(meta).length ? meta : undefined;
 }
 
 /** Fire-and-forget: stamp tournament_provisioner table + parentOrganisation extension. */
