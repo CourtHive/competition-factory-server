@@ -2,6 +2,8 @@ import { resetPasswordModal } from 'components/modals/resetPasswordModal';
 import { createSearchFilter } from 'components/tables/common/filters/createSearchFilter';
 import { setActiveProvider, clearActiveProvider } from 'services/provider/providerState';
 import { editProviderModal } from 'components/modals/editProvider';
+import { archiveProviderModal } from 'components/modals/archiveProvider';
+import { deleteProviderModal } from 'components/modals/deleteProvider';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { buildSearchInput } from 'components/inputs/searchInput';
 import { removeUserProvider } from 'services/apis/servicesApi';
@@ -211,9 +213,40 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
     createUserModal(() => onRefresh(), providers as any, provider.organisationId);
   });
 
+  // Plan A — Archive (warning intent) + Delete (danger intent). Both
+  // SUPER_ADMIN only (server enforces). Archive is recoverable via
+  // revive-provider.mjs; Delete is irreversible. Buttons live on the
+  // right with separators so they don't get clicked by accident.
+  const archiveBtn = document.createElement('button');
+  archiveBtn.className = 'btn-edit';
+  archiveBtn.style.cssText = 'margin-left: auto;';
+  archiveBtn.textContent = t('system.archiveProvider');
+  archiveBtn.addEventListener('click', () => {
+    archiveProviderModal({
+      providerId: provider.organisationId,
+      providerAbbr: provider.organisationAbbreviation,
+      providerName: provider.organisationName,
+      callback: () => onRefresh(),
+    });
+  });
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'btn-remove';
+  deleteBtn.textContent = t('system.deleteProvider');
+  deleteBtn.addEventListener('click', () => {
+    deleteProviderModal({
+      providerId: provider.organisationId,
+      providerAbbr: provider.organisationAbbreviation,
+      providerName: provider.organisationName,
+      callback: () => onRefresh(),
+    });
+  });
+
   actions.appendChild(impersonateBtn);
   actions.appendChild(editBtn);
   actions.appendChild(createBtn);
+  actions.appendChild(archiveBtn);
+  actions.appendChild(deleteBtn);
   detailPane.appendChild(actions);
 
   // Associated users

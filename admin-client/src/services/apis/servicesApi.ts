@@ -19,6 +19,48 @@ export async function modifyProvider({ provider }: { provider: any }) {
   return await baseApi.post('/provider/modify', provider);
 }
 
+/**
+ * Plan A — preview the blast radius of an archive/delete. Returns
+ * counts for every soft-FK table that would be touched.
+ * SUPER_ADMIN only.
+ */
+export async function previewArchiveProvider({ providerId }: { providerId: string }) {
+  return await baseApi.post(`/provider/${encodeURIComponent(providerId)}/preview-archive`, {});
+}
+
+/**
+ * Plan A — archive (export to disk + wipe live DB). Recoverable via
+ * the backend revive-provider.mjs script. `confirm` must equal the
+ * provider's organisationAbbreviation.
+ */
+export async function archiveProvider({
+  providerId,
+  confirm,
+}: {
+  providerId: string;
+  confirm: string;
+}) {
+  return await baseApi.post(`/provider/${encodeURIComponent(providerId)}/archive`, { confirm });
+}
+
+/**
+ * Plan A — DESTRUCTIVE delete (no export, no recovery). For demo
+ * providers and the like. Requires `confirm` matching abbreviation
+ * AND `acknowledgeDataLoss: true`.
+ */
+export async function deleteProviderPermanently({
+  providerId,
+  confirm,
+}: {
+  providerId: string;
+  confirm: string;
+}) {
+  return await baseApi.post(`/provider/${encodeURIComponent(providerId)}/delete`, {
+    confirm,
+    acknowledgeDataLoss: true,
+  });
+}
+
 export async function getProvider({ providerId }: { providerId: string }) {
   return await baseApi.post('/provider/detail', { providerId });
 }

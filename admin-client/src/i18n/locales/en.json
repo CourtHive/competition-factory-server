@@ -305,6 +305,8 @@
     "searchUsers": "Search users...",
     "inviteUser": "Invite User",
     "createUser": "Create User",
+    "archiveProvider": "Archive",
+    "deleteProvider": "Delete",
     "editUser": "Edit User",
     "editUserTitle": "Edit User",
     "removeUser": "Remove User",
@@ -1261,6 +1263,41 @@
       "successPlain": "Created {{email}}.",
       "failed": "Failed to create user.",
       "emailExists": "A user with email {{email}} already exists."
+    },
+    "archiveProvider": {
+      "title": "Archive provider — {{provider}}",
+      "intro": "Archiving exports everything associated with {{provider}} ({{abbr}}) to disk, then removes it from the live database. The archive is recoverable via the backend revive-provider.mjs script.",
+      "loading": "Loading blast-radius preview…",
+      "previewFailed": "Couldn't load preview. Try again, or refresh the page.",
+      "confirmLabel": "Type the provider abbreviation ({{abbr}}) to confirm:",
+      "submit": "Archive provider",
+      "success": "Archived {{abbr}} — {{tournaments}} tournaments. Archive id: {{archiveId}}.",
+      "failed": "Archive failed.",
+      "counts": {
+        "tournaments": "Tournaments",
+        "userAssociations": "User associations",
+        "provisionerAssociations": "Provisioner associations",
+        "tournamentAssignments": "Tournament assignments",
+        "officialRecords": "Official records",
+        "sanctioningRecords": "Sanctioning records",
+        "tournamentProvisioner": "Tournament-provisioner links",
+        "pendingSaves": "Pending saves",
+        "calendars": "Calendars",
+        "topologies": "Topology templates",
+        "catalogItems": "Catalog items",
+        "policies": "Policies",
+        "auditLogRows": "Audit log rows (preserved, not deleted)"
+      }
+    },
+    "deleteProvider": {
+      "title": "Delete provider — {{provider}}",
+      "warning": "Irreversible — no archive, no recovery.",
+      "warningDetail": "Use Archive instead if there's any chance this data will be needed later. Delete is for providers with no real data (demo/test accounts).",
+      "intro": "Permanently delete {{provider}} ({{abbr}}) and all its associated data. Audit log rows are preserved, but every other table will be wiped.",
+      "acknowledge": "I understand this cannot be undone.",
+      "submit": "Delete permanently",
+      "success": "Deleted {{abbr}} — {{tournaments}} tournaments destroyed.",
+      "failed": "Delete failed."
     },
     "firstLogin": {
       "title": "Set Your Password",
