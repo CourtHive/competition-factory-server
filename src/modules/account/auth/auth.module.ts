@@ -1,6 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigsModule } from 'src/config/config.module';
-import { UsersModule } from '../users/users.module';
+import { UsersModule } from '../../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthMiddleware } from './auth.middleware';
 import { AuthGuard } from './guards/auth.guard';

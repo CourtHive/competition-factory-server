@@ -1,6 +1,6 @@
 import { Reflector } from '@nestjs/core';
 
-import { IS_PUBLIC_KEY } from '../auth/decorators/public.decorator';
+import { IS_PUBLIC_KEY } from '../account/auth/decorators/public.decorator';
 import { I18nAdminController, I18nController } from './i18n.controller';
 
 describe('I18nController', () => {

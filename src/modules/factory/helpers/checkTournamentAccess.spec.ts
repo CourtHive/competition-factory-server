@@ -4,7 +4,7 @@ jest.mock('src/common/constants/feature-flags', () => ({
 }));
 
 import { canViewTournament, canMutateTournament, scopeCalendarForUser, CREATED_BY_USER_ID } from './checkTournamentAccess';
-import type { UserContext } from 'src/modules/auth/decorators/user-context.decorator';
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
 // ── Fixtures ──
 

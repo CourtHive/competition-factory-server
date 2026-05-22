@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 
 import { UsersProvidersController } from './users-providers.controller';
-import type { UserContext } from '../auth/decorators/user-context.decorator';
+import type { UserContext } from '../account/auth/decorators/user-context.decorator';
 import type {
   IUserProviderStorage,
   IProvisionerProviderStorage,

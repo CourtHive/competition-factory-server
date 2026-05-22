@@ -11,18 +11,18 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import { UserCtx, type UserContext } from '../auth/decorators/user-context.decorator';
+import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { ADMIN, CLIENT, PROVIDER_ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
 import { ModifyProviderDto } from './dto/modifyProvider.dto';
-import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Public } from '../account/auth/decorators/public.decorator';
+import { Roles } from '../account/auth/decorators/roles.decorator';
 import { ProvidersService } from './providers.service';
 import { TopologiesService } from './topologies.service';
 import { ProviderCatalogService, assertCatalogType } from './provider-catalog.service';
 import { AddProviderDto } from './dto/addProvider.dto';
 import { GetProviderDto } from './dto/getProvider.dto';
 import { GetCalendarDto } from './dto/getCalendar.dto';
-import { RolesGuard } from '../auth/guards/role.guard';
+import { RolesGuard } from '../account/auth/guards/role.guard';
 
 @UseGuards(RolesGuard)
 @Controller('provider')

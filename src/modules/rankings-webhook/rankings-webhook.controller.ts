@@ -18,8 +18,8 @@ import { Controller, HttpCode, HttpStatus, NotFoundException, Param, Post, UseGu
 
 import { ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
 import { RankingsWebhookService } from './rankings-webhook.service';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { RolesGuard } from '../auth/guards/role.guard';
+import { Roles } from '../account/auth/decorators/roles.decorator';
+import { RolesGuard } from '../account/auth/guards/role.guard';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 
 @UseGuards(RolesGuard)

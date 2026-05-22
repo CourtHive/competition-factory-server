@@ -13,12 +13,12 @@ import { GetMatchUpsDto } from './dto/getMatchUps.dto';
 import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param, Logger, Req } from '@nestjs/common';
 import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
 import { ADMIN, CLIENT, GENERATE, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
-import { Public } from 'src/modules/auth/decorators/public.decorator';
-import { Roles } from 'src/modules/auth/decorators/roles.decorator';
-import { RolesGuard } from 'src/modules/auth/guards/role.guard';
+import { Public } from 'src/modules/account/auth/decorators/public.decorator';
+import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
+import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { User } from '../auth/decorators/user.decorator';
-import { UserCtx, type UserContext } from '../auth/decorators/user-context.decorator';
+import { User } from '../account/auth/decorators/user.decorator';
+import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { FactoryService } from './factory.service';
 
 @UseGuards(RolesGuard)

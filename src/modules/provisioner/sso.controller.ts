@@ -1,5 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Logger, Post, Req, UseGuards } from '@nestjs/common';
-import { Public } from '../auth/decorators/public.decorator';
+import { Public } from '../account/auth/decorators/public.decorator';
 import { ProvisionerGuard } from './provisioner.guard';
 import { SsoTokenService } from './sso-token.service';
 import { JwtService } from '@nestjs/jwt';
@@ -18,7 +18,7 @@ import {
   PROVIDER_STORAGE,
   type IProviderStorage,
 } from 'src/storage/interfaces';
-import { buildUserContext } from '../auth/helpers/buildUserContext';
+import { buildUserContext } from '../account/auth/helpers/buildUserContext';
 
 @Controller('auth/sso')
 export class SsoController {

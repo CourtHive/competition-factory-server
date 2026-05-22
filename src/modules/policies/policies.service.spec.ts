@@ -2,7 +2,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 
 import { PoliciesService } from './policies.service';
 import { IPolicyStorage, PolicyRecord } from 'src/storage/interfaces/policy-storage.interface';
-import { UserContext } from '../auth/decorators/user-context.decorator';
+import { UserContext } from '../account/auth/decorators/user-context.decorator';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
 import { policyRegistry } from './factory-bridge';
 

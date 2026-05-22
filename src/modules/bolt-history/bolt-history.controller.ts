@@ -16,8 +16,8 @@ import {
 
 import { BoltHistoryService } from './bolt-history.service';
 import { CLIENT, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
-import { Roles } from 'src/modules/auth/decorators/roles.decorator';
-import { RolesGuard } from 'src/modules/auth/guards/role.guard';
+import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
+import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
 import { SaveBoltHistoryDto } from './dto/save-bolt-history.dto';
 
 @UseGuards(RolesGuard)

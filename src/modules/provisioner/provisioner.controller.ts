@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
-import { Public } from '../auth/decorators/public.decorator';
+import { Public } from '../account/auth/decorators/public.decorator';
 import { ProvisionerGuard, ProvisionerOwnerGuard } from './provisioner.guard';
 import { ProvisionerService } from './provisioner.service';
 

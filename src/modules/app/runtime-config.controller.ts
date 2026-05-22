@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { Public } from '../auth/decorators/public.decorator';
+import { Public } from '../account/auth/decorators/public.decorator';
 
 export interface RuntimeConfig {
   /**

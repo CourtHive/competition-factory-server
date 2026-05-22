@@ -1,7 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { UserCtx, type UserContext } from '../auth/decorators/user-context.decorator';
+import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles } from '../account/auth/decorators/roles.decorator';
 import { AssignmentsService } from './assignments.service';
 
 @Controller('factory/assignments')

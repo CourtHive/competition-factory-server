@@ -19,7 +19,7 @@ import { RuntimeConfigController } from './runtime-config.controller';
 import { AppController } from './app.controller';
 import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
-import { AuthModule } from '../auth/auth.module';
+import { AccountModule } from '../account/account.module';
 import { AppService } from './app.service';
 import { Module } from '@nestjs/common';
 import { join } from 'path';
@@ -33,7 +33,7 @@ const coreModules = [
   I18nModule,
   RankingsWebhookModule,
   UsersModule,
-  AuthModule,
+  AccountModule,
 ];
 
 // Tournament modules — loaded for 'tournament' and 'full' profiles

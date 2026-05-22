@@ -2,9 +2,9 @@ import { Controller, Get, Header, Headers, HttpCode, HttpStatus, NotFoundExcepti
 import { Response } from 'express';
 
 import { ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
-import { Public } from '../auth/decorators/public.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { RolesGuard } from '../auth/guards/role.guard';
+import { Public } from '../account/auth/decorators/public.decorator';
+import { Roles } from '../account/auth/decorators/roles.decorator';
+import { RolesGuard } from '../account/auth/guards/role.guard';
 import { I18nService } from './i18n.service';
 
 // Language files are required to render the UI before login (and for
