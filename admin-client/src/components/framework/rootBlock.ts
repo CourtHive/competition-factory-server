@@ -2,7 +2,7 @@
  * Root application block for the admin client.
  * Creates navbar, main content area with page containers.
  */
-import { NONE, TMX_ADMIN, TMX_SYSTEM, TMX_PROVISIONER, TMX_SANCTIONING, TMX_SYNC, TMX_TEMPLATES, TMX_POLICIES, TMX_VERIFY_EMAIL, TMX_DRAWER } from 'constants/tmxConstants';
+import { NONE, TMX_ADMIN, TMX_SYSTEM, TMX_PROVISIONER, TMX_SANCTIONING, TMX_SYNC, TMX_TEMPLATES, TMX_POLICIES, TMX_VERIFY_EMAIL, TMX_RESET_PASSWORD, TMX_DRAWER } from 'constants/tmxConstants';
 
 const flexColFlexGrow = 'flexcol flexgrow';
 
@@ -74,6 +74,13 @@ export function rootBlock(): HTMLElement {
   verifyEmail.style.display = NONE;
   verifyEmail.id = TMX_VERIFY_EMAIL;
   main.appendChild(verifyEmail);
+
+  // Reset-password landing (public route, opened from the password-reset link)
+  const resetPassword = document.createElement('div');
+  resetPassword.className = flexColFlexGrow;
+  resetPassword.style.display = NONE;
+  resetPassword.id = TMX_RESET_PASSWORD;
+  main.appendChild(resetPassword);
 
   // Drawer
   const drawer = document.createElement('section');

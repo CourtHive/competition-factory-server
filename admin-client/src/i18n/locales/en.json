@@ -1049,7 +1049,16 @@
       "emailPlaceholder": "valid@email.com",
       "passwordLabel": "Password",
       "passwordPlaceholder": "minimum 8 characters",
-      "loginButton": "Login"
+      "loginButton": "Login",
+      "forgotPassword": "Forgot your password?"
+    },
+    "forgotPassword": {
+      "title": "Reset your password",
+      "intro": "Enter the email address associated with your account. If we know you, a password-reset link is on the way — check your inbox.",
+      "label": "Contact email",
+      "submit": "Send reset link",
+      "sent": "If we know you, a password-reset link is on the way. Check your inbox (and your spam folder).",
+      "networkError": "Couldn't reach the server — please try again."
     },
     "settings": {
       "title": "Settings",
@@ -1528,6 +1537,20 @@
     "tokenMismatch": "This link no longer matches your current contact email — it was probably superseded by a more recent change.",
     "tryAgain": "Try again",
     "failed": "Verification failed. Try requesting a fresh link."
+  },
+
+  "resetPassword": {
+    "title": "Set a new password",
+    "intro": "Choose a new password for your CourtHive account. The link in your email is single-use.",
+    "newPasswordPlaceholder": "New password (at least 8 characters)",
+    "confirmPlaceholder": "Confirm new password",
+    "submit": "Set new password",
+    "submitting": "Setting…",
+    "success": "Your password was changed. Redirecting to login…",
+    "missingToken": "This reset link is missing its token. Try clicking the link in your email again, or request a fresh one.",
+    "tokenExpired": "This reset link has expired. Request a fresh one from the login screen's \"Forgot your password?\" link.",
+    "tokenMismatch": "This link no longer matches your current contact email — request a fresh one.",
+    "failed": "Couldn't reset your password. Try requesting a fresh link."
   },
 
   "toasts": {

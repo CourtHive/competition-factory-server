@@ -140,6 +140,46 @@ export class PostgresUserStorage implements IUserStorage {
     return { ...SUCCESS };
   }
 
+  async findByUserId(userId: string): Promise<any | null> {
+    const result = await this.pool.query(
+      `SELECT user_id, email, password, provider_id, last_selected_provider_id, must_change_password, contact_email, email_verified_at, roles, permissions, data
+         FROM users
+        WHERE user_id = $1
+        LIMIT 1`,
+      [userId],
+    );
+    if (!result.rows.length) return null;
+    const row = result.rows[0];
+    return {
+      userId: row.user_id,
+      email: row.email,
+      password: row.password,
+      providerId: row.provider_id,
+      lastSelectedProviderId: row.last_selected_provider_id,
+      mustChangePassword: row.must_change_password,
+      contactEmail: row.contact_email,
+      emailVerifiedAt: row.email_verified_at,
+      roles: row.roles,
+      permissions: row.permissions,
+      ...row.data,
+    };
+  }
+
+  async setPasswordByUserId(userId: string, hashedPassword: string): Promise<{ success: boolean }> {
+    // Single-query atomic password write. Also clears must_change_password
+    // — a successful self-initiated password reset is a stronger signal
+    // than the assigned-password state, so no need to force another change.
+    await this.pool.query(
+      `UPDATE users
+          SET password = $2,
+              must_change_password = FALSE,
+              updated_at = NOW()
+        WHERE user_id = $1`,
+      [userId, hashedPassword],
+    );
+    return { ...SUCCESS };
+  }
+
   async remove(email: string): Promise<{ success: boolean }> {
     await this.pool.query('DELETE FROM users WHERE email = $1', [email]);
     return { ...SUCCESS };

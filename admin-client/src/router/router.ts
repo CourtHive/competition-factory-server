@@ -3,6 +3,7 @@ import { renderSanctioningWizard } from 'pages/sanctioning/renderSanctioningWiza
 import { renderSanctioningDetail } from 'pages/sanctioning/renderSanctioningDetail';
 import { renderProvisionerPage } from 'pages/provisioner/renderProvisionerPage';
 import { renderContactEmailBanner } from 'components/banners/contactEmailBanner';
+import { renderResetPassword } from 'pages/resetPassword/renderResetPassword';
 import { renderVerifyEmail } from 'pages/verifyEmail/renderVerifyEmail';
 import { renderSystemPage } from 'pages/system/renderSystemPage';
 import { renderAdminPage } from 'pages/admin/renderAdminPage';
@@ -14,7 +15,7 @@ import { updateNavVisibility } from 'services/navigation/navVisibility';
 import { context } from 'services/context';
 import Navigo from 'navigo';
 
-import { SUPER_ADMIN, PROVISIONER, SYSTEM, PROVISIONER_ROUTE, SANCTIONING, SYNC, TEMPLATES, POLICIES, VERIFY_EMAIL } from 'constants/tmxConstants';
+import { SUPER_ADMIN, PROVISIONER, SYSTEM, PROVISIONER_ROUTE, SANCTIONING, SYNC, TEMPLATES, POLICIES, VERIFY_EMAIL, RESET_PASSWORD } from 'constants/tmxConstants';
 
 export function routeAdmin(): void {
   const router = new Navigo('/', { hash: true });
@@ -130,6 +131,13 @@ export function routeAdmin(): void {
   // can't accidentally consume the single-use token by GET-fetching the URL.
   router.on(`/${VERIFY_EMAIL}/:token`, (match) => {
     renderVerifyEmail(match?.data?.token ?? '');
+  });
+
+  // Public route: password-reset link lands here. Same link-previewer
+  // defense as verify-email — the page renders a form that POSTs the
+  // token + new password to /auth/reset-password.
+  router.on(`/${RESET_PASSWORD}/:token`, (match) => {
+    renderResetPassword(match?.data?.token ?? '');
   });
 
   router.on('/', () => {

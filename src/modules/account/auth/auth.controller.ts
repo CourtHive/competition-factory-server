@@ -1,6 +1,8 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post } from '@nestjs/common';
 import { UserCtx, type UserContext } from './decorators/user-context.decorator';
 import { AdminCreateUserDto } from './dto/adminCreateUser.dto';
+import { ForgotPasswordDto } from './dto/forgotPassword.dto';
+import { ResetPasswordDto } from './dto/resetPassword.dto';
 import { SUPER_ADMIN, CLIENT } from 'src/common/constants/roles';
 import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
@@ -131,4 +133,26 @@ export class AuthController {
     return this.authService.updateLastSelectedProvider(userContext.email, body?.providerId ?? null);
   }
 
+  /**
+   * Request a password reset. Always returns `{ ok: true }` (enumeration
+   * defense) — mail is sent only when the contact_email is registered
+   * AND verified. Public: callers are by definition not authenticated.
+   */
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body() body: ForgotPasswordDto) {
+    return this.authService.forgotPassword(body?.contactEmail ?? '');
+  }
+
+  /**
+   * Apply a password reset using the JWT carried in the link from the
+   * reset email. Public: the token IS the auth.
+   */
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  resetPassword(@Body() body: ResetPasswordDto) {
+    return this.authService.resetPassword(body?.token ?? '', body?.newPassword ?? '');
+  }
 }

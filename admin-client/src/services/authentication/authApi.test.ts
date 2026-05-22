@@ -92,23 +92,22 @@ describe('authApi', () => {
   });
 
   describe('forgotPassword', () => {
-    it('posts to /auth/forgot-password with email', async () => {
-      mockPost.mockResolvedValue({ data: {} });
+    it('posts to /auth/forgot-password with contactEmail', async () => {
+      mockPost.mockResolvedValue({ data: { ok: true } });
       await forgotPassword('lost@test.com');
       expect(mockPost).toHaveBeenCalledWith('/auth/forgot-password', {
-        email: 'lost@test.com',
+        contactEmail: 'lost@test.com',
       });
     });
   });
 
   describe('resetPassword', () => {
-    it('posts to /auth/reset-password with email, password, and code', async () => {
+    it('posts to /auth/reset-password with token and newPassword', async () => {
       mockPost.mockResolvedValue({ data: { success: true } });
-      await resetPassword('user@test.com', 'newPass', 'reset-code');
+      await resetPassword('reset-jwt-token', 'newPass');
       expect(mockPost).toHaveBeenCalledWith('/auth/reset-password', {
-        email: 'user@test.com',
-        password: 'newPass',
-        code: 'reset-code',
+        token: 'reset-jwt-token',
+        newPassword: 'newPass',
       });
     });
   });

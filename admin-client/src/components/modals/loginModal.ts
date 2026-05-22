@@ -9,6 +9,7 @@
  * the user's chosen password and then completes the sign-in.
  */
 import { firstLoginPasswordModal } from './firstLoginPassword';
+import { forgotPasswordModal } from './forgotPassword';
 import { logIn, logOut } from 'services/authentication/loginState';
 import { renderForm, validators } from 'courthive-components';
 import { systemLogin } from 'services/authentication/authApi';
@@ -32,8 +33,8 @@ export function loginModal(callback?: () => void): void {
     },
   ];
 
-  const content = (elem: HTMLElement) =>
-    (inputs = renderForm(
+  const content = (elem: HTMLElement) => {
+    inputs = renderForm(
       elem,
       [
         {
@@ -56,7 +57,26 @@ export function loginModal(callback?: () => void): void {
         },
       ],
       relationships,
-    ));
+    );
+
+    // Forgot-password link — opens the forgotPasswordModal in a separate
+    // dialog. Always visible (not just on auth failure) so a user who
+    // KNOWS they don't have a password yet can reach it directly.
+    const forgotLink = document.createElement('a');
+    forgotLink.href = '#';
+    forgotLink.textContent = t('modals.login.forgotPassword');
+    forgotLink.style.cssText =
+      'display: inline-block; margin-top: 8px; font-size: 0.85rem; ' +
+      'color: var(--tmx-text-secondary, #64748b); text-decoration: underline; cursor: pointer;';
+    forgotLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      // Close the login modal first so the two don't stack visually.
+      const loginButton = document.getElementById('loginButton') as HTMLButtonElement | null;
+      loginButton?.closest('.modal')?.classList.remove('is-active');
+      forgotPasswordModal();
+    });
+    elem.appendChild(forgotLink);
+  };
 
   const submitCredentials = () => {
     const email = inputs.email.value;
