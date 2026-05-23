@@ -88,6 +88,56 @@ describe('AuthService', () => {
     );
   });
 
+  describe('canAccessApiDocs', () => {
+    const hash = (p: string) => bcrypt.hash(p, 10);
+
+    it('allows a super-admin', async () => {
+      mockUsersService.findOne.mockResolvedValue({ email: 'sa@test.com', userId: 'u1', password: await hash('pw'), roles: ['superadmin'] });
+      await expect(authService.canAccessApiDocs('sa@test.com', 'pw')).resolves.toBe(true);
+    });
+
+    it('allows a provisioner-role user', async () => {
+      mockUsersService.findOne.mockResolvedValue({ email: 'pv@test.com', userId: 'u1', password: await hash('pw'), roles: ['provisioner'] });
+      await expect(authService.canAccessApiDocs('pv@test.com', 'pw')).resolves.toBe(true);
+    });
+
+    it('allows a PROVIDER_ADMIN of some provider', async () => {
+      mockUsersService.findOne.mockResolvedValue({ email: 'pa@test.com', userId: 'u1', password: await hash('pw'), roles: ['client'] });
+      mockUserProviderStorage.findByUserId.mockResolvedValue([{ providerId: 'p1', providerRole: 'PROVIDER_ADMIN' }]);
+      await expect(authService.canAccessApiDocs('pa@test.com', 'pw')).resolves.toBe(true);
+    });
+
+    it('allows a legacy admin via the admin → PROVIDER_ADMIN shim', async () => {
+      mockUsersService.findOne.mockResolvedValue({ email: 'la@test.com', userId: 'u1', password: await hash('pw'), roles: ['admin'], providerId: 'p1' });
+      await expect(authService.canAccessApiDocs('la@test.com', 'pw')).resolves.toBe(true);
+    });
+
+    it('rejects a client-only user', async () => {
+      mockUsersService.findOne.mockResolvedValue({ email: 'cl@test.com', userId: 'u1', password: await hash('pw'), roles: ['client'] });
+      await expect(authService.canAccessApiDocs('cl@test.com', 'pw')).resolves.toBe(false);
+    });
+
+    it('rejects a wrong password', async () => {
+      mockUsersService.findOne.mockResolvedValue({ email: 'sa@test.com', userId: 'u1', password: await hash('pw'), roles: ['superadmin'] });
+      await expect(authService.canAccessApiDocs('sa@test.com', 'nope')).resolves.toBe(false);
+    });
+
+    it('rejects an SSO-only (passwordless) account', async () => {
+      mockUsersService.findOne.mockResolvedValue({ email: 'sso@test.com', userId: 'u1', password: '', roles: ['superadmin'] });
+      await expect(authService.canAccessApiDocs('sso@test.com', 'pw')).resolves.toBe(false);
+    });
+
+    it('rejects an unknown account', async () => {
+      mockUsersService.findOne.mockResolvedValue(null);
+      await expect(authService.canAccessApiDocs('nobody@test.com', 'pw')).resolves.toBe(false);
+    });
+
+    it('rejects when email or password is missing', async () => {
+      await expect(authService.canAccessApiDocs('', 'pw')).resolves.toBe(false);
+      await expect(authService.canAccessApiDocs('a@test.com', '')).resolves.toBe(false);
+    });
+  });
+
   describe('signIn', () => {
     it('throws UnauthorizedException when email is empty', async () => {
       await expect(authService.signIn('', 'password')).rejects.toThrow(UnauthorizedException);
