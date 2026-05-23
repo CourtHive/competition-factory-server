@@ -19,7 +19,9 @@ type OpenModal = {
 export function openModal(params: OpenModal) {
   const { title, content, buttons, footer, onClose, config: customConfig } = params;
   const noPadding = !title && !buttons;
-  const config = customConfig || { padding: noPadding ? '' : '.5', maxWidth: 500 };
+  // When padding isn't forced to empty (bare content modals), omit it so the
+  // cModal default applies — keeps admin modals consistent with the shared default.
+  const config = customConfig || (noPadding ? { padding: '', maxWidth: 500 } : { maxWidth: 500 });
   return cModal.open({ title, content, footer, buttons, config, onClose });
 }
 

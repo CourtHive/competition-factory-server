@@ -56,9 +56,9 @@ export function renderContactEmailBanner(): void {
   const banner = document.createElement('div');
   banner.style.cssText =
     'display: flex; align-items: center; justify-content: space-between; gap: 16px; ' +
-    'padding: 10px 16px; background: var(--tmx-status-warning-bg, #fff8e1); ' +
-    'color: var(--tmx-text-primary, #1a1a1a); ' +
-    'border-bottom: 1px solid var(--tmx-status-warning, #b58900); font-size: 0.95rem;';
+    'padding: 10px 16px; background: var(--tmx-panel-yellow-bg); ' +
+    'color: var(--tmx-text-primary); ' +
+    'border-bottom: 1px solid var(--tmx-panel-yellow-border); font-size: 0.95rem;';
 
   const text = document.createElement('span');
   text.textContent = contactEmail
@@ -72,7 +72,7 @@ export function renderContactEmailBanner(): void {
   setupBtn.className = 'button is-small';
   setupBtn.style.cssText =
     'padding: 4px 10px; font-size: 0.85rem; border-radius: 4px; cursor: pointer; ' +
-    'background: var(--tmx-status-success, #0f766e); color: #fff; border: 0; font-weight: 600;';
+    'background: var(--tmx-accent-green-bold); color: #fff; border: 0; font-weight: 600;';
   setupBtn.textContent = contactEmail
     ? t('banners.contactEmail.review')
     : t('banners.contactEmail.setUp');
@@ -82,7 +82,7 @@ export function renderContactEmailBanner(): void {
   dismissBtn.className = 'button is-small is-light';
   dismissBtn.style.cssText =
     'padding: 4px 10px; font-size: 0.85rem; border-radius: 4px; cursor: pointer; ' +
-    'background: transparent; color: var(--tmx-text-primary, #1a1a1a); border: 1px solid var(--tmx-border-primary, #ccc);';
+    'background: transparent; color: var(--tmx-text-primary); border: 1px solid var(--tmx-border-primary);';
   dismissBtn.textContent = t('common.dismiss');
   dismissBtn.addEventListener('click', () => {
     dismiss();
