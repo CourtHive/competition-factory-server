@@ -17,10 +17,10 @@ Controllers / Gateways
         |
     Storage Interfaces         ← ITournamentStorage, IUserStorage, etc.
         |
-    ┌───────────────┬───────────────┐
-    │   LevelDB     │  PostgreSQL   │
-    │   (default)   │  (new)        │
-    └───────────────┴───────────────┘
+    ┌───────────────────────────────┐
+    │           PostgreSQL          │
+    │  JSONB document storage (pg)  │
+    └───────────────────────────────┘
 ```
 
 ## Storage Interfaces
@@ -56,14 +56,15 @@ Write operations that involve domain logic (calendar updates, permission checks)
 
 This separation means that **adding a new storage backend only requires implementing the 5 raw interfaces** — no domain logic needs to be duplicated.
 
-## Supported Backends
+## Storage Backend
+
+PostgreSQL is the storage backend. The pluggable abstraction remains in place, so an alternative backend would only need to implement the raw interfaces above.
 
 <table>
   <thead>
     <tr><th style={{ textAlign: 'left' }}>Backend</th><th style={{ textAlign: 'left' }}><code>STORAGE_PROVIDER</code></th><th style={{ textAlign: 'left' }}>Description</th></tr>
   </thead>
   <tbody>
-    <tr><td>LevelDB</td><td><code>leveldb</code> (default)</td><td>Key-value store via <code>@gridspace/net-level-client</code></td></tr>
     <tr><td>PostgreSQL</td><td><code>postgres</code></td><td>JSONB document storage via <code>pg</code> (node-postgres)</td></tr>
   </tbody>
 </table>
@@ -78,7 +79,6 @@ This separation means that **adding a new storage backend only requires implemen
     <tr><td><code>src/storage/storage.module.ts</code></td><td>Global module with factory providers</td></tr>
     <tr><td><code>src/storage/tournament-storage.service.ts</code></td><td>Facade with calendar + permission side-effects</td></tr>
     <tr><td><code>src/storage/interfaces/</code></td><td>TypeScript interfaces for all 5 storage types</td></tr>
-    <tr><td><code>src/storage/leveldb/</code></td><td>LevelDB implementation</td></tr>
     <tr><td><code>src/storage/postgres/</code></td><td>PostgreSQL implementation</td></tr>
   </tbody>
 </table>

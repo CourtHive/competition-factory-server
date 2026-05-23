@@ -1,7 +1,7 @@
 import { registerAs } from '@nestjs/config';
 
 export const StorageConfig = registerAs('STORAGE', () => ({
-  provider: process.env.STORAGE_PROVIDER || 'leveldb',
+  provider: process.env.STORAGE_PROVIDER || 'postgres',
   postgres: {
     host: process.env.PG_HOST || 'localhost',
     port: Number(process.env.PG_PORT) || 5432,

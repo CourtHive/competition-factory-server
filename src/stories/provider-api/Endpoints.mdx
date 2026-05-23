@@ -1,0 +1,166 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Provider API/Endpoints" />
+
+# Provider API — Endpoints
+
+All provider-key endpoints live under `/provider-key/*` and require a valid
+`pkey_live_*` Bearer token (see **Provider API/Authentication**). Every endpoint
+operates **only** on the provider named by your key — there is no cross-provider
+access and no header indirection.
+
+```
+Base URL:  https://courthive.net
+Auth:      Authorization: Bearer pkey_live_<your-key>
+```
+
+> **Interactive explorer.** A live OpenAPI / Swagger UI is published at
+> [`https://courthive.net/api`](https://courthive.net/api) — handy for trying
+> requests against the running server.
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Method</th><th style={{ textAlign: 'left' }}>Path</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>GET</code></td><td><code>/provider-key/self</code></td><td>Identify the provider this key represents</td></tr>
+    <tr><td><code>POST</code></td><td><code>/provider-key/tournaments</code></td><td>Create or update a tournament under your provider</td></tr>
+    <tr><td><code>GET</code></td><td><code>/provider-key/tournaments/:tournamentId</code></td><td>Read one of your tournaments</td></tr>
+  </tbody>
+</table>
+
+---
+
+## GET `/provider-key/self`
+
+Returns the provider identity bound to the key. Useful as a health check and to
+confirm which provider a key belongs to before integrating.
+
+**Request**
+
+```bash
+curl -X GET https://courthive.net/provider-key/self \
+  -H "Authorization: Bearer pkey_live_<your-key>"
+```
+
+**Response — `200 OK`**
+
+```json
+{
+  "success": true,
+  "provider": {
+    "providerId": "24bf9f25-96ca-401e-9660-f5571ebc50ba",
+    "providerName": "Battle of Boca",
+    "keyId": "0f3c…",
+    "keyLabel": "partner integration"
+  }
+}
+```
+
+---
+
+## POST `/provider-key/tournaments`
+
+Create or update (upsert) one or more tournament records under your provider.
+
+**Body** — supply either a single record or a keyed map:
+
+```jsonc
+// single record
+{ "tournamentRecord": { "tournamentId": "…", "tournamentName": "…", /* …TODS fields… */ } }
+
+// or a batch keyed by tournamentId
+{ "tournamentRecords": { "<tournamentId>": { /* … */ } } }
+```
+
+**Provider ownership is enforced.** For each record:
+
+- If `parentOrganisation.organisationId` is **present** and does **not** match your
+  key's provider, the request is rejected with a `Provider mismatch` error — you
+  cannot land a tournament under another provider by editing the payload.
+- If `parentOrganisation` is **omitted**, the server stamps it with your provider
+  automatically, so you don't have to repeat your own `organisationId`.
+
+**Request**
+
+```bash
+curl -X POST https://courthive.net/provider-key/tournaments \
+  -H "Authorization: Bearer pkey_live_<your-key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "tournamentRecord": {
+          "tournamentId": "a1f2…",
+          "tournamentName": "Battle of Boca - June",
+          "startDate": "2026-06-01",
+          "endDate": "2026-06-04"
+        }
+      }'
+```
+
+**Response — `200 OK`**
+
+```json
+{ "success": true }
+```
+
+**Response — provider mismatch (`200 OK` with error body)**
+
+```json
+{
+  "error": "Provider mismatch",
+  "tournamentId": "a1f2…",
+  "message": "Tournament a1f2… parentOrganisation.organisationId does not match the authenticated provider."
+}
+```
+
+> Saving via this endpoint also keeps the provider's **calendar** in sync — the
+> tournament appears under your provider automatically. (Internally it runs the
+> same `saveTournamentRecords` path as the rest of the server.)
+
+---
+
+## GET `/provider-key/tournaments/:tournamentId`
+
+Read a single tournament record that belongs to your provider.
+
+**Request**
+
+```bash
+curl -X GET https://courthive.net/provider-key/tournaments/a1f2… \
+  -H "Authorization: Bearer pkey_live_<your-key>"
+```
+
+**Response — `200 OK`**
+
+```json
+{
+  "success": true,
+  "tournamentRecord": { "tournamentId": "a1f2…", "tournamentName": "…", "...": "…" }
+}
+```
+
+**Response — `404 Not Found`**
+
+Returned both when the tournament does not exist **and** when it belongs to a
+different provider — the two cases are deliberately indistinguishable so the API
+can't be used to probe for other providers' tournament IDs.
+
+```json
+{ "statusCode": 404, "message": "Tournament not found" }
+```
+
+---
+
+## Error reference
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Status / body</th><th style={{ textAlign: 'left' }}>Cause</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>401 Unauthorized</code></td><td>Missing, malformed, revoked, or expired key.</td></tr>
+    <tr><td><code>404 Not Found</code></td><td>Tournament doesn't exist, or isn't owned by your provider.</td></tr>
+    <tr><td><code>&#123; "error": "Provider mismatch" &#125;</code></td><td>Save payload's <code>parentOrganisation.organisationId</code> is a different provider.</td></tr>
+    <tr><td><code>&#123; "error": "No tournamentRecord provided" &#125;</code></td><td>POST body had neither <code>tournamentRecord</code> nor <code>tournamentRecords</code>.</td></tr>
+  </tbody>
+</table>

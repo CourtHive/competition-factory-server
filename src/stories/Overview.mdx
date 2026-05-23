@@ -35,8 +35,7 @@ import { Meta } from '@storybook/addon-docs/blocks';
     <tr><th style={{ textAlign: 'left' }}>Page</th><th style={{ textAlign: 'left' }}>Description</th></tr>
   </thead>
   <tbody>
-    <tr><td><strong>Storage Overview</strong></td><td>Pluggable storage architecture — LevelDB and PostgreSQL backends.</td></tr>
-    <tr><td><strong>LevelDB Setup</strong></td><td>Default storage backend using net-level-server.</td></tr>
+    <tr><td><strong>Storage Overview</strong></td><td>Storage architecture and the pluggable storage abstraction (PostgreSQL backend).</td></tr>
     <tr><td><strong>PostgreSQL Setup</strong></td><td>JSONB document storage with node-postgres, schema, and migration.</td></tr>
   </tbody>
 </table>
@@ -49,6 +48,39 @@ import { Meta } from '@storybook/addon-docs/blocks';
   <tbody>
     <tr><td><strong>Admin Setup</strong></td><td>Creating admin accounts, password recovery, role management.</td></tr>
     <tr><td><strong>Roles & Permissions</strong></td><td>Available roles, permission model, and access control.</td></tr>
+  </tbody>
+</table>
+
+<h3>Provider API</h3>
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Page</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Authentication</strong></td><td>How a partner provider uses a <code>pkey_live_&#42;</code> API key — format, headers, scope, lifecycle, and security.</td></tr>
+    <tr><td><strong>Endpoints</strong></td><td>The <code>/provider-key/&#42;</code> REST surface — identify the key, create/read tournaments, with curl examples and error reference.</td></tr>
+  </tbody>
+</table>
+
+<h3>Provisioner (M2M)</h3>
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Page</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Overview</strong></td><td>Machine-to-machine model — provisioners, providers, relationships, SSO.</td></tr>
+    <tr><td><strong>Authentication</strong></td><td><code>prov_sk_live_&#42;</code> keys, the <code>X-Provider-Id</code> flow, and guards.</td></tr>
+    <tr><td><strong>Acting on Behalf of a Provider</strong></td><td>Use a provisioner key + <code>X-Provider-Id</code> to exercise the API as one of your providers.</td></tr>
+  </tbody>
+</table>
+
+<h3>API Reference</h3>
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Page</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Swagger UI</strong></td><td>Interactive OpenAPI explorer at <code>https://courthive.net/api</code> — every endpoint, with auth and codegen.</td></tr>
   </tbody>
 </table>
 
@@ -75,8 +107,8 @@ git clone https://github.com/CourtHive/competition-factory-server.git
 cd competition-factory-server
 pnpm install
 
-# Start the database (LevelDB)
-pnpm hive-db
+# Set up PostgreSQL (see Storage / PostgreSQL Setup)
+createdb courthive && psql -d courthive -f src/storage/postgres/migrations/001-initial-schema.sql
 
 # Create an admin user (in another terminal)
 pnpm admin:create -e admin@example.com -p your-password

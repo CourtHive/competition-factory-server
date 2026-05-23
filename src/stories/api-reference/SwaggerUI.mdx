@@ -1,0 +1,79 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="API Reference/Swagger UI" />
+
+# REST API — Swagger UI & OpenAPI
+
+The server auto-generates an **OpenAPI 3** specification from its NestJS
+controllers and serves an interactive **Swagger UI**. It is the source of truth
+for the exact REST surface — every endpoint, parameter, and response schema the
+deployed server exposes.
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Resource</th><th style={{ textAlign: 'left' }}>URL</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Swagger UI (interactive)</td><td><a href="https://courthive.net/api" target="_blank"><code>https://courthive.net/api</code></a></td></tr>
+    <tr><td>OpenAPI spec (raw JSON)</td><td><a href="https://courthive.net/api-json" target="_blank"><code>https://courthive.net/api-json</code></a></td></tr>
+    <tr><td>Local dev</td><td><code>http://localhost:8383/api</code></td></tr>
+  </tbody>
+</table>
+
+## What's in it
+
+Every controller route across the server (~116 endpoints) — factory/tournament
+operations, providers, provisioner, auth, audit, bolt-history, and more — grouped
+by tag, each with its method, path, parameters, and request/response schema
+inferred from the controllers and their DTOs.
+
+## Using the explorer
+
+1. Open [`https://courthive.net/api`](https://courthive.net/api).
+2. Expand an endpoint to see its parameters and schemas.
+3. Click **Try it out**, fill in the parameters, and **Execute** to call the live
+   server.
+
+### Authenticating
+
+1. Click the **Authorize** button (top-right).
+2. Paste a Bearer token — any of:
+   - a **provider** API key (`pkey_live_*`) — see **Provider API/Authentication**
+   - a **provisioner** API key (`prov_sk_live_*`) — see **Provisioner/Authentication**
+   - a **user JWT** (from login)
+3. Authorized requests then carry the token automatically.
+
+> Paste only the token itself in the Authorize dialog — Swagger adds the
+> `Bearer ` prefix for you.
+
+### On-behalf-of header (provisioners)
+
+`X-Provider-Id` is a custom header and is **not** part of the generated
+parameters, so the **Try it out** form has no field for it. To exercise the API
+on behalf of a provider, use `curl`, HTTPie, or a REST client (Postman / Bruno /
+the VS Code REST Client) and add the header yourself — see
+**Provisioner/Acting on Behalf of a Provider**.
+
+## The raw spec (client generation)
+
+Fetch the OpenAPI document directly to generate typed clients or import into API
+tooling:
+
+```bash
+# Save the spec
+curl -s https://courthive.net/api-json -o cfs-openapi.json
+
+# Generate a typed TypeScript client (example)
+npx openapi-typescript https://courthive.net/api-json -o cfs-api.d.ts
+```
+
+The JSON can also be imported into Postman, Insomnia, or Bruno to scaffold a
+request collection.
+
+## Notes
+
+- The spec always reflects the **deployed server version**.
+- A single HTTP **bearer** security scheme is defined; paste any of the three
+  token types above.
+- For task-focused walkthroughs rather than the raw endpoint list, see the
+  **Provider API** and **Provisioner** sections.

@@ -1,0 +1,186 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Provisioner/Acting on Behalf of a Provider" />
+
+# Provisioner — Acting on Behalf of a Provider
+
+A provisioner manages many providers. To read or write a **specific** provider's
+data, the provisioner authenticates with its own API key and names the target
+provider with an `X-Provider-Id` header. The server then treats the request as a
+**PROVIDER_ADMIN of that provider** for the duration of the call.
+
+> **Provider key vs. provisioner key.** A provider key (`pkey_live_*`) is bound to
+> a single provider — see **Provider API/Authentication**. A provisioner key
+> (`prov_sk_live_*`) can act on behalf of **any** provider it owns or has a
+> subsidiary relationship with, chosen per request via `X-Provider-Id`. The
+> low-level auth mechanics live in **Provisioner/Authentication**; this page is the
+> task-focused walkthrough.
+
+## Prerequisites
+
+- A provisioner API key (`prov_sk_live_*`), issued by a CourtHive super-admin
+  (see **Provisioner/Admin API**).
+- An **owner** or **subsidiary** relationship between your provisioner and the
+  target provider. Without a valid relationship the `X-Provider-Id` header is
+  ignored and provider-scoped calls are rejected.
+
+## The two headers
+
+```
+Authorization: Bearer prov_sk_live_<your-key>
+X-Provider-Id: <providerId>
+```
+
+Server-side, the middleware validates the key, looks up the provisioner↔provider
+relationship, and — if valid — injects a synthetic `PROVIDER_ADMIN` user context
+scoped to that provider. Downstream endpoints then behave exactly as if a provider
+admin of that provider had called them.
+
+If you **omit** `X-Provider-Id`, you are authenticated as the provisioner but have
+no provider scope — only the provisioner-native `/provisioner/*` management
+endpoints work.
+
+## Two API surfaces
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Surface</th><th style={{ textAlign: 'left' }}><code>X-Provider-Id</code></th><th style={{ textAlign: 'left' }}>Use for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>/provisioner/&#42;</code> (provisioner-native)</td><td>Mostly not needed (providerId is in the path/body)</td><td>Managing providers, SSO users, tournament assignments, subsidiaries</td></tr>
+    <tr><td><code>/factory/&#42;</code> (act <em>as</em> the provider)</td><td><strong>Required</strong></td><td>Creating, reading, and mutating tournament data on behalf of the provider</td></tr>
+  </tbody>
+</table>
+
+---
+
+## Step 1 — Discover your providers
+
+```bash
+curl -X GET https://courthive.net/provisioner/providers \
+  -H "Authorization: Bearer prov_sk_live_<your-key>"
+```
+
+Returns the providers your provisioner manages (each with its `organisationId`,
+abbreviation, name, and relationship). Pick the `organisationId` you want to act
+as — that is the value for `X-Provider-Id`.
+
+## Step 2 — Create or update a tournament on behalf of a provider
+
+Use the standard factory **save** endpoint with `X-Provider-Id` set. The
+tournament's `parentOrganisation.organisationId` must match that provider.
+
+```bash
+curl -X POST https://courthive.net/factory/save \
+  -H "Authorization: Bearer prov_sk_live_<your-key>" \
+  -H "X-Provider-Id: 24bf9f25-96ca-401e-9660-f5571ebc50ba" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "tournamentRecord": {
+          "tournamentId": "a1f2…",
+          "tournamentName": "Battle of Boca - June",
+          "startDate": "2026-06-01",
+          "endDate": "2026-06-04",
+          "parentOrganisation": { "organisationId": "24bf9f25-96ca-401e-9660-f5571ebc50ba" }
+        }
+      }'
+```
+
+This is the same `saveTournamentRecords` path TMX and provider keys use; the
+provisioner simply supplies the provider scope via the header. Saving keeps the
+provider's calendar in sync automatically.
+
+## Step 3 — Read a tournament
+
+```bash
+curl -X POST https://courthive.net/factory/fetch \
+  -H "Authorization: Bearer prov_sk_live_<your-key>" \
+  -H "X-Provider-Id: 24bf9f25-96ca-401e-9660-f5571ebc50ba" \
+  -H "Content-Type: application/json" \
+  -d '{ "tournamentId": "a1f2…" }'
+```
+
+Reads are scoped to what your injected provider context permits.
+
+## Step 4 — Run mutations (draws, scoring, scheduling…)
+
+The canonical mutation path is the **execution queue** — `POST /factory` — which
+applies an ordered list of factory methods. On tournament creation it also
+**stamps ownership** to your provisioner + provider (the `tournament_provisioner`
+record), so tournaments you provision are tracked as yours.
+
+```bash
+curl -X POST https://courthive.net/factory \
+  -H "Authorization: Bearer prov_sk_live_<your-key>" \
+  -H "X-Provider-Id: 24bf9f25-96ca-401e-9660-f5571ebc50ba" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "tournamentId": "a1f2…",
+        "methods": [
+          { "method": "addEvent", "params": { "event": { "eventName": "Men'\''s Singles" } } }
+        ]
+      }'
+```
+
+---
+
+## Provisioner-native management endpoints
+
+These operate by your `provisionerId` (from the key); the **owner-only** ones are
+enforced by `ProvisionerOwnerGuard`.
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Method &amp; path</th><th style={{ textAlign: 'left' }}>Purpose</th><th style={{ textAlign: 'left' }}>Owner only?</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>GET /provisioner/providers</code></td><td>List providers you manage</td><td>—</td></tr>
+    <tr><td><code>GET /provisioner/providers/:providerId</code></td><td>Provider detail</td><td>—</td></tr>
+    <tr><td><code>POST /provisioner/providers</code></td><td>Create a provider</td><td>—</td></tr>
+    <tr><td><code>PUT /provisioner/providers/:providerId</code></td><td>Update provider config (honors <code>X-Provider-Id</code>)</td><td>✅</td></tr>
+    <tr><td><code>PUT /provisioner/providers/:providerId/caps</code></td><td>Update provider config caps</td><td>✅</td></tr>
+    <tr><td><code>POST /provisioner/users</code></td><td>Create an SSO user</td><td>—</td></tr>
+    <tr><td><code>GET /provisioner/users?providerId=</code></td><td>List a provider's users</td><td>—</td></tr>
+    <tr><td><code>POST /provisioner/providers/:providerId/subsidiaries</code></td><td>Grant a subsidiary provisioner</td><td>✅</td></tr>
+    <tr><td><code>GET /provisioner/providers/:providerId/subsidiaries</code></td><td>List subsidiaries</td><td>✅</td></tr>
+    <tr><td><code>DELETE /provisioner/providers/:providerId/subsidiaries/:provisionerId</code></td><td>Revoke a subsidiary</td><td>✅</td></tr>
+    <tr><td><code>POST /provisioner/assignments/grant</code></td><td>Grant a user access to a tournament</td><td>—</td></tr>
+    <tr><td><code>POST /provisioner/assignments/revoke</code></td><td>Revoke a user's tournament access</td><td>—</td></tr>
+    <tr><td><code>POST /provisioner/assignments/list</code></td><td>List tournament assignments</td><td>—</td></tr>
+  </tbody>
+</table>
+
+See **Provisioner/Provider Management**, **Provisioner/User Management**, and
+**Provisioner/Tournament Assignments** for the details of each.
+
+## Relationship scope: owner vs. subsidiary
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Relationship</th><th style={{ textAlign: 'left' }}>What you can do on behalf of the provider</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>owner</code></td><td>Full control — provider config &amp; caps, subsidiary management, and all tournament data operations.</td></tr>
+    <tr><td><code>subsidiary</code></td><td>Scoped to your own tournaments within the provider. Cannot change provider config, caps, or subsidiaries (those are <code>ProvisionerOwnerGuard</code>-protected).</td></tr>
+  </tbody>
+</table>
+
+## Errors
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Status</th><th style={{ textAlign: 'left' }}>Cause</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>401 Unauthorized</code></td><td>Missing, malformed, revoked, or expired provisioner key.</td></tr>
+    <tr><td><code>401</code> / <code>403</code></td><td>A provider-scoped (<code>/factory/&#42;</code>) call with no <code>X-Provider-Id</code>, or an <code>X-Provider-Id</code> you have no relationship to — no provider context is injected, so authorization fails.</td></tr>
+    <tr><td><code>403</code></td><td>An owner-only <code>/provisioner/&#42;</code> operation attempted with a <code>subsidiary</code> relationship.</td></tr>
+  </tbody>
+</table>
+
+## Related
+
+- **Provisioner/Authentication** — key format, the X-Provider-Id flow, guards, synthetic context.
+- **Provisioner/Admin API** — how keys and provider associations are created (super-admin).
+- **Provider API/Authentication** — the single-provider alternative (`pkey_live_*`).
+- **API Reference/Swagger UI** — the live, complete REST surface at `https://courthive.net/api`.

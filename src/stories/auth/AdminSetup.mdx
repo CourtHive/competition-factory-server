@@ -17,14 +17,15 @@ pnpm admin:create -e admin@example.com -p yourpassword
 pnpm admin:reset-password -e admin@example.com -p newpassword
 ```
 
-> **Prerequisite:** The database must be running (`pnpm hive-db` for LevelDB, or PostgreSQL service).
+> **Prerequisite:** PostgreSQL must be running (see **Storage / PostgreSQL Setup**).
 
 ## First-Time Setup
 
 ### 1. Start the database
 
 ```bash
-pnpm hive-db
+# PostgreSQL — see Storage / PostgreSQL Setup
+brew services start postgresql@17
 ```
 
 ### 2. Create your admin account
@@ -90,7 +91,7 @@ Commands:
   set-roles  -e <email> -r <roles>        Set roles (comma-separated)
 
 Options:
-  --storage <leveldb|postgres>     Override STORAGE_PROVIDER
+  --storage <postgres>             Override STORAGE_PROVIDER
   -e, --email                      User email address
   -p, --password                   Password (plain text, will be hashed)
   -r, --roles                      Comma-separated role list
