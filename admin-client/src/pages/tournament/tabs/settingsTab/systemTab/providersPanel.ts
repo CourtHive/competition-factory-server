@@ -4,18 +4,28 @@ import { setActiveProvider, clearActiveProvider } from 'services/provider/provid
 import { editProviderModal } from 'components/modals/editProvider';
 import { archiveProviderModal } from 'components/modals/archiveProvider';
 import { deleteProviderModal } from 'components/modals/deleteProvider';
+import { generatedKeyModal } from 'components/modals/generatedKeyModal';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
 import { buildSearchInput } from 'components/inputs/searchInput';
 import { removeUserProvider } from 'services/apis/servicesApi';
+import { listProviderKeys, generateProviderKey, revokeProviderKey } from 'services/apis/providerKeysApi';
 import { destroyTable } from 'pages/tournament/destroyTable';
 import { openTmxImpersonate } from 'services/openTmxImpersonate';
 import { createUserModal } from 'components/modals/createUser';
-import { confirmModal } from 'components/modals/baseModal/baseModal';
+import { confirmModal, openModal } from 'components/modals/baseModal/baseModal';
 import { tmxToast } from 'services/notifications/tmxToast';
+import { renderForm } from 'courthive-components';
 import { t } from 'i18n';
 
 const PROVIDER_LIST_TABLE = 'systemProviderListTable';
 const PROVIDER_USERS_TABLE = 'systemProviderUsersTable';
+const PROVIDER_KEYS_TABLE = 'systemProviderKeysTable';
+
+function formatDateTime(value: string | undefined): string {
+  if (!value) return '';
+  const d = new Date(value);
+  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
 
 type RenderProvidersPanelParams = {
   container: HTMLElement;
@@ -249,6 +259,8 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
   actions.appendChild(deleteBtn);
   detailPane.appendChild(actions);
 
+  detailPane.appendChild(buildProviderKeysSection(provider, () => renderProviderDetail({ detailPane, provider, providers, users, onRefresh })));
+
   // Associated users
   const assocSection = document.createElement('div');
   assocSection.className = 'system-associated-users';
@@ -365,5 +377,139 @@ function renderProviderDetail({ detailPane, provider, providers, users, onRefres
         }
       },
     });
+  });
+}
+
+function buildProviderKeysSection(provider: any, refresh: () => void): HTMLElement {
+  const section = document.createElement('div');
+  section.className = 'system-associated-users';
+
+  const sectionHeader = document.createElement('div');
+  sectionHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;';
+  sectionHeader.innerHTML = `<h4 style="margin: 0;">${t('system.apiKeys')}</h4>`;
+
+  const generateBtn = document.createElement('button');
+  generateBtn.className = 'btn-invite';
+  generateBtn.style.fontSize = '0.75rem';
+  generateBtn.textContent = t('system.generateKey');
+  generateBtn.addEventListener('click', () => openGenerateProviderKeyModal(provider, refresh));
+  sectionHeader.appendChild(generateBtn);
+
+  section.appendChild(sectionHeader);
+
+  const tableEl = document.createElement('div');
+  tableEl.id = PROVIDER_KEYS_TABLE;
+  section.appendChild(tableEl);
+
+  listProviderKeys(provider.organisationId).then(
+    (res: any) => {
+      const keys = res?.data?.keys ?? [];
+      const data = keys.map((k: any) => ({
+        ...k,
+        status: k.isActive ? t('system.active') : t('system.revoked'),
+      }));
+      destroyTable({ anchorId: PROVIDER_KEYS_TABLE });
+      const keysTable = new Tabulator(tableEl, {
+        placeholder: t('system.noKeys'),
+        layout: 'fitColumns',
+        maxHeight: 250,
+        columns: [
+          { title: t('system.label'), field: 'label', headerSort: true },
+          { title: t('system.status'), field: 'status', headerSort: true, width: 90 },
+          {
+            title: t('system.created'),
+            field: 'createdAt',
+            headerSort: true,
+            formatter: (cell: any) => formatDateTime(cell.getValue()),
+          },
+          {
+            title: t('system.lastUsed'),
+            field: 'lastUsedAt',
+            headerSort: true,
+            formatter: (cell: any) => formatDateTime(cell.getValue()),
+          },
+          {
+            title: '',
+            width: 90,
+            hozAlign: 'center',
+            headerSort: false,
+            formatter: (cell: any) =>
+              cell.getRow().getData().isActive
+                ? `<button class="btn-remove" style="font-size:.7rem;padding:2px 8px;">${t('system.revoke')}</button>`
+                : '',
+            cellClick: (_e: any, cell: any) => {
+              const row = cell.getRow().getData();
+              if (!row.isActive) return;
+              confirmModal({
+                title: t('system.revokeKey'),
+                query: t('system.revokeKeyConfirm', { label: row.label || row.keyId }),
+                okIntent: 'is-warning',
+                okAction: () => {
+                  revokeProviderKey(provider.organisationId, row.keyId).then(
+                    () => {
+                      tmxToast({ message: t('system.keyRevoked'), intent: 'is-success' });
+                      refresh();
+                    },
+                    () => tmxToast({ message: t('system.updateFailed'), intent: 'is-danger' }),
+                  );
+                },
+                cancelAction: undefined,
+              });
+            },
+          },
+        ],
+        data,
+      });
+      // Hold a reference to silence unused-var lint; keysTable is owned by Tabulator.
+      void keysTable;
+    },
+    () => tmxToast({ message: t('system.loadError'), intent: 'is-danger' }),
+  );
+
+  return section;
+}
+
+function openGenerateProviderKeyModal(provider: any, refresh: () => void) {
+  let inputs: any;
+  const content = (elem: HTMLElement) => {
+    inputs = renderForm(elem, [
+      {
+        label: t('system.keyLabel'),
+        field: 'label',
+        placeholder: t('system.keyLabelPlaceholder'),
+      },
+    ]);
+  };
+
+  openModal({
+    title: t('system.generateKey'),
+    content,
+    buttons: [
+      { label: t('common.cancel'), intent: 'none', close: true },
+      {
+        label: t('system.generate'),
+        intent: 'is-primary',
+        close: true,
+        onClick: () => {
+          const label = inputs?.label?.value?.trim() || undefined;
+          generateProviderKey(provider.organisationId, label).then(
+            (res: any) => {
+              const apiKey = res?.data?.apiKey;
+              if (!apiKey) {
+                tmxToast({ message: t('system.generateFailed'), intent: 'is-danger' });
+                return;
+              }
+              generatedKeyModal({
+                apiKey,
+                label,
+                providerName: provider.organisationName || provider.organisationAbbreviation,
+              });
+              refresh();
+            },
+            () => tmxToast({ message: t('system.generateFailed'), intent: 'is-danger' }),
+          );
+        },
+      },
+    ],
   });
 }

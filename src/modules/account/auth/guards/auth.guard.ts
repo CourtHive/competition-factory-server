@@ -21,8 +21,10 @@ export class AuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
 
-    // If ProvisionerMiddleware already authenticated this request, skip JWT
-    if (request.provisioner) {
+    // If a non-JWT middleware already authenticated this request — either
+    // ProvisionerMiddleware (prov_ tokens) or ProviderApiKeyMiddleware
+    // (pkey_ tokens) — skip JWT verification.
+    if (request.provisioner || request.provider) {
       return true;
     }
 
