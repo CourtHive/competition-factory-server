@@ -7,6 +7,7 @@ import { version } from 'tods-competition-factory';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
+import { createHash, timingSafeEqual } from 'crypto';
 import compression from 'compression';
 import { json } from 'body-parser';
 
@@ -51,7 +52,49 @@ async function bootstrap() {
   // Apply the bearer scheme globally so the Authorize button in the explorer
   // covers every operation. Public endpoints simply ignore the token.
   document.security = [{ bearer: [] }];
-  SwaggerModule.setup('api', app, document);
+
+  // In production the Swagger explorer + spec are gated behind HTTP Basic auth
+  // so the full API surface isn't publicly browsable. Only the Swagger-owned
+  // paths are gated — real `/api/*` controllers (e.g. /api/config,
+  // /api/bolt-history) are deliberately left untouched. Fail-safe: if no
+  // credentials are configured in production, the explorer is not mounted at all.
+  const swaggerLocked = process.env.NODE_ENV === 'production' || process.env.APP_MODE === 'production';
+  const swaggerUser = process.env.SWAGGER_USER;
+  const swaggerPassword = process.env.SWAGGER_PASSWORD;
+
+  if (swaggerLocked && !(swaggerUser && swaggerPassword)) {
+    Logger.warn(
+      'Swagger UI not mounted: set SWAGGER_USER and SWAGGER_PASSWORD to expose it behind Basic auth in production.',
+      'Bootstrap',
+    );
+  } else {
+    if (swaggerLocked) {
+      const isSwaggerPath = (p: string): boolean =>
+        p === '/api' ||
+        p === '/api/' ||
+        p === '/api-json' ||
+        p === '/api-yaml' ||
+        p.startsWith('/api/swagger-ui') ||
+        p === '/api/index.css' ||
+        p.startsWith('/api/favicon');
+      const safeEqual = (a: string, b: string): boolean =>
+        timingSafeEqual(createHash('sha256').update(a).digest(), createHash('sha256').update(b).digest());
+      app.use((req: any, res: any, next: () => void) => {
+        if (!isSwaggerPath(req.path)) return next();
+        const [scheme, encoded] = (req.headers.authorization ?? '').split(' ');
+        if (scheme === 'Basic' && encoded) {
+          const decoded = Buffer.from(encoded, 'base64').toString();
+          const idx = decoded.indexOf(':');
+          if (idx >= 0 && safeEqual(decoded.slice(0, idx), swaggerUser as string) && safeEqual(decoded.slice(idx + 1), swaggerPassword as string)) {
+            return next();
+          }
+        }
+        res.set('WWW-Authenticate', 'Basic realm="CFS API docs"');
+        res.status(401).send('Authentication required');
+      });
+    }
+    SwaggerModule.setup('api', app, document);
+  }
 
   const config = app.get(ConfigService);
   const appName = config.get('APP.name');
