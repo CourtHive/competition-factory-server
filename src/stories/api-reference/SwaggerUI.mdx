@@ -31,8 +31,9 @@ roles that exercise the API:
 - **Provisioners** (users with the provisioner role)
 - **Provider admins** (of any provider)
 
-Other accounts — and anonymous visitors — get `401`. In local development the
-explorer is open (no login).
+Other accounts — and anonymous visitors — get `401`. The gate is active on any
+host that talks to the shared/production database (production and the shared-DB
+staging host); isolated local development with its own database is open.
 
 > This Basic-auth login only unlocks the explorer page. To actually *call*
 > secured endpoints, still use the **Authorize** button with a Bearer token
