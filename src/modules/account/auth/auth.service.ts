@@ -11,7 +11,7 @@ import bcrypt from 'bcryptjs';
 
 // constants and interfaces
 import { SUCCESS } from 'src/common/constants/app';
-import { PROVISIONER as PROVISIONER_ROLE, SUPER_ADMIN } from 'src/common/constants/roles';
+import { PROVISIONER as PROVISIONER_ROLE, SUPER_ADMIN, PROVIDER_ADMIN } from 'src/common/constants/roles';
 import {
   PROVIDER_STORAGE,
   type IProviderStorage,
@@ -25,6 +25,7 @@ import {
   type IProvisionerProviderStorage,
 } from 'src/storage/interfaces';
 import { assertProviderEditor } from './helpers/assertProviderEditor';
+import { buildUserContext } from './helpers/buildUserContext';
 import type { UserContext } from './decorators/user-context.decorator';
 
 const PASSWORD_RESET_TOKEN_TTL = '1h';
@@ -73,6 +74,36 @@ export class AuthService {
     @Inject(PROVISIONER_PROVIDER_STORAGE)
     private readonly provisionerProviderStorage: IProvisionerProviderStorage,
   ) {}
+
+  /**
+   * Authorize access to the Swagger explorer (/api) in production. Returns
+   * true only for accounts that actually exercise the API — SUPER_ADMIN,
+   * PROVISIONER-role users, or a PROVIDER_ADMIN of any provider — after a
+   * bcrypt password check. SSO-only (passwordless) and unknown accounts are
+   * rejected. Reuses the same role model as login (incl. the legacy
+   * `admin` → PROVIDER_ADMIN shim via buildUserContext).
+   */
+  async canAccessApiDocs(email: string, clearTextPassword: string): Promise<boolean> {
+    if (!email || !clearTextPassword) return false;
+    let user: any;
+    try {
+      user = await this.usersService.findOne(email);
+    } catch {
+      return false;
+    }
+    if (!user?.password) return false;
+    if (!(await bcrypt.compare(clearTextPassword, user.password))) return false;
+
+    const roles: string[] = user.roles ?? [];
+    if (roles.includes(SUPER_ADMIN) || roles.includes(PROVISIONER_ROLE)) return true;
+
+    const ctx = await buildUserContext(user, {
+      userProviderStorage: this.userProviderStorage,
+      userProvisionerStorage: this.userProvisionerStorage,
+      provisionerProviderStorage: this.provisionerProviderStorage,
+    });
+    return Object.values(ctx.providerRoles).includes(PROVIDER_ADMIN);
+  }
 
   /**
    * Build the password-reset URL placed in the email body. Same shape

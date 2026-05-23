@@ -20,6 +20,24 @@ deployed server exposes.
   </tbody>
 </table>
 
+## Access (production)
+
+On the production server the explorer and spec are **gated behind HTTP Basic
+auth**. Your browser will prompt for credentials — sign in with your **CourtHive
+account** (the same email + password you use for TMX). Access is limited to the
+roles that exercise the API:
+
+- **Super admins**
+- **Provisioners** (users with the provisioner role)
+- **Provider admins** (of any provider)
+
+Other accounts — and anonymous visitors — get `401`. In local development the
+explorer is open (no login).
+
+> This Basic-auth login only unlocks the explorer page. To actually *call*
+> secured endpoints, still use the **Authorize** button with a Bearer token
+> (a provider/provisioner API key or a user JWT) as described below.
+
 ## What's in it
 
 Every controller route across the server (~116 endpoints) — factory/tournament
