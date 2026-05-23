@@ -42,6 +42,11 @@ export {
   type ProvisionerApiKeyRow,
 } from './provisioner-api-key-storage.interface';
 export {
+  PROVIDER_API_KEY_STORAGE,
+  type IProviderApiKeyStorage,
+  type ProviderApiKeyRow,
+} from './provider-api-key-storage.interface';
+export {
   PROVISIONER_PROVIDER_STORAGE,
   type IProvisionerProviderStorage,
   type ProvisionerProviderRow,

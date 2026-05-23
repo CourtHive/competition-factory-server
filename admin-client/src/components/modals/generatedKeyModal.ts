@@ -1,7 +1,7 @@
 /**
  * One-shot API key reveal.
  *
- * The plaintext key is returned by `POST /admin/provisioners/:id/keys`
+ * The plaintext key is returned by `POST /admin/{provisioners|providers}/:id/keys`
  * exactly once and never stored. This modal is the only chance the
  * super-admin has to copy it. Auto-copies to clipboard on open.
  */
@@ -14,9 +14,11 @@ type GeneratedKeyModalParams = {
   apiKey: string;
   label?: string;
   provisionerName?: string;
+  providerName?: string;
 };
 
-export function generatedKeyModal({ apiKey, label, provisionerName }: GeneratedKeyModalParams): void {
+export function generatedKeyModal({ apiKey, label, provisionerName, providerName }: GeneratedKeyModalParams): void {
+  const ownerName = providerName ?? provisionerName;
   const content = (elem: HTMLElement) => {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'display: flex; flex-direction: column; gap: .75rem;';
@@ -33,10 +35,10 @@ export function generatedKeyModal({ apiKey, label, provisionerName }: GeneratedK
     warn.textContent = t('system.keyRevealWarning');
     wrap.appendChild(warn);
 
-    if (provisionerName || label) {
+    if (ownerName || label) {
       const meta = document.createElement('div');
       meta.style.cssText = 'font-size: .8rem; color: var(--tmx-text-secondary, #666);';
-      meta.textContent = [provisionerName, label].filter(Boolean).join(' · ');
+      meta.textContent = [ownerName, label].filter(Boolean).join(' · ');
       wrap.appendChild(meta);
     }
 

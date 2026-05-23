@@ -1,6 +1,7 @@
 import { PROVISIONER_PROVIDER_STORAGE } from './interfaces/provisioner-provider-storage.interface';
 import { TOURNAMENT_PROVISIONER_STORAGE } from './interfaces/tournament-provisioner-storage.interface';
 import { PROVISIONER_API_KEY_STORAGE } from './interfaces/provisioner-api-key-storage.interface';
+import { PROVIDER_API_KEY_STORAGE } from './interfaces/provider-api-key-storage.interface';
 import { BOLT_HISTORY_REPORTING } from './interfaces/bolt-history-reporting.interface';
 import { USER_PROVIDER_STORAGE } from './interfaces/user-provider-storage.interface';
 import { PROVISIONER_STORAGE } from './interfaces/provisioner-storage.interface';
@@ -25,6 +26,7 @@ import { PostgresBoltHistoryReportingStorage } from './postgres/postgres-bolt-hi
 import { PostgresProvisionerProviderStorage } from './postgres/postgres-provisioner-provider.storage';
 import { PostgresTournamentProvisionerStorage } from './postgres/postgres-tournament-provisioner.storage';
 import { PostgresProvisionerApiKeyStorage } from './postgres/postgres-provisioner-api-key.storage';
+import { PostgresProviderApiKeyStorage } from './postgres/postgres-provider-api-key.storage';
 import { PostgresUserProviderStorage } from './postgres/postgres-user-provider.storage';
 import { PostgresProvisionerStorage } from './postgres/postgres-provisioner.storage';
 import { PostgresSsoIdentityStorage } from './postgres/postgres-sso-identity.storage';
@@ -93,6 +95,7 @@ const assignmentStorageProvider = makeStorageProvider(ASSIGNMENT_STORAGE, Postgr
 const auditStorageProvider = makeStorageProvider(AUDIT_STORAGE, PostgresAuditStorage);
 const provisionerStorageProvider = makeStorageProvider(PROVISIONER_STORAGE, PostgresProvisionerStorage);
 const provisionerApiKeyStorageProvider = makeStorageProvider(PROVISIONER_API_KEY_STORAGE, PostgresProvisionerApiKeyStorage);
+const providerApiKeyStorageProvider = makeStorageProvider(PROVIDER_API_KEY_STORAGE, PostgresProviderApiKeyStorage);
 const provisionerProviderStorageProvider = makeStorageProvider(PROVISIONER_PROVIDER_STORAGE, PostgresProvisionerProviderStorage);
 const tournamentProvisionerStorageProvider = makeStorageProvider(TOURNAMENT_PROVISIONER_STORAGE, PostgresTournamentProvisionerStorage);
 const ssoIdentityStorageProvider = makeStorageProvider(SSO_IDENTITY_STORAGE, PostgresSsoIdentityStorage);
@@ -122,6 +125,7 @@ const policyStorageProvider = makeStorageProvider(POLICY_STORAGE, PostgresPolicy
     auditStorageProvider,
     provisionerStorageProvider,
     provisionerApiKeyStorageProvider,
+    providerApiKeyStorageProvider,
     provisionerProviderStorageProvider,
     tournamentProvisionerStorageProvider,
     ssoIdentityStorageProvider,
@@ -148,6 +152,7 @@ const policyStorageProvider = makeStorageProvider(POLICY_STORAGE, PostgresPolicy
     AUDIT_STORAGE,
     PROVISIONER_STORAGE,
     PROVISIONER_API_KEY_STORAGE,
+    PROVIDER_API_KEY_STORAGE,
     PROVISIONER_PROVIDER_STORAGE,
     TOURNAMENT_PROVISIONER_STORAGE,
     SSO_IDENTITY_STORAGE,
