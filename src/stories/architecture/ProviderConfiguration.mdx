@@ -131,7 +131,7 @@ interface ProviderConfigData {
     <tr><th style={{ textAlign: 'left' }}>Field</th><th style={{ textAlign: 'left' }}>Caps</th><th style={{ textAlign: 'left' }}>Settings</th><th style={{ textAlign: 'left' }}>Merge rule</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>branding.*</code></td><td>owns</td><td>—</td><td>caps wins (settings has no branding)</td></tr>
+    <tr><td><code>branding.&#42;</code></td><td>owns</td><td>—</td><td>caps wins (settings has no branding)</td></tr>
     <tr><td><code>permissions.canX</code> (boolean)</td><td>sets ceiling</td><td>may disable below ceiling</td><td><code>(caps[X] ?? default) AND (settings[X] ?? default)</code></td></tr>
     <tr><td><code>permissions.allowedDrawTypes</code></td><td>universe</td><td>narrows</td><td>intersect; empty = unrestricted</td></tr>
     <tr><td><code>permissions.allowedCreationMethods</code></td><td>universe</td><td>narrows</td><td>intersect</td></tr>
@@ -141,7 +141,7 @@ interface ProviderConfigData {
     <tr><td><code>policies.schedulingPolicy</code></td><td>—</td><td>owns</td><td>settings wins</td></tr>
     <tr><td><code>policies.scoringPolicy</code></td><td>—</td><td>owns</td><td>settings wins</td></tr>
     <tr><td><code>policies.seedingPolicy</code></td><td>—</td><td>owns</td><td>settings wins</td></tr>
-    <tr><td><code>defaults.*</code></td><td>—</td><td>owns</td><td>settings wins</td></tr>
+    <tr><td><code>defaults.&#42;</code></td><td>—</td><td>owns</td><td>settings wins</td></tr>
     <tr><td><code>integrations.ssoProvider</code></td><td>owns</td><td>—</td><td>caps wins</td></tr>
   </tbody>
 </table>

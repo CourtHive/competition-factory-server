@@ -139,7 +139,7 @@ sso:token:<uuid> → JSON { externalId, ssoProvider, providerId, provisionerId }
 
 ```typescript
 // 1. Provisioner backend generates an SSO token
-const response = await fetch('https://api.courthive.com/auth/sso/generate', {
+const response = await fetch('https://courthive.net/auth/sso/generate', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer prov_sk_live_abc123...',

@@ -49,25 +49,7 @@ reset_codes   — code (PK), email
 access_codes  — code (PK), email
 ```
 
-## 3. Migrate from LevelDB (optional)
-
-If you have existing data in LevelDB:
-
-```bash
-# Preview what will be migrated (no writes)
-pnpm migrate:postgres:dry
-
-# Perform the migration
-pnpm migrate:postgres
-```
-
-The migration tool:
-- Reads **all** data from LevelDB (tournaments, users, providers, calendars, auth codes)
-- Writes into PostgreSQL using `INSERT ... ON CONFLICT DO UPDATE`
-- Is safe to run multiple times (idempotent)
-- Does **not** modify or delete anything in LevelDB
-
-## 4. Configure `.env`
+## 3. Configure `.env`
 
 ```env
 STORAGE_PROVIDER=postgres
@@ -79,7 +61,7 @@ PG_PASSWORD=
 PG_DATABASE=courthive
 ```
 
-## 5. Restart the Server
+## 4. Restart the Server
 
 ```bash
 pnpm watch    # development
@@ -87,13 +69,6 @@ pnpm start    # production
 ```
 
 Clients are unaware of the storage backend — the same API is used regardless.
-
-## Rolling Back to LevelDB
-
-1. Set `STORAGE_PROVIDER=leveldb` in `.env` (or remove the line)
-2. Restart the server
-
-LevelDB data is untouched by the migration. Data written while using PostgreSQL will **not** be in LevelDB.
 
 ## Troubleshooting
 

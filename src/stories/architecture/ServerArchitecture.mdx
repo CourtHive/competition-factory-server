@@ -11,7 +11,7 @@ The Competition Factory Server is built on NestJS 11, using a modular architectu
 ```
 AppModule
 ├── ConfigModule          (global) — environment variables, Joi validation
-├── StorageModule          (global) — pluggable storage (LevelDB / PostgreSQL)
+├── StorageModule          (global) — pluggable storage (PostgreSQL)
 ├── CacheModule            (global) — Redis caching via @nestjs/cache-manager
 ├── AuthModule             — JWT authentication, login, registration
 ├── UsersModule            — user CRUD, role management
@@ -92,7 +92,6 @@ The server uses Node.js `async_hooks` (via `asyncGlobalState.ts`) to provide per
     <tr><td><code>tods-competition-factory</code></td><td>Tournament engine (business logic)</td></tr>
     <tr><td><code>socket.io</code></td><td>Real-time WebSocket communication</td></tr>
     <tr><td><code>pg</code></td><td>PostgreSQL client</td></tr>
-    <tr><td><code>@gridspace/net-level-client</code></td><td>LevelDB client</td></tr>
     <tr><td><code>redis</code> / <code>keyv</code></td><td>Caching</td></tr>
     <tr><td><code>bcryptjs</code></td><td>Password hashing</td></tr>
     <tr><td><code>class-validator</code></td><td>DTO validation</td></tr>

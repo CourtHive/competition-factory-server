@@ -1,10 +1,9 @@
 /**
  * Admin User Management Script
  *
- * List, create, and reset admin users in LevelDB or PostgreSQL.
+ * List, create, and reset admin users in PostgreSQL.
  *
  * Prerequisites:
- *   - LevelDB: net-level-server running, DB_* vars in .env
  *   - PostgreSQL: PG_* vars in .env, schema applied
  *
  * Usage:
@@ -18,9 +17,6 @@
  *                                  Reset an existing user's password
  *   set-roles --email <e> --roles superadmin,admin,client
  *                                  Set roles for an existing user
- *
- * Options:
- *   --storage <leveldb|postgres>   Storage backend (default: from STORAGE_PROVIDER env or 'leveldb')
  */
 
 import minimist from 'minimist';
@@ -30,12 +26,12 @@ import 'dotenv/config';
 // Filter out bare '--' so that `pnpm admin:foo -- -e x` works the same as `node script.mjs foo -e x`
 const rawArgs = process.argv.slice(2).filter((arg) => arg !== '--');
 const args = minimist(rawArgs, {
-  string: ['email', 'password', 'provider-id', 'roles', 'storage'],
-  alias: { e: 'email', p: 'password', r: 'roles', s: 'storage' },
+  string: ['email', 'password', 'provider-id', 'roles'],
+  alias: { e: 'email', p: 'password', r: 'roles' },
 });
 
 const command = args._[0];
-const storageType = args.storage || process.env.STORAGE_PROVIDER || 'leveldb';
+const storageType = 'postgres';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -67,52 +63,12 @@ Commands:
   reset-password  -e <email> -p <password>     Reset password
   set-roles  -e <email> -r <roles>             Set roles (comma-separated)
 
-Options:
-  --storage <leveldb|postgres>    Override STORAGE_PROVIDER
-
 Examples:
   node src/scripts/admin-user.mjs list
   node src/scripts/admin-user.mjs create -e admin@courthive.com -p mysecurepassword
   node src/scripts/admin-user.mjs reset-password -e admin@courthive.com -p newpassword
   node src/scripts/admin-user.mjs set-roles -e admin@courthive.com -r superadmin,admin,client
 `);
-}
-
-// ─── LevelDB Backend ───────────────────────────────────────────────
-
-async function getLevelDbBackend() {
-  const { default: netLevel } = await import('./netLevel.mjs');
-  const BASE_USER = 'user';
-
-  return {
-    async listUsers() {
-      try {
-        return await netLevel.list(BASE_USER, { all: true });
-      } catch {
-        return [];
-      }
-    },
-
-    async getUser(email) {
-      try {
-        return await netLevel.get(BASE_USER, { key: email });
-      } catch {
-        return null;
-      }
-    },
-
-    async saveUser(email, userData) {
-      await netLevel.set(BASE_USER, { key: email, value: userData });
-    },
-
-    async close() {
-      try {
-        await netLevel.exit();
-      } catch {
-        // ignore
-      }
-    },
-  };
 }
 
 // ─── PostgreSQL Backend ─────────────────────────────────────────────
@@ -303,11 +259,7 @@ async function main() {
 
   let backend;
   try {
-    if (storageType === 'postgres') {
-      backend = await getPostgresBackend();
-    } else {
-      backend = await getLevelDbBackend();
-    }
+    backend = await getPostgresBackend();
   } catch (err) {
     console.error(`\n  Failed to connect to ${storageType}:`, err.message);
     console.error('  Check your .env configuration and ensure the database is running.\n');

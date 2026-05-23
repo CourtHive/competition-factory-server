@@ -33,12 +33,24 @@ async function bootstrap() {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Competition Factory Server API')
-    .setDescription('API description')
+    .setDescription(
+      'REST API for the Competition Factory Server. Authenticate with a Bearer token — a provider ' +
+        'API key (`pkey_live_*`), a provisioner API key (`prov_sk_live_*`), or a user JWT. Click ' +
+        '**Authorize** and paste the token. For provisioner calls on behalf of a provider, also send ' +
+        'an `X-Provider-Id` header (use curl or a REST client; it is not part of the generated parameters).',
+    )
     .setVersion('1.0')
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'Token', description: 'pkey_live_… / prov_sk_live_… / user JWT' },
+      'bearer',
+    )
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig, {
     // deepScanRoutes: true,
   });
+  // Apply the bearer scheme globally so the Authorize button in the explorer
+  // covers every operation. Public endpoints simply ignore the token.
+  document.security = [{ bearer: [] }];
   SwaggerModule.setup('api', app, document);
 
   const config = app.get(ConfigService);

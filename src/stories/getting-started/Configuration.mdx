@@ -40,21 +40,7 @@ All configuration is via environment variables in the `.env` file. The server us
     <tr><th style={{ textAlign: 'left' }}>Variable</th><th style={{ textAlign: 'left' }}>Default</th><th style={{ textAlign: 'left' }}>Description</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>STORAGE_PROVIDER</code></td><td><code>leveldb</code></td><td>Storage backend: <code>leveldb</code> or <code>postgres</code></td></tr>
-  </tbody>
-</table>
-
-### LevelDB
-
-<table>
-  <thead>
-    <tr><th style={{ textAlign: 'left' }}>Variable</th><th style={{ textAlign: 'left' }}>Default</th><th style={{ textAlign: 'left' }}>Description</th></tr>
-  </thead>
-  <tbody>
-    <tr><td><code>DB_HOST</code></td><td><code>localhost</code></td><td>LevelDB net-level-server host</td></tr>
-    <tr><td><code>DB_PORT</code></td><td><code>3838</code></td><td>LevelDB net-level-server port</td></tr>
-    <tr><td><code>DB_USER</code></td><td><code>admin</code></td><td>LevelDB authentication user</td></tr>
-    <tr><td><code>DB_PASS</code></td><td><code>adminpass</code></td><td>LevelDB authentication password</td></tr>
+    <tr><td><code>STORAGE_PROVIDER</code></td><td><code>postgres</code></td><td>Storage backend. PostgreSQL is the only supported backend.</td></tr>
   </tbody>
 </table>
 
@@ -126,12 +112,13 @@ APP_PORT='8383'
 JWT_SECRET='replace-with-a-truly-random-string'
 JWT_VALIDITY='2h'
 
-STORAGE_PROVIDER=leveldb
+STORAGE_PROVIDER=postgres
 
-DB_HOST=localhost
-DB_PORT=3838
-DB_USER=admin
-DB_PASS=adminpass
+PG_HOST=localhost
+PG_PORT=5432
+PG_USER=courthive
+PG_PASSWORD=
+PG_DATABASE=courthive
 
 REDIS_URL=redis://localhost:6379
 REDIS_TTL=28800000

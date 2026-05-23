@@ -1,0 +1,140 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Provider API/Authentication" />
+
+# Provider API — Authentication
+
+A **provider API key** lets a partner organisation integrate directly with the
+Competition Factory Server as a single provider — creating and reading their own
+tournaments over REST, without a user login or a provisioner-level wrapper.
+
+If you have been handed a key that starts with `pkey_live_`, this page is for you.
+
+> **Provider key vs. provisioner key.** A provider key (`pkey_live_*`) authenticates
+> as **one** provider and can only touch that provider's data. A provisioner key
+> (`prov_sk_live_*`) authenticates as a provisioner that may act on behalf of
+> **many** providers via an `X-Provider-Id` header. Provider keys never use
+> `X-Provider-Id` — the provider is implicit in the key. See
+> **Provisioner/Authentication** if you were issued a `prov_` key instead.
+
+## Quick start
+
+Verify your key by asking the server which provider it represents:
+
+```bash
+curl -X GET https://courthive.net/provider-key/self \
+  -H "Authorization: Bearer pkey_live_a1b2c3d4e5f6..."
+```
+
+```json
+{
+  "success": true,
+  "provider": {
+    "providerId": "24bf9f25-96ca-401e-9660-f5571ebc50ba",
+    "providerName": "Battle of Boca",
+    "keyId": "0f3c…",
+    "keyLabel": "partner integration"
+  }
+}
+```
+
+If you get `401 Unauthorized`, the key is missing, malformed, revoked, or expired.
+
+## Key format
+
+```
+pkey_live_<64-character-hex-string>
+```
+
+- Generated from 32 cryptographically random bytes.
+- Returned **once**, at creation time — the server stores only a SHA-256 hash and
+  can never show you the plaintext again. If you lose it, ask for a new one.
+- Treat it like a password: it grants full read/write to your provider's
+  tournaments. Keep it server-side; never embed it in a browser or mobile app.
+
+## Sending the key
+
+Send the key as a Bearer token on every request:
+
+```
+Authorization: Bearer pkey_live_<your-key>
+```
+
+There is **no** `X-Provider-Id` header and no separate login step. The key both
+authenticates you and selects your provider.
+
+## What the key can do
+
+The key authenticates as a **PROVIDER_ADMIN for its own provider only**. It is not
+a super-admin and has no visibility into any other provider's data.
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Capability</th><th style={{ textAlign: 'left' }}>Granted?</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Create / update tournaments under your provider</td><td>✅ Yes</td></tr>
+    <tr><td>Read your provider's own tournaments</td><td>✅ Yes</td></tr>
+    <tr><td>Run draws / scoring (factory mutations) on your tournaments</td><td>✅ Yes (roles <code>client</code>, <code>generate</code>, <code>score</code>)</td></tr>
+    <tr><td>Read or write another provider's tournaments</td><td>❌ No — blocked at the server</td></tr>
+    <tr><td>Manage users, providers, or other API keys</td><td>❌ No — super-admin only</td></tr>
+  </tbody>
+</table>
+
+The available REST surface is listed on the **Provider API/Endpoints** page.
+
+## Authentication flow (server side)
+
+```
+1. You send:     Authorization: Bearer pkey_live_abc123...
+2. Middleware detects the `pkey_` prefix (ignores all other tokens).
+3. SHA-256(key) → lookup in PROVIDER_API_KEY_STORAGE.
+4. If found, active, and not expired:
+   • request.provider   = { providerId, providerName, providerConfig, keyId, keyLabel }
+   • request.auditSource = { type: 'provider-key', providerId, keyId, keyLabel }
+   • a synthetic PROVIDER_ADMIN user context is injected for your provider
+   • lastUsedAt is updated (fire-and-forget)
+5. If missing / revoked / expired → request falls through → AuthGuard returns 401.
+```
+
+## Key lifecycle
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Action</th><th style={{ textAlign: 'left' }}>Who</th><th style={{ textAlign: 'left' }}>How</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Issue a key</td><td>CourtHive super-admin</td><td><code>POST /admin/providers/:providerId/keys</code> — plaintext returned once</td></tr>
+    <tr><td>List a provider's keys (metadata only)</td><td>CourtHive super-admin</td><td><code>GET /admin/providers/:providerId/keys</code></td></tr>
+    <tr><td>Revoke a key</td><td>CourtHive super-admin</td><td><code>DELETE /admin/providers/:providerId/keys/:keyId</code></td></tr>
+    <tr><td>Rotate</td><td>You + super-admin</td><td>Request a new key, switch your integration over, then revoke the old key</td></tr>
+  </tbody>
+</table>
+
+Multiple active keys per provider are supported, so you can rotate with zero
+downtime: issue the new key, deploy it, then revoke the old one. Every issuance
+and revocation is written to the audit log.
+
+## Security properties
+
+- **No plaintext storage** — keys are SHA-256 hashed before persistence.
+- **Single-provider scope** — a key can never reach another provider's data, even
+  if the request payload claims a different `parentOrganisation`.
+- **Audit trail** — every key-authenticated action is tagged with
+  `auditSource.type = 'provider-key'`, your `keyId`, and `keyLabel`.
+- **Revocable & expirable** — keys can be revoked immediately or carry an
+  `expiresAt`; either makes subsequent requests `401`.
+- **Graceful degradation** — if key storage is briefly unavailable, the request
+  is rejected with `401` rather than silently succeeding.
+
+## Authentication errors
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Status</th><th style={{ textAlign: 'left' }}>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>401 Unauthorized</code></td><td>No <code>Authorization</code> header, malformed token, or a key that is unknown / revoked / expired.</td></tr>
+    <tr><td><code>401 Unauthorized</code> — <code>"Provider API key required"</code></td><td>Reached a <code>/provider-key/&#42;</code> endpoint without a valid provider key.</td></tr>
+  </tbody>
+</table>

@@ -37,17 +37,13 @@ See the **Configuration** page for the full environment variable reference.
 
 ## 4. Start the database
 
-**LevelDB (default):**
+The server uses PostgreSQL. See **Storage / PostgreSQL Setup** for installation, schema creation, and migration steps. In brief:
 
 ```bash
-pnpm hive-db
+brew services start postgresql@17
+createdb courthive
+psql -d courthive -f src/storage/postgres/migrations/001-initial-schema.sql
 ```
-
-This starts the LevelDB network server on port 3838. Keep this running in a separate terminal.
-
-**PostgreSQL:**
-
-See **Storage / PostgreSQL Setup** for schema creation and migration steps.
 
 ## 5. Create an admin user
 
@@ -111,7 +107,6 @@ This user works without any database entry and is convenient for local developme
     <tr><td><code>pnpm test</code></td><td>Run Jest tests</td></tr>
     <tr><td><code>pnpm lint</code></td><td>ESLint with auto-fix</td></tr>
     <tr><td><code>pnpm check-types</code></td><td>TypeScript type-check (<code>tsc --noEmit</code>)</td></tr>
-    <tr><td><code>pnpm hive-db</code></td><td>Start LevelDB server</td></tr>
     <tr><td><code>pnpm admin:list</code></td><td>List all users</td></tr>
     <tr><td><code>pnpm admin:create</code></td><td>Create a superadmin user</td></tr>
     <tr><td><code>pnpm admin:reset-password</code></td><td>Reset a user's password</td></tr>
