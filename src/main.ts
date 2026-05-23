@@ -35,14 +35,29 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Competition Factory Server API')
     .setDescription(
-      'REST API for the Competition Factory Server. Authenticate with a Bearer token — a provider ' +
-        'API key (`pkey_live_*`), a provisioner API key (`prov_sk_live_*`), or a user JWT. Click ' +
-        '**Authorize** and paste the token. For provisioner calls on behalf of a provider, also send ' +
-        'an `X-Provider-Id` header (use curl or a REST client; it is not part of the generated parameters).',
+      'REST API for the Competition Factory Server.\n\n' +
+        '**There are two separate auth steps — they are easy to confuse:**\n\n' +
+        '1. **Signing in to view this page.** You already did this with your CourtHive account ' +
+        '(super-admin, provisioner, or provider-admin). It only unlocks the documentation.\n' +
+        '2. **Authorizing API calls.** To actually run a request with *Try it out*, click ' +
+        '**Authorize** (top-right) and paste a **Bearer token** — this is *not* the same as the ' +
+        'login above. Use a provider API key (`pkey_live_…`), a provisioner API key ' +
+        '(`prov_sk_live_…`), or a user **JWT** from `POST /auth/login`. Paste only the token ' +
+        '(no `Bearer ` prefix).\n\n' +
+        'For provisioner calls on behalf of a provider, also send an `X-Provider-Id` header ' +
+        '(a custom header — use curl or a REST client, as the *Try it out* form has no field for it).',
     )
     .setVersion('1.0')
     .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'Token', description: 'pkey_live_… / prov_sk_live_… / user JWT' },
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'Token',
+        description:
+          'Token for CALLING endpoints — NOT the account login that opened this page. Paste a ' +
+          'provider API key (pkey_live_…), a provisioner API key (prov_sk_live_…), or a user JWT ' +
+          'from POST /auth/login. No "Bearer " prefix.',
+      },
       'bearer',
     )
     .build();

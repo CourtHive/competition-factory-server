@@ -53,17 +53,28 @@ inferred from the controllers and their DTOs.
 3. Click **Try it out**, fill in the parameters, and **Execute** to call the live
    server.
 
-### Authenticating
+### Authenticating — two separate steps (easy to confuse)
 
-1. Click the **Authorize** button (top-right).
-2. Paste a Bearer token — any of:
-   - a **provider** API key (`pkey_live_*`) — see **Provider API/Authentication**
-   - a **provisioner** API key (`prov_sk_live_*`) — see **Provisioner/Authentication**
-   - a **user JWT** (from login)
-3. Authorized requests then carry the token automatically.
+1. **The browser login that opened this page** (Basic auth) — your CourtHive
+   account. It only grants permission to *view* the explorer (see **Access
+   (production)** above). It does **not** authenticate the requests you run here.
+2. **The Authorize button** (top-right) — attaches a **Bearer token** so the
+   requests you send with **Try it out** are authenticated against the API. This
+   is a *different* credential from your page login.
 
-> Paste only the token itself in the Authorize dialog — Swagger adds the
-> `Bearer ` prefix for you.
+In the **Authorize** dialog, paste **one** of:
+
+- a **provider** API key (`pkey_live_*`) — see **Provider API/Authentication**
+- a **provisioner** API key (`prov_sk_live_*`) — see **Provisioner/Authentication**
+- a **user JWT** — get one from `POST /auth/login` (email + password), or copy it
+  from your signed-in TMX session
+
+Paste only the token itself — Swagger adds the `Bearer ` prefix for you. Then
+**Try it out → Execute** sends it automatically.
+
+> **Why two logins?** The page gate keeps the API surface private; the Authorize
+> token is what the server checks on each endpoint call. Viewing the docs and
+> calling an endpoint are deliberately separate.
 
 ### On-behalf-of header (provisioners)
 
