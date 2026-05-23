@@ -53,13 +53,21 @@ async function bootstrap() {
   // covers every operation. Public endpoints simply ignore the token.
   document.security = [{ bearer: [] }];
 
-  // In production the Swagger explorer + spec are gated behind HTTP Basic auth.
-  // Credentials are real accounts — SUPER_ADMIN, PROVISIONER, or PROVIDER_ADMIN
-  // users (the ones who actually exercise the API) — validated by AuthService
-  // against the users table. Only Swagger-owned paths are gated; real `/api/*`
-  // controllers (e.g. /api/config, /api/bolt-history) are untouched. Dev
-  // (non-production) stays open.
-  const swaggerLocked = process.env.NODE_ENV === 'production' || process.env.APP_MODE === 'production';
+  // The Swagger explorer + spec are gated behind HTTP Basic auth on any host
+  // that talks to the shared/production database. Credentials are real accounts
+  // — SUPER_ADMIN, PROVISIONER, or PROVIDER_ADMIN users (the ones who actually
+  // exercise the API) — validated by AuthService against the users table. Only
+  // Swagger-owned paths are gated; real `/api/*` controllers (e.g. /api/config,
+  // /api/bolt-history) are untouched.
+  //
+  // Gating triggers for production (nest) AND the shared-DB staging host
+  // (courthive-mentat — runs APP_MODE=development but points at the same
+  // Postgres), which sets SWAGGER_REQUIRE_AUTH=true. Isolated local dev with
+  // its own database leaves all three unset and keeps the explorer open.
+  const swaggerLocked =
+    process.env.SWAGGER_REQUIRE_AUTH === 'true' ||
+    process.env.NODE_ENV === 'production' ||
+    process.env.APP_MODE === 'production';
   if (swaggerLocked) {
     const authService = app.get(AuthService);
     const isSwaggerPath = (p: string): boolean =>
