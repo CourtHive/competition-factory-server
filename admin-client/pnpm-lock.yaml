@@ -21,8 +21,8 @@ importers:
         specifier: ^1.13.0
         version: 1.16.1
       courthive-components:
-        specifier: 1.8.0
-        version: 1.8.0
+        specifier: 1.8.1
+        version: 1.8.1
       i18next:
         specifier: ^26.0.0
         version: 26.2.0(typescript@6.0.3)
@@ -1039,8 +1039,8 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  courthive-components@1.8.0:
-    resolution: {integrity: sha512-CfhVyUM49jKoBmm1ld97r//PlNxsSJNtmh00MRvt2ZS2I2w9bIjmCwryv4qF09qy1RK9rXAeryuT5tC4O9PH+A==}
+  courthive-components@1.8.1:
+    resolution: {integrity: sha512-9U1pw952H1+4sre2XXRxhDO9x5vf7et0tRybzxLccFd+VuJdCEsh0/EAe/8pRx41/zrbtgrDS8NeglgWTRBNkQ==}
     engines: {node: '>=22'}
 
   cross-spawn@7.0.6:
@@ -2812,7 +2812,7 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  courthive-components@1.8.0:
+  courthive-components@1.8.1:
     dependencies:
       awesomplete: 1.1.7
       class-variance-authority: 0.7.1
