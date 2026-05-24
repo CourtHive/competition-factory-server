@@ -1,5 +1,39 @@
 # Changelog
 
+## [2.5.0](https://github.com/CourtHive/competition-factory-server/compare/v2.4.0...v2.5.0) (2026-05-24)
+
+
+### Features
+
+* **auth:** provisioner-managed providers + scope /admin to real admins ([a5235f4](https://github.com/CourtHive/competition-factory-server/commit/a5235f4609606c03483fcc35b3cce821199a70b7))
+* **auth:** provisioner-managed providers + scope /admin to real admins ([af50563](https://github.com/CourtHive/competition-factory-server/commit/af50563ed7b9070243e9fdb09e4ef5e9be79fad8))
+* **providers:** admin-issued, provider-scoped API keys ([65576e8](https://github.com/CourtHive/competition-factory-server/commit/65576e83a4825731777fc2aec1755ad4920f5176))
+* **providers:** admin-issued, provider-scoped API keys ([8ac75cc](https://github.com/CourtHive/competition-factory-server/commit/8ac75cc9d22c01173310bc32bbb3510efc9fa81f))
+* **swagger:** gate /api docs by CFS account role ([a14da5c](https://github.com/CourtHive/competition-factory-server/commit/a14da5cfa61cbf5a7481e9dbf3fc6629e7b2c8d9))
+* **swagger:** gate /api docs by CFS account role, not a shared secret ([668bd14](https://github.com/CourtHive/competition-factory-server/commit/668bd1462e8bfaa551e46c5d931fc081512b8bc5))
+* **swagger:** gate /api explorer + spec behind Basic auth in production ([da20516](https://github.com/CourtHive/competition-factory-server/commit/da20516d291d9c37d15eeb885f57403dcdcf3160))
+* **swagger:** gate /api explorer + spec behind Basic auth in production ([0f05af0](https://github.com/CourtHive/competition-factory-server/commit/0f05af06d4d78965ff4f76249536b8daaa65219a))
+* **swagger:** gate /api on shared-DB hosts (SWAGGER_REQUIRE_AUTH) ([be169cb](https://github.com/CourtHive/competition-factory-server/commit/be169cba5d083fe001ec3645a20c89fe0d80c1c0))
+* **swagger:** gate /api on shared-DB hosts via SWAGGER_REQUIRE_AUTH ([75a5b9d](https://github.com/CourtHive/competition-factory-server/commit/75a5b9d51864a692a7022e263d0042ed8706a823))
+
+
+### Bug Fixes
+
+* **admin-client:** dark-mode contact-email banner + modal padding ([b8ff8be](https://github.com/CourtHive/competition-factory-server/commit/b8ff8be3c4db9095ef236d082151cd177ad1fab6))
+* **auth:** align SSO session lifetime with direct login ([be115d1](https://github.com/CourtHive/competition-factory-server/commit/be115d11129484c54f2047d4f33835ff22a2e921))
+* **auth:** align SSO session lifetime with direct login ([e690cd4](https://github.com/CourtHive/competition-factory-server/commit/e690cd43d99feaf63a736ac4089d7e9486c91296))
+* **factory:** make checkUser multi-provider aware ([8708d1d](https://github.com/CourtHive/competition-factory-server/commit/8708d1d7388ac86ca7e7cf422d96a3cb0d7afb7d))
+* provider-scoped tournament delete safeguards (authz, archive, end-date guard, calendar detach) ([c1343ea](https://github.com/CourtHive/competition-factory-server/commit/c1343ead096a54396ef9240db549740bff332ce2))
+* **storage:** provider-scope + archive + end-date guard on tournament delete ([740541e](https://github.com/CourtHive/competition-factory-server/commit/740541ed8817e2a6c27bd95a748e78599618dc82))
+
+
+### Documentation
+
+* document provider/provisioner API keys + Swagger; sunset LevelDB ([5d39f37](https://github.com/CourtHive/competition-factory-server/commit/5d39f377a3f3f68aef8b1b91d6c23ba3ec1c968d))
+* provider/provisioner API keys + Swagger; sunset LevelDB ([8a9c221](https://github.com/CourtHive/competition-factory-server/commit/8a9c221114e4cc071cfa76a7643685e48de3df8c))
+* **swagger:** clarify Authorize button vs page login ([ec9b9ce](https://github.com/CourtHive/competition-factory-server/commit/ec9b9ce670cd6556b4b0ea9d7e0601abb5cc90f4))
+* **swagger:** explain the Authorize button vs the page login ([e9c944f](https://github.com/CourtHive/competition-factory-server/commit/e9c944f0495643a7e26720b1fe51817964431fca))
+
 ## [2.4.0](https://github.com/CourtHive/competition-factory-server/compare/v2.3.0...v2.4.0) (2026-05-22)
 
 

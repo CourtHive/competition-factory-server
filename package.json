@@ -2,7 +2,7 @@
   "name": "competition-factory-server",
   "packageManager": "pnpm@11.3.0",
   "private": true,
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Server side factory mutations",
   "license": "MIT",
   "engines": {
@@ -86,7 +86,7 @@
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "socket.io": "4.8.3",
-    "tods-competition-factory": "4.1.1",
+    "tods-competition-factory": "4.1.0",
     "tods-tmx-classic-converter": "3.0.5",
     "tslib": "^2.6.2",
     "@courthive/provider-config": "^0.2.0",
