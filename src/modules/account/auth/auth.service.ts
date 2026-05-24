@@ -180,13 +180,19 @@ export class AuthService {
 
     // Phase 2A: PROVISIONER-role users carry their provisioner associations
     // in the JWT so the provisioner middleware can resolve them on every
-    // request without a DB lookup.
+    // request without a DB lookup. We also embed the managed providers (with
+    // name/abbreviation) so TMX can offer them in the provider switcher and
+    // grant provider-admin UI when one is active — server authz already
+    // honors provisionerProviderIds (see checkTournamentAccess / checkProvider).
     if (user.userId && user.roles?.includes(PROVISIONER_ROLE)) {
       try {
-        userDetails.provisionerIds = await this.userProvisionerStorage.findProvisionerIdsByUser(user.userId);
+        const provisionerIds = await this.userProvisionerStorage.findProvisionerIdsByUser(user.userId);
+        userDetails.provisionerIds = provisionerIds;
+        userDetails.provisionerProviders = await this.loadProvisionerProviders(provisionerIds);
       } catch (err) {
-        Logger.warn(`Failed to load provisionerIds for ${email}: ${(err as Error).message}`);
+        Logger.warn(`Failed to load provisioner context for ${email}: ${(err as Error).message}`);
         userDetails.provisionerIds = [];
+        userDetails.provisionerProviders = [];
       }
     }
 
@@ -222,6 +228,35 @@ export class AuthService {
     const payload = userDetails;
     const token = await this.jwtService.signAsync(payload, { expiresIn: '1d' });
     return { token };
+  }
+
+  /**
+   * Resolve the distinct set of providers a user's provisioners manage, each
+   * enriched with organisation name/abbreviation for the TMX provider switcher.
+   * Deduped across multiple provisioner associations.
+   */
+  private async loadProvisionerProviders(
+    provisionerIds: string[],
+  ): Promise<Array<{ providerId: string; organisationName: string; organisationAbbreviation: string }>> {
+    const byProviderId = new Map<
+      string,
+      { providerId: string; organisationName: string; organisationAbbreviation: string }
+    >();
+    for (const provisionerId of provisionerIds) {
+      const rows = await this.provisionerProviderStorage.findByProvisioner(provisionerId);
+      for (const row of rows) {
+        if (byProviderId.has(row.providerId)) continue;
+        const provider = await this.providerStorage.getProvider(row.providerId);
+        if (provider) {
+          byProviderId.set(row.providerId, {
+            providerId: row.providerId,
+            organisationName: provider.organisationName,
+            organisationAbbreviation: provider.organisationAbbreviation,
+          });
+        }
+      }
+    }
+    return Array.from(byProviderId.values());
   }
 
   /**

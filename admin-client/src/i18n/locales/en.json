@@ -1620,6 +1620,12 @@
     "cannotDeleteParticipant": "Participant is assigned to a draw and cannot be deleted"
   },
 
+  "noAccess": {
+    "title": "No admin access",
+    "message": "Your account doesn't have access to the admin console. If you manage a tournament, use the TMX app instead. Contact your provider administrator if you believe this is an error.",
+    "logOut": "Log out"
+  },
+
   "loginMenu": {
     "authorization": "Authorization",
     "register": "Register",
