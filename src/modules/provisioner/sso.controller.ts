@@ -106,7 +106,12 @@ export class SsoController {
     const userDetails = { ...user };
     delete userDetails.password;
     const jwtPayload = { ...userDetails, providerIds: userContext.providerIds, providerRoles: userContext.providerRoles };
-    const accessToken = await this.jwtService.signAsync(jwtPayload);
+    // Match the direct-login session lifetime (auth.service.ts signIn uses
+    // `expiresIn: '1d'`). Without this override the SSO session inherits the
+    // JwtModule default (JWT_VALIDITY, '2h' in prod), so provisioner-handoff
+    // users silently expired hours sooner than password-login users and saw
+    // an unexpected 401 mid-session.
+    const accessToken = await this.jwtService.signAsync(jwtPayload, { expiresIn: '1d' });
 
     // Track last access for both user and the provider this SSO token resolved to.
     // Failures are non-fatal but visible — silent .catch() previously hid mismatches.

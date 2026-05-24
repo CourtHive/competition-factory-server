@@ -3,9 +3,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { TOURNAMENT_STORAGE, type ITournamentStorage } from './interfaces/tournament-storage.interface';
 import { PROVIDER_STORAGE, type IProviderStorage } from './interfaces/provider-storage.interface';
 import { CALENDAR_STORAGE, type ICalendarStorage } from './interfaces/calendar-storage.interface';
-import { CREATED_BY_USER_ID } from 'src/modules/factory/helpers/checkTournamentAccess';
+import { CREATED_BY_USER_ID, canDeleteTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
-import { PROVIDER_ADMIN } from 'src/common/constants/roles';
 
 import { getCalendarEntry } from 'src/helpers/getCalendarEntry';
 import { SUCCESS } from 'src/common/constants/app';
@@ -92,73 +91,122 @@ export class TournamentStorageService {
   ) {
     const tournamentIds: string[] =
       params?.tournamentIds ?? ([params?.tournamentId].filter(Boolean) as string[]);
-    const providerId: string | undefined = user?.providerId || params.providerId;
     let removed = 0;
 
     for (const tournamentId of tournamentIds) {
-      // Resolve auth in three layers, cheapest first:
-      // 1. Per-user `permissions` array (legacy granular grant) — or no
-      //    permissions field at all (back-compat for older user records).
-      // 2. SUPER_ADMIN role.
-      // 3. PROVIDER_ADMIN at the tournament's owning provider — provider
-      //    admins logically should be able to delete their own provider's
-      //    tournaments without needing the separate `deleteTournament`
-      //    permission checkbox. Requires loading the tournament record.
-      let hasDeletePermission =
-        !user?.permissions ||
-        user.permissions.includes('deleteTournament') ||
-        user.roles?.includes('superadmin');
-
-      let isCreator = false;
-      let existingRecord: any;
-      if (!hasDeletePermission && user?.userId) {
-        const existing: any = await this.tournamentStorage.findTournamentRecord({ tournamentId });
-        existingRecord = existing?.tournamentRecord;
-        const createdBy = (existingRecord?.extensions ?? []).find((e) => e?.name === 'createdByUserId')?.value;
-        isCreator = !!createdBy && createdBy === user.userId;
-
-        // PROVIDER_ADMIN at the tournament's provider also implies delete.
-        if (!isCreator && userContext) {
-          const tournamentProviderId = existingRecord?.parentOrganisation?.organisationId;
-          if (
-            tournamentProviderId &&
-            userContext.providerRoles?.[tournamentProviderId] === PROVIDER_ADMIN
-          ) {
-            hasDeletePermission = true;
-          }
-        }
-      }
-
-      if (hasDeletePermission || isCreator) {
-        // Record the deletion in the audit trail BEFORE removing the record.
-        // Fail-soft: audit errors don't block the deletion.
-        if (auditService?.recordDeletion) {
-          try {
-            if (!existingRecord) {
-              const existing: any = await this.tournamentStorage.findTournamentRecord({ tournamentId });
-              existingRecord = existing?.tournamentRecord;
-            }
-            await auditService.recordDeletion({
-              tournamentId,
-              tournamentName: existingRecord?.tournamentName,
-              providerId: existingRecord?.parentOrganisation?.organisationId ?? providerId,
-              userId: user?.userId,
-              userEmail: user?.email,
-            });
-          } catch {
-            // Audit failure is non-blocking
-          }
-        }
-
-        await this.tournamentStorage.removeTournamentRecords({ tournamentIds: [tournamentId] });
-        if (providerId) {
-          await this.removeFromCalendar({ providerId, tournamentId });
-          removed += 1;
-        }
-      }
+      const result = await this.deleteSingleTournament({ tournamentId, user, userContext, auditService });
+      if (result.error) return { ...result, removed };
+      if (result.removed) removed += 1;
     }
 
     return { ...SUCCESS, removed };
+  }
+
+  /**
+   * Delete one tournament with all safety gates, in order:
+   *   1. Provider-scoped authorization (canDeleteTournament — always enforced).
+   *   2. End-date guard: a non-mock tournament may only be deleted once its
+   *      endDate is in the past (move the end date back to delete an active one).
+   *   3. Archive the full record (HARD prerequisite — abort the delete if it fails).
+   *   4. Audit (fail-soft).
+   *   5. Remove the row, then detach from its OWN provider's calendar.
+   */
+  private async deleteSingleTournament({
+    tournamentId,
+    user,
+    userContext,
+    auditService,
+  }: {
+    tournamentId: string;
+    user?: any;
+    userContext?: UserContext;
+    auditService?: any;
+  }): Promise<{ removed?: boolean; error?: string; errorCode?: string }> {
+    const existing: any = await this.tournamentStorage.findTournamentRecord({ tournamentId });
+    const existingRecord = existing?.tournamentRecord;
+    if (!existingRecord) return { removed: false }; // Nothing to delete.
+
+    if (!this.isDeleteAuthorized(existingRecord, user, userContext)) {
+      return { error: 'Not authorized to delete this tournament', errorCode: 'ERR_DELETE_FORBIDDEN' };
+    }
+
+    const guard = this.checkDeletableByEndDate(existingRecord);
+    if (guard.error) return guard;
+
+    // Archive BEFORE deleting — a failed archive must abort the delete so the
+    // record is always recoverable.
+    const archiveResult: any = await this.tournamentStorage.archiveTournamentRecord({
+      tournamentRecord: existingRecord,
+      deletedByUserId: user?.userId,
+      deletedByEmail: user?.email,
+    });
+    if (archiveResult?.error) {
+      return { error: 'Could not archive tournament; deletion aborted', errorCode: 'ERR_ARCHIVE_FAILED' };
+    }
+
+    await this.recordDeletionSafely({ auditService, tournamentId, existingRecord, user });
+
+    await this.tournamentStorage.removeTournamentRecords({ tournamentIds: [tournamentId] });
+
+    // Detach from the tournament's OWN provider's calendar (not the actor's).
+    const tournamentProviderId = existingRecord?.parentOrganisation?.organisationId;
+    if (tournamentProviderId) {
+      await this.removeFromCalendar({ providerId: tournamentProviderId, tournamentId });
+    }
+
+    return { removed: true };
+  }
+
+  /**
+   * Provider-scoped delete authorization. A global `deleteTournament` permission
+   * is a capability, NOT a cross-tenant scope grant — scope is decided by
+   * canDeleteTournament against the tournament's own provider. Legacy SUPER_ADMIN
+   * via `user.roles` is honored when no userContext is present (fail closed otherwise).
+   */
+  private isDeleteAuthorized(tournamentRecord: any, user: any, userContext?: UserContext): boolean {
+    if (userContext) return canDeleteTournament(tournamentRecord, userContext);
+    return !!user?.roles?.includes('superadmin');
+  }
+
+  /**
+   * Non-mock tournaments may only be deleted once their endDate is in the past.
+   * Mock tournaments (isMock) are exempt. To delete an in-progress tournament,
+   * a director first moves its endDate to a past date.
+   */
+  private checkDeletableByEndDate(tournamentRecord: any): { error?: string; errorCode?: string } {
+    if (tournamentRecord?.isMock === true) return {};
+    const endDate: string | undefined = tournamentRecord?.endDate;
+    const today = new Date().toISOString().slice(0, 10);
+    if (endDate && endDate < today) return {};
+    return {
+      error: 'Cannot delete a tournament before its end date. Set the end date to a past date first, then delete.',
+      errorCode: 'ERR_TOURNAMENT_NOT_ENDED',
+    };
+  }
+
+  private async recordDeletionSafely({
+    auditService,
+    tournamentId,
+    existingRecord,
+    user,
+  }: {
+    auditService?: any;
+    tournamentId: string;
+    existingRecord: any;
+    user?: any;
+  }): Promise<void> {
+    if (!auditService?.recordDeletion) return;
+    try {
+      await auditService.recordDeletion({
+        tournamentId,
+        tournamentName: existingRecord?.tournamentName,
+        providerId: existingRecord?.parentOrganisation?.organisationId,
+        userId: user?.userId,
+        userEmail: user?.email,
+      });
+    } catch {
+      // Audit failure is non-blocking.
+    }
   }
 
   // --- Calendar side-effect helpers ---
@@ -168,27 +216,47 @@ export class TournamentStorageService {
     if (providerResult.error) return providerResult;
 
     const { provider, tournaments } = providerResult;
-    let updatedEntries = tournaments;
     const calendarEntry = getCalendarEntry({ tournamentRecord });
+    if (!calendarEntry) return this.updateCalendar({ provider, tournaments });
 
-    if (calendarEntry) {
-      let modified = false;
-      const modifiedTournaments = tournaments.map((entry) => {
-        if (entry.tournamentId === calendarEntry.tournamentId) {
-          modified = true;
-          return calendarEntry;
-        }
-        return entry;
+    const exists = tournaments.some((entry) => entry.tournamentId === calendarEntry.tournamentId);
+    const updatedEntries = exists
+      ? tournaments.map((entry) => (entry.tournamentId === calendarEntry.tournamentId ? calendarEntry : entry))
+      : [...tournaments, calendarEntry];
+
+    // First time this tournament appears in THIS provider's calendar (create or
+    // provider move): detach it from any OTHER provider's calendar so a moved
+    // tournament never lingers under its source provider (incident 2026-05-23).
+    if (!exists) {
+      await this.detachFromOtherCalendars({
+        tournamentId: calendarEntry.tournamentId,
+        keepAbbr: provider?.organisationAbbreviation,
       });
-
-      if (modified) {
-        updatedEntries = modifiedTournaments;
-      } else {
-        updatedEntries.push(calendarEntry);
-      }
     }
 
     return this.updateCalendar({ provider, tournaments: updatedEntries });
+  }
+
+  /**
+   * Remove a tournament from every provider calendar except `keepAbbr`, enforcing
+   * the invariant that a tournament lives in exactly one provider's calendar —
+   * its current parentOrganisation provider.
+   */
+  private async detachFromOtherCalendars({
+    tournamentId,
+    keepAbbr,
+  }: {
+    tournamentId: string;
+    keepAbbr?: string;
+  }): Promise<void> {
+    const calendars = await this.calendarStorage.listCalendars();
+    for (const { key, value } of calendars) {
+      if (key === keepAbbr) continue;
+      const entries: any[] = value?.tournaments ?? [];
+      if (!entries.some((entry) => entry.tournamentId === tournamentId)) continue;
+      const filtered = entries.filter((entry) => entry.tournamentId !== tournamentId);
+      await this.calendarStorage.setCalendar(key, { provider: value.provider, tournaments: filtered });
+    }
   }
 
   async removeFromCalendar({ providerId, tournamentId }: { providerId: string; tournamentId: string }) {

@@ -92,6 +92,33 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     return { ...SUCCESS, removed: result.rowCount ?? 0 };
   }
 
+  async archiveTournamentRecord({
+    tournamentRecord,
+    deletedByUserId,
+    deletedByEmail,
+  }: {
+    tournamentRecord: any;
+    deletedByUserId?: string;
+    deletedByEmail?: string;
+  }) {
+    const key = tournamentRecord?.tournamentId;
+    if (!key) return { error: 'Invalid tournamentRecord' };
+
+    const providerId = tournamentRecord.parentOrganisation?.organisationId ?? null;
+    const tournamentName = tournamentRecord.tournamentName ?? null;
+    const startDate = tournamentRecord.startDate ?? null;
+    const endDate = tournamentRecord.endDate ?? null;
+
+    await this.pool.query(
+      `INSERT INTO deleted_tournaments
+         (tournament_id, provider_id, tournament_name, start_date, end_date, data, deleted_by_user_id, deleted_by_email)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [key, providerId, tournamentName, startDate, endDate, JSON.stringify(tournamentRecord), deletedByUserId ?? null, deletedByEmail ?? null],
+    );
+
+    return { ...SUCCESS };
+  }
+
   async listTournamentIds(): Promise<string[]> {
     const result = await this.pool.query('SELECT tournament_id FROM tournaments ORDER BY tournament_id');
     return result.rows.map((row) => row.tournament_id);
