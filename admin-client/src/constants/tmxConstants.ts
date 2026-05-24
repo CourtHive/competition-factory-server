@@ -16,6 +16,12 @@ export const TMX_DRAWER = 'tmxDrawer';
 export const SUPER_ADMIN = 'superadmin';
 export const ADMIN = 'admin';
 export const PROVISIONER = 'provisioner';
+// Provider-scoped role (from user_providers.provider_role, in the JWT's
+// providerAssociations). Distinct from the deprecated global `admin` role.
+export const PROVIDER_ADMIN = 'PROVIDER_ADMIN';
+
+// Routes
+export const NO_ACCESS_ROUTE = 'no-access';
 
 // System page tabs
 export const SYSTEM = 'system';

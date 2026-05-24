@@ -20,6 +20,17 @@ export interface LoginState {
   provider?: ProviderValue;
   providerId?: string;
   providerIds?: string[];
+  /**
+   * Multi-provider associations from `user_providers` (present in the JWT).
+   * Used to grant admin-console access to provider admins without relying on
+   * the deprecated global `admin` role.
+   */
+  providerAssociations?: Array<{
+    providerId: string;
+    providerRole: string;
+    organisationName: string;
+    organisationAbbreviation: string;
+  }>;
   /** Verified contact email (B2). Distinct from `email` (login id). */
   contactEmail?: string | null;
   /** ISO timestamp when contactEmail was verified; null until the user clicks the link. */

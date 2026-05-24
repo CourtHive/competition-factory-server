@@ -6,7 +6,9 @@ import { renderContactEmailBanner } from 'components/banners/contactEmailBanner'
 import { renderResetPassword } from 'pages/resetPassword/renderResetPassword';
 import { renderVerifyEmail } from 'pages/verifyEmail/renderVerifyEmail';
 import { renderSystemPage } from 'pages/system/renderSystemPage';
+import { renderNoAccess } from 'pages/noAccess/renderNoAccess';
 import { renderAdminPage } from 'pages/admin/renderAdminPage';
+import { canAccessAdmin } from 'services/authentication/adminAccess';
 import { renderSyncPage } from 'pages/sync/renderSyncPage';
 import { renderTemplatesPage } from 'pages/templates/renderTemplatesPage';
 import { renderPoliciesPage } from 'pages/policies/renderPoliciesPage';
@@ -15,7 +17,7 @@ import { updateNavVisibility } from 'services/navigation/navVisibility';
 import { context } from 'services/context';
 import Navigo from 'navigo';
 
-import { SUPER_ADMIN, PROVISIONER, SYSTEM, PROVISIONER_ROUTE, SANCTIONING, SYNC, TEMPLATES, POLICIES, VERIFY_EMAIL, RESET_PASSWORD } from 'constants/tmxConstants';
+import { SUPER_ADMIN, PROVISIONER, SYSTEM, PROVISIONER_ROUTE, SANCTIONING, SYNC, TEMPLATES, POLICIES, VERIFY_EMAIL, RESET_PASSWORD, NO_ACCESS_ROUTE } from 'constants/tmxConstants';
 
 export function routeAdmin(): void {
   const router = new Navigo('/', { hash: true });
@@ -64,7 +66,18 @@ export function routeAdmin(): void {
   });
 
   router.on('/admin', () => {
+    const state = getLoginState();
+    if (!canAccessAdmin(state)) {
+      router.navigate(`/${NO_ACCESS_ROUTE}`);
+      return;
+    }
     renderAdminPage();
+  });
+
+  // Logged-in users with no admin-console access land here instead of being
+  // silently dropped into /admin.
+  router.on(`/${NO_ACCESS_ROUTE}`, () => {
+    renderNoAccess();
   });
 
   // Provisioner workspace (PROVISIONER role + super-admin oversight)
@@ -146,8 +159,10 @@ export function routeAdmin(): void {
       router.navigate(`/${SYSTEM}`);
     } else if (state?.roles?.includes(PROVISIONER)) {
       router.navigate(`/${PROVISIONER_ROUTE}`);
-    } else {
+    } else if (canAccessAdmin(state)) {
       router.navigate('/admin');
+    } else {
+      router.navigate(`/${NO_ACCESS_ROUTE}`);
     }
   });
 
