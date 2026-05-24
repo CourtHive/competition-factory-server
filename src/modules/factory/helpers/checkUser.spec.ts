@@ -32,4 +32,29 @@ describe('checkUser', () => {
   it('returns false for user with empty providerIds', () => {
     expect(checkUser({ user: { roles: ['client'], providerIds: [] } })).toBe(false);
   });
+
+  // Multi-provider era: association lives in user_providers → userContext,
+  // not on the legacy JWT providerId. Regression guard for the BOBOCA
+  // DIRECTOR (empty users.provider_id) who got "Tournament not found".
+  it('returns true for a multi-provider user via userContext.providerIds (empty legacy provider)', () => {
+    expect(
+      checkUser({ user: { roles: ['client', 'director'] }, userContext: { providerIds: ['boboca'] } as any }),
+    ).toBe(true);
+  });
+
+  it('returns true for userContext.isSuperAdmin', () => {
+    expect(checkUser({ user: { roles: ['client'] }, userContext: { isSuperAdmin: true } as any })).toBe(true);
+  });
+
+  it('returns true for a provisioner-inherited provider via userContext.provisionerProviderIds', () => {
+    expect(
+      checkUser({ user: { roles: ['client'] }, userContext: { provisionerProviderIds: ['p1'] } as any }),
+    ).toBe(true);
+  });
+
+  it('returns false when userContext has no providers and legacy fields are empty', () => {
+    expect(
+      checkUser({ user: { roles: ['client'] }, userContext: { providerIds: [], provisionerProviderIds: [] } as any }),
+    ).toBe(false);
+  });
 });
