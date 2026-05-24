@@ -65,7 +65,7 @@ export class FactoryService {
   }
 
   async fetchTournamentRecords(params, user, userContext?: UserContext) {
-    const validUser = checkUser({ user }); // don't attempt fetch if user is not allowed
+    const validUser = checkUser({ user, userContext }); // don't attempt fetch if user is not allowed
     if (!validUser) return { error: 'Invalid user' };
     const result: any = await this.tournamentStorageService.fetchTournamentRecords(params);
     if (result.error) return result;
@@ -88,7 +88,7 @@ export class FactoryService {
   }
 
   async generateTournamentRecord(params, user, userContext?: UserContext) {
-    const validUser = checkUser({ user });
+    const validUser = checkUser({ user, userContext });
     if (!validUser) return { error: 'Invalid user' };
     const { tournamentRecord, tournamentRecords } = await gen(params, user);
     const userId = userContext?.userId;
@@ -116,7 +116,7 @@ export class FactoryService {
   }
 
   async saveTournamentRecords(params, user, userContext?: UserContext) {
-    const validUser = checkUser({ user });
+    const validUser = checkUser({ user, userContext });
     if (!validUser) return { error: 'Invalid user' };
     const tournamentRecords = getTournamentRecords(params);
     const allowUser = checkProvider({ tournamentRecords, user, userContext });
