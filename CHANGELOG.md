@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.5.1](https://github.com/CourtHive/competition-factory-server/compare/v2.5.0...v2.5.1) (2026-05-24)
+
+
+### Bug Fixes
+
+* **admin-client:** keep unauthenticated /admin landing; add e2e role-routing ([6000519](https://github.com/CourtHive/competition-factory-server/commit/60005195310a511292125d4eca9d968b664fef96))
+* **admin-client:** keep unauthenticated /admin landing; add e2e role-routing matrix ([8ce1958](https://github.com/CourtHive/competition-factory-server/commit/8ce195867b8e5487ce61c0dce1e0b98a8a562a36))
+
 ## [2.5.0](https://github.com/CourtHive/competition-factory-server/compare/v2.4.0...v2.5.0) (2026-05-24)
 
 
