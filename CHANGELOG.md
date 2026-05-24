@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.2](https://github.com/CourtHive/competition-factory-server/compare/v2.5.1...v2.5.2) (2026-05-24)
+
+
+### Bug Fixes
+
+* **admin:** dark-mode delete modal + drive footer buttons via cModal setButtonState ([364abda](https://github.com/CourtHive/competition-factory-server/commit/364abda4c570d97b0ed6197698e95c8dc6734079))
+
 ## [2.5.1](https://github.com/CourtHive/competition-factory-server/compare/v2.5.0...v2.5.1) (2026-05-24)
 
 
