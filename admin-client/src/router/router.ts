@@ -67,7 +67,11 @@ export function routeAdmin(): void {
 
   router.on('/admin', () => {
     const state = getLoginState();
-    if (!canAccessAdmin(state)) {
+    // Only bounce a logged-IN user who lacks access. An unauthenticated visit
+    // falls through to the admin shell (pre-existing behavior — the login
+    // affordance lives in the navbar), so we don't show "No admin access" to
+    // someone who simply hasn't logged in yet.
+    if (state && !canAccessAdmin(state)) {
       router.navigate(`/${NO_ACCESS_ROUTE}`);
       return;
     }
@@ -159,7 +163,9 @@ export function routeAdmin(): void {
       router.navigate(`/${SYSTEM}`);
     } else if (state?.roles?.includes(PROVISIONER)) {
       router.navigate(`/${PROVISIONER_ROUTE}`);
-    } else if (canAccessAdmin(state)) {
+    } else if (!state || canAccessAdmin(state)) {
+      // `!state` = not logged in: keep the pre-existing admin-shell landing
+      // (login lives in the navbar). Logged-in admins also land on /admin.
       router.navigate('/admin');
     } else {
       router.navigate(`/${NO_ACCESS_ROUTE}`);
