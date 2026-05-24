@@ -533,20 +533,22 @@ export function renderProvisionersPanel({ container, providers }: RenderProvisio
     confirmInput.style.cssText = 'width: 100%;';
     wrap.appendChild(confirmInput);
 
+    let modalHandle: any;
+
     const content = (elem: HTMLElement) => {
       elem.appendChild(wrap);
-      // Disable the destructive button until the typed name matches exactly.
-      setTimeout(() => {
-        const deleteBtn = document.getElementById('confirmDeleteProvisioner') as HTMLButtonElement | null;
-        if (deleteBtn) deleteBtn.disabled = true;
-        confirmInput.addEventListener('input', () => {
-          if (deleteBtn) deleteBtn.disabled = confirmInput.value !== provisioner.name;
+      // Gate the destructive button until the typed name matches exactly, via
+      // cModal's setButtonState — no DOM querying of the footer. The button
+      // starts disabled from its config below.
+      confirmInput.addEventListener('input', () => {
+        modalHandle?.setButtonState('confirmDeleteProvisioner', {
+          disabled: confirmInput.value !== provisioner.name,
         });
-        confirmInput.focus();
-      }, 0);
+      });
+      setTimeout(() => confirmInput.focus(), 0);
     };
 
-    openModal({
+    modalHandle = openModal({
       title: t('system.deleteProvisioner'),
       content,
       buttons: [

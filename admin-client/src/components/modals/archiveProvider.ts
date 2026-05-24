@@ -71,6 +71,15 @@ export function archiveProviderModal({
   callback?: () => void;
 }): void {
   let preview: Preview | undefined;
+  let modalHandle: any;
+  let confirmInput: HTMLInputElement | null = null;
+
+  // Gate the footer submit button as the user types via cModal's own
+  // setButtonState API — no DOM querying, no footer rebuild. The button's
+  // click handler is passed into cModal in the buttons config below.
+  const updateEnabled = () => {
+    modalHandle?.setButtonState('archiveProviderSubmit', { disabled: confirmInput?.value !== providerAbbr });
+  };
 
   const content = (elem: HTMLElement) => {
     elem.innerHTML = `
@@ -88,11 +97,8 @@ export function archiveProviderModal({
              style="width:100%;padding:8px;border:1px solid var(--tmx-border-primary,#ddd);border-radius:4px;font-family:monospace;" />
     `;
 
-    const confirmInput = elem.querySelector<HTMLInputElement>('#archiveConfirmInput');
-    const submitBtn = document.getElementById('archiveProviderSubmit') as HTMLButtonElement | null;
-    confirmInput?.addEventListener('input', () => {
-      if (submitBtn) submitBtn.disabled = confirmInput.value !== providerAbbr;
-    });
+    confirmInput = elem.querySelector<HTMLInputElement>('#archiveConfirmInput');
+    confirmInput?.addEventListener('input', updateEnabled);
 
     previewArchiveProvider({ providerId }).then(
       (res: any) => {
@@ -112,8 +118,7 @@ export function archiveProviderModal({
   };
 
   const onSubmit = () => {
-    const input = document.getElementById('archiveConfirmInput') as HTMLInputElement | null;
-    const confirm = input?.value ?? '';
+    const confirm = confirmInput?.value ?? '';
     if (confirm !== providerAbbr) return;
     archiveProvider({ providerId, confirm }).then(
       (res: any) => {
@@ -135,7 +140,7 @@ export function archiveProviderModal({
     );
   };
 
-  openModal({
+  modalHandle = openModal({
     title: t('modals.archiveProvider.title', { provider: providerName }),
     content,
     buttons: [

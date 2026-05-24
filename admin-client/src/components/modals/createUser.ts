@@ -39,6 +39,7 @@ export function createUserModal(callback, providers = [], selectedProviderId?: s
     value: key,
   }));
   let inputs;
+  let modalHandle: any;
 
   const values = {
     providerId: effectiveProviderId,
@@ -53,8 +54,7 @@ export function createUserModal(callback, providers = [], selectedProviderId?: s
   const enableSubmit = ({ inputs }) => {
     const value = inputs['email'].value;
     const isValid = validators.emailValidator(value);
-    const createButton: any = document.getElementById('createUser');
-    if (createButton) createButton.disabled = !isValid;
+    modalHandle?.setButtonState('createUser', { disabled: !isValid });
   };
 
   const relationships = [
@@ -288,7 +288,7 @@ export function createUserModal(callback, providers = [], selectedProviderId?: s
     });
   };
 
-  openModal({
+  modalHandle = openModal({
     title: t('modals.createUser.title'),
     content,
     buttons: [

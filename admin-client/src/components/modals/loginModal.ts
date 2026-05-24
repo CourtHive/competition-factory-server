@@ -13,17 +13,17 @@ import { forgotPasswordModal } from './forgotPassword';
 import { logIn, logOut } from 'services/authentication/loginState';
 import { renderForm, validators } from 'courthive-components';
 import { systemLogin } from 'services/authentication/authApi';
-import { openModal } from './baseModal/baseModal';
+import { closeModal, openModal } from './baseModal/baseModal';
 import { t } from 'i18n';
 
 export function loginModal(callback?: () => void): void {
   let inputs: any;
+  let modalHandle: any;
 
   const enableSubmit = ({ inputs }: any) => {
     const value = inputs['email'].value;
     const isValid = validators.emailValidator(value);
-    const loginButton = document.getElementById('loginButton');
-    if (loginButton) (loginButton as HTMLButtonElement).disabled = !isValid;
+    modalHandle?.setButtonState('loginButton', { disabled: !isValid });
   };
 
   const relationships = [
@@ -71,8 +71,7 @@ export function loginModal(callback?: () => void): void {
     forgotLink.addEventListener('click', (e) => {
       e.preventDefault();
       // Close the login modal first so the two don't stack visually.
-      const loginButton = document.getElementById('loginButton') as HTMLButtonElement | null;
-      loginButton?.closest('.modal')?.classList.remove('is-active');
+      closeModal();
       forgotPasswordModal();
     });
     elem.appendChild(forgotLink);
@@ -95,7 +94,7 @@ export function loginModal(callback?: () => void): void {
     systemLogin(email, password).then(response, (err: any) => console.log({ err }));
   };
 
-  openModal({
+  modalHandle = openModal({
     title: t('modals.login.title'),
     content,
     buttons: [

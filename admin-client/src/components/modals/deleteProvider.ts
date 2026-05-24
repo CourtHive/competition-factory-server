@@ -56,6 +56,18 @@ export function deleteProviderModal({
   providerName: string;
   callback?: () => void;
 }): void {
+  let modalHandle: any;
+  let confirmInput: HTMLInputElement | null = null;
+  let ackCheckbox: HTMLInputElement | null = null;
+
+  // Gate the footer submit button as the user types via cModal's own
+  // setButtonState API — no DOM querying, no footer rebuild. The button's
+  // click handler is passed into cModal in the buttons config below.
+  const updateEnabled = () => {
+    const enabled = confirmInput?.value === providerAbbr && ackCheckbox?.checked;
+    modalHandle?.setButtonState('deleteProviderSubmit', { disabled: !enabled });
+  };
+
   const content = (elem: HTMLElement) => {
     elem.innerHTML = `
       <div style="background:var(--tmx-status-error-bg,#fef2f2);border-left:4px solid var(--tmx-status-error,#dc2626);padding:10px 12px;margin-bottom:12px;border-radius:4px;font-size:0.9rem;">
@@ -82,14 +94,8 @@ export function deleteProviderModal({
       </label>
     `;
 
-    const confirmInput = elem.querySelector<HTMLInputElement>('#deleteConfirmInput');
-    const ackCheckbox = elem.querySelector<HTMLInputElement>('#deleteAckCheckbox');
-    const submitBtn = document.getElementById('deleteProviderSubmit') as HTMLButtonElement | null;
-
-    const updateEnabled = () => {
-      if (!submitBtn) return;
-      submitBtn.disabled = !(confirmInput?.value === providerAbbr && ackCheckbox?.checked);
-    };
+    confirmInput = elem.querySelector<HTMLInputElement>('#deleteConfirmInput');
+    ackCheckbox = elem.querySelector<HTMLInputElement>('#deleteAckCheckbox');
     confirmInput?.addEventListener('input', updateEnabled);
     ackCheckbox?.addEventListener('change', updateEnabled);
 
@@ -110,8 +116,7 @@ export function deleteProviderModal({
   };
 
   const onSubmit = () => {
-    const input = document.getElementById('deleteConfirmInput') as HTMLInputElement | null;
-    const confirm = input?.value ?? '';
+    const confirm = confirmInput?.value ?? '';
     if (confirm !== providerAbbr) return;
     deleteProviderPermanently({ providerId, confirm }).then(
       (res: any) => {
@@ -132,7 +137,7 @@ export function deleteProviderModal({
     );
   };
 
-  openModal({
+  modalHandle = openModal({
     title: t('modals.deleteProvider.title', { provider: providerName }),
     content,
     buttons: [

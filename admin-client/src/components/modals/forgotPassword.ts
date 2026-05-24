@@ -17,12 +17,12 @@ import { t } from 'i18n';
 
 export function forgotPasswordModal(): void {
   let inputs: any;
+  let modalHandle: any;
 
   const enableSubmit = ({ inputs }: any) => {
     const value = inputs?.contactEmail?.value ?? '';
     const isValid = validators.emailValidator(value);
-    const submitBtn = document.getElementById('forgotPasswordSubmit') as HTMLButtonElement | null;
-    if (submitBtn) submitBtn.disabled = !isValid;
+    modalHandle?.setButtonState('forgotPasswordSubmit', { disabled: !isValid });
   };
 
   const relationships = [{ onInput: enableSubmit, control: 'contactEmail' }];
@@ -68,7 +68,7 @@ export function forgotPasswordModal(): void {
     );
   };
 
-  openModal({
+  modalHandle = openModal({
     title: t('modals.forgotPassword.title'),
     content,
     buttons: [

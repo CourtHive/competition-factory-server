@@ -21,6 +21,7 @@ type ContactEmailState = {
 
 export function contactEmailModal(onClose?: () => void): void {
   let inputs: any;
+  let modalHandle: any;
   let liveState: ContactEmailState = {};
 
   const renderStatus = (statusEl: HTMLElement, state: ContactEmailState) => {
@@ -43,15 +44,13 @@ export function contactEmailModal(onClose?: () => void): void {
   const enableSubmit = ({ inputs }: any) => {
     const value = inputs?.contactEmail?.value ?? '';
     const isValid = validators.emailValidator(value);
-    const saveBtn = document.getElementById('contactEmailSave') as HTMLButtonElement | null;
-    if (saveBtn) saveBtn.disabled = !isValid;
+    modalHandle?.setButtonState('contactEmailSave', { disabled: !isValid });
     // Resend button is enabled only when there's a pending (unverified)
     // address on the LIVE state — typing a new address doesn't enable
     // resend because that would resend the OLD pending address.
-    const resendBtn = document.getElementById('contactEmailResend') as HTMLButtonElement | null;
-    if (resendBtn) {
-      resendBtn.disabled = !liveState.contactEmail || Boolean(liveState.emailVerifiedAt);
-    }
+    modalHandle?.setButtonState('contactEmailResend', {
+      disabled: !liveState.contactEmail || Boolean(liveState.emailVerifiedAt),
+    });
   };
 
   const relationships = [{ onInput: enableSubmit, control: 'contactEmail' }];
@@ -138,7 +137,7 @@ export function contactEmailModal(onClose?: () => void): void {
     );
   };
 
-  openModal({
+  modalHandle = openModal({
     title: t('modals.contactEmail.title'),
     content,
     onClose,
