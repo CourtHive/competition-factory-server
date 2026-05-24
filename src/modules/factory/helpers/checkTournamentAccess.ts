@@ -96,6 +96,43 @@ export function canMutateTournament(
 }
 
 /**
+ * Can this user DELETE this tournament?
+ *
+ * Deliberately NOT gated by ENABLE_TOURNAMENT_ACCESS_SCOPING: deletion is
+ * destructive and must always be bound to the tournament's owning provider,
+ * even while the broader view/mutate scoping is still being rolled out. A
+ * global `deleteTournament` permission grants the *capability* to delete but
+ * never widens *scope* across providers — that decision lives here.
+ *
+ * Allowed when the user is SUPER_ADMIN, a provisioner-owner of the
+ * tournament's provider, PROVIDER_ADMIN at that provider, or a provider member
+ * (e.g. DIRECTOR) who created or was assigned the tournament. Tournaments with
+ * no provider, or callers with no userContext, are denied (fail closed).
+ */
+export function canDeleteTournament(
+  tournament: any,
+  userContext: UserContext | undefined,
+  assignedTournamentIds: Set<string> = new Set(),
+): boolean {
+  if (!userContext) return false;
+  if (userContext.isSuperAdmin) return true;
+
+  const providerId = getTournamentProviderId(tournament);
+  if (!providerId) return false; // No owning provider → only SUPER_ADMIN may delete.
+
+  if (userContext.provisionerProviderIds?.includes(providerId)) return true;
+
+  const roleAtProvider = userContext.providerRoles[providerId];
+  if (!roleAtProvider) return false; // No association with the owning provider.
+  if (roleAtProvider === PROVIDER_ADMIN) return true;
+
+  // Non-admin provider role (e.g. DIRECTOR): only own or assigned tournaments.
+  const createdBy = getCreatedByUserId(tournament);
+  if (createdBy && createdBy === userContext.userId) return true;
+  return tournament?.tournamentId ? assignedTournamentIds.has(tournament.tournamentId) : false;
+}
+
+/**
  * Filter a list of tournament calendar entries to only those the user can see.
  *
  * Each entry must have at minimum `{ tournamentId, providerId }` and

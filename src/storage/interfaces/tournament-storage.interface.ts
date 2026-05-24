@@ -22,5 +22,16 @@ export interface ITournamentStorage {
     tournamentId?: string;
   }): Promise<{ success?: boolean; removed?: number; error?: string }>;
 
+  /**
+   * Archive a full tournament record before deletion so the delete is
+   * recoverable. Must succeed before `removeTournamentRecords` runs — callers
+   * treat a failed archive as a hard stop on the delete.
+   */
+  archiveTournamentRecord(params: {
+    tournamentRecord: any;
+    deletedByUserId?: string;
+    deletedByEmail?: string;
+  }): Promise<{ success?: boolean; error?: string }>;
+
   listTournamentIds(): Promise<string[]>;
 }
