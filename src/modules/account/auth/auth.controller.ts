@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, Req } from '@nestjs/common';
 import { UserCtx, type UserContext } from './decorators/user-context.decorator';
 import { AdminCreateUserDto } from './dto/adminCreateUser.dto';
 import { ForgotPasswordDto } from './dto/forgotPassword.dto';
@@ -30,8 +30,31 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  signIn(@Body() signIn: SignInDto) {
-    return this.authService.signIn(signIn.email, signIn.password);
+  signIn(@Body() signIn: SignInDto, @Req() req?: any) {
+    return this.authService.signIn(signIn.email, signIn.password, req?.headers?.['user-agent']);
+  }
+
+  /**
+   * Exchange a rotating refresh token for a fresh access token (+ rotated
+   * refresh token). TMX calls this transparently when the access token nears
+   * expiry or a request 401s. Public: the refresh token is the credential.
+   */
+  @Public()
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  refresh(@Body() body: { refreshToken: string }, @Req() req?: any) {
+    return this.authService.refreshSession(body?.refreshToken ?? '', req?.headers?.['user-agent']);
+  }
+
+  /**
+   * Revoke a refresh token (logout). Idempotent; always returns success so the
+   * client can clear local state regardless. Public: the token is the credential.
+   */
+  @Public()
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  logout(@Body() body: { refreshToken: string }) {
+    return this.authService.logout(body?.refreshToken ?? '');
   }
 
   @Post('admin-create-user')

@@ -26,11 +26,20 @@ import {
 } from 'src/storage/interfaces';
 import { assertProviderEditor } from './helpers/assertProviderEditor';
 import { buildUserContext } from './helpers/buildUserContext';
+import { RefreshTokenService } from './refresh-token.service';
 import type { UserContext } from './decorators/user-context.decorator';
 
 const PASSWORD_RESET_TOKEN_TTL = '1h';
 const ADMIN_ONBOARD_TOKEN_TTL = '7d';
 const PASSWORD_RESET_PURPOSE = 'password-reset';
+
+// Access-token (session JWT) lifetime. Short because TMX silently refreshes it
+// via POST /auth/refresh using a long-lived rotating refresh token. 4h is a
+// deliberate balance: long enough that a brief refresh failure on flaky
+// tournament wifi doesn't immediately log officials out, short enough to bound
+// the window of a leaked access token. See RefreshTokenService for the refresh
+// side. Both the password-login path (signIn) and SSO handoff use this value.
+const ACCESS_TOKEN_TTL = '4h';
 
 // Conservative RFC-shaped email check — same regex as the migration backfill
 // and IdentityService. Used to decide whether an admin-supplied contact_email
@@ -73,6 +82,7 @@ export class AuthService {
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
     @Inject(PROVISIONER_PROVIDER_STORAGE)
     private readonly provisionerProviderStorage: IProvisionerProviderStorage,
+    private readonly refreshTokenService: RefreshTokenService,
   ) {}
 
   /**
@@ -121,7 +131,7 @@ export class AuthService {
     return `${base}/admin/#/reset-password/${token}`;
   }
 
-  async signIn(email: string, clearTextPassword: string) {
+  async signIn(email: string, clearTextPassword: string, userAgent?: string) {
     if (!email) throw new UnauthorizedException();
     const user = await this.usersService.findOne(email);
 
@@ -130,9 +140,8 @@ export class AuthService {
       throw new UnauthorizedException('This account uses SSO login. Please log in through your organization.');
     }
 
-    const { password, ...userDetails } = user ?? {};
     const passwordMatch =
-      user && (password === clearTextPassword || (await bcrypt.compare(clearTextPassword, user?.password)));
+      user && (user.password === clearTextPassword || (await bcrypt.compare(clearTextPassword, user?.password)));
     if (!passwordMatch) throw new UnauthorizedException();
 
     // Admin-assigned passwords gate into a forced-change flow before a
@@ -145,6 +154,23 @@ export class AuthService {
       );
       return { mustChangePassword: true, limitedToken };
     }
+
+    const userDetails = await this.buildSessionPayload(user);
+    return this.issueSession(userDetails, userAgent);
+  }
+
+  /**
+   * Build the enriched, password-stripped JWT payload for a fully
+   * authenticated user — provider config, provisioner context, and
+   * multi-provider associations — and record last-access as a side effect.
+   *
+   * Shared by signIn and refreshSession so that a silently-refreshed access
+   * token carries exactly the same claims as the one minted at login.
+   */
+  private async buildSessionPayload(user: any): Promise<any> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...userDetails } = user ?? {};
+    const email = user.email;
 
     if (user.providerId) {
       const provider = await this.providerStorage.getProvider(user.providerId);
@@ -225,9 +251,52 @@ export class AuthService {
       }
     }
 
-    const payload = userDetails;
-    const token = await this.jwtService.signAsync(payload, { expiresIn: '1d' });
-    return { token };
+    return userDetails;
+  }
+
+  /**
+   * Mint an access token (short-lived JWT) plus a long-lived rotating refresh
+   * token for an already-built session payload. The refresh token's plaintext
+   * is returned to the client exactly once; only its hash is persisted.
+   */
+  private async issueSession(
+    userDetails: any,
+    userAgent?: string,
+  ): Promise<{ token: string; refreshToken: string }> {
+    const token = await this.jwtService.signAsync(userDetails, { expiresIn: ACCESS_TOKEN_TTL });
+    const userId = userDetails.userId ?? userDetails.user_id ?? userDetails.email;
+    const refreshToken = await this.refreshTokenService.issue(userId, userDetails.email, userAgent);
+    return { token, refreshToken };
+  }
+
+  /**
+   * Exchange a valid refresh token for a fresh access token + rotated refresh
+   * token. The presented refresh token is consumed (rotated) by
+   * RefreshTokenService; reuse of an already-rotated token revokes the whole
+   * family. The owning user is reloaded so the new access token reflects any
+   * role/association changes since login. Public endpoint: the refresh token
+   * is the credential.
+   */
+  async refreshSession(
+    presentedRefreshToken: string,
+    userAgent?: string,
+  ): Promise<{ token: string; refreshToken: string }> {
+    const rotated = await this.refreshTokenService.rotate(presentedRefreshToken, userAgent);
+    const user = await this.usersService.findOne(rotated.email);
+    if (!user) throw new UnauthorizedException();
+    const userDetails = await this.buildSessionPayload(user);
+    const token = await this.jwtService.signAsync(userDetails, { expiresIn: ACCESS_TOKEN_TTL });
+    return { token, refreshToken: rotated.refreshToken };
+  }
+
+  /**
+   * Revoke a presented refresh token (logout). Idempotent — always returns
+   * SUCCESS so a client can clear local state without leaking whether the
+   * token was known.
+   */
+  async logout(presentedRefreshToken: string) {
+    await this.refreshTokenService.revoke(presentedRefreshToken);
+    return { ...SUCCESS };
   }
 
   /**
@@ -400,6 +469,12 @@ export class AuthService {
 
     const hashed = await hashPassword(newPassword);
     await this.userStorage.setPasswordByUserId(user.userId, hashed);
+
+    // A password reset invalidates every existing session: kill all refresh
+    // tokens so a leaked/forgotten credential can't keep a session alive.
+    this.refreshTokenService.revokeAllForUser(user.userId).catch((err: any) => {
+      Logger.warn(`revokeAllForUser(${user.userId}) after reset failed: ${err?.message ?? err}`, AuthService.name);
+    });
 
     // Admin-onboard piggyback: a user who just clicked an email link and
     // set their password has proven they control the contact_email. If
@@ -672,6 +747,14 @@ export class AuthService {
     const password = newPassword || createUniqueKey().slice(0, 12);
     user.password = await hashPassword(password);
     await this.userStorage.update(email, user);
+
+    // Admin reset invalidates the target's existing sessions.
+    const targetUserId = user.userId ?? user.user_id;
+    if (targetUserId) {
+      this.refreshTokenService.revokeAllForUser(targetUserId).catch((err: any) => {
+        Logger.warn(`revokeAllForUser(${targetUserId}) after admin reset failed: ${err?.message ?? err}`, AuthService.name);
+      });
+    }
     return { ...SUCCESS, password };
   }
 

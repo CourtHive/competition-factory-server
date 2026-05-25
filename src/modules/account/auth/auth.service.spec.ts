@@ -13,6 +13,7 @@ describe('AuthService', () => {
   let mockUserStorage: any;
   let mockUserProviderStorage: any;
   let mockProvisionerProviderStorage: any;
+  let mockRefreshTokenService: any;
 
   beforeEach(() => {
     jwtService = new JwtService({ secret: 'test-secret' });
@@ -75,6 +76,13 @@ describe('AuthService', () => {
       disassociate: jest.fn(),
     };
 
+    mockRefreshTokenService = {
+      issue: jest.fn().mockResolvedValue('rtok_test'),
+      rotate: jest.fn(),
+      revoke: jest.fn().mockResolvedValue(undefined),
+      revokeAllForUser: jest.fn().mockResolvedValue(undefined),
+    };
+
     authService = new AuthService(
       mockUsersService,
       jwtService,
@@ -85,6 +93,7 @@ describe('AuthService', () => {
       mockUserProvisionerStorage as any,
       mockUserProviderStorage,
       mockProvisionerProviderStorage,
+      mockRefreshTokenService as any,
     );
   });
 
@@ -156,7 +165,7 @@ describe('AuthService', () => {
 
     it('returns token for valid cleartext password match', async () => {
       mockUsersService.findOne.mockResolvedValue({ email: 'test@test.com', password: 'secret', roles: ['client'] });
-      const result = await authService.signIn('test@test.com', 'secret');
+      const result: any = await authService.signIn('test@test.com', 'secret');
       expect(result.token).toBeDefined();
       expect(typeof result.token).toBe('string');
     });
@@ -164,7 +173,7 @@ describe('AuthService', () => {
     it('returns token for valid bcrypt password match', async () => {
       const hashed = await bcrypt.hash('my-password', 10);
       mockUsersService.findOne.mockResolvedValue({ email: 'test@test.com', password: hashed, roles: ['admin'] });
-      const result = await authService.signIn('test@test.com', 'my-password');
+      const result: any = await authService.signIn('test@test.com', 'my-password');
       expect(result.token).toBeDefined();
     });
 
@@ -178,7 +187,7 @@ describe('AuthService', () => {
       });
       mockProviderStorage.getProvider.mockResolvedValue(provider);
 
-      const result = await authService.signIn('admin@test.com', 'pass');
+      const result: any = await authService.signIn('admin@test.com', 'pass');
       expect(mockProviderStorage.getProvider).toHaveBeenCalledWith('p1');
       expect(result.token).toBeDefined();
     });
@@ -206,7 +215,7 @@ describe('AuthService', () => {
       mockProviderStorage.updateLastAccess.mockRejectedValueOnce(new Error('db down'));
       const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => undefined);
 
-      const result = await authService.signIn('fail@test.com', 'pass');
+      const result: any = await authService.signIn('fail@test.com', 'pass');
       // both .catch handlers run on the next microtask — flush a few times
       await Promise.resolve();
       await Promise.resolve();
@@ -935,6 +944,67 @@ describe('AuthService', () => {
       );
       const updateCall = (mockUserStorage.update as jest.Mock).mock.calls[0];
       expect(updateCall[1].password).not.toBe(hashed);
+    });
+  });
+
+  describe('session tokens (access + refresh)', () => {
+    it('signIn issues a 4h access token plus a refresh token', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-1', email: 'a@test.com', password: 'secret', roles: ['client'],
+      });
+      const result: any = await authService.signIn('a@test.com', 'secret', 'jest-agent');
+      expect(result.token).toBeDefined();
+      expect(result.refreshToken).toBe('rtok_test');
+      expect(mockRefreshTokenService.issue).toHaveBeenCalledWith('u-1', 'a@test.com', 'jest-agent');
+      const decoded: any = await jwtService.verifyAsync(result.token);
+      expect(decoded.exp - decoded.iat).toBe(4 * 60 * 60); // 4h, not the old 1d
+    });
+
+    it('refreshSession rotates the token and re-issues a 4h access token', async () => {
+      mockRefreshTokenService.rotate.mockResolvedValue({
+        userId: 'u-1', email: 'a@test.com', refreshToken: 'rtok_next',
+      });
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-1', email: 'a@test.com', password: 'x', roles: ['client'],
+      });
+      const result: any = await authService.refreshSession('rtok_old', 'jest-agent');
+      expect(mockRefreshTokenService.rotate).toHaveBeenCalledWith('rtok_old', 'jest-agent');
+      expect(result.refreshToken).toBe('rtok_next');
+      const decoded: any = await jwtService.verifyAsync(result.token);
+      expect(decoded.email).toBe('a@test.com');
+      expect(decoded.exp - decoded.iat).toBe(4 * 60 * 60);
+    });
+
+    it('refreshSession throws when the user no longer exists', async () => {
+      mockRefreshTokenService.rotate.mockResolvedValue({
+        userId: 'u-x', email: 'gone@test.com', refreshToken: 'rtok_next',
+      });
+      mockUsersService.findOne.mockResolvedValue(null);
+      await expect(authService.refreshSession('rtok_old')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('refreshSession propagates rotation rejection (reuse / expired) without loading the user', async () => {
+      mockRefreshTokenService.rotate.mockRejectedValue(new UnauthorizedException('Refresh token already used'));
+      await expect(authService.refreshSession('rtok_reused')).rejects.toThrow(UnauthorizedException);
+      expect(mockUsersService.findOne).not.toHaveBeenCalled();
+    });
+
+    it('logout revokes the presented refresh token and returns success', async () => {
+      const result: any = await authService.logout('rtok_bye');
+      expect(mockRefreshTokenService.revoke).toHaveBeenCalledWith('rtok_bye');
+      expect(result.success).toBe(true);
+    });
+
+    it('resetPassword revokes all of the user’s refresh tokens', async () => {
+      const token = await jwtService.signAsync(
+        { userId: 'u-1', contactEmail: 'alice@example.com', purpose: 'password-reset' },
+        { expiresIn: '1h' },
+      );
+      mockUserStorage.findByUserId.mockResolvedValue({
+        userId: 'u-1', contactEmail: 'alice@example.com', emailVerifiedAt: '2026-05-22T00:00:00Z',
+      });
+      await authService.resetPassword(token, 'new-password');
+      expect(mockRefreshTokenService.revokeAllForUser).toHaveBeenCalledWith('u-1');
     });
   });
 });

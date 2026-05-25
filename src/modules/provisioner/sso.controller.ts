@@ -1,5 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Logger, Post, Req, UseGuards } from '@nestjs/common';
 import { Public } from '../account/auth/decorators/public.decorator';
+import { RefreshTokenService } from '../account/auth/refresh-token.service';
 import { ProvisionerGuard } from './provisioner.guard';
 import { SsoTokenService } from './sso-token.service';
 import { JwtService } from '@nestjs/jwt';
@@ -25,6 +26,7 @@ export class SsoController {
   constructor(
     private readonly ssoTokenService: SsoTokenService,
     private readonly jwtService: JwtService,
+    private readonly refreshTokenService: RefreshTokenService,
     @Inject(SSO_IDENTITY_STORAGE) private readonly ssoIdentityStorage: ISsoIdentityStorage,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
@@ -73,7 +75,7 @@ export class SsoController {
   @Post('login-with-token')
   @Public()
   @HttpCode(HttpStatus.OK)
-  async loginWithToken(@Body() body: { token: string }) {
+  async loginWithToken(@Body() body: { token: string }, @Req() req?: any) {
     const { token } = body;
     if (!token) return { error: 'Token is required' };
 
@@ -106,12 +108,20 @@ export class SsoController {
     const userDetails = { ...user };
     delete userDetails.password;
     const jwtPayload = { ...userDetails, providerIds: userContext.providerIds, providerRoles: userContext.providerRoles };
-    // Match the direct-login session lifetime (auth.service.ts signIn uses
-    // `expiresIn: '1d'`). Without this override the SSO session inherits the
-    // JwtModule default (JWT_VALIDITY, '2h' in prod), so provisioner-handoff
-    // users silently expired hours sooner than password-login users and saw
-    // an unexpected 401 mid-session.
-    const accessToken = await this.jwtService.signAsync(jwtPayload, { expiresIn: '1d' });
+    // Match the direct-login access-token lifetime (auth.service.ts ACCESS_TOKEN_TTL).
+    // Without this override the SSO session would inherit the JwtModule default
+    // (JWT_VALIDITY, '2h' in prod). The short lifetime is fine because the
+    // refresh token below keeps the session alive silently.
+    const accessToken = await this.jwtService.signAsync(jwtPayload, { expiresIn: '4h' });
+
+    // Mint a rotating refresh token so SSO-handoff sessions refresh silently
+    // just like password logins (POST /auth/refresh) instead of forcing a new
+    // provisioner handoff every few hours.
+    const refreshToken = await this.refreshTokenService.issue(
+      userContext.userId,
+      userContext.email,
+      req?.headers?.['user-agent'],
+    );
 
     // Track last access for both user and the provider this SSO token resolved to.
     // Failures are non-fatal but visible — silent .catch() previously hid mismatches.
@@ -129,6 +139,7 @@ export class SsoController {
 
     return {
       accessToken,
+      refreshToken,
       user: {
         userId: userContext.userId,
         email: userContext.email,
