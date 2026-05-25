@@ -71,3 +71,8 @@ export {
   type IProviderArchiveStorage,
   type ProviderArchiveRow,
 } from './provider-archive-storage.interface';
+export {
+  REFRESH_TOKEN_STORAGE,
+  type IRefreshTokenStorage,
+  type RefreshTokenRow,
+} from './refresh-token-storage.interface';

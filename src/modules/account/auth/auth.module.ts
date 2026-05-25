@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthMiddleware } from './auth.middleware';
 import { AuthGuard } from './guards/auth.guard';
 import { AuthService } from './auth.service';
+import { RefreshTokenService } from './refresh-token.service';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
@@ -31,6 +32,7 @@ const expiresIn: any = rawValidity && isValidJwtExpiresIn(rawValidity) ? rawVali
   ],
   providers: [
     AuthService,
+    RefreshTokenService,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
@@ -38,7 +40,7 @@ const expiresIn: any = rawValidity && isValidJwtExpiresIn(rawValidity) ? rawVali
     ConfigService,
   ],
   controllers: [AuthController],
-  exports: [AuthService],
+  exports: [AuthService, RefreshTokenService],
 })
 export class AuthModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
