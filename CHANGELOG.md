@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.6.0](https://github.com/CourtHive/competition-factory-server/compare/v2.5.2...v2.6.0) (2026-05-25)
+
+
+### Features
+
+* **auth:** rotating refresh tokens for long-lived sessions ([4180e61](https://github.com/CourtHive/competition-factory-server/commit/4180e61b2cb07739e3c94f25690229e5666d0d6b))
+* **fonts:** host PDF font catalog + binaries for Latin-2 support ([#702](https://github.com/CourtHive/competition-factory-server/issues/702)) ([939af8a](https://github.com/CourtHive/competition-factory-server/commit/939af8adf399e53453b28d334d7767080a423948))
+
 ## [2.5.2](https://github.com/CourtHive/competition-factory-server/compare/v2.5.1...v2.5.2) (2026-05-24)
 
 
