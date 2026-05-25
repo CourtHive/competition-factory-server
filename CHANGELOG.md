@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.0](https://github.com/CourtHive/competition-factory-server/compare/v2.6.0...v2.7.0) (2026-05-25)
+
+
+### Features
+
+* **auth:** passwordless magic-link login ([142ca51](https://github.com/CourtHive/competition-factory-server/commit/142ca51bebae2dbceeae1766a1eb34158e88b3ab))
+
 ## [2.6.0](https://github.com/CourtHive/competition-factory-server/compare/v2.5.2...v2.6.0) (2026-05-25)
 
 
