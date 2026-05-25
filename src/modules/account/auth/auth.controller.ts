@@ -57,6 +57,29 @@ export class AuthController {
     return this.authService.logout(body?.refreshToken ?? '');
   }
 
+  /**
+   * Request a passwordless magic login link. Enumeration-defensive: always
+   * returns `{ ok: true }`; a link is sent only to a verified, non-SSO account.
+   * Public: the caller is by definition not authenticated.
+   */
+  @Public()
+  @Post('magic/request')
+  @HttpCode(HttpStatus.OK)
+  requestMagicLink(@Body() body: { email: string }) {
+    return this.authService.requestMagicLink(body?.email ?? '');
+  }
+
+  /**
+   * Consume a magic-link code and issue an access + refresh session. Public:
+   * the single-use code is the credential.
+   */
+  @Public()
+  @Post('magic/consume')
+  @HttpCode(HttpStatus.OK)
+  consumeMagicLink(@Body() body: { code: string }, @Req() req?: any) {
+    return this.authService.consumeMagicLink(body?.code ?? '', req?.headers?.['user-agent']);
+  }
+
   @Post('admin-create-user')
   // CLIENT is the broad gate; service-layer narrows to SUPER_ADMIN OR
   // PROVIDER_ADMIN/PROVISIONER scoped via assertProviderEditor().

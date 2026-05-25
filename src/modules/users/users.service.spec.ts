@@ -3,7 +3,6 @@ import { StorageModule } from 'src/storage/storage.module';
 import { ConfigsModule } from 'src/config/config.module';
 import { UsersService } from './users.service';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 
 describe('UsersService', () => {
   let module: TestingModule;
@@ -11,7 +10,7 @@ describe('UsersService', () => {
 
   beforeEach(async () => {
     module = await Test.createTestingModule({
-      providers: [UsersService, ConfigService, JwtService],
+      providers: [UsersService, ConfigService],
       imports: [ConfigsModule, StorageModule],
     }).compile();
 

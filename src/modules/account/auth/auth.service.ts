@@ -7,6 +7,7 @@ import { UsersService } from '../../users/users.service';
 import { ConfigService } from '@nestjs/config';
 import { hashPassword } from './helpers/hashPassword';
 import { JwtService } from '@nestjs/jwt';
+import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 
 // constants and interfaces
@@ -23,6 +24,8 @@ import {
   type IUserProviderStorage,
   PROVISIONER_PROVIDER_STORAGE,
   type IProvisionerProviderStorage,
+  AUTH_CODE_STORAGE,
+  type IAuthCodeStorage,
 } from 'src/storage/interfaces';
 import { assertProviderEditor } from './helpers/assertProviderEditor';
 import { buildUserContext } from './helpers/buildUserContext';
@@ -40,6 +43,13 @@ const PASSWORD_RESET_PURPOSE = 'password-reset';
 // the window of a leaked access token. See RefreshTokenService for the refresh
 // side. Both the password-login path (signIn) and SSO handoff use this value.
 const ACCESS_TOKEN_TTL = '4h';
+
+// Magic-link login codes are short-lived and single-use. 15 minutes is long
+// enough to receive the email and click, short enough to limit the window if
+// the inbox is later compromised.
+const MAGIC_LINK_TTL_MINUTES = 15;
+const MAGIC_LINK_TTL_MS = MAGIC_LINK_TTL_MINUTES * 60 * 1000;
+const MAGIC_LINK_PREFIX = 'mlk_';
 
 // Conservative RFC-shaped email check — same regex as the migration backfill
 // and IdentityService. Used to decide whether an admin-supplied contact_email
@@ -83,6 +93,7 @@ export class AuthService {
     @Inject(PROVISIONER_PROVIDER_STORAGE)
     private readonly provisionerProviderStorage: IProvisionerProviderStorage,
     private readonly refreshTokenService: RefreshTokenService,
+    @Inject(AUTH_CODE_STORAGE) private readonly authCodeStorage: IAuthCodeStorage,
   ) {}
 
   /**
@@ -297,6 +308,87 @@ export class AuthService {
   async logout(presentedRefreshToken: string) {
     await this.refreshTokenService.revoke(presentedRefreshToken);
     return { ...SUCCESS };
+  }
+
+  /**
+   * Build the magic-link URL placed in the login email. Lands on the TMX
+   * client's `#/magic/:code` route, which POSTs the code to
+   * /auth/magic/consume. TMX lives under `${APP_BASE_URL}${TMX_URL}` (TMX_URL
+   * defaults to `/tmx/`).
+   */
+  private buildMagicLinkUrl(code: string): string {
+    const appConfig: any = this.configService.get('app');
+    const base = String(appConfig?.baseUrl ?? process.env.APP_BASE_URL ?? '').replace(/\/+$/, '');
+    if (!base) {
+      throw new Error('APP_BASE_URL is not set; cannot generate magic-link.');
+    }
+    const tmxPath = `/${(process.env.TMX_URL ?? '/tmx/').replace(/^\/+|\/+$/g, '')}/`;
+    return `${base}${tmxPath}#/magic/${code}`;
+  }
+
+  /**
+   * Request a magic (passwordless) login link.
+   *
+   * Enumeration-defensive like forgotPassword: always returns `{ ok: true }`.
+   * A link is sent only when ALL hold:
+   *   - a user exists with this contact_email (case-insensitive)
+   *   - email_verified_at is non-null (verified-contact-only policy)
+   *   - the account has a password (SSO-only accounts must use their org login)
+   * The code is single-use and expires in MAGIC_LINK_TTL_MINUTES.
+   */
+  async requestMagicLink(contactEmail: string): Promise<{ ok: true }> {
+    const trimmed = (contactEmail ?? '').trim();
+    if (!trimmed) return { ok: true };
+    try {
+      const user = await this.userStorage.findByContactEmail(trimmed);
+      const eligible =
+        user && user.emailVerifiedAt && user.userId && user.contactEmail && user.email && user.password;
+      if (eligible) {
+        const code = MAGIC_LINK_PREFIX + randomBytes(32).toString('base64url');
+        const expiresAt = new Date(Date.now() + MAGIC_LINK_TTL_MS).toISOString();
+        await this.authCodeStorage.setAccessCode(code, user.email, expiresAt);
+        await this.emailService.sendTemplated({
+          to: user.contactEmail,
+          subject: 'Your CourtHive login link',
+          template: 'magic-link',
+          data: {
+            firstName: user.firstName ?? '',
+            magicLinkUrl: this.buildMagicLinkUrl(code),
+            expiresInMinutes: MAGIC_LINK_TTL_MINUTES,
+          },
+          tag: 'magic-link',
+        });
+        Logger.log(`Sent magic-link to ${user.contactEmail} for user ${user.userId}`);
+      } else {
+        Logger.verbose(
+          `requestMagicLink: no eligible recipient for "${trimmed}" (verified=${!!user?.emailVerifiedAt}, hasPassword=${!!user?.password})`,
+        );
+      }
+    } catch (err) {
+      // Log loudly but never change the response shape — that would leak
+      // whether an address is a real, verified account.
+      Logger.warn(`requestMagicLink silently swallowed error: ${(err as Error).message}`);
+    }
+    return { ok: true };
+  }
+
+  /**
+   * Consume a magic-link code and issue a full session (access + refresh).
+   * The code is atomically deleted (single-use) and rejected if expired.
+   * SSO-only accounts are blocked — consistent with the request gate and the
+   * signIn SSO-only rejection.
+   */
+  async consumeMagicLink(code: string, userAgent?: string): Promise<{ token: string; refreshToken: string }> {
+    if (!code) throw new UnauthorizedException('Invalid or expired login link');
+    const email = await this.authCodeStorage.consumeAccessCode(code);
+    if (!email) throw new UnauthorizedException('Invalid or expired login link');
+
+    const user = await this.usersService.findOne(email);
+    // Block unknown and SSO-only (passwordless) accounts.
+    if (!user || !user.password) throw new UnauthorizedException();
+
+    const userDetails = await this.buildSessionPayload(user);
+    return this.issueSession(userDetails, userAgent);
   }
 
   /**

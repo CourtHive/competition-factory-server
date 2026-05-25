@@ -30,18 +30,25 @@ export class PostgresAuthCodeStorage implements IAuthCodeStorage {
     return { ...SUCCESS };
   }
 
-  async getAccessCode(code: string): Promise<any | null> {
-    const result = await this.pool.query('SELECT email FROM access_codes WHERE code = $1', [code]);
-    if (!result.rows.length) return null;
-    return result.rows[0].email;
-  }
-
-  async setAccessCode(code: string, email: string): Promise<{ success: boolean }> {
+  async setAccessCode(code: string, email: string, expiresAt: string): Promise<{ success: boolean }> {
     await this.pool.query(
-      `INSERT INTO access_codes (code, email) VALUES ($1, $2)
-       ON CONFLICT (code) DO UPDATE SET email = EXCLUDED.email`,
-      [code, email],
+      `INSERT INTO access_codes (code, email, expires_at) VALUES ($1, $2, $3)
+       ON CONFLICT (code) DO UPDATE SET email = EXCLUDED.email, expires_at = EXCLUDED.expires_at`,
+      [code, email, expiresAt],
     );
     return { ...SUCCESS };
+  }
+
+  async consumeAccessCode(code: string): Promise<string | null> {
+    // Single-use + expiry in one statement: delete the row and return its
+    // email only when it exists and is still valid. A redeemed or expired code
+    // matches nothing and yields null.
+    const result = await this.pool.query(
+      `DELETE FROM access_codes
+        WHERE code = $1 AND (expires_at IS NULL OR expires_at > NOW())
+        RETURNING email`,
+      [code],
+    );
+    return result.rows.length ? result.rows[0].email : null;
   }
 }
