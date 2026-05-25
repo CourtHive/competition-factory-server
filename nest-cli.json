@@ -8,10 +8,6 @@
       {
         "include": "modules/account/email/templates/**/*",
         "outDir": "build/src"
-      },
-      {
-        "include": "modules/fonts/assets/**/*",
-        "outDir": "build/src"
       }
     ],
     "watchAssets": true
