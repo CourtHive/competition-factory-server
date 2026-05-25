@@ -14,6 +14,7 @@ describe('AuthService', () => {
   let mockUserProviderStorage: any;
   let mockProvisionerProviderStorage: any;
   let mockRefreshTokenService: any;
+  let mockAuthCodeStorage: any;
 
   beforeEach(() => {
     jwtService = new JwtService({ secret: 'test-secret' });
@@ -83,6 +84,11 @@ describe('AuthService', () => {
       revokeAllForUser: jest.fn().mockResolvedValue(undefined),
     };
 
+    mockAuthCodeStorage = {
+      setAccessCode: jest.fn().mockResolvedValue({ success: true }),
+      consumeAccessCode: jest.fn(),
+    };
+
     authService = new AuthService(
       mockUsersService,
       jwtService,
@@ -94,6 +100,7 @@ describe('AuthService', () => {
       mockUserProviderStorage,
       mockProvisionerProviderStorage,
       mockRefreshTokenService as any,
+      mockAuthCodeStorage as any,
     );
   });
 
@@ -1005,6 +1012,104 @@ describe('AuthService', () => {
       });
       await authService.resetPassword(token, 'new-password');
       expect(mockRefreshTokenService.revokeAllForUser).toHaveBeenCalledWith('u-1');
+    });
+  });
+
+  describe('magic-link login', () => {
+    const verifiedUser = (overrides: any = {}) => ({
+      userId: 'u-1',
+      email: 'a@test.com',
+      contactEmail: 'contact@test.com',
+      password: 'hash',
+      emailVerifiedAt: '2026-05-22T00:00:00Z',
+      firstName: 'Ann',
+      ...overrides,
+    });
+
+    it('always returns { ok: true } and sends nothing for empty input', async () => {
+      const result: any = await authService.requestMagicLink('');
+      expect(result).toEqual({ ok: true });
+      expect(mockEmailService.sendTemplated).not.toHaveBeenCalled();
+    });
+
+    it('sends nothing when no user has that contact email', async () => {
+      mockUserStorage.findByContactEmail.mockResolvedValue(null);
+      const result: any = await authService.requestMagicLink('nobody@test.com');
+      expect(result).toEqual({ ok: true });
+      expect(mockAuthCodeStorage.setAccessCode).not.toHaveBeenCalled();
+      expect(mockEmailService.sendTemplated).not.toHaveBeenCalled();
+    });
+
+    it('sends nothing when the contact email is unverified', async () => {
+      mockUserStorage.findByContactEmail.mockResolvedValue(verifiedUser({ emailVerifiedAt: null }));
+      const result: any = await authService.requestMagicLink('contact@test.com');
+      expect(result).toEqual({ ok: true });
+      expect(mockEmailService.sendTemplated).not.toHaveBeenCalled();
+    });
+
+    it('sends nothing for an SSO-only (passwordless) account', async () => {
+      mockUserStorage.findByContactEmail.mockResolvedValue(verifiedUser({ password: '' }));
+      const result: any = await authService.requestMagicLink('contact@test.com');
+      expect(result).toEqual({ ok: true });
+      expect(mockEmailService.sendTemplated).not.toHaveBeenCalled();
+    });
+
+    it('sends a single-use link (keyed to login email) to a verified, password account', async () => {
+      mockUserStorage.findByContactEmail.mockResolvedValue(verifiedUser());
+      const result: any = await authService.requestMagicLink('contact@test.com');
+      expect(result).toEqual({ ok: true });
+      expect(mockAuthCodeStorage.setAccessCode).toHaveBeenCalledWith(
+        expect.stringMatching(/^mlk_/),
+        'a@test.com', // the login email, not the contact email
+        expect.any(String), // ISO expiry
+      );
+      expect(mockEmailService.sendTemplated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'contact@test.com',
+          template: 'magic-link',
+          tag: 'magic-link',
+          data: expect.objectContaining({
+            firstName: 'Ann',
+            magicLinkUrl: expect.stringContaining('/tmx/#/magic/mlk_'),
+          }),
+        }),
+      );
+    });
+
+    it('still returns { ok: true } when the email send fails (no enumeration leak)', async () => {
+      mockUserStorage.findByContactEmail.mockResolvedValue(verifiedUser());
+      mockEmailService.sendTemplated.mockRejectedValueOnce(new Error('SMTP down'));
+      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+      const result: any = await authService.requestMagicLink('contact@test.com');
+      expect(result).toEqual({ ok: true });
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it('consumeMagicLink throws on an empty code (no storage hit)', async () => {
+      await expect(authService.consumeMagicLink('')).rejects.toThrow(UnauthorizedException);
+      expect(mockAuthCodeStorage.consumeAccessCode).not.toHaveBeenCalled();
+    });
+
+    it('consumeMagicLink throws on an invalid / expired code', async () => {
+      mockAuthCodeStorage.consumeAccessCode.mockResolvedValue(null);
+      await expect(authService.consumeMagicLink('mlk_bad')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('consumeMagicLink throws when the account is gone or SSO-only', async () => {
+      mockAuthCodeStorage.consumeAccessCode.mockResolvedValue('a@test.com');
+      mockUsersService.findOne.mockResolvedValue({ email: 'a@test.com', password: '' });
+      await expect(authService.consumeMagicLink('mlk_ok')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('consumeMagicLink issues an access + refresh session on a valid code', async () => {
+      mockAuthCodeStorage.consumeAccessCode.mockResolvedValue('a@test.com');
+      mockUsersService.findOne.mockResolvedValue({ userId: 'u-1', email: 'a@test.com', password: 'h', roles: ['client'] });
+      const result: any = await authService.consumeMagicLink('mlk_ok', 'jest-agent');
+      expect(mockAuthCodeStorage.consumeAccessCode).toHaveBeenCalledWith('mlk_ok');
+      expect(result.token).toBeDefined();
+      expect(result.refreshToken).toBe('rtok_test');
+      expect(mockRefreshTokenService.issue).toHaveBeenCalledWith('u-1', 'a@test.com', 'jest-agent');
     });
   });
 });
