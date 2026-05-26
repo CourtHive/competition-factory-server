@@ -14,16 +14,6 @@ allowBuilds:
   '@swc/core': true
   classic-level: true
   core-js: true
+  esbuild: true
   rollup: true
   unrs-resolver: true
-
-# esbuild's legacy postinstall (downloading the platform binary) is
-# obsolete since esbuild 0.16 ships platform binaries via optional
-# subpackages (@esbuild/linux-x64 etc.). mentat-build-all.sh installs
-# subdir packages with --ignore-scripts, which contradicts an allowBuilds
-# entry and triggers ERR_PNPM_IGNORED_BUILDS noise plus a misleading
-# `pnpm approve-builds` prompt. Listing esbuild here tells pnpm "this is
-# intentionally skipped" — no error, no prompt. Safe in production
-# because the platform binary still resolves via the optional subpackage.
-ignoredBuiltDependencies:
-  - esbuild
