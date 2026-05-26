@@ -1,6 +1,10 @@
 
 # Ignore
-node_modules/
+# No trailing slash: also catches a node_modules path that happens to be
+# a symlink or regular file (a stray symlink slipped past `node_modules/`
+# once and got committed — every mentat git pull then re-materialized a
+# broken self-referencing link). Same reasoning as score-relay below.
+node_modules
 scratch/
 /storage/
 data/
@@ -54,7 +58,7 @@ storybook-static/
 
 # Admin client build output
 admin-client/dist/
-admin-client/node_modules/
+admin-client/node_modules
 
 # Staged by mentat-push-server.sh during deploy.
 # On mentat-dev, this is a symlink to ../epixodic/score-relay so that
