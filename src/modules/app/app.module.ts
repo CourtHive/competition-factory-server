@@ -2,9 +2,13 @@ import { TournamentSyncModule } from '../tournament-sync/tournament-sync.module'
 import { FederationDataModule } from '../federation-data/federation-data.module';
 import { RankingsWebhookModule } from '../rankings-webhook/rankings-webhook.module';
 import { ProvisionerModule } from '../provisioner/provisioner.module';
-import { OfficiatingModule } from '../officiating/officiating.module';
 import { BoltHistoryModule } from '../bolt-history/bolt-history.module';
-import { SanctioningModule } from '../sanctioning/sanctioning.module';
+// OfficiatingModule + SanctioningModule retired 2026-05-27: superseded by AMS
+// (AMS-WS-07, AMS-WS-08); no consumer in TMX/admin-client/AMS-console calls the
+// CFS routes. Module directories kept for a follow-up sweep; CFS Postgres
+// tables (officiating/sanctioning) retained pending a data migration into
+// courthive_ams. See Mentat/planning/AMS_DEPLOY_AND_RETIREMENT.md §CFS
+// retirement windows #1 + #2.
 import { PoliciesModule } from '../policies/policies.module';
 import { AuditModule } from '../audit/audit.module';
 import { isModuleEnabled } from '../../config/server-profile';
@@ -42,9 +46,7 @@ const tournamentModules = isModuleEnabled('tournament')
   : [];
 
 // Provider modules — loaded for 'provider' and 'full' profiles
-const providerModules = isModuleEnabled('provider')
-  ? [SanctioningModule, OfficiatingModule, PoliciesModule]
-  : [];
+const providerModules = isModuleEnabled('provider') ? [PoliciesModule] : [];
 
 @Module({
   imports: [...coreModules, ...tournamentModules, ...providerModules],
