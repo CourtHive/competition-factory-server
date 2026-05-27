@@ -1,6 +1,8 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
 import { Roles } from '../account/auth/decorators/roles.decorator';
+import { User } from '../account/auth/decorators/user.decorator';
+import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { AuditService } from './audit.service';
 
 @Controller('audit')
@@ -41,5 +43,30 @@ export class AuditController {
     @Body() body: { tournamentId?: string; eventId?: string; from?: string; to?: string; limit?: number },
   ) {
     return this.auditService.getDeletedDraws(body);
+  }
+
+  /**
+   * Restore a deleted drawDefinition from its audit snapshot.
+   * Idempotent: refuses if the audit row has already been restored, and the
+   * factory's `addDrawDefinition` itself refuses if the draw is currently
+   * present on the tournament.
+   * Super-admin only.
+   */
+  @Post('restore-draw')
+  @Roles([SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  restoreDraw(
+    @Body() body: { auditId: string },
+    @User() user?: any,
+    @UserCtx() userContext?: UserContext,
+  ) {
+    // Postgres `user_id UUID` rejects empty strings; coerce to undefined so
+    // the storage layer writes NULL when the request has no resolved user.
+    const userId = userContext?.userId || user?.userId || undefined;
+    return this.auditService.restoreDraw({
+      auditId: body?.auditId,
+      userId,
+      userEmail: user?.email,
+    });
   }
 }

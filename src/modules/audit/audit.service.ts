@@ -1,6 +1,14 @@
-import { Inject, Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
 
-import { AUDIT_STORAGE, type IAuditStorage, type AuditRow } from 'src/storage/interfaces';
+import { executionQueue } from '../factory/functions/private/executionQueue';
+import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import {
+  AUDIT_STORAGE,
+  type IAuditStorage,
+  type AuditRow,
+  TOURNAMENT_PROVISIONER_STORAGE,
+  type ITournamentProvisionerStorage,
+} from 'src/storage/interfaces';
 import { tools } from 'tods-competition-factory';
 
 const DEFAULT_RETENTION_DAYS = 90;
@@ -12,7 +20,12 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   private pruneTimer: ReturnType<typeof setInterval> | null = null;
   private pruneStartupTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(@Inject(AUDIT_STORAGE) private readonly auditStorage: IAuditStorage) {}
+  constructor(
+    @Inject(AUDIT_STORAGE) private readonly auditStorage: IAuditStorage,
+    @Optional() private readonly tournamentStorageService?: TournamentStorageService,
+    @Optional() @Inject(TOURNAMENT_PROVISIONER_STORAGE)
+    private readonly tournamentProvisionerStorage?: ITournamentProvisionerStorage,
+  ) {}
 
   onModuleInit() {
     const retentionDays = this.getRetentionDays();
@@ -211,6 +224,99 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     } catch (err: any) {
       this.logger.error(`Failed to record draw deletion audit for ${tournamentId}/${drawId}: ${err.message}`);
     }
+  }
+
+  /**
+   * Restore a previously deleted drawDefinition from its audit-trail snapshot.
+   *
+   * Idempotency is enforced at two layers:
+   *  1. AuditService refuses if a RESTORE_DRAW row already references this auditId
+   *  2. Factory's `addDrawDefinition` returns DRAW_ID_EXISTS if the draw is back
+   *
+   * On success a RESTORE_DRAW row is appended so subsequent calls short-circuit.
+   */
+  async restoreDraw(params: {
+    auditId: string;
+    userId?: string;
+    userEmail?: string;
+  }): Promise<{
+    success?: boolean;
+    error?: string;
+    info?: string;
+    tournamentId?: string;
+    eventId?: string;
+    drawId?: string;
+  }> {
+    const { auditId, userId, userEmail } = params;
+
+    if (!auditId) return { error: 'MISSING_AUDIT_ID' };
+    if (!this.tournamentStorageService) return { error: 'STORAGE_NOT_CONFIGURED' };
+
+    const row = await this.auditStorage.findById(auditId);
+    if (!row) return { error: 'AUDIT_ROW_NOT_FOUND' };
+    if (row.actionType !== 'DELETE_DRAW') return { error: 'INVALID_AUDIT_TYPE', info: `expected DELETE_DRAW, got ${row.actionType}` };
+
+    const snapshot = row.metadata?.deletedDrawSnapshot;
+    const eventId = row.metadata?.eventId;
+    const drawId = row.metadata?.drawId ?? snapshot?.drawId;
+    const tournamentId = row.tournamentId;
+
+    if (!snapshot) return { error: 'MISSING_SNAPSHOT' };
+    if (!eventId) return { error: 'MISSING_EVENT_ID' };
+
+    // Idempotency: refuse if a prior RESTORE_DRAW row references this auditId
+    const priorRestores = await this.auditStorage.findByTournamentId(tournamentId, { limit: 500 });
+    const alreadyRestored = priorRestores.some(
+      (r) => r.actionType === 'RESTORE_DRAW' && r.metadata?.restoredFromAuditId === auditId,
+    );
+    if (alreadyRestored) {
+      return { error: 'ALREADY_RESTORED', tournamentId, eventId, drawId };
+    }
+
+    const result: any = await executionQueue(
+      {
+        tournamentIds: [tournamentId],
+        methods: [{ method: 'addDrawDefinition', params: { eventId, drawDefinition: snapshot } }],
+        userId,
+        userEmail,
+        source: 'audit-restore',
+      },
+      undefined,
+      this.tournamentStorageService,
+      this,
+      this.tournamentProvisionerStorage,
+    );
+
+    if (result?.error) {
+      return { error: String(result.error), info: result.info, tournamentId, eventId, drawId };
+    }
+
+    const restoreRow: AuditRow = {
+      auditId: tools.UUID(),
+      tournamentId,
+      userId,
+      userEmail,
+      source: 'audit-restore',
+      occurredAt: new Date().toISOString(),
+      actionType: 'RESTORE_DRAW',
+      methods: [{ method: 'addDrawDefinition', params: { eventId, drawId } }],
+      status: 'applied',
+      metadata: {
+        restoredFromAuditId: auditId,
+        eventId,
+        drawId,
+        drawName: row.metadata?.drawName,
+        drawType: row.metadata?.drawType,
+      },
+    };
+
+    try {
+      await this.auditStorage.append(restoreRow);
+    } catch (err: any) {
+      this.logger.error(`Failed to record draw restore audit for ${tournamentId}/${drawId}: ${err.message}`);
+    }
+
+    return { success: true, tournamentId, eventId, drawId };
   }
 
   /**

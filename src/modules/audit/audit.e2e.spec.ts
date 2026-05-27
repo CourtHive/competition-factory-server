@@ -315,6 +315,113 @@ d('Audit Trail E2E', () => {
     }
   });
 
+  it('restores a deleted draw from its audit snapshot (POST /audit/restore-draw)', async () => {
+    const restoreTournamentId = `audit-restore-e2e-${Date.now()}`;
+    const drawProfiles = [{ drawSize: 8, drawId: `restore-draw-${Date.now()}` }];
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      tournamentAttributes: {
+        tournamentId: restoreTournamentId,
+        tournamentName: 'Audit Restore E2E',
+        parentOrganisation: {
+          organisationId: providerId,
+          organisationName: 'Audit E2E Test Provider',
+          organisationAbbreviation: AUDIT_PROVIDER_ABBR,
+        },
+      },
+      drawProfiles,
+    });
+    const eventId = tournamentRecord.events?.[0]?.eventId;
+    const drawId = tournamentRecord.events?.[0]?.drawDefinitions?.[0]?.drawId;
+    expect(eventId).toBeDefined();
+    expect(drawId).toBeDefined();
+
+    try {
+      await saveAndCommit(app.getHttpServer(), token, tournamentRecord);
+
+      // Delete the draw via executionQueue — triggers the AUDIT topic
+      // subscription that persists the deletedDrawSnapshot.
+      const deleteResult = await request(app.getHttpServer())
+        .post('/factory')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          methods: [{ method: 'deleteDrawDefinitions', params: { eventId, drawIds: [drawId] } }],
+          tournamentId: restoreTournamentId,
+        })
+        .expect(200);
+      expect(deleteResult.body.success).toBe(true);
+
+      await new Promise((r) => setTimeout(r, 250));
+
+      // Find the DELETE_DRAW audit row for our drawId
+      const deletedDrawsResult = await request(app.getHttpServer())
+        .post('/audit/deleted-draws')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ tournamentId: restoreTournamentId })
+        .expect(200);
+      const deleteRow = deletedDrawsResult.body.auditRows.find((r: any) => r.metadata?.drawId === drawId);
+      expect(deleteRow).toBeDefined();
+      expect(deleteRow.metadata?.deletedDrawSnapshot?.drawId).toBe(drawId);
+      const auditId = deleteRow.auditId;
+
+      // Restore from the snapshot
+      const restoreResult = await request(app.getHttpServer())
+        .post('/audit/restore-draw')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ auditId })
+        .expect(200);
+      expect(restoreResult.body.success).toBe(true);
+      expect(restoreResult.body.drawId).toBe(drawId);
+      expect(restoreResult.body.eventId).toBe(eventId);
+
+      // The draw should be back on the tournament record
+      const fetchResult = await request(app.getHttpServer())
+        .post('/factory/fetch')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ tournamentIds: [restoreTournamentId] })
+        .expect(200);
+      const restoredDraws =
+        fetchResult.body.tournamentRecords?.[restoreTournamentId]?.events?.find((e: any) => e.eventId === eventId)
+          ?.drawDefinitions ?? [];
+      expect(restoredDraws.some((d: any) => d.drawId === drawId)).toBe(true);
+
+      // A RESTORE_DRAW audit row should exist
+      const trail = await request(app.getHttpServer())
+        .post('/audit/tournament')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ tournamentId: restoreTournamentId })
+        .expect(200);
+      const restoreRow = trail.body.auditRows.find(
+        (r: any) => r.actionType === 'RESTORE_DRAW' && r.metadata?.restoredFromAuditId === auditId,
+      );
+      expect(restoreRow).toBeDefined();
+      expect(restoreRow.metadata.drawId).toBe(drawId);
+
+      // Idempotency: a second restore call refuses
+      const secondRestore = await request(app.getHttpServer())
+        .post('/audit/restore-draw')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ auditId })
+        .expect(200);
+      expect(secondRestore.body.error).toBe('ALREADY_RESTORED');
+    } finally {
+      // Clean up the throwaway tournament
+      await request(app.getHttpServer())
+        .post('/factory/remove')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ tournamentId: restoreTournamentId, providerId })
+        .catch(() => undefined);
+    }
+  });
+
+  it('rejects /audit/restore-draw for missing / non-DELETE_DRAW audit rows', async () => {
+    const result = await request(app.getHttpServer())
+      .post('/audit/restore-draw')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ auditId: 'nonexistent-audit-id' })
+      .expect(200);
+    expect(result.body.error).toBe('AUDIT_ROW_NOT_FOUND');
+  });
+
   it('records audit rows for tournament deletion', async () => {
     // Delete the tournament
     await request(app.getHttpServer())

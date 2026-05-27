@@ -28,6 +28,9 @@ export interface IAuditStorage {
   /** Append one audit row. Fail-soft callers should catch errors. */
   append(row: AuditRow): Promise<void>;
 
+  /** Look up a single audit row by id. Returns null when not found. */
+  findById(auditId: string): Promise<AuditRow | null>;
+
   /** Query audit rows for a tournament, newest first. */
   findByTournamentId(
     tournamentId: string,

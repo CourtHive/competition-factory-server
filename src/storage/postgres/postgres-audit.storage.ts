@@ -28,6 +28,11 @@ export class PostgresAuditStorage implements IAuditStorage {
     );
   }
 
+  async findById(auditId: string): Promise<AuditRow | null> {
+    const result = await this.pool.query('SELECT * FROM audit_log WHERE audit_id = $1 LIMIT 1', [auditId]);
+    return result.rows.length ? mapRow(result.rows[0]) : null;
+  }
+
   async findByTournamentId(
     tournamentId: string,
     options?: { from?: string; to?: string; limit?: number },
