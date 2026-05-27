@@ -29,6 +29,7 @@ export const PROVIDERS_TAB = 'providers';
 export const USERS_TAB = 'users';
 export const PROVISIONERS_TAB = 'provisioners';
 export const ROOMS_TAB = 'rooms';
+export const AUDIT_TAB = 'audit';
 
 // Provisioner workspace (Phase 2A.5)
 export const PROVISIONER_ROUTE = 'provisioner';
