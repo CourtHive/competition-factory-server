@@ -1,4 +1,4 @@
-import { governors, asyncEngine, globalState, topicConstants } from 'tods-competition-factory';
+import { auditConstants, governors, asyncEngine, globalState, topicConstants } from 'tods-competition-factory';
 import asyncGlobalState from './asyncGlobalState';
 
 const traverse = true;
@@ -12,6 +12,11 @@ globalState.setGlobalSubscriptions({
     // any subscriptions that don't need access to cacheManager can go here
   },
 });
+// CODES Phase 6: the server is the canonical audit trail for drawDeletions.
+// The factory suppresses all local drawDeletions writes when this is true,
+// dispatches only the AUDIT topic notice. The AuditService subscription below
+// captures the snapshot.
+globalState.setAuditAuthorityServer(true);
 asyncGlobalState.createInstanceState(); // is there only one instance of asyncGlobalState?
 
 export function getMutationEngine(services?, publicNotices?: any[]) {
@@ -142,6 +147,42 @@ export function getMutationEngine(services?, publicNotices?: any[]) {
       [topicConstants.UNPUBLISH_TOURNAMENT]: (params) => {
         for (const item of params) {
           clearCache(item.tournamentId);
+        }
+      },
+      [topicConstants.AUDIT]: (params) => {
+        // Each params entry: { tournamentId, detail: auditTrail }
+        // auditTrail is an array of audit entries; deleteDrawDefinitions emits
+        // one entry per deleted draw with action=DELETE_DRAW_DEFINITIONS and
+        // payload.drawDefinitions being a single-element array of the snapshot.
+        const auditService = services?.auditService;
+        if (!auditService) return;
+        for (const item of params) {
+          const { tournamentId, detail } = item ?? {};
+          if (!tournamentId || !Array.isArray(detail)) continue;
+          for (const entry of detail) {
+            if (entry?.action !== auditConstants.DELETE_DRAW_DEFINITIONS) continue;
+            const drawDefinitions = entry?.payload?.drawDefinitions ?? [];
+            const eventId = entry?.payload?.eventId;
+            const auditData = entry?.payload?.auditData;
+            for (const drawDefinition of drawDefinitions) {
+              auditService
+                .recordDrawDeletion({
+                  tournamentId,
+                  eventId,
+                  drawId: drawDefinition?.drawId,
+                  drawName: drawDefinition?.drawName,
+                  drawType: drawDefinition?.drawType,
+                  deletedDrawSnapshot: drawDefinition,
+                  auditData,
+                  userId: services?.userId,
+                  userEmail: services?.userEmail,
+                  source: services?.auditSource,
+                })
+                .catch(() => {
+                  /* fail-soft — AuditService logs internally */
+                });
+            }
+          }
         }
       },
       [topicConstants.MODIFY_TOURNAMENT_DETAIL]: (params) => {

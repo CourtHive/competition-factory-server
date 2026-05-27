@@ -147,4 +147,97 @@ describe('AuditService', () => {
       expect(mockStorage.findByActionType).toHaveBeenCalledWith('DELETE_TOURNAMENT', undefined);
     });
   });
+
+  describe('recordDrawDeletion', () => {
+    it('appends a DELETE_DRAW row with the snapshot in metadata', async () => {
+      const snapshot = { drawId: 'd-1', drawName: 'MD32', drawType: 'SINGLE_ELIMINATION', structures: [] };
+      await service.recordDrawDeletion({
+        tournamentId: 't-1',
+        eventId: 'e-1',
+        drawId: 'd-1',
+        drawName: 'MD32',
+        drawType: 'SINGLE_ELIMINATION',
+        deletedDrawSnapshot: snapshot,
+        userId: 'user-1',
+        userEmail: 'admin@test.com',
+      });
+
+      expect(mockStorage.append).toHaveBeenCalledTimes(1);
+      const row = mockStorage.append.mock.calls[0][0];
+      expect(row.actionType).toBe('DELETE_DRAW');
+      expect(row.tournamentId).toBe('t-1');
+      expect(row.metadata.deletedDrawSnapshot).toEqual(snapshot);
+      expect(row.metadata.eventId).toBe('e-1');
+      expect(row.metadata.drawId).toBe('d-1');
+      expect(row.methods[0].method).toBe('deleteDrawDefinitions');
+      expect(row.methods[0].params.drawIds).toEqual(['d-1']);
+    });
+
+    it('does not throw when storage.append fails (fail-soft)', async () => {
+      mockStorage.append.mockRejectedValue(new Error('DB down'));
+      await expect(
+        service.recordDrawDeletion({
+          tournamentId: 't-1',
+          drawId: 'd-1',
+          deletedDrawSnapshot: { drawId: 'd-1' },
+        }),
+      ).resolves.not.toThrow();
+    });
+
+    it('preserves auditData when provided', async () => {
+      await service.recordDrawDeletion({
+        tournamentId: 't-1',
+        drawId: 'd-1',
+        deletedDrawSnapshot: { drawId: 'd-1' },
+        auditData: { reason: 'user-initiated' },
+      });
+      const row = mockStorage.append.mock.calls[0][0];
+      expect(row.metadata.auditData).toEqual({ reason: 'user-initiated' });
+    });
+
+    it('omits auditData when not provided', async () => {
+      await service.recordDrawDeletion({
+        tournamentId: 't-1',
+        drawId: 'd-1',
+        deletedDrawSnapshot: { drawId: 'd-1' },
+      });
+      const row = mockStorage.append.mock.calls[0][0];
+      expect(row.metadata.auditData).toBeUndefined();
+    });
+  });
+
+  describe('getDeletedDraws', () => {
+    it('queries by tournamentId and filters to DELETE_DRAW', async () => {
+      mockStorage.findByTournamentId.mockResolvedValue([
+        { auditId: 'a-1', actionType: 'DELETE_DRAW', metadata: { drawId: 'd-1', eventId: 'e-1' } },
+        { auditId: 'a-2', actionType: 'MUTATION', metadata: {} },
+      ]);
+
+      const result: any = await service.getDeletedDraws({ tournamentId: 't-1' });
+      expect(result.success).toBe(true);
+      expect(result.auditRows).toHaveLength(1);
+      expect(result.auditRows[0].actionType).toBe('DELETE_DRAW');
+      expect(mockStorage.findByTournamentId).toHaveBeenCalledWith('t-1', expect.any(Object));
+    });
+
+    it('queries by action type when no tournamentId is given', async () => {
+      mockStorage.findByActionType.mockResolvedValue([
+        { auditId: 'a-1', actionType: 'DELETE_DRAW', metadata: { drawId: 'd-1', eventId: 'e-1' } },
+      ]);
+      const result: any = await service.getDeletedDraws();
+      expect(result.success).toBe(true);
+      expect(result.auditRows).toHaveLength(1);
+      expect(mockStorage.findByActionType).toHaveBeenCalledWith('DELETE_DRAW', undefined);
+    });
+
+    it('filters by eventId in metadata when provided', async () => {
+      mockStorage.findByActionType.mockResolvedValue([
+        { auditId: 'a-1', actionType: 'DELETE_DRAW', metadata: { drawId: 'd-1', eventId: 'e-1' } },
+        { auditId: 'a-2', actionType: 'DELETE_DRAW', metadata: { drawId: 'd-2', eventId: 'e-2' } },
+      ]);
+      const result: any = await service.getDeletedDraws({ eventId: 'e-2' });
+      expect(result.auditRows).toHaveLength(1);
+      expect(result.auditRows[0].metadata.drawId).toBe('d-2');
+    });
+  });
 });
