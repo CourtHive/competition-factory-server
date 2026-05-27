@@ -6,13 +6,14 @@ import { ensureSystemStyles } from './systemTabStyles';
 import { renderProvidersPanel } from './providersPanel';
 import { tmxToast } from 'services/notifications/tmxToast';
 import { renderUsersPanel } from './usersPanel';
+import { renderAuditPanel } from './auditPanel';
 import { controlBar } from 'courthive-components';
 import { t } from 'i18n';
 
-import { LEFT, PROVIDERS_TAB, USERS_TAB, PROVISIONERS_TAB, ROOMS_TAB, SYSTEM } from 'constants/tmxConstants';
+import { LEFT, PROVIDERS_TAB, USERS_TAB, PROVISIONERS_TAB, ROOMS_TAB, AUDIT_TAB, SYSTEM } from 'constants/tmxConstants';
 import { context } from 'services/context';
 
-type SubTab = 'providers' | 'users' | 'provisioners' | 'rooms';
+type SubTab = 'providers' | 'users' | 'provisioners' | 'rooms' | 'audit';
 let currentSubTab: SubTab = 'providers';
 
 export function renderSystemTab(container: HTMLElement, selectedTab?: string): void {
@@ -20,7 +21,8 @@ export function renderSystemTab(container: HTMLElement, selectedTab?: string): v
     selectedTab === PROVIDERS_TAB ||
     selectedTab === USERS_TAB ||
     selectedTab === PROVISIONERS_TAB ||
-    selectedTab === ROOMS_TAB
+    selectedTab === ROOMS_TAB ||
+    selectedTab === AUDIT_TAB
   ) {
     currentSubTab = selectedTab;
   } else {
@@ -82,6 +84,12 @@ export function renderSystemTab(container: HTMLElement, selectedTab?: string): v
           label: t('system.activeRooms'),
           close: true,
         },
+        {
+          active: currentSubTab === 'audit',
+          onClick: () => switchSubTab('audit'),
+          label: t('system.audit.tabLabel'),
+          close: true,
+        },
       ];
 
       const items: any[] = [{ id: 'systemSubTabs', location: LEFT, tabs }];
@@ -98,6 +106,8 @@ export function renderSystemTab(container: HTMLElement, selectedTab?: string): v
         renderUsersPanel({ container: contentEl, providers, users, onRefresh });
       } else if (currentSubTab === 'rooms') {
         renderActiveRoomsPanel({ container: contentEl });
+      } else if (currentSubTab === 'audit') {
+        renderAuditPanel({ container: contentEl, providers });
       } else {
         renderProvisionersPanel({ container: contentEl, providers });
       }
