@@ -8,6 +8,7 @@
  * callback persists to the server catalog.
  */
 import { createCompositionEditor, type SavedComposition } from 'courthive-components';
+import { confirmModal, promptModal } from 'components/modals/baseModal/baseModal';
 import { tmxToast } from 'services/notifications/tmxToast';
 import {
   listCatalog,
@@ -70,45 +71,56 @@ export function mountCompositionsView(host: HTMLElement, provider: ProviderValue
     editorInstance = createCompositionEditor(shell.builderHost, {
       composition: item?.composition.configuration as any,
       compositionName: item?.composition.compositionName ?? '',
-      onSave: (saved) => void onSave(item, saved),
+      onSave: (saved) => onSave(item, saved),
     });
 
-    if (item) shell.attachDeleteButton(() => void onDelete(item));
+    if (item) shell.attachDeleteButton(() => onDelete(item));
   }
 
-  async function onSave(
-    current: CompositionCatalogItem | null,
-    saved: SavedComposition,
-  ): Promise<void> {
+  function onSave(current: CompositionCatalogItem | null, saved: SavedComposition): void {
     const proposedName = saved.compositionName?.trim() || current?.name || '';
-    const name = window.prompt('Composition name:', proposedName);
-    if (!name) return;
-    const data: SavedComposition = { ...saved, compositionName: name };
-    try {
-      if (current) {
-        await updateCatalogItem(provider.organisationId, 'composition', current.id, { name, data });
-        tmxToast({ message: `Saved "${name}"`, intent: 'is-success' });
-      } else {
-        await createCatalogItem(provider.organisationId, 'composition', { name, data });
-        tmxToast({ message: `Created "${name}"`, intent: 'is-success' });
-      }
-      await refresh();
-    } catch {
-      tmxToast({ message: 'Failed to save composition', intent: 'is-danger' });
-    }
+    promptModal({
+      title: current ? 'Save composition' : 'Name composition',
+      label: 'Composition name:',
+      defaultValue: proposedName,
+      okIntent: 'is-info',
+      okAction: async (raw: string) => {
+        const name = raw.trim();
+        if (!name) return;
+        const data: SavedComposition = { ...saved, compositionName: name };
+        try {
+          if (current) {
+            await updateCatalogItem(provider.organisationId, 'composition', current.id, { name, data });
+            tmxToast({ message: `Saved "${name}"`, intent: 'is-success' });
+          } else {
+            await createCatalogItem(provider.organisationId, 'composition', { name, data });
+            tmxToast({ message: `Created "${name}"`, intent: 'is-success' });
+          }
+          await refresh();
+        } catch {
+          tmxToast({ message: 'Failed to save composition', intent: 'is-danger' });
+        }
+      },
+    });
   }
 
-  async function onDelete(item: CompositionCatalogItem): Promise<void> {
-    if (!window.confirm(`Delete composition "${item.name}"?`)) return;
-    try {
-      await deleteCatalogItem(provider.organisationId, 'composition', item.id);
-      selectedItemId = null;
-      shell.clearBuilder();
-      await refresh();
-      tmxToast({ message: `Deleted "${item.name}"`, intent: 'is-success' });
-    } catch {
-      tmxToast({ message: 'Failed to delete composition', intent: 'is-danger' });
-    }
+  function onDelete(item: CompositionCatalogItem): void {
+    confirmModal({
+      title: 'Delete composition',
+      query: `Delete composition "${item.name}"?`,
+      okIntent: 'is-danger',
+      okAction: async () => {
+        try {
+          await deleteCatalogItem(provider.organisationId, 'composition', item.id);
+          selectedItemId = null;
+          shell.clearBuilder();
+          await refresh();
+          tmxToast({ message: `Deleted "${item.name}"`, intent: 'is-success' });
+        } catch {
+          tmxToast({ message: 'Failed to delete composition', intent: 'is-danger' });
+        }
+      },
+    });
   }
 
   async function refresh(): Promise<void> {

@@ -30,10 +30,20 @@ export function informModal({ message, title, okAction }) {
   return cModal.open({ title, content: message, buttons });
 }
 
-export function confirmModal({ title, query, okAction, cancelAction, okIntent }) {
+type ConfirmModalOptions = {
+  title?: string;
+  query: any;
+  okAction: () => void | Promise<void>;
+  cancelAction?: () => void;
+  okIntent?: string;
+};
+
+export function confirmModal({ title, query, okAction, cancelAction, okIntent }: ConfirmModalOptions) {
+  // cModal handles dismissal automatically when close: true, so we leave
+  // onClick undefined unless the caller wants a side-effect on cancel.
   const buttons = [
     {
-      onClick: cancelAction || cModal.close,
+      onClick: cancelAction,
       label: 'Cancel',
       intent: NONE,
       close: true,
@@ -47,4 +57,73 @@ export function confirmModal({ title, query, okAction, cancelAction, okIntent })
   ].filter(Boolean);
 
   return cModal.open({ title: title || t('act'), content: query, buttons });
+}
+
+// Themed text-prompt — the in-house replacement for window.prompt. NEVER reach
+// for the native dialog: we own the look/feel of every modal in this console.
+// okAction always fires with a (possibly empty) string; callers map "" →
+// undefined themselves when they care to.
+type PromptModalOptions = {
+  title?: string;
+  label?: string;
+  defaultValue?: string;
+  placeholder?: string;
+  okLabel?: string;
+  okIntent?: string;
+  cancelLabel?: string;
+  okAction: (value: string) => void;
+  cancelAction?: () => void;
+};
+
+export function promptModal(options: PromptModalOptions) {
+  let inputEl: HTMLInputElement | null = null;
+
+  const content = (elem: HTMLElement) => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display: flex; flex-direction: column; gap: 8px;';
+
+    if (options.label) {
+      const label = document.createElement('div');
+      label.textContent = options.label;
+      label.style.cssText = 'font-size: 0.9em; color: var(--tmx-text-secondary, var(--tmx-text-primary));';
+      wrap.appendChild(label);
+    }
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'console-input';
+    input.style.cssText = 'width: 100%;';
+    if (options.defaultValue !== undefined) input.value = options.defaultValue;
+    if (options.placeholder) input.placeholder = options.placeholder;
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const value = input.value;
+        cModal.close();
+        options.okAction(value);
+      }
+    });
+    wrap.appendChild(input);
+    inputEl = input;
+    setTimeout(() => input.focus(), 100);
+
+    elem.appendChild(wrap);
+  };
+
+  const buttons = [
+    {
+      onClick: options.cancelAction,
+      label: options.cancelLabel || 'Cancel',
+      intent: NONE,
+      close: true,
+    },
+    {
+      intent: options.okIntent || 'is-info',
+      onClick: () => options.okAction(inputEl?.value ?? ''),
+      label: options.okLabel || 'Ok',
+      close: true,
+    },
+  ];
+
+  return cModal.open({ title: options.title || t('act'), content, buttons });
 }

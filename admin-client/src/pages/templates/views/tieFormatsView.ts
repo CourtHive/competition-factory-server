@@ -7,6 +7,7 @@
  * editor: name + description + JSON body. Round-trip through the same
  * generic catalog endpoint as compositions.
  */
+import { confirmModal } from 'components/modals/baseModal/baseModal';
 import { tmxToast } from 'services/notifications/tmxToast';
 import {
   listCatalog,
@@ -94,16 +95,22 @@ export function mountTieFormatsView(host: HTMLElement, provider: ProviderValue):
   }
 
   async function onDelete(item: TieFormatCatalogItem): Promise<void> {
-    if (!window.confirm(`Delete tie format "${item.name}"?`)) return;
-    try {
-      await deleteCatalogItem(provider.organisationId, 'tieFormat', item.id);
-      selectedItemId = null;
-      shell.clearBuilder();
-      await refresh();
-      tmxToast({ message: `Deleted "${item.name}"`, intent: 'is-success' });
-    } catch {
-      tmxToast({ message: 'Failed to delete tie format', intent: 'is-danger' });
-    }
+    confirmModal({
+      title: 'Delete tie format',
+      query: `Delete tie format "${item.name}"?`,
+      okIntent: 'is-danger',
+      okAction: async () => {
+        try {
+          await deleteCatalogItem(provider.organisationId, 'tieFormat', item.id);
+          selectedItemId = null;
+          shell.clearBuilder();
+          await refresh();
+          tmxToast({ message: `Deleted "${item.name}"`, intent: 'is-success' });
+        } catch {
+          tmxToast({ message: 'Failed to delete tie format', intent: 'is-danger' });
+        }
+      },
+    });
   }
 
   async function refresh(): Promise<void> {

@@ -8,6 +8,7 @@
  * the factory enum.
  */
 import { TopologyBuilderControl, standardTemplates } from 'courthive-components';
+import { confirmModal, promptModal } from 'components/modals/baseModal/baseModal';
 import { tmxToast } from 'services/notifications/tmxToast';
 import {
   listTopologies,
@@ -81,7 +82,7 @@ export function mountTopologiesView(host: HTMLElement, provider: ProviderValue):
     builderControl = new TopologyBuilderControl({
       initialState,
       hideGenerate: true,
-      onSaveTemplate: (state) => void onSave(item, state, isBuiltin),
+      onSaveTemplate: (state) => onSave(item, state, isBuiltin),
       onClear: () => {
         selectedItemId = null;
         shell.clearBuilder();
@@ -91,47 +92,61 @@ export function mountTopologiesView(host: HTMLElement, provider: ProviderValue):
     builderControl.render(shell.builderHost);
 
     if (item && item.source === 'user') {
-      shell.attachDeleteButton(() => void onDelete(item));
+      shell.attachDeleteButton(() => onDelete(item));
     }
   }
 
-  async function onSave(
+  function onSave(
     current: TopologyCatalogItem | null,
     state: TopologyState,
     isBuiltin: boolean,
-  ): Promise<void> {
+  ): void {
     const proposedName = state.templateName?.trim() || current?.name || '';
-    const name = window.prompt('Topology name:', proposedName);
-    if (!name) return;
-    const persistedState = { ...state, selectedNodeId: null, selectedEdgeId: null };
-    try {
-      if (current && current.source === 'user') {
-        await updateTopology(provider.organisationId, current.id, { name, state: persistedState });
-        tmxToast({ message: `Saved "${name}"`, intent: 'is-success' });
-      } else {
-        await createTopology(provider.organisationId, { name, state: persistedState });
-        tmxToast({
-          message: isBuiltin ? `Forked builtin to "${name}"` : `Saved "${name}"`,
-          intent: 'is-success',
-        });
-      }
-      await refresh();
-    } catch {
-      tmxToast({ message: 'Failed to save topology', intent: 'is-danger' });
-    }
+    promptModal({
+      title: current && current.source === 'user' ? 'Save topology' : 'Name topology',
+      label: 'Topology name:',
+      defaultValue: proposedName,
+      okIntent: 'is-info',
+      okAction: async (raw: string) => {
+        const name = raw.trim();
+        if (!name) return;
+        const persistedState = { ...state, selectedNodeId: null, selectedEdgeId: null };
+        try {
+          if (current && current.source === 'user') {
+            await updateTopology(provider.organisationId, current.id, { name, state: persistedState });
+            tmxToast({ message: `Saved "${name}"`, intent: 'is-success' });
+          } else {
+            await createTopology(provider.organisationId, { name, state: persistedState });
+            tmxToast({
+              message: isBuiltin ? `Forked builtin to "${name}"` : `Saved "${name}"`,
+              intent: 'is-success',
+            });
+          }
+          await refresh();
+        } catch {
+          tmxToast({ message: 'Failed to save topology', intent: 'is-danger' });
+        }
+      },
+    });
   }
 
-  async function onDelete(item: TopologyCatalogItem): Promise<void> {
-    if (!window.confirm(`Delete topology "${item.name}"?`)) return;
-    try {
-      await deleteTopology(provider.organisationId, item.id);
-      selectedItemId = null;
-      shell.clearBuilder();
-      await refresh();
-      tmxToast({ message: `Deleted "${item.name}"`, intent: 'is-success' });
-    } catch {
-      tmxToast({ message: 'Failed to delete topology', intent: 'is-danger' });
-    }
+  function onDelete(item: TopologyCatalogItem): void {
+    confirmModal({
+      title: 'Delete topology',
+      query: `Delete topology "${item.name}"?`,
+      okIntent: 'is-danger',
+      okAction: async () => {
+        try {
+          await deleteTopology(provider.organisationId, item.id);
+          selectedItemId = null;
+          shell.clearBuilder();
+          await refresh();
+          tmxToast({ message: `Deleted "${item.name}"`, intent: 'is-success' });
+        } catch {
+          tmxToast({ message: 'Failed to delete topology', intent: 'is-danger' });
+        }
+      },
+    });
   }
 
   async function refresh(): Promise<void> {
