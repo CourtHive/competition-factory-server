@@ -39,7 +39,15 @@ export async function executionQueue(
       if (result.error) return result;
 
       const mutationEngine = getMutationEngine(
-        { ...services, cacheManager: deferredClearCache, tournamentStorageService: storage },
+        {
+          ...services,
+          cacheManager: deferredClearCache,
+          tournamentStorageService: storage,
+          auditService,
+          userId: payload?.userId,
+          userEmail: payload?.userEmail,
+          auditSource: payload?.auditSource?.type === 'provisioner' ? 'provisioner' : payload?.source ?? 'tmx',
+        },
         publicNotices,
       );
       mutationEngine.setState(result.tournamentRecords);

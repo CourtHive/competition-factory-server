@@ -13,7 +13,7 @@ export interface AuditRow {
   userEmail?: string;
   source?: string;
   occurredAt: string;
-  actionType: 'MUTATION' | 'DELETE_TOURNAMENT' | 'SAVE' | string;
+  actionType: 'MUTATION' | 'DELETE_TOURNAMENT' | 'DELETE_DRAW' | 'SAVE' | string;
   methods: Array<{ method: string; params?: any }>;
   status: 'applied' | 'rejected' | 'partial' | string;
   metadata?: Record<string, any>;
