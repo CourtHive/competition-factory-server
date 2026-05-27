@@ -237,7 +237,7 @@ function renderDetailContent(container: HTMLElement, record: any): void {
     btn.textContent = action.label;
     btn.className = action.className;
     btn.setAttribute('aria-label', action.label);
-    btn.style.cssText = 'padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; color: #fff; font-weight: 500;';
+    btn.style.cssText = 'padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 500;';
 
     if (action.method === 'edit') {
       // Navigate to wizard with existing record ID for editing

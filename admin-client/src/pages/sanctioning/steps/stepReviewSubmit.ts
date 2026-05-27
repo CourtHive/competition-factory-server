@@ -104,7 +104,8 @@ export function renderReviewStep(container: HTMLElement, wizardState: any): void
 
   if (warnings.length) {
     const warningBox = document.createElement('div');
-    warningBox.style.cssText = 'padding: 12px; border-radius: 8px; background: #fff3cd; border: 1px solid #ffc107; margin-bottom: 16px;';
+    warningBox.style.cssText =
+      'padding: 12px; border-radius: 8px; background: var(--tmx-panel-yellow-bg, #fffaeb); border: 1px solid var(--tmx-panel-yellow-border, #e6c84e); color: var(--tmx-text-primary); margin-bottom: 16px;';
     const warningTitle = document.createElement('div');
     warningTitle.textContent = 'Missing Required Fields';
     warningTitle.style.cssText = 'font-weight: 600; margin-bottom: 8px; font-size: 0.9em;';
@@ -133,7 +134,7 @@ export function renderReviewStep(container: HTMLElement, wizardState: any): void
     const submitBtn = document.createElement('button');
     submitBtn.textContent = 'Save & Submit Application';
     submitBtn.className = 'btn-invite';
-    submitBtn.style.cssText = 'padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; color: #fff; font-weight: 500;';
+    submitBtn.style.cssText = 'padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: 500;';
     submitBtn.addEventListener('click', () => handleSubmit(formData, sanctioningId));
     actions.appendChild(submitBtn);
   }

@@ -204,6 +204,21 @@ body {
   color: #fff;
 }
 
+.btn-remove {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #fff;
+  background: var(--tmx-accent-red-bold, #dc2626);
+  transition: opacity 0.15s;
+}
+.btn-remove:hover {
+  opacity: 0.85;
+}
+
 /* ===== Form Inputs (dark mode) ===== */
 
 select,

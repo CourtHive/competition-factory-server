@@ -41,7 +41,7 @@ export function ensureSystemStyles(): void {
     .system-detail-header {
       margin: 0 0 12px 0;
       padding-bottom: 8px;
-      border-bottom: 1px solid #e0e0e0;
+      border-bottom: 1px solid var(--tmx-border-primary, #e0e0e0);
     }
 
     .system-detail-header h3 {

@@ -16,8 +16,7 @@ export function renderEventsStep(container: HTMLElement, wizardState: any): void
   const addBtn = document.createElement('button');
   addBtn.textContent = '+ Add Event';
   addBtn.className = 'btn-invite';
-  addBtn.style.cssText =
-    'padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; color: #fff; font-size: 0.85em;';
+  addBtn.style.cssText = 'padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85em;';
   addBtn.addEventListener('click', () => openEventModal(formData, container));
 
   header.appendChild(title);
@@ -59,8 +58,7 @@ export function renderEventsStep(container: HTMLElement, wizardState: any): void
       const removeBtn = document.createElement('button');
       removeBtn.textContent = 'Remove';
       removeBtn.className = 'btn-remove';
-      removeBtn.style.cssText =
-        'padding: 4px 10px; border: none; border-radius: 4px; cursor: pointer; color: #fff; font-size: 0.8em;';
+      removeBtn.style.cssText = 'padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8em;';
       removeBtn.addEventListener('click', () => {
         formData.events.splice(i, 1);
         updateWizardFormData({ events: formData.events });

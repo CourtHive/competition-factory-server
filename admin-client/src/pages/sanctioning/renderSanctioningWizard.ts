@@ -190,9 +190,9 @@ function renderCurrentStep() {
   if (wizardState.currentStep < STEPS.length - 1) {
     const nextBtn = document.createElement('button');
     nextBtn.textContent = 'Next';
-    nextBtn.className = 'btn-edit';
+    nextBtn.className = 'btn-invite';
     nextBtn.setAttribute('aria-label', 'Next step');
-    nextBtn.style.cssText = 'padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; color: #fff; font-weight: 500;';
+    nextBtn.style.cssText = 'padding: 8px 20px; border-radius: 4px; cursor: pointer; font-weight: 500;';
     nextBtn.addEventListener('click', () => {
       const validationError = validateCurrentStep(wizardState);
       if (validationError) {

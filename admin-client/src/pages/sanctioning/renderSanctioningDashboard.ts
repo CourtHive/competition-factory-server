@@ -27,7 +27,7 @@ export function renderSanctioningDashboard(): void {
   const newBtn = document.createElement('button');
   newBtn.textContent = 'New Application';
   newBtn.className = 'btn-invite';
-  newBtn.style.cssText = 'padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; color: #fff; font-weight: 500;';
+  newBtn.style.cssText = 'padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 500;';
   newBtn.addEventListener('click', () => context.router?.navigate(`/${SANCTIONING}/new`));
 
   header.appendChild(title);
