@@ -90,6 +90,33 @@ describe('FactoryService', () => {
       .expect(200);
   });
 
+  it('/POST /factory/save rejects a malformed tournamentRecord with 400 + validationErrors', async () => {
+    const loginReq = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
+      .expect(200);
+    const token = loginReq.body.token;
+
+    // startDate in the wrong format — L1 inside L2 will flag it
+    const malformed = {
+      tournamentId: `${tournamentId}-malformed`,
+      tournamentName: 'Bad Dates',
+      startDate: '06/01/2026',
+      endDate: '06/07/2026',
+    };
+
+    const result = await request(app.getHttpServer())
+      .post('/factory/save')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ tournamentRecord: malformed })
+      .expect(400);
+
+    expect(result.body.tournamentId).toBe(`${tournamentId}-malformed`);
+    expect(Array.isArray(result.body.validationErrors)).toBe(true);
+    expect(result.body.validationErrors.length).toBeGreaterThan(0);
+    expect(result.body.validationErrors.some((e: string) => e.includes('startDate'))).toBe(true);
+  });
+
   afterAll(async () => {
     await app.close();
   });

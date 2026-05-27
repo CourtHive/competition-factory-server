@@ -7,6 +7,7 @@ import { executionQueue as eq } from './functions/private/executionQueue';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
 import { insertPendingSave, getPendingSaveStatus, getPendingSaveData, updatePendingSaveStatus } from './helpers/pendingSaves';
+import { validateL2 } from './helpers/validateTournamentRecord';
 import { MutationMirrorService } from '../tournament-sync/mutation-mirror.service';
 import { PG_POOL } from 'src/storage/postgres/postgres.config';
 import { checkEngineError } from '../../common/errors/engineError';
@@ -14,7 +15,7 @@ import { AssignmentsService } from './assignments.service';
 import { AuditService } from '../audit/audit.service';
 import { checkProvider } from './helpers/checkProvider';
 import { askEngine } from 'tods-competition-factory';
-import { Inject, Injectable, Optional, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
 import { checkUser } from './helpers/checkUser';
 import publicQueries from './functions/public';
 
@@ -132,27 +133,54 @@ export class FactoryService {
       }
     }
 
+    // L2 validation gate. Records under the byte threshold are validated
+    // synchronously and rejected on failure; over-threshold records are
+    // saved as-is and an async L2 is queued via pending_saves so the
+    // event loop is never blocked by a deep-copy of a multi-MB record.
+    const threshold = this.getValidationThresholdBytes();
+    const oversized: string[] = [];
+    for (const [tid, record] of Object.entries(tournamentRecords)) {
+      const size = Buffer.byteLength(JSON.stringify(record));
+      if (size > threshold) {
+        oversized.push(tid);
+        continue;
+      }
+      const result = validateL2(record);
+      if (!result.valid) {
+        throw new BadRequestException({
+          error: `Tournament record ${tid} failed validation`,
+          tournamentId: tid,
+          validationErrors: result.errors,
+          validationWarnings: result.warnings ?? [],
+        });
+      }
+    }
+
     // Save directly — tournament must be available immediately for
     // subsequent executionQueue mutations from the client.
     const userId = userContext?.userId ?? user?.userId;
     const result = await this.tournamentStorageService.saveTournamentRecords({ tournamentRecords, userId });
 
-    // Additionally queue for async validation if requested
-    if (params.validate) {
-      const validationLevel = params.validate === 'deep' ? 'L3' : 'L2';
-      for (const tid of Object.keys(tournamentRecords)) {
-        insertPendingSave(this.pgPool, {
-          tournamentId: tid,
-          tournamentData: tournamentRecords[tid],
-          userId: userContext?.userId,
-          userEmail: user?.email,
-          providerId: user?.providerId,
-          validationLevel,
-        }).catch((err) => Logger.error(`Failed to queue validation for ${tid}: ${err.message}`, 'FactoryService'));
-      }
+    // For oversized records, queue an async L2 pass so the validation
+    // result is still discoverable post-hoc via /factory/save-status.
+    for (const tid of oversized) {
+      insertPendingSave(this.pgPool, {
+        tournamentId: tid,
+        tournamentData: tournamentRecords[tid],
+        userId: userContext?.userId,
+        userEmail: user?.email,
+        providerId: user?.providerId,
+        validationLevel: 'L2',
+      }).catch((err) => Logger.error(`Failed to queue validation for ${tid}: ${err.message}`, 'FactoryService'));
     }
 
     return result;
+  }
+
+  private getValidationThresholdBytes(): number {
+    const raw = process.env.FACTORY_SAVE_VALIDATION_THRESHOLD_BYTES;
+    const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+    return Number.isNaN(parsed) || parsed < 1 ? 1_048_576 : parsed;
   }
 
   async getSaveStatus(saveId: string) {
