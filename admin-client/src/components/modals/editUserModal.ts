@@ -1,4 +1,4 @@
-import { modifyUser } from 'services/apis/servicesApi';
+import { modifyUser, adminResendVerification } from 'services/apis/servicesApi';
 import { renderForm } from 'courthive-components';
 import { labelWithRoleTip } from './roleDefinitions';
 import { buildUserProvidersPanel } from './userProvidersPanel';
@@ -36,6 +36,16 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
         field: 'email',
         disabled: true,
       },
+      {
+        iconLeft: 'fa-regular fa-shield-check',
+        value: user?.contactEmail || '',
+        label: t('recoveryEmail'),
+        field: 'contactEmail',
+      },
+      // Anchor row — verification status badge + Send-verification button is
+      // injected here post-render so we can manage state outside renderForm's
+      // input model (the badge is read-only, not a form field).
+      { text: '', id: 'recoveryEmailStatusAnchor' },
       {
         text: t('modals.inviteUser.roles'),
         header: true,
@@ -174,6 +184,9 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
       const panel = buildUserProvidersPanel({ userId, editorRoles, providers });
       anchor?.replaceWith(panel);
     }
+
+    const statusAnchor = document.getElementById('recoveryEmailStatusAnchor');
+    if (statusAnchor) statusAnchor.replaceWith(buildRecoveryEmailStatus(user));
   };
 
   const roles = ['client', 'admin', 'score', 'developer', 'generate', 'director', 'official'];
@@ -186,6 +199,7 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
     const userRolesSelected = roles.map((role) => inputs[role]?.checked && role).filter(Boolean);
     const userPermsSelected = permissions.map((perm) => inputs[perm]?.checked && perm).filter(Boolean);
     const userServicesSelected = services.map((svc) => inputs[svc]?.checked && svc).filter(Boolean);
+    const contactEmail = (inputs.contactEmail?.value ?? '').trim();
 
     modifyUser({
       email,
@@ -193,6 +207,7 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
       roles: userRolesSelected,
       permissions: userPermsSelected,
       services: userServicesSelected,
+      contactEmail,
     }).then(
       (res) => {
         tmxToast({ message: t('system.userUpdated'), intent: 'is-success' });
@@ -210,4 +225,76 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
       { label: t('common.save'), intent: 'is-primary', onClick: submitEdit, close: true },
     ],
   });
+}
+
+export function buildRecoveryEmailStatus(user: any): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'recovery-email-status';
+  row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 0 12px 32px;font-size:13px;flex-wrap:wrap;';
+
+  const hasContactEmail = !!user?.contactEmail;
+  const verifiedAt = user?.emailVerifiedAt;
+
+  const badge = document.createElement('span');
+  badge.style.cssText =
+    'display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-weight:500;border:1px solid transparent;';
+  if (!hasContactEmail) {
+    badge.textContent = t('noRecoveryEmail');
+    badge.style.background = 'var(--tmx-bg-secondary)';
+    badge.style.color = 'var(--tmx-text-muted)';
+    badge.style.borderColor = 'var(--tmx-border-secondary)';
+  } else if (verifiedAt) {
+    const date = new Date(verifiedAt).toLocaleDateString();
+    badge.innerHTML =
+      `<i class="fa-solid fa-circle-check" style="color:var(--tmx-status-success);"></i> ${t('verified')} ` +
+      `<span style="color:var(--tmx-text-muted);font-weight:400;">${date}</span>`;
+    badge.style.background = 'var(--tmx-panel-green-bg)';
+    badge.style.color = 'var(--tmx-text-primary)';
+    badge.style.borderColor = 'var(--tmx-panel-green-border)';
+  } else {
+    badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:var(--tmx-accent-orange);"></i> ${t('unverified')}`;
+    badge.style.background = 'var(--tmx-panel-yellow-bg)';
+    badge.style.color = 'var(--tmx-text-primary)';
+    badge.style.borderColor = 'var(--tmx-panel-yellow-border)';
+  }
+  row.appendChild(badge);
+
+  if (hasContactEmail && !verifiedAt) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = t('sendVerification');
+    button.style.cssText =
+      'padding:4px 10px;border:1px solid var(--tmx-border-primary);border-radius:4px;' +
+      'background:var(--tmx-bg-elevated);color:var(--tmx-text-primary);cursor:pointer;font-size:12px;';
+    button.addEventListener('click', () => {
+      button.disabled = true;
+      const original = button.textContent;
+      button.textContent = '…';
+      adminResendVerification({ email: user.email })
+        .then((res: any) => {
+          const status = res?.status;
+          const message = status === 'already_verified'
+            ? t('alreadyVerified')
+            : status === 'no_contact_email'
+              ? t('noRecoveryEmail')
+              : t('verificationSent');
+          tmxToast({ message, intent: status === 'pending_verification' ? 'is-success' : 'is-warning' });
+        })
+        .catch((err: any) => {
+          tmxToast({ message: err?.message ?? 'Failed to send verification', intent: 'is-danger' });
+        })
+        .finally(() => {
+          button.disabled = false;
+          button.textContent = original;
+        });
+    });
+    row.appendChild(button);
+  }
+
+  const help = document.createElement('span');
+  help.style.cssText = 'margin-left:auto;color:var(--tmx-text-muted);font-size:11px;';
+  help.textContent = t('recoveryEmailHelp');
+  row.appendChild(help);
+
+  return row;
 }

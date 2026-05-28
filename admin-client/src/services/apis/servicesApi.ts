@@ -87,14 +87,20 @@ export async function modifyUser({
   roles,
   permissions,
   services,
+  contactEmail,
 }: {
   email: string;
   providerId?: string;
   roles: string[];
   permissions: string[];
   services: string[];
+  contactEmail?: string;
 }) {
-  return await baseApi.post('/auth/modify', { email, providerId, roles, permissions, services });
+  return await baseApi.post('/auth/modify', { email, providerId, roles, permissions, services, contactEmail });
+}
+
+export async function adminResendVerification({ email }: { email: string }) {
+  return await baseApi.post('/account/contact-email/admin-resend', { email });
 }
 
 export async function sendTournament({ tournamentRecord }: { tournamentRecord: any }) {
