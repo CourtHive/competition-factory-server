@@ -1,8 +1,9 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 
 import { UserCtx, type UserContext } from '../auth/decorators/user-context.decorator';
-import { SetContactEmailDto } from './dto/setContactEmail.dto';
+import { AdminResendVerificationDto } from './dto/adminResendVerification.dto';
 import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
+import { SetContactEmailDto } from './dto/setContactEmail.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { User } from '../auth/decorators/user.decorator';
@@ -49,6 +50,18 @@ export class IdentityController {
       email: userContext.email,
       firstName: user?.firstName,
     });
+  }
+
+  /**
+   * Admin nudge: re-send the verification mail for a target user. Used
+   * by the Edit User modal when an admin wants to remind a user to
+   * complete verification on an already-set contact_email.
+   */
+  @Post('account/contact-email/admin-resend')
+  @Roles([SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  adminResendVerification(@Body() body: AdminResendVerificationDto) {
+    return this.identityService.adminResendVerification(body?.email ?? '');
   }
 
   /**

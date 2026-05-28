@@ -128,6 +128,27 @@ export class IdentityService {
     return { success: true, status: 'pending_verification' };
   }
 
+  /**
+   * Admin-triggered resend for a target user (not the caller). Looks up
+   * the target by login `email` and delegates to `resendVerification`,
+   * which already handles the no-contact-email / already-verified branches
+   * idempotently. Authorization is enforced at the controller (SUPER_ADMIN
+   * only) — this method trusts its input.
+   */
+  async adminResendVerification(
+    targetEmail: string,
+  ): Promise<{ success: true; status: 'pending_verification' | 'already_verified' | 'no_contact_email' } | { error: string }> {
+    const trimmed = (targetEmail ?? '').trim();
+    if (!trimmed) return { error: 'email is required' };
+    const target = await this.userStorage.findOne(trimmed);
+    if (!target?.userId) return { error: 'User not found' };
+    return this.resendVerification({
+      userId: target.userId,
+      email: trimmed,
+      firstName: target.firstName,
+    });
+  }
+
   async verifyEmailToken(token: string): Promise<{ success: true; contactEmail: string }> {
     if (!token) throw new UnauthorizedException('Missing token');
     let claims: any;

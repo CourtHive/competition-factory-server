@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { VALID_GLOBAL_ROLES, VALID_PROVIDER_ROLES } from 'src/common/constants/roles';
 import { computeEffectiveConfig } from '@courthive/provider-config';
+import { IdentityService } from '../identity/identity.service';
 import { createUniqueKey } from './helpers/createUniqueKey';
 import { EmailService } from '../email/email.service';
 import { UsersService } from '../../users/users.service';
@@ -94,6 +95,7 @@ export class AuthService {
     private readonly provisionerProviderStorage: IProvisionerProviderStorage,
     private readonly refreshTokenService: RefreshTokenService,
     @Inject(AUTH_CODE_STORAGE) private readonly authCodeStorage: IAuthCodeStorage,
+    private readonly identityService: IdentityService,
   ) {}
 
   /**
@@ -871,16 +873,83 @@ export class AuthService {
   }
 
   async modifyUser(params: { email: string; [key: string]: any }) {
-    const { email, ...updates } = params;
+    const { email, contactEmail, ...updates } = params;
     if (!email) return { error: 'Email is required' };
 
     const user = await this.usersService.findOne(email);
     if (!user) return { error: 'User not found' };
 
+    // contact_email and email_verified_at live in dedicated columns and must
+    // be written via setContactEmail, which atomically CLEARS verification
+    // on change. Doing it through the generic `update` blob would either
+    // miss the verified-clear or write to the wrong column. Only routes
+    // through setContactEmail when the value actually differs (case-
+    // insensitive) so re-saving the modal without touching this field is
+    // a no-op and verified status is preserved.
+    const contactEmailChange = this.resolveContactEmailChange(user, contactEmail);
+    if (contactEmailChange === 'invalid') {
+      return { error: 'contactEmail is not a valid email address' };
+    }
+
     const merged = { ...user, ...updates };
     await this.userStorage.update(email, merged);
+
+    let responseContactEmail = user.contactEmail ?? user.contact_email;
+    let responseEmailVerifiedAt = user.emailVerifiedAt ?? user.email_verified_at ?? null;
+    if (contactEmailChange !== null) {
+      const userId = user.userId ?? user.user_id;
+      if (userId) {
+        await this.userStorage.setContactEmail(userId, contactEmailChange);
+        responseContactEmail = contactEmailChange;
+        responseEmailVerifiedAt = null;
+
+        // Fire the verification mail when the admin sets a non-empty
+        // address. IdentityService.resendVerification re-reads the user
+        // row, so it picks up the contact_email we just wrote and skips
+        // when the field was cleared (the `no_contact_email` branch).
+        // Failures here are logged but don't fail the modify — the admin
+        // can re-trigger via the explicit resend endpoint.
+        if (contactEmailChange) {
+          try {
+            await this.identityService.resendVerification({
+              userId,
+              email,
+              firstName: user.firstName,
+            });
+          } catch (err) {
+            Logger.warn(
+              `modifyUser: verification mail to ${contactEmailChange} for ${email} failed: ${(err as Error).message}`,
+              AuthService.name,
+            );
+          }
+        }
+      }
+    }
+
     const { password: _, ...safeUser } = merged; // eslint-disable-line @typescript-eslint/no-unused-vars
-    return { success: true, user: safeUser };
+    return {
+      success: true,
+      user: { ...safeUser, contactEmail: responseContactEmail, emailVerifiedAt: responseEmailVerifiedAt },
+    };
+  }
+
+  /**
+   * Returns the normalized new contact_email if the admin actually changed
+   * it, `null` if the field was omitted or matches the current value
+   * (case-insensitive), or `'invalid'` if the value is non-empty but does
+   * not look like an RFC-shaped address. Empty string is treated as
+   * "clear contact_email" — caller hands it to setContactEmail unchanged.
+   */
+  private resolveContactEmailChange(
+    user: any,
+    incoming: string | undefined,
+  ): string | null | 'invalid' {
+    if (incoming === undefined) return null;
+    const trimmed = (incoming ?? '').trim();
+    const current = (user.contactEmail ?? user.contact_email ?? '').trim();
+    if (trimmed.toLowerCase() === current.toLowerCase()) return null;
+    if (trimmed && !EMAIL_REGEX.test(trimmed)) return 'invalid';
+    return trimmed;
   }
 
   async removeUser(params: any) {

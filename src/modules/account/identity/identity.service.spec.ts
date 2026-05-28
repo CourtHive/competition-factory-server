@@ -124,6 +124,64 @@ describe('IdentityService', () => {
     });
   });
 
+  describe('adminResendVerification', () => {
+    it('rejects an empty target email', async () => {
+      const result: any = await identityService.adminResendVerification('');
+      expect(result.error).toContain('required');
+    });
+
+    it('rejects when the target user is not found', async () => {
+      mockUserStorage.findOne.mockResolvedValue(null);
+      const result: any = await identityService.adminResendVerification('ghost@test.com');
+      expect(result.error).toContain('not found');
+    });
+
+    it('delegates to resendVerification for a known target user', async () => {
+      // First findOne resolves the target by login email; second findOne
+      // (inside resendVerification) re-reads the same row to pick up the
+      // contact_email / verified state.
+      const targetRow = {
+        userId: 'u-target',
+        firstName: 'Bob',
+        contactEmail: 'bob.real@example.com',
+        emailVerifiedAt: null,
+      };
+      mockUserStorage.findOne.mockResolvedValue(targetRow);
+
+      const result: any = await identityService.adminResendVerification('bob@login');
+
+      expect(result.success).toBe(true);
+      expect(result.status).toBe('pending_verification');
+      expect(mockEmailService.sendTemplated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'bob.real@example.com',
+          tag: 'email-verification',
+          data: expect.objectContaining({ firstName: 'Bob', email: 'bob.real@example.com' }),
+        }),
+      );
+    });
+
+    it('returns no_contact_email when the target has none set', async () => {
+      mockUserStorage.findOne.mockResolvedValue({
+        userId: 'u-target', contactEmail: null,
+      });
+      const result: any = await identityService.adminResendVerification('bob@login');
+      expect(result.status).toBe('no_contact_email');
+      expect(mockEmailService.sendTemplated).not.toHaveBeenCalled();
+    });
+
+    it('returns already_verified when the target is already verified', async () => {
+      mockUserStorage.findOne.mockResolvedValue({
+        userId: 'u-target',
+        contactEmail: 'bob.real@example.com',
+        emailVerifiedAt: '2026-05-22T00:00:00Z',
+      });
+      const result: any = await identityService.adminResendVerification('bob@login');
+      expect(result.status).toBe('already_verified');
+      expect(mockEmailService.sendTemplated).not.toHaveBeenCalled();
+    });
+  });
+
   describe('verifyEmailToken', () => {
     it('rejects a missing token', async () => {
       await expect(identityService.verifyEmailToken('')).rejects.toThrow(UnauthorizedException);

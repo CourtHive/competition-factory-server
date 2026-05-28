@@ -15,6 +15,7 @@ describe('AuthService', () => {
   let mockProvisionerProviderStorage: any;
   let mockRefreshTokenService: any;
   let mockAuthCodeStorage: any;
+  let mockIdentityService: any;
 
   beforeEach(() => {
     jwtService = new JwtService({ secret: 'test-secret' });
@@ -89,6 +90,13 @@ describe('AuthService', () => {
       consumeAccessCode: jest.fn(),
     };
 
+    mockIdentityService = {
+      setContactEmail: jest.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
+      resendVerification: jest.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
+      adminResendVerification: jest.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
+      verifyEmailToken: jest.fn().mockResolvedValue({ success: true, contactEmail: 'a@b.c' }),
+    };
+
     authService = new AuthService(
       mockUsersService,
       jwtService,
@@ -101,6 +109,7 @@ describe('AuthService', () => {
       mockProvisionerProviderStorage,
       mockRefreshTokenService as any,
       mockAuthCodeStorage as any,
+      mockIdentityService as any,
     );
   });
 
@@ -806,6 +815,126 @@ describe('AuthService', () => {
       const result = await authService.getUsers();
       expect(result).toBe(users);
     });
+  });
+
+  describe('modifyUser', () => {
+    it('returns error when email is empty', async () => {
+      const result: any = await authService.modifyUser({ email: '' });
+      expect(result.error).toBe('Email is required');
+    });
+
+    it('returns error when the user is not found', async () => {
+      mockUsersService.findOne.mockResolvedValue(null);
+      const result: any = await authService.modifyUser({ email: 'nobody@test.com' });
+      expect(result.error).toBe('User not found');
+    });
+
+    it('writes generic field updates via userStorage.update and strips password from response', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'user@test.com', userId: 'u-1', password: 'h', roles: ['client'],
+      });
+      const result: any = await authService.modifyUser({
+        email: 'user@test.com',
+        roles: ['client', 'admin'],
+        firstName: 'Alice',
+      });
+      expect(mockUserStorage.update).toHaveBeenCalledWith(
+        'user@test.com',
+        expect.objectContaining({ roles: ['client', 'admin'], firstName: 'Alice' }),
+      );
+      expect(result.user.password).toBeUndefined();
+      expect(result.user.roles).toEqual(['client', 'admin']);
+    });
+
+    it('routes a changed contactEmail through setContactEmail, not the generic update blob', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'user@test.com', userId: 'u-1', password: 'h',
+        contactEmail: 'old@example.com', emailVerifiedAt: '2026-05-22T00:00:00Z',
+      });
+      const result: any = await authService.modifyUser({
+        email: 'user@test.com',
+        contactEmail: 'new@example.com',
+      });
+      expect(mockUserStorage.setContactEmail).toHaveBeenCalledWith('u-1', 'new@example.com');
+      expect(result.user.contactEmail).toBe('new@example.com');
+      expect(result.user.emailVerifiedAt).toBeNull();
+    });
+
+    it('fires verification mail via IdentityService when contactEmail changes', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'user@test.com', userId: 'u-1', password: 'h',
+        contactEmail: 'old@example.com', firstName: 'Alice',
+      });
+      await authService.modifyUser({
+        email: 'user@test.com',
+        contactEmail: 'new@example.com',
+      });
+      expect(mockIdentityService.resendVerification).toHaveBeenCalledWith({
+        userId: 'u-1',
+        email: 'user@test.com',
+        firstName: 'Alice',
+      });
+    });
+
+    it('does NOT fire verification mail when contactEmail is cleared (empty)', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'user@test.com', userId: 'u-1', password: 'h',
+        contactEmail: 'old@example.com',
+      });
+      await authService.modifyUser({ email: 'user@test.com', contactEmail: '' });
+      expect(mockUserStorage.setContactEmail).toHaveBeenCalledWith('u-1', '');
+      expect(mockIdentityService.resendVerification).not.toHaveBeenCalled();
+    });
+
+    it('swallows verification mail failures so the modify still succeeds', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'user@test.com', userId: 'u-1', password: 'h',
+        contactEmail: 'old@example.com',
+      });
+      mockIdentityService.resendVerification.mockRejectedValueOnce(new Error('SMTP down'));
+      const result: any = await authService.modifyUser({
+        email: 'user@test.com',
+        contactEmail: 'new@example.com',
+      });
+      expect(result.success).toBe(true);
+      expect(mockUserStorage.setContactEmail).toHaveBeenCalled();
+    });
+
+    it('treats a case-only contactEmail change as a no-op (preserves verified status)', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'user@test.com', userId: 'u-1', password: 'h',
+        contactEmail: 'Mixed@Example.com', emailVerifiedAt: '2026-05-22T00:00:00Z',
+      });
+      await authService.modifyUser({
+        email: 'user@test.com',
+        contactEmail: 'mixed@example.com',
+      });
+      expect(mockUserStorage.setContactEmail).not.toHaveBeenCalled();
+    });
+
+    it('does not touch contact_email when the field is omitted', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'user@test.com', userId: 'u-1', password: 'h',
+        contactEmail: 'old@example.com', emailVerifiedAt: '2026-05-22T00:00:00Z',
+      });
+      await authService.modifyUser({ email: 'user@test.com', firstName: 'Alice' });
+      expect(mockUserStorage.setContactEmail).not.toHaveBeenCalled();
+    });
+
+    it('rejects a malformed contactEmail without writing anything', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'user@test.com', userId: 'u-1', password: 'h',
+        contactEmail: 'old@example.com',
+      });
+      const result: any = await authService.modifyUser({
+        email: 'user@test.com',
+        contactEmail: 'not-an-email',
+      });
+      expect(result.error).toContain('not a valid email');
+      expect(mockUserStorage.setContactEmail).not.toHaveBeenCalled();
+      expect(mockUserStorage.update).not.toHaveBeenCalled();
+    });
+
   });
 
   describe('adminResetPassword', () => {
