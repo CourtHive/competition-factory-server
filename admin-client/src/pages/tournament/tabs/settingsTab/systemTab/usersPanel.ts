@@ -1,5 +1,6 @@
 import { resetPasswordModal } from 'components/modals/resetPasswordModal';
 import { createSearchFilter } from 'components/tables/common/filters/createSearchFilter';
+import { buildContactEmailCoverageTile } from './contactEmailCoverageTile';
 import { confirmModal } from 'components/modals/baseModal/baseModal';
 import { editUserModal } from 'components/modals/editUserModal';
 import { TabulatorFull as Tabulator } from 'tabulator-tables';
@@ -21,6 +22,10 @@ type RenderUsersPanelParams = {
 
 export function renderUsersPanel({ container, providers, users, onRefresh }: RenderUsersPanelParams): void {
   container.innerHTML = '';
+
+  // Backfill nudge tile — fetches its own counts; silently removes
+  // itself for non-SUPER_ADMIN callers (the endpoint 403s).
+  container.appendChild(buildContactEmailCoverageTile());
 
   // Build a provider lookup map
   const providerMap: Record<string, string> = {};

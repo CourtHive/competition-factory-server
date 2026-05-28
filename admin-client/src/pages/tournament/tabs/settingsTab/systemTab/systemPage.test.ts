@@ -29,6 +29,11 @@ vi.mock('courthive-components', () => ({
 // Mock services that hit the network or show UI
 vi.mock('services/apis/servicesApi', () => ({
   removeUser: vi.fn().mockResolvedValue({}),
+  // The users panel mounts a contact-email coverage tile that calls this
+  // SUPER_ADMIN-only endpoint. The tile silently removes itself on
+  // rejection, so a rejected promise keeps the test focused on the
+  // table while still exercising the mount path.
+  getContactEmailCoverage: vi.fn().mockRejectedValue(new Error('forbidden')),
 }));
 vi.mock('services/notifications/tmxToast', () => ({
   tmxToast: vi.fn(),

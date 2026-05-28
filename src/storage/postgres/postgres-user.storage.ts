@@ -165,6 +165,41 @@ export class PostgresUserStorage implements IUserStorage {
     };
   }
 
+  async getContactEmailCoverage(): Promise<{
+    total: number;
+    missing: number;
+    equalsLogin: number;
+    verified: number;
+    unverified: number;
+  }> {
+    // Single round-trip aggregate. equalsLogin uses LOWER(...) comparison
+    // because login emails are stored case-insensitive-equivalent (the
+    // findOne/findByContactEmail paths already normalize that way).
+    const result = await this.pool.query<{
+      total: string;
+      missing: string;
+      equals_login: string;
+      verified: string;
+      unverified: string;
+    }>(
+      `SELECT
+         COUNT(*)::text AS total,
+         COUNT(*) FILTER (WHERE contact_email IS NULL OR contact_email = '')::text AS missing,
+         COUNT(*) FILTER (WHERE contact_email IS NOT NULL AND LOWER(contact_email) = LOWER(email))::text AS equals_login,
+         COUNT(*) FILTER (WHERE contact_email IS NOT NULL AND contact_email <> '' AND email_verified_at IS NOT NULL)::text AS verified,
+         COUNT(*) FILTER (WHERE contact_email IS NOT NULL AND contact_email <> '' AND email_verified_at IS NULL)::text AS unverified
+         FROM users`,
+    );
+    const row = result.rows[0];
+    return {
+      total: Number(row?.total ?? 0),
+      missing: Number(row?.missing ?? 0),
+      equalsLogin: Number(row?.equals_login ?? 0),
+      verified: Number(row?.verified ?? 0),
+      unverified: Number(row?.unverified ?? 0),
+    };
+  }
+
   async setPasswordByUserId(userId: string, hashedPassword: string): Promise<{ success: boolean }> {
     // Single-query atomic password write. Also clears must_change_password
     // — a successful self-initiated password reset is a stronger signal

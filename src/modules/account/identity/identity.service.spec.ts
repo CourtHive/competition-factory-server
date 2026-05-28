@@ -20,6 +20,9 @@ describe('IdentityService', () => {
       findByUserId: jest.fn().mockResolvedValue(null),
       setContactEmail: jest.fn().mockResolvedValue({ success: true }),
       markEmailVerified: jest.fn().mockResolvedValue({ success: true }),
+      getContactEmailCoverage: jest.fn().mockResolvedValue({
+        total: 0, missing: 0, equalsLogin: 0, verified: 0, unverified: 0,
+      }),
     };
     mockEmailService = {
       sendTemplated: jest.fn().mockResolvedValue({ id: 'msg-123' }),
@@ -205,6 +208,16 @@ describe('IdentityService', () => {
       const result: any = await identityService.adminResendVerification('bob@login');
       expect(result.status).toBe('already_verified');
       expect(mockEmailService.sendTemplated).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getContactEmailCoverage', () => {
+    it('returns the storage aggregate verbatim', async () => {
+      mockUserStorage.getContactEmailCoverage.mockResolvedValue({
+        total: 42, missing: 5, equalsLogin: 8, verified: 21, unverified: 13,
+      });
+      const result = await identityService.getContactEmailCoverage();
+      expect(result).toEqual({ total: 42, missing: 5, equalsLogin: 8, verified: 21, unverified: 13 });
     });
   });
 

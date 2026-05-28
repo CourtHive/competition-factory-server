@@ -53,4 +53,18 @@ export interface IUserStorage {
    * again on next login.
    */
   setPasswordByUserId(userId: string, hashedPassword: string): Promise<{ success: boolean }>;
+  /**
+   * Aggregate counters for the contact_email backfill nudge tile:
+   * how many users have a verified recovery mailbox, how many are
+   * pending verification, how many lack one entirely, and how many
+   * have contact_email === email (likely-fake mailbox, since email
+   * is the login id and is often not a real address).
+   */
+  getContactEmailCoverage(): Promise<{
+    total: number;
+    missing: number;
+    equalsLogin: number;
+    verified: number;
+    unverified: number;
+  }>;
 }

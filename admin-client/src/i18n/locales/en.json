@@ -283,6 +283,15 @@
     "providers": "Providers",
     "users": "Users",
     "activeRooms": "Active Rooms",
+    "contactEmailCoverage": {
+      "label": "Recovery email coverage",
+      "loading": "Loading…",
+      "verified": "verified",
+      "unverified": "pending",
+      "missing": "missing",
+      "equalsLogin": "= login id",
+      "total": "of {{count}} users"
+    },
     "audit": {
       "tabLabel": "Audit",
       "title": "Deleted-draw audit trail",

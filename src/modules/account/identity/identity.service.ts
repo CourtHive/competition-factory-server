@@ -166,6 +166,22 @@ export class IdentityService {
     });
   }
 
+  /**
+   * Aggregate counts for the contact-email backfill nudge tile. Surfaces
+   * how many users still lack a verified recovery mailbox so a super-
+   * admin can decide whether to nudge or backfill. SUPER_ADMIN-gated
+   * at the controller.
+   */
+  async getContactEmailCoverage(): Promise<{
+    total: number;
+    missing: number;
+    equalsLogin: number;
+    verified: number;
+    unverified: number;
+  }> {
+    return this.userStorage.getContactEmailCoverage();
+  }
+
   async verifyEmailToken(token: string): Promise<{ success: true; contactEmail: string }> {
     if (!token) throw new UnauthorizedException('Missing token');
     let claims: any;

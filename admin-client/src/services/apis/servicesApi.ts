@@ -103,6 +103,18 @@ export async function adminResendVerification({ email }: { email: string }) {
   return await baseApi.post('/account/contact-email/admin-resend', { email });
 }
 
+export interface ContactEmailCoverage {
+  total: number;
+  missing: number;
+  equalsLogin: number;
+  verified: number;
+  unverified: number;
+}
+
+export async function getContactEmailCoverage() {
+  return await baseApi.get('/account/contact-email/coverage');
+}
+
 export async function sendTournament({ tournamentRecord }: { tournamentRecord: any }) {
   return await baseApi.post('/factory/save', { tournamentRecord });
 }

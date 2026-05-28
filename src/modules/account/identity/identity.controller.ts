@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 
 import { UserCtx, type UserContext } from '../auth/decorators/user-context.decorator';
 import { AdminResendVerificationDto } from './dto/adminResendVerification.dto';
@@ -62,6 +62,18 @@ export class IdentityController {
   @HttpCode(HttpStatus.OK)
   adminResendVerification(@Body() body: AdminResendVerificationDto) {
     return this.identityService.adminResendVerification(body?.email ?? '');
+  }
+
+  /**
+   * Backfill coverage tile: aggregate counts of users by recovery-email
+   * state. SUPER_ADMIN-only so individual mailbox details never leak —
+   * only the totals.
+   */
+  @Get('account/contact-email/coverage')
+  @Roles([SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  getContactEmailCoverage() {
+    return this.identityService.getContactEmailCoverage();
   }
 
   /**
