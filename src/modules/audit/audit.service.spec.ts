@@ -155,6 +155,85 @@ describe('AuditService', () => {
     });
   });
 
+  describe('recordContactEmailChanged', () => {
+    it('appends a CONTACT_EMAIL_CHANGED row using the target userId in the tournamentId slot', async () => {
+      await service.recordContactEmailChanged({
+        targetUserId: 'u-target',
+        targetEmail: 'target@login',
+        actorUserId: 'u-admin',
+        actorEmail: 'admin@test',
+        oldContactEmail: 'old@example.com',
+        newContactEmail: 'new@example.com',
+        source: 'admin',
+      });
+      expect(mockStorage.append).toHaveBeenCalledTimes(1);
+      const row = mockStorage.append.mock.calls[0][0];
+      expect(row.actionType).toBe('CONTACT_EMAIL_CHANGED');
+      expect(row.tournamentId).toBe('u-target');
+      expect(row.userId).toBe('u-admin');
+      expect(row.userEmail).toBe('admin@test');
+      expect(row.source).toBe('admin');
+      expect(row.status).toBe('applied');
+      expect(row.metadata).toEqual({
+        targetUserId: 'u-target',
+        targetEmail: 'target@login',
+        oldContactEmail: 'old@example.com',
+        newContactEmail: 'new@example.com',
+      });
+    });
+
+    it('captures a null oldContactEmail when none was set', async () => {
+      await service.recordContactEmailChanged({
+        targetUserId: 'u-target',
+        newContactEmail: 'new@example.com',
+      });
+      const row = mockStorage.append.mock.calls[0][0];
+      expect(row.metadata.oldContactEmail).toBeNull();
+      expect(row.source).toBe('admin');
+    });
+
+    it('does not throw when storage.append fails (fail-soft)', async () => {
+      mockStorage.append.mockRejectedValue(new Error('DB down'));
+      await expect(
+        service.recordContactEmailChanged({
+          targetUserId: 'u-target',
+          newContactEmail: 'new@example.com',
+        }),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe('recordContactEmailVerified', () => {
+    it('appends a CONTACT_EMAIL_VERIFIED row with source=verify-link', async () => {
+      await service.recordContactEmailVerified({
+        targetUserId: 'u-target',
+        targetEmail: 'target@login',
+        contactEmail: 'verified@example.com',
+      });
+      const row = mockStorage.append.mock.calls[0][0];
+      expect(row.actionType).toBe('CONTACT_EMAIL_VERIFIED');
+      expect(row.tournamentId).toBe('u-target');
+      expect(row.userId).toBe('u-target');
+      expect(row.userEmail).toBe('target@login');
+      expect(row.source).toBe('verify-link');
+      expect(row.metadata).toEqual({
+        targetUserId: 'u-target',
+        targetEmail: 'target@login',
+        contactEmail: 'verified@example.com',
+      });
+    });
+
+    it('does not throw when storage.append fails (fail-soft)', async () => {
+      mockStorage.append.mockRejectedValue(new Error('DB down'));
+      await expect(
+        service.recordContactEmailVerified({
+          targetUserId: 'u-target',
+          contactEmail: 'verified@example.com',
+        }),
+      ).resolves.not.toThrow();
+    });
+  });
+
   describe('recordDrawDeletion', () => {
     it('appends a DELETE_DRAW row with the snapshot in metadata', async () => {
       const snapshot = { drawId: 'd-1', drawName: 'MD32', drawType: 'SINGLE_ELIMINATION', structures: [] };

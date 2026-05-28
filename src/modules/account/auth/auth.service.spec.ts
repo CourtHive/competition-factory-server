@@ -16,6 +16,7 @@ describe('AuthService', () => {
   let mockRefreshTokenService: any;
   let mockAuthCodeStorage: any;
   let mockIdentityService: any;
+  let mockAuditService: any;
 
   beforeEach(() => {
     jwtService = new JwtService({ secret: 'test-secret' });
@@ -97,6 +98,11 @@ describe('AuthService', () => {
       verifyEmailToken: jest.fn().mockResolvedValue({ success: true, contactEmail: 'a@b.c' }),
     };
 
+    mockAuditService = {
+      recordContactEmailChanged: jest.fn().mockResolvedValue(undefined),
+      recordContactEmailVerified: jest.fn().mockResolvedValue(undefined),
+    };
+
     authService = new AuthService(
       mockUsersService,
       jwtService,
@@ -110,6 +116,7 @@ describe('AuthService', () => {
       mockRefreshTokenService as any,
       mockAuthCodeStorage as any,
       mockIdentityService as any,
+      mockAuditService as any,
     );
   });
 
@@ -895,6 +902,38 @@ describe('AuthService', () => {
       await authService.modifyUser({ email: 'user@test.com', contactEmail: '' }, superAdminEditor);
       expect(mockUserStorage.setContactEmail).toHaveBeenCalledWith('u-1', '');
       expect(mockIdentityService.resendVerification).not.toHaveBeenCalled();
+    });
+
+    it('records a CONTACT_EMAIL_CHANGED audit event when contactEmail changes', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'user@test.com', userId: 'u-1', password: 'h',
+        contactEmail: 'old@example.com',
+      });
+      await authService.modifyUser({
+        email: 'user@test.com',
+        contactEmail: 'new@example.com',
+      }, superAdminEditor);
+      expect(mockAuditService.recordContactEmailChanged).toHaveBeenCalledWith({
+        targetUserId: 'u-1',
+        targetEmail: 'user@test.com',
+        actorUserId: superAdminEditor.userContext.userId,
+        actorEmail: superAdminEditor.userContext.email,
+        oldContactEmail: 'old@example.com',
+        newContactEmail: 'new@example.com',
+        source: 'admin',
+      });
+    });
+
+    it('does NOT record an audit event when contactEmail is unchanged', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'user@test.com', userId: 'u-1', password: 'h',
+        contactEmail: 'same@example.com',
+      });
+      await authService.modifyUser({
+        email: 'user@test.com',
+        contactEmail: 'same@example.com',
+      }, superAdminEditor);
+      expect(mockAuditService.recordContactEmailChanged).not.toHaveBeenCalled();
     });
 
     it('swallows verification mail failures so the modify still succeeds', async () => {

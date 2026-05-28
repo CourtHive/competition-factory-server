@@ -9,6 +9,7 @@ describe('IdentityService', () => {
   let mockUserStorage: any;
   let mockEmailService: any;
   let mockConfigService: any;
+  let mockAuditService: any;
 
   beforeEach(() => {
     jwtService = new JwtService({ secret: 'test-secret' });
@@ -16,6 +17,7 @@ describe('IdentityService', () => {
     mockUserStorage = {
       findOne: jest.fn(),
       findByContactEmail: jest.fn(),
+      findByUserId: jest.fn().mockResolvedValue(null),
       setContactEmail: jest.fn().mockResolvedValue({ success: true }),
       markEmailVerified: jest.fn().mockResolvedValue({ success: true }),
     };
@@ -25,12 +27,17 @@ describe('IdentityService', () => {
     mockConfigService = {
       get: jest.fn().mockReturnValue({ baseUrl: 'https://nest.test.example' }),
     };
+    mockAuditService = {
+      recordContactEmailChanged: jest.fn().mockResolvedValue(undefined),
+      recordContactEmailVerified: jest.fn().mockResolvedValue(undefined),
+    };
 
     identityService = new IdentityService(
       jwtService,
       mockEmailService,
       mockConfigService,
       mockUserStorage,
+      mockAuditService,
     );
   });
 
@@ -66,6 +73,25 @@ describe('IdentityService', () => {
       // The verify URL embeds the configured base URL.
       const sendCall = (mockEmailService.sendTemplated as jest.Mock).mock.calls[0][0];
       expect(sendCall.data.verifyUrl).toMatch(/^https:\/\/nest\.test\.example\/admin\/#\/verify-email\//);
+    });
+
+    it('records a CONTACT_EMAIL_CHANGED audit event with source=self-service', async () => {
+      mockUserStorage.findByUserId.mockResolvedValue({
+        userId: 'u-1', email: 'login@test', contactEmail: 'old@example.com',
+      });
+      await identityService.setContactEmail(
+        { userId: 'u-1', email: 'login@test', firstName: 'Alice' },
+        'new@example.com',
+      );
+      expect(mockAuditService.recordContactEmailChanged).toHaveBeenCalledWith({
+        targetUserId: 'u-1',
+        targetEmail: 'login@test',
+        actorUserId: 'u-1',
+        actorEmail: 'login@test',
+        oldContactEmail: 'old@example.com',
+        newContactEmail: 'new@example.com',
+        source: 'self-service',
+      });
     });
 
     it('throws when APP_BASE_URL is not configured', async () => {
@@ -231,6 +257,27 @@ describe('IdentityService', () => {
       expect(result.success).toBe(true);
       expect(result.contactEmail).toBe('alice@example.com');
       expect(mockUserStorage.markEmailVerified).toHaveBeenCalledWith('u-1');
+    });
+
+    it('records a CONTACT_EMAIL_VERIFIED audit event on success', async () => {
+      const token = await jwtService.signAsync(
+        { userId: 'u-1', contactEmail: 'alice@example.com', purpose: 'email-verification' },
+        { expiresIn: '5m' },
+      );
+      mockUserStorage.findOne.mockResolvedValue(null);
+      mockUserStorage.findByContactEmail.mockResolvedValue({
+        userId: 'u-1',
+        email: 'login@test',
+        contactEmail: 'alice@example.com',
+      });
+
+      await identityService.verifyEmailToken(token);
+
+      expect(mockAuditService.recordContactEmailVerified).toHaveBeenCalledWith({
+        targetUserId: 'u-1',
+        targetEmail: 'login@test',
+        contactEmail: 'alice@example.com',
+      });
     });
   });
 });

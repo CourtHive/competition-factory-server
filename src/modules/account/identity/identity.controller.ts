@@ -28,7 +28,7 @@ export class IdentityController {
   ) {
     if (!userContext?.userId) return { error: 'Authentication required' };
     return this.identityService.setContactEmail(
-      { userId: userContext.userId, firstName: user?.firstName },
+      { userId: userContext.userId, email: userContext.email, firstName: user?.firstName },
       body?.contactEmail ?? '',
     );
   }

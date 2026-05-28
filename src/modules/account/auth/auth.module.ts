@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { IdentityModule } from '../identity/identity.module';
 import { ConfigsModule } from 'src/config/config.module';
+import { AuditModule } from '../../audit/audit.module';
 import { EmailModule } from '../email/email.module';
 import { UsersModule } from '../../users/users.module';
 import { AuthController } from './auth.controller';
@@ -26,6 +27,7 @@ const expiresIn: any = rawValidity && isValidJwtExpiresIn(rawValidity) ? rawVali
     UsersModule,
     EmailModule,
     IdentityModule,
+    AuditModule,
     JwtModule.register({
       signOptions: { expiresIn },
       secret: process.env.JWT_SECRET,

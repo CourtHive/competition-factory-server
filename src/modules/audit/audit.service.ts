@@ -227,6 +227,81 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Record a contact-email change. Used by the admin Edit User modal
+   * (via authService.modifyUser) and the self-service
+   * /account/contact-email/set flow. Uses the target's userId in the
+   * tournamentId slot — same denormalized indexed string pattern as
+   * recordProvisionerDeletion. Fail-soft.
+   */
+  async recordContactEmailChanged(params: {
+    targetUserId: string;
+    targetEmail?: string;
+    actorUserId?: string;
+    actorEmail?: string;
+    oldContactEmail?: string | null;
+    newContactEmail: string;
+    source?: string;
+  }): Promise<void> {
+    const { targetUserId, targetEmail, actorUserId, actorEmail, oldContactEmail, newContactEmail, source } = params;
+
+    const row: AuditRow = {
+      auditId: tools.UUID(),
+      tournamentId: targetUserId,
+      userId: actorUserId,
+      userEmail: actorEmail,
+      source: source ?? 'admin',
+      occurredAt: new Date().toISOString(),
+      actionType: 'CONTACT_EMAIL_CHANGED',
+      methods: [{ method: 'setContactEmail', params: { targetUserId } }],
+      status: 'applied',
+      metadata: {
+        targetUserId,
+        targetEmail,
+        oldContactEmail: oldContactEmail ?? null,
+        newContactEmail,
+      },
+    };
+
+    try {
+      await this.auditStorage.append(row);
+    } catch (err: any) {
+      this.logger.error(`Failed to record contact-email change audit for ${targetUserId}: ${err.message}`);
+    }
+  }
+
+  /**
+   * Record a successful contact-email verification (user clicked the
+   * verification link). Actor is the user themselves — the verify
+   * endpoint is public and authenticated only by the token. Fail-soft.
+   */
+  async recordContactEmailVerified(params: {
+    targetUserId: string;
+    targetEmail?: string;
+    contactEmail: string;
+  }): Promise<void> {
+    const { targetUserId, targetEmail, contactEmail } = params;
+
+    const row: AuditRow = {
+      auditId: tools.UUID(),
+      tournamentId: targetUserId,
+      userId: targetUserId,
+      userEmail: targetEmail,
+      source: 'verify-link',
+      occurredAt: new Date().toISOString(),
+      actionType: 'CONTACT_EMAIL_VERIFIED',
+      methods: [{ method: 'markEmailVerified', params: { targetUserId } }],
+      status: 'applied',
+      metadata: { targetUserId, targetEmail, contactEmail },
+    };
+
+    try {
+      await this.auditStorage.append(row);
+    } catch (err: any) {
+      this.logger.error(`Failed to record contact-email verified audit for ${targetUserId}: ${err.message}`);
+    }
+  }
+
+  /**
    * Restore a previously deleted drawDefinition from its audit-trail snapshot.
    *
    * Idempotency is enforced at two layers:

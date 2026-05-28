@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Inject, Inj
 import { VALID_GLOBAL_ROLES, VALID_PROVIDER_ROLES } from 'src/common/constants/roles';
 import { computeEffectiveConfig } from '@courthive/provider-config';
 import { IdentityService } from '../identity/identity.service';
+import { AuditService } from '../../audit/audit.service';
 import { createUniqueKey } from './helpers/createUniqueKey';
 import { EmailService } from '../email/email.service';
 import { UsersService } from '../../users/users.service';
@@ -111,6 +112,7 @@ export class AuthService {
     private readonly refreshTokenService: RefreshTokenService,
     @Inject(AUTH_CODE_STORAGE) private readonly authCodeStorage: IAuthCodeStorage,
     private readonly identityService: IdentityService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -931,6 +933,19 @@ export class AuthService {
         await this.userStorage.setContactEmail(userId, contactEmailChange);
         responseContactEmail = contactEmailChange;
         responseEmailVerifiedAt = null;
+
+        // Audit BEFORE the mail attempt — the change is the auditable
+        // event regardless of whether SMTP succeeds. Fail-soft inside
+        // the audit service.
+        await this.auditService.recordContactEmailChanged({
+          targetUserId: userId,
+          targetEmail: email,
+          actorUserId: editor?.userContext?.userId,
+          actorEmail: editor?.userContext?.email,
+          oldContactEmail: user.contactEmail ?? user.contact_email ?? null,
+          newContactEmail: contactEmailChange,
+          source: 'admin',
+        });
 
         // Fire the verification mail when the admin sets a non-empty
         // address. IdentityService.resendVerification re-reads the user

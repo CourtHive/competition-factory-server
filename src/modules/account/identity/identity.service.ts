@@ -26,6 +26,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
 import { USER_STORAGE, type IUserStorage } from 'src/storage/interfaces';
+import { AuditService } from '../../audit/audit.service';
 import { EmailService } from '../email/email.service';
 
 const VERIFICATION_TOKEN_TTL = '24h';
@@ -47,6 +48,7 @@ export class IdentityService {
     private readonly emailService: EmailService,
     private readonly configService: ConfigService,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -66,7 +68,7 @@ export class IdentityService {
   }
 
   async setContactEmail(
-    user: { userId: string; firstName?: string },
+    user: { userId: string; firstName?: string; email?: string },
     contactEmail: string,
   ): Promise<{ success: true; status: 'pending_verification'; contactEmail: string } | { error: string }> {
     const trimmed = (contactEmail ?? '').trim();
@@ -74,7 +76,22 @@ export class IdentityService {
     if (!EMAIL_REGEX.test(trimmed)) return { error: 'Not a valid email address' };
     if (!user?.userId) return { error: 'Authentication required' };
 
+    // Read the prior contact_email before overwriting so the audit row
+    // captures the actual transition rather than the post-write value.
+    const prior = await this.userStorage.findByUserId(user.userId);
+    const priorContactEmail = prior?.contactEmail ?? prior?.contact_email ?? null;
+
     await this.userStorage.setContactEmail(user.userId, trimmed);
+
+    await this.auditService.recordContactEmailChanged({
+      targetUserId: user.userId,
+      targetEmail: user.email ?? prior?.email,
+      actorUserId: user.userId,
+      actorEmail: user.email ?? prior?.email,
+      oldContactEmail: priorContactEmail,
+      newContactEmail: trimmed,
+      source: 'self-service',
+    });
 
     const token = await this.jwtService.signAsync(
       { userId: user.userId, contactEmail: trimmed, purpose: EMAIL_VERIFICATION_PURPOSE },
@@ -176,6 +193,11 @@ export class IdentityService {
     }
 
     await this.userStorage.markEmailVerified(claims.userId);
+    await this.auditService.recordContactEmailVerified({
+      targetUserId: claims.userId,
+      targetEmail: byContact.email,
+      contactEmail: claims.contactEmail,
+    });
     this.logger.log(`Verified contact email ${claims.contactEmail} for user ${claims.userId}`);
     return { success: true, contactEmail: claims.contactEmail };
   }
