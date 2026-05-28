@@ -80,6 +80,21 @@ function parseDurationToMinutes(duration: string): number {
 
 const ALLOWED_ROLE_SET = new Set([...VALID_GLOBAL_ROLES, ...VALID_PROVIDER_ROLES, 'admin', 'official', 'director']);
 
+// Global roles a non-SUPER_ADMIN editor may not GRANT via modifyUser.
+// Removing them from a user is allowed; only escalation is gated.
+const RESTRICTED_GRANT_ROLES = new Set<string>([SUPER_ADMIN, PROVISIONER_ROLE, 'developer']);
+
+function assertNoPrivilegeEscalation(incomingRoles: unknown, currentRoles: unknown): void {
+  if (!Array.isArray(incomingRoles)) return;
+  const current: string[] = Array.isArray(currentRoles) ? (currentRoles as string[]) : [];
+  const escalations = (incomingRoles as string[]).filter(
+    (r) => RESTRICTED_GRANT_ROLES.has(r) && !current.includes(r),
+  );
+  if (escalations.length) {
+    throw new ForbiddenException(`Only SUPER_ADMIN may grant role(s): ${escalations.join(', ')}`);
+  }
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -872,12 +887,26 @@ export class AuthService {
     return { ...SUCCESS };
   }
 
-  async modifyUser(params: { email: string; [key: string]: any }) {
+  async modifyUser(
+    params: { email: string; [key: string]: any },
+    editor?: { userContext?: UserContext; provisionerIds?: string[] },
+  ) {
     const { email, contactEmail, ...updates } = params;
     if (!email) return { error: 'Email is required' };
 
     const user = await this.usersService.findOne(email);
     if (!user) return { error: 'User not found' };
+
+    // Authorization: SUPER_ADMIN unrestricted. Otherwise the editor must
+    // have PROVIDER_ADMIN / PROVISIONER authority over at least one of
+    // the target user's provider associations — same walk used by
+    // adminResetPassword (auth.service.ts:810). A target with zero
+    // provider rows can only be modified by SUPER_ADMIN.
+    const editorContext = editor?.userContext;
+    if (!editorContext?.isSuperAdmin) {
+      await this.assertModifyUserAuthority(user, editor);
+      assertNoPrivilegeEscalation(updates.roles, user.roles);
+    }
 
     // contact_email and email_verified_at live in dedicated columns and must
     // be written via setContactEmail, which atomically CLEARS verification
@@ -931,6 +960,35 @@ export class AuthService {
       success: true,
       user: { ...safeUser, contactEmail: responseContactEmail, emailVerifiedAt: responseEmailVerifiedAt },
     };
+  }
+
+  /**
+   * Walks the target user's provider associations and throws
+   * ForbiddenException if the editor has authority over none of them.
+   * Mirrors the loop in adminResetPassword (auth.service.ts:810).
+   */
+  private async assertModifyUserAuthority(
+    user: any,
+    editor?: { userContext?: UserContext; provisionerIds?: string[] },
+  ): Promise<void> {
+    const targetUserId = user.userId ?? user.user_id;
+    const targetRows = targetUserId
+      ? await this.userProviderStorage.findByUserId(targetUserId)
+      : [];
+    for (const row of targetRows) {
+      try {
+        await assertProviderEditor({
+          userContext: editor?.userContext,
+          providerId: row.providerId,
+          provisionerIds: editor?.provisionerIds,
+          provisionerProviderStorage: this.provisionerProviderStorage,
+        });
+        return;
+      } catch {
+        // Try the next provider association.
+      }
+    }
+    throw new ForbiddenException('Not authorised to modify this user');
   }
 
   /**

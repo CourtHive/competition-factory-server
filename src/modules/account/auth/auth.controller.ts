@@ -104,10 +104,20 @@ export class AuthController {
   }
 
   @Post('modify')
-  @Roles([SUPER_ADMIN])
+  // CLIENT is the broad gate; the service narrows to SUPER_ADMIN OR
+  // PROVIDER_ADMIN / PROVISIONER scoped to one of the target user's
+  // provider associations (same pattern as admin-reset-password).
+  @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  modify(@Body() params: ModifyUserDto) {
-    return this.authService.modifyUser(params);
+  modify(
+    @Body() params: ModifyUserDto,
+    @User() user?: any,
+    @UserCtx() userContext?: UserContext,
+  ) {
+    return this.authService.modifyUser(params, {
+      userContext,
+      provisionerIds: user?.provisionerIds,
+    });
   }
 
   @Post('remove')
