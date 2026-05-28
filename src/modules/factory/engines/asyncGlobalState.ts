@@ -63,6 +63,7 @@ export default {
   enableNotifications,
   getMethods,
   getNotices,
+  getPayloads: getNotices, // canonical alias matching factory 5.0.0+
   getTopics,
   getTournamentId,
   getTournamentRecord,
@@ -224,12 +225,16 @@ function getTopics() {
   return { topics };
 }
 
-async function callListener({ topic, notices }, globalSubscriptions?: any) {
+async function callListener({ topic, payloads, notices }, globalSubscriptions?: any) {
+  // factory 5.0.0 sends `payloads` as the canonical field; fall back to the
+  // deprecated `notices` alias so this provider also works against pre-5.0.0
+  // factory builds.
+  const data = payloads ?? notices ?? [];
   const instanceState = getInstanceState();
   const method = instanceState.subscriptions[topic];
-  if (method && typeof method === 'function') await method(notices);
+  if (method && typeof method === 'function') await method(data);
   const globalMethod = globalSubscriptions?.[topic];
-  if (globalMethod && typeof globalMethod === 'function') await globalMethod(notices);
+  if (globalMethod && typeof globalMethod === 'function') await globalMethod(data);
 }
 
 export function handleCaughtError({ engineName, methodName, params, err }: any) {
