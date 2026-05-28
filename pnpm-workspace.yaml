@@ -17,13 +17,6 @@ allowBuilds:
   esbuild: true
   unrs-resolver: true
 
-ignoredBuiltDependencies:
-  - '@nestjs/core'
-  - '@scarf/scarf'
-  - '@swc/core'
-  - classic-level
-  - unrs-resolver
-
 overrides:
   'serve-static@<2': '>=2.2.0'
   tods-competition-factory: link:../factory
