@@ -230,15 +230,12 @@ d('Provisioner / mismatched X-Provider-Id', () => {
   });
 
   // ── D. What ended up where? ──
-
-  it('Dprep. settle: wait out the fire-and-forget save in factory.service.generateTournamentRecord', async () => {
-    // generateTournamentRecord returns success before saveTournamentRecords
-    // resolves (factory.service.ts:75 — `this.tournamentStorageService.save...catch(...)`).
-    // Without a settle wait, the calendar queries below can race and miss the
-    // most-recent tournament. This is itself a finding: in prod, a client that
-    // immediately queries after a create can observe a brief gap.
-    await new Promise((resolve) => setTimeout(resolve, 800));
-  });
+  //
+  // The settle-wait that used to live here is gone: /factory/generate now
+  // awaits saveTournamentRecords (factory.service.ts) so the response only
+  // returns after the row is durable. The race that previously made D2
+  // intermittent (and that surfaced as the "no calendar found" symptom on
+  // the first run of this spec) cannot recur.
 
   it('D1. ION calendar contains the two "wrong" tournaments (C1, C2)', async () => {
     const res = await request(app.getHttpServer())
@@ -265,19 +262,45 @@ d('Provisioner / mismatched X-Provider-Id', () => {
     expect(ts.length).toBe(1);
   });
 
-  it('D3. tournament_provisioner ownership rows are NOT written by /factory/generate', async () => {
-    // Open finding: executionQueue's provisioner stamping (executionQueue.ts:74)
-    // fires only for methods including 'newTournamentRecord'. /factory/generate
-    // goes through factory.service.generateTournamentRecord which bypasses
-    // executionQueue, so tournament_provisioner stays empty for these rows.
-    // This means: tournaments created via /factory/generate carry no durable
-    // provisioner-origin record, only the parentOrganisation.organisationId.
+  it('D3. tournament_provisioner ownership rows ARE written by /factory/generate', async () => {
+    // factory.service.generateTournamentRecord now stamps the ownership row
+    // after a successful save (matching the executionQueue.ts path for
+    // newTournamentRecord). Each row binds tournamentId →
+    // (provisionerId, providerId), where providerId reflects what
+    // X-Provider-Id was at create time.
     const { TOURNAMENT_PROVISIONER_STORAGE } = await import('src/storage/interfaces');
     const tps: any = app.get(TOURNAMENT_PROVISIONER_STORAGE);
+    const rows: Array<{ tid: string; row: any }> = [];
     for (const tid of createdTournamentIds) {
       const row = await tps.getByTournament(tid);
       console.log(`[D3] ${tid.slice(0, 8)}… -> ${JSON.stringify(row)}`);
-      expect(row).toBeNull();
+      expect(row).not.toBeNull();
+      expect(row.provisionerId).toBe(provisionerId);
+      rows.push({ tid, row });
+    }
+    const byProvider = rows.reduce<Record<string, number>>((acc, { row }) => {
+      acc[row.providerId] = (acc[row.providerId] ?? 0) + 1;
+      return acc;
+    }, {});
+    expect(byProvider[ionId]).toBe(2);
+    expect(byProvider[bobocaId]).toBe(1);
+  });
+
+  it('D5. parentOrganisation carries a provisionerOrigin extension on each tournament', async () => {
+    // Companion to D3: the extension is stamped by the service before save
+    // so the durable record itself self-describes its origin, in addition
+    // to the relational tournament_provisioner row.
+    for (const tid of createdTournamentIds) {
+      const res = await request(app.getHttpServer())
+        .post('/factory/fetch')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ tournamentIds: [tid] });
+      const rec = res.body?.tournamentRecords?.[tid] ?? res.body?.tournamentRecord;
+      const extensions = rec?.parentOrganisation?.extensions ?? [];
+      const originExt = extensions.find((e: any) => e?.name === 'provisionerOrigin');
+      console.log(`[D5] ${tid.slice(0, 8)}… ext=${JSON.stringify(originExt?.value)}`);
+      expect(originExt).toBeDefined();
+      expect(originExt.value.provisionerId).toBe(provisionerId);
     }
   });
 

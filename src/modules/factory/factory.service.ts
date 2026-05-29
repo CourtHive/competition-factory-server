@@ -88,18 +88,62 @@ export class FactoryService {
     return result;
   }
 
-  async generateTournamentRecord(params, user, userContext?: UserContext) {
+  async generateTournamentRecord(
+    params,
+    user,
+    userContext?: UserContext,
+    provisionerContext?: { provisionerId: string; providerId?: string; provisionerName?: string },
+  ) {
     const validUser = checkUser({ user, userContext });
     if (!validUser) return { error: 'Invalid user' };
     const { tournamentRecord, tournamentRecords } = await gen(params, user);
+
+    // Provisioner-origin extension on parentOrganisation. Matches the shape
+    // stamped by executionQueue.ts:166-184 for newTournamentRecord mutations,
+    // so the audit trail looks identical regardless of which create path
+    // a provisioner uses.
+    if (provisionerContext?.provisionerId && tournamentRecord?.parentOrganisation) {
+      const extensions = tournamentRecord.parentOrganisation.extensions ?? [];
+      const ext = {
+        name: 'provisionerOrigin',
+        value: {
+          provisionerId: provisionerContext.provisionerId,
+          provisionerName: provisionerContext.provisionerName,
+          createdAt: new Date().toISOString(),
+        },
+      };
+      const idx = extensions.findIndex((e: any) => e?.name === 'provisionerOrigin');
+      if (idx >= 0) extensions[idx] = ext;
+      else extensions.push(ext);
+      tournamentRecord.parentOrganisation.extensions = extensions;
+    }
+
+    // Await the save. The previous fire-and-forget pattern returned success
+    // before the row hit storage, which let provisioners observe an empty
+    // calendar immediately after a 200, and obscured storage failures behind
+    // a misleading success envelope (caught 2026-05-29 via the
+    // provisioner-mismatched-providerid e2e test).
     const userId = userContext?.userId;
-    // Fire-and-forget save — catch rejections so an upstream storage error
-    // (or a pool that's been torn down during shutdown) doesn't surface as
-    // an unhandled rejection. Mirrors the same pattern used on lines 52 and
-    // 145 below for the mirror-enqueue and validation-queue fire-and-forgets.
-    this.tournamentStorageService
-      .saveTournamentRecords({ tournamentRecords, userId })
-      .catch((err: Error) => Logger.error(`saveTournamentRecords failed: ${err.message}`, 'FactoryService'));
+    await this.tournamentStorageService.saveTournamentRecords({ tournamentRecords, userId });
+
+    // Provisioner ownership stamp — fail-soft, same policy as the
+    // executionQueue path (executionQueue.ts:161). The tournament exists
+    // either way; the row is metadata for audit + multi-tenant queries.
+    if (provisionerContext?.provisionerId && provisionerContext?.providerId && tournamentRecord?.tournamentId) {
+      this.tournamentProvisionerStorage
+        .create({
+          tournamentId: tournamentRecord.tournamentId,
+          provisionerId: provisionerContext.provisionerId,
+          providerId: provisionerContext.providerId,
+        })
+        .catch((err: Error) =>
+          Logger.error(
+            `Provisioner stamp failed for ${tournamentRecord.tournamentId}: ${err.message}`,
+            'FactoryService',
+          ),
+        );
+    }
+
     return { tournamentRecord, success: true };
   }
 

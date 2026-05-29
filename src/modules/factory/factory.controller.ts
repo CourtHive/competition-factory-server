@@ -179,8 +179,19 @@ export class FactoryController {
     @Body() gtd: any,
     @User() user?: any,
     @UserCtx() userContext?: UserContext,
+    @Req() req?: any,
   ) {
-    return this.factoryService.generateTournamentRecord(gtd, user, userContext);
+    // Thread provisioner context so the service can stamp the
+    // tournament_provisioner ownership row + parentOrganisation
+    // provisionerOrigin extension. Mirrors the executionQueue route above.
+    const provisionerContext = req?.provisioner
+      ? {
+          provisionerId: req.provisioner.provisionerId,
+          providerId: req.headers?.['x-provider-id'],
+          provisionerName: req.provisioner.name,
+        }
+      : undefined;
+    return this.factoryService.generateTournamentRecord(gtd, user, userContext, provisionerContext);
   }
 
   @Post('query')
