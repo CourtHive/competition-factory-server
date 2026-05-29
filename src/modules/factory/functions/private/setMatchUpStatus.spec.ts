@@ -45,10 +45,10 @@ describe('setMatchUpStatus', () => {
 
     // Find a matchUp that is ready to score (has participants on both sides)
     tournamentEngine.setState(tournamentRecord);
-    const { matchUps } = tournamentEngine.allTournamentMatchUps({ inContext: true });
+    const { matchUps = [] } = tournamentEngine.allTournamentMatchUps({ inContext: true });
     const readyMatchUp = matchUps.find((m: any) => m.readyToScore && !m.winningSide);
     expect(readyMatchUp).toBeDefined();
-    matchUpId = readyMatchUp.matchUpId;
+    matchUpId = readyMatchUp!.matchUpId;
   });
 
   afterAll(async () => {
