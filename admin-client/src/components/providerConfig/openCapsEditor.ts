@@ -18,6 +18,7 @@ import {
   buildNumberField,
   buildSectionHeader,
   buildTextField,
+  buildThemeTokensField,
 } from './providerConfigFormHelpers';
 import { PERMISSION_GROUPS } from 'types/permissionGroups';
 import {
@@ -58,6 +59,7 @@ function renderEditor({
   const stringReaders: Record<string, () => string> = {};
   const numberReaders: Record<string, () => number | undefined> = {};
   const listReaders: Record<string, () => string[]> = {};
+  const tokenReaders: Record<string, () => Record<string, string>> = {};
 
   let issuesContainer: HTMLElement | undefined;
 
@@ -116,6 +118,34 @@ function renderEditor({
         placeholder: '#0066cc',
         registry: stringReaders,
         registryKey: 'branding.accentColor',
+      }),
+    );
+    elem.appendChild(
+      buildTextField({
+        label: t('providerConfig.branding.stylesheetUrl'),
+        value: caps.branding?.stylesheetUrl ?? '',
+        placeholder: 'https://provider.example.com/theme.css',
+        registry: stringReaders,
+        registryKey: 'branding.stylesheetUrl',
+      }),
+    );
+
+    // ── Theme tokens ──
+    elem.appendChild(buildSectionHeader(t('providerConfig.section.themeTokens')));
+    elem.appendChild(
+      buildThemeTokensField({
+        label: t('providerConfig.themeTokens.label'),
+        hint: t('providerConfig.themeTokens.hint'),
+        presetLabel: t('providerConfig.themeTokens.preset'),
+        presetChooseLabel: t('providerConfig.themeTokens.chooseAPreset'),
+        addLabel: t('providerConfig.themeTokens.add'),
+        removeLabel: t('providerConfig.themeTokens.remove'),
+        tokenPlaceholder: '--tmx-accent-blue',
+        valuePlaceholder: '#1a5276',
+        invalidTokenTitle: t('providerConfig.themeTokens.invalidPrefix'),
+        values: caps.branding?.themeTokens ?? {},
+        registry: tokenReaders,
+        registryKey: 'branding.themeTokens',
       }),
     );
 
@@ -218,7 +248,7 @@ function renderEditor({
         // Note: not auto-closing — we want the issues to surface inline if the
         // server rejects on validation.
         onClick: () => {
-          const caps = collectCaps({ boolReaders, stringReaders, numberReaders, listReaders });
+          const caps = collectCaps({ boolReaders, stringReaders, numberReaders, listReaders, tokenReaders });
           updateProviderCapsAsProvisioner(providerId, caps).then(
             (res: any) => {
               if (res?.data?.code === 'CAPS_INVALID') {
@@ -247,11 +277,13 @@ function collectCaps({
   stringReaders,
   numberReaders,
   listReaders,
+  tokenReaders,
 }: {
   boolReaders: Record<string, () => boolean>;
   stringReaders: Record<string, () => string>;
   numberReaders: Record<string, () => number | undefined>;
   listReaders: Record<string, () => string[]>;
+  tokenReaders: Record<string, () => Record<string, string>>;
 }): ProviderConfigCaps {
   const branding: any = {};
   for (const key of [
@@ -260,12 +292,15 @@ function collectCaps({
     'navbarLogoAlt',
     'splashLogoUrl',
     'accentColor',
+    'stylesheetUrl',
   ] as const) {
     const v = stringReaders[`branding.${key}`]?.();
     if (v && v.length > 0) branding[key] = v;
   }
   const navbarLogoHeight = numberReaders['branding.navbarLogoHeight']?.();
   if (navbarLogoHeight !== undefined) branding.navbarLogoHeight = navbarLogoHeight;
+  const themeTokens = tokenReaders['branding.themeTokens']?.();
+  if (themeTokens && Object.keys(themeTokens).length > 0) branding.themeTokens = themeTokens;
 
   const permissions: any = {};
   for (const [key, reader] of Object.entries(boolReaders)) {

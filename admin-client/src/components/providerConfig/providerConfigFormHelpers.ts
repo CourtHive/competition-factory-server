@@ -162,6 +162,180 @@ export function buildListField(opts: ListFieldOptions): HTMLElement {
   return wrap;
 }
 
+/**
+ * Curated preset list for the themeTokens editor — surfaces the
+ * frequently overridden custom properties so a provider admin can
+ * fill the form by name rather than memorising the surface.
+ *
+ * Free-form entries are still allowed; validation happens server-side
+ * via the @courthive/provider-config prefix allowlist (--tmx-* / --chc-*).
+ */
+export const THEME_TOKEN_PRESETS: ReadonlyArray<{ token: string; label: string }> = [
+  { token: '--tmx-accent-blue', label: 'TMX primary accent' },
+  { token: '--tmx-fill-accent', label: 'TMX button fill' },
+  { token: '--tmx-border-focus', label: 'TMX focus ring' },
+  { token: '--tmx-status-info', label: 'TMX status — info' },
+  { token: '--tmx-status-warning', label: 'TMX status — warning' },
+  { token: '--tmx-status-error', label: 'TMX status — error' },
+  { token: '--tmx-accent-orange', label: 'TMX warm accent' },
+  { token: '--tmx-bg-highlight', label: 'TMX highlight background' },
+  { token: '--tmx-container-link', label: 'TMX link container fill' },
+  { token: '--tmx-panel-blue-bg', label: 'TMX blue panel — bg' },
+  { token: '--tmx-panel-blue-border', label: 'TMX blue panel — border' },
+  { token: '--chc-text-link', label: 'CHP link color' },
+  { token: '--chc-text-link-hover', label: 'CHP link hover' },
+  { token: '--chc-status-info', label: 'CHP status — info' },
+  { token: '--chc-container-link', label: 'CHP link container fill' },
+  { token: '--chc-border-focus', label: 'CHP focus ring' },
+];
+
+const TOKEN_PREFIXES = ['--tmx-', '--chc-'] as const;
+
+function isAllowedTokenName(token: string): boolean {
+  return TOKEN_PREFIXES.some((p) => token.startsWith(p));
+}
+
+export interface ThemeTokensFieldOptions {
+  label: string;
+  hint?: string;
+  presetLabel: string;
+  presetChooseLabel: string;
+  addLabel: string;
+  removeLabel: string;
+  tokenPlaceholder: string;
+  valuePlaceholder: string;
+  invalidTokenTitle: string;
+  values: Record<string, string>;
+  registry: Record<string, () => Record<string, string>>;
+  registryKey: string;
+}
+
+/**
+ * Renders a key-value editor for `themeTokens` — one row per
+ * `<token>: <css-value>` entry. The reader serialises rows into a
+ * `Record<string, string>` with empty rows skipped.
+ */
+export function buildThemeTokensField(opts: ThemeTokensFieldOptions): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'margin-bottom: 8px;';
+
+  const label = document.createElement('label');
+  label.style.cssText = FIELD_LABEL;
+  label.textContent = opts.label;
+  wrap.appendChild(label);
+
+  if (opts.hint) {
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size: .7rem; color: var(--tmx-text-muted, #888); margin-bottom: 6px;';
+    hint.textContent = opts.hint;
+    wrap.appendChild(hint);
+  }
+
+  const rowsContainer = document.createElement('div');
+  rowsContainer.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
+  wrap.appendChild(rowsContainer);
+
+  // ── Toolbar (preset chooser + add button) ──
+  const toolbar = document.createElement('div');
+  toolbar.style.cssText = 'display: flex; gap: 6px; align-items: center; margin-top: 6px;';
+
+  const select = document.createElement('select');
+  select.style.cssText =
+    'flex: 1; padding: 4px 8px; border: 1px solid var(--tmx-border-primary, #ccc); border-radius: 4px; font-size: .8rem; background: var(--tmx-bg-elevated, #fff); color: var(--tmx-text-primary, #363636);';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = opts.presetChooseLabel;
+  select.appendChild(placeholder);
+  for (const preset of THEME_TOKEN_PRESETS) {
+    const opt = document.createElement('option');
+    opt.value = preset.token;
+    opt.textContent = `${preset.label}  (${preset.token})`;
+    select.appendChild(opt);
+  }
+  toolbar.appendChild(select);
+
+  const addButton = document.createElement('button');
+  addButton.type = 'button';
+  addButton.textContent = opts.addLabel;
+  addButton.style.cssText =
+    'padding: 4px 10px; border: 1px solid var(--tmx-border-primary, #ccc); border-radius: 4px; background: var(--tmx-bg-elevated, #fff); color: var(--tmx-text-primary, #363636); font-size: .8rem; cursor: pointer;';
+  toolbar.appendChild(addButton);
+  wrap.appendChild(toolbar);
+
+  const rowReaders: Array<() => { token: string; value: string } | undefined> = [];
+
+  function appendRow(initialToken = '', initialValue = ''): void {
+    const row = document.createElement('div');
+    row.style.cssText = 'display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr) auto; gap: 6px;';
+
+    const tokenInput = document.createElement('input');
+    tokenInput.type = 'text';
+    tokenInput.value = initialToken;
+    tokenInput.placeholder = opts.tokenPlaceholder;
+    tokenInput.style.cssText = TEXT_INPUT;
+    function reflectValidity(): void {
+      const v = tokenInput.value.trim();
+      const ok = v === '' || isAllowedTokenName(v);
+      tokenInput.style.borderColor = ok ? '' : 'var(--tmx-status-error, #d33)';
+      tokenInput.title = ok ? '' : opts.invalidTokenTitle;
+    }
+    tokenInput.addEventListener('input', reflectValidity);
+    reflectValidity();
+
+    const valueInput = document.createElement('input');
+    valueInput.type = 'text';
+    valueInput.value = initialValue;
+    valueInput.placeholder = opts.valuePlaceholder;
+    valueInput.style.cssText = TEXT_INPUT;
+
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.textContent = opts.removeLabel;
+    removeButton.style.cssText =
+      'padding: 4px 8px; border: 1px solid var(--tmx-border-primary, #ccc); border-radius: 4px; background: var(--tmx-bg-elevated, #fff); color: var(--tmx-text-secondary, #555); font-size: .75rem; cursor: pointer;';
+
+    row.appendChild(tokenInput);
+    row.appendChild(valueInput);
+    row.appendChild(removeButton);
+    rowsContainer.appendChild(row);
+
+    const index = rowReaders.length;
+    rowReaders.push(() => {
+      const token = tokenInput.value.trim();
+      const value = valueInput.value.trim();
+      if (!token || !value) return undefined;
+      return { token, value };
+    });
+    removeButton.addEventListener('click', () => {
+      rowReaders[index] = () => undefined;
+      row.remove();
+    });
+  }
+
+  // Initial population from existing tokens
+  for (const [token, value] of Object.entries(opts.values ?? {})) {
+    appendRow(token, value);
+  }
+
+  addButton.addEventListener('click', () => appendRow());
+  select.addEventListener('change', () => {
+    if (!select.value) return;
+    appendRow(select.value);
+    select.value = '';
+  });
+
+  opts.registry[opts.registryKey] = () => {
+    const out: Record<string, string> = {};
+    for (const read of rowReaders) {
+      const entry = read();
+      if (entry) out[entry.token] = entry.value;
+    }
+    return out;
+  };
+
+  return wrap;
+}
+
 export function appendIssues(container: HTMLElement, issues: ValidationIssue[]): void {
   // Clear any previously rendered issue notes
   container.querySelectorAll('[data-issue-line]').forEach((n) => n.remove());

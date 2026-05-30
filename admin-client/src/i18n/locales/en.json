@@ -991,6 +991,7 @@
     "editSettingsTitleGeneric": "Edit Provider Settings",
     "section": {
       "branding": "Branding (white labeling)",
+      "themeTokens": "Theme tokens (CSS variables)",
       "permissionCeilings": "Permission Ceilings",
       "permissionChoices": "Permissions",
       "allowedUniverses": "Allowed Universes",
@@ -999,6 +1000,15 @@
       "defaults": "Defaults",
       "integrations": "Integrations",
       "privacy": "Participant Privacy"
+    },
+    "themeTokens": {
+      "label": "Custom CSS variable overrides",
+      "hint": "Token names must start with --tmx- or --chc-. Values are CSS color / length / font strings. Applied at boot and on provider switch.",
+      "preset": "Preset",
+      "chooseAPreset": "Choose a preset…",
+      "add": "+ Add token",
+      "remove": "Remove",
+      "invalidPrefix": "Token name must start with --tmx- or --chc-"
     },
     "privacy": {
       "settingsHint": "Each toggle below relaxes the default privacy policy for one participant attribute. Leave off (the default) to keep that attribute private.",
@@ -1019,7 +1029,8 @@
       "navbarLogoAlt": "Navbar logo alt text",
       "navbarLogoHeight": "Navbar logo height (px)",
       "splashLogoUrl": "Splash logo URL",
-      "accentColor": "Accent color (CSS)"
+      "accentColor": "Accent color (CSS)",
+      "stylesheetUrl": "Provider stylesheet URL (escape hatch)"
     },
     "defaults": {
       "defaultEventType": "Default event type",
