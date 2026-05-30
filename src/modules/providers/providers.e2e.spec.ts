@@ -15,6 +15,16 @@ describe('ProvidersService', () => {
 
     app = moduleRef.createNestApplication();
     await app.init();
+
+    // Disable HTTP keep-alive on the test server. supertest's underlying
+    // agent pools sockets and under Jest's parallel-worker model a reused
+    // socket has been observed to surface a Node `HPE_INVALID_METHOD`
+    // ("Expected HTTP/, RTSP/ or ICE/") parse error on a later request —
+    // garbage from a prior response leaking into the next read. Mirrors
+    // the fix already applied to provisioner.e2e (CFS fe2951a).
+    const httpServer = app.getHttpServer();
+    httpServer.keepAliveTimeout = 0;
+    httpServer.headersTimeout = 0;
   });
 
   test('/POST calendar no auth', async () => {
