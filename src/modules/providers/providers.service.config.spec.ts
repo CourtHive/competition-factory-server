@@ -15,6 +15,10 @@ interface MockProviderStorage {
   updateProviderSettings: jest.Mock;
 }
 
+interface MockTournamentProvisionerStorage {
+  getByTournament: jest.Mock;
+}
+
 function makeProviderStorage(provider: any | null = null): MockProviderStorage {
   return {
     getProvider: jest.fn().mockResolvedValue(provider),
@@ -22,9 +26,24 @@ function makeProviderStorage(provider: any | null = null): MockProviderStorage {
   };
 }
 
-function makeService(providerStorage: MockProviderStorage): ProvidersService {
+function makeTournamentProvisionerStorage(row: any | null = null): MockTournamentProvisionerStorage {
+  return {
+    getByTournament: jest.fn().mockResolvedValue(row),
+  };
+}
+
+function makeService(
+  providerStorage: MockProviderStorage,
+  tournamentProvisionerStorage: MockTournamentProvisionerStorage = makeTournamentProvisionerStorage(),
+): ProvidersService {
   // Other deps aren't used by the methods under test — pass minimal mocks.
-  return new ProvidersService(providerStorage as any, {} as any, {} as any, {} as any);
+  return new ProvidersService(
+    providerStorage as any,
+    {} as any,
+    {} as any,
+    tournamentProvisionerStorage as any,
+    {} as any,
+  );
 }
 
 describe('ProvidersService — provider config two-tier methods', () => {
@@ -109,6 +128,67 @@ describe('ProvidersService — provider config two-tier methods', () => {
       expect(result.code).toBe('SETTINGS_INVALID');
       expect(result.issues?.[0]?.code).toBe('wrongType');
       expect(storage.updateProviderSettings).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getPublicBrandingByTournament', () => {
+    it('returns undefined branding when tournament has no provider mapping', async () => {
+      const svc = makeService(makeProviderStorage(null), makeTournamentProvisionerStorage(null));
+      const result: any = await svc.getPublicBrandingByTournament('t-orphan');
+      expect(result.success).toBe(true);
+      expect(result.branding).toBeUndefined();
+    });
+
+    it('returns undefined branding when the mapped provider was deleted', async () => {
+      const svc = makeService(
+        makeProviderStorage(null), // provider lookup misses
+        makeTournamentProvisionerStorage({ tournamentId: 't-1', providerId: 'p-gone' }),
+      );
+      const result: any = await svc.getPublicBrandingByTournament('t-1');
+      expect(result.success).toBe(true);
+      expect(result.branding).toBeUndefined();
+    });
+
+    it('returns the branding slice when provider has caps.branding', async () => {
+      const svc = makeService(
+        makeProviderStorage({
+          providerConfigCaps: {
+            branding: {
+              appName: 'Acme Tennis',
+              accentColor: '#1a5276',
+              themeTokens: { '--tmx-accent-blue': '#1a5276' },
+              stylesheetUrl: 'https://acme.example.com/theme.css',
+            },
+            permissions: { canCreateOfficials: false }, // must NOT leak
+          },
+          providerConfigSettings: {
+            participantPrivacy: { cityState: true }, // must NOT leak
+          },
+        }),
+        makeTournamentProvisionerStorage({ tournamentId: 't-1', providerId: 'p-1' }),
+      );
+      const result: any = await svc.getPublicBrandingByTournament('t-1');
+      expect(result.success).toBe(true);
+      expect(result.branding?.appName).toBe('Acme Tennis');
+      expect(result.branding?.accentColor).toBe('#1a5276');
+      expect(result.branding?.themeTokens).toEqual({ '--tmx-accent-blue': '#1a5276' });
+      expect(result.branding?.stylesheetUrl).toBe('https://acme.example.com/theme.css');
+      // Permissions and participantPrivacy must not appear on the response
+      expect((result as any).permissions).toBeUndefined();
+      expect((result as any).participantPrivacy).toBeUndefined();
+      expect((result as any).effective).toBeUndefined();
+    });
+
+    it('returns undefined branding when provider has no branding configured', async () => {
+      const svc = makeService(
+        makeProviderStorage({
+          providerConfigCaps: { permissions: { canCreateEvents: true } },
+        }),
+        makeTournamentProvisionerStorage({ tournamentId: 't-1', providerId: 'p-1' }),
+      );
+      const result: any = await svc.getPublicBrandingByTournament('t-1');
+      expect(result.success).toBe(true);
+      expect(result.branding).toBeUndefined();
     });
   });
 });

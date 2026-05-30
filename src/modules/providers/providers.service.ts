@@ -14,6 +14,8 @@ import {
   ASSIGNMENT_STORAGE,
   type IAssignmentStorage,
   type ICalendarStorage,
+  TOURNAMENT_PROVISIONER_STORAGE,
+  type ITournamentProvisionerStorage,
 } from 'src/storage/interfaces';
 
 @Injectable()
@@ -22,6 +24,8 @@ export class ProvidersService {
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     @Inject(CALENDAR_STORAGE) private readonly calendarStorage: ICalendarStorage,
     @Inject(ASSIGNMENT_STORAGE) private readonly assignmentStorage: IAssignmentStorage,
+    @Inject(TOURNAMENT_PROVISIONER_STORAGE)
+    private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
     private readonly tournamentStorageService: TournamentStorageService,
   ) {}
 
@@ -183,6 +187,26 @@ export class ProvidersService {
       provider.providerConfigSettings,
     );
     return { ...SUCCESS, providerId, effective };
+  }
+
+  /**
+   * Public-safe branding lookup keyed by tournamentId — used by
+   * unauthenticated viewers (courthive-public) so the page can theme
+   * itself to the owning provider. Returns ONLY the branding slice
+   * (logos, themeTokens, stylesheetUrl, accentColor, appName); all
+   * other config (permissions, policies, integrations) stays private.
+   *
+   * Returns `{ branding: undefined }` when the tournament has no
+   * provider mapping or the provider was deleted — the viewer
+   * gracefully falls back to bundled defaults.
+   */
+  async getPublicBrandingByTournament(tournamentId: string) {
+    const tp = await this.tournamentProvisionerStorage.getByTournament(tournamentId);
+    if (!tp?.providerId) return { ...SUCCESS, branding: undefined };
+    const provider = await this.providerStorage.getProvider(tp.providerId);
+    if (!provider) return { ...SUCCESS, branding: undefined };
+    const effective = computeEffectiveConfig(provider.providerConfigCaps, provider.providerConfigSettings);
+    return { ...SUCCESS, branding: effective.branding };
   }
 
   /**

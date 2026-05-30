@@ -237,6 +237,20 @@ export class ProvidersController {
   }
 
   /**
+   * Public branding lookup keyed by tournamentId. Returns only the
+   * branding slice of the owning provider's effective config so the
+   * unauthenticated viewer (courthive-public) can theme itself to
+   * the provider. Returns `{ branding: undefined }` when the
+   * tournament has no provider mapping — viewer falls back to
+   * bundled defaults. All other config fields stay private.
+   */
+  @Public()
+  @Get('by-tournament/:tournamentId/branding')
+  getPublicBrandingByTournament(@Param('tournamentId') tournamentId: string) {
+    return this.providers.getPublicBrandingByTournament(tournamentId);
+  }
+
+  /**
    * Authenticated multi-provider calendar — used by TMX.
    * Returns one filtered calendar per provider the user is associated with.
    * Optional body.providerAbbr to scope to a single provider.
