@@ -25,6 +25,13 @@ export interface UserPersonLink {
   personId: string | null;
   personRevision: number | null;
   cached: CachedPersonFields;
+  /**
+   * User-controlled consent preferences denormalised from the `users`
+   * table. Open-shape JSON object — the surface evolves with what the
+   * `GET /auth/hiveid/me` consumer needs (notifications, marketing,
+   * cross-tournament discovery, etc.). Defaults to `{}` on a brand-new row.
+   */
+  consentPreferences: Record<string, unknown>;
 }
 
 export interface IUserStorage {

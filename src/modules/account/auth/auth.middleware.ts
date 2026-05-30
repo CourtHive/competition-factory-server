@@ -12,6 +12,18 @@ import { buildUserContext } from './helpers/buildUserContext';
 import { AuthService } from './auth.service';
 import { UsersService } from '../../users/users.service';
 
+/**
+ * Returns true when the token's `aud` claim grants admin access — either
+ * the claim is missing (legacy tokens minted before the audience refactor),
+ * is the string 'admin', or is an array containing 'admin'.
+ */
+function tokenHasAdminAudience(aud: unknown): boolean {
+  if (aud == null) return true;
+  if (typeof aud === 'string') return aud === 'admin';
+  if (Array.isArray(aud)) return aud.includes('admin');
+  return false;
+}
+
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
   constructor(
@@ -50,10 +62,11 @@ export class AuthMiddleware implements NestMiddleware {
       const user = await this.usersService.findOne(jwtPayload.email);
       req.user = user;
 
-      // Hydrate the multi-provider UserContext from user_providers.
-      // This runs on every authenticated request so role changes take
-      // effect immediately without forced re-login.
-      if (user) {
+      // Hydrate the multi-provider UserContext from user_providers only when
+      // the token carries the `admin` audience. Pure HiveID tokens skip
+      // this — they have no admin-side provider scoping and shouldn't pay
+      // the lookup cost; the HiveID handlers read req.user.userId directly.
+      if (user && tokenHasAdminAudience(jwtPayload.aud)) {
         req.userContext = await buildUserContext(user, {
           userProviderStorage: this.userProviderStorage,
           userProvisionerStorage: this.userProvisionerStorage,

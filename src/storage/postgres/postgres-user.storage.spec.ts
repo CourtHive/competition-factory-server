@@ -95,7 +95,7 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
   });
 
   describe('getPersonLink', () => {
-    it('returns the link + cached fields for an existing user', async () => {
+    it('returns the link + cached fields + consent for an existing user', async () => {
       pool.query.mockResolvedValueOnce({
         rows: [{
           user_id: 'u-1',
@@ -106,6 +106,7 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
           birth_date: new Date('1975-01-01'),
           sex: 'M',
           nationality_code: 'USA',
+          consent_preferences: { notifications: true },
         }],
       });
       const result = await storage.getPersonLink('u-1');
@@ -120,10 +121,11 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
           sex: 'M',
           nationalityCode: 'USA',
         },
+        consentPreferences: { notifications: true },
       });
     });
 
-    it('returns a null-shaped link for an unlinked user', async () => {
+    it('returns a null-shaped link + empty consent for an unlinked user', async () => {
       pool.query.mockResolvedValueOnce({
         rows: [{
           user_id: 'u-2',
@@ -134,6 +136,7 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
           birth_date: null,
           sex: null,
           nationality_code: null,
+          consent_preferences: null,
         }],
       });
       const result = await storage.getPersonLink('u-2');
@@ -148,6 +151,7 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
           sex: null,
           nationalityCode: null,
         },
+        consentPreferences: {},
       });
     });
 
@@ -165,6 +169,7 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
       expect(sql).toContain('standard_given_name');
       expect(sql).toContain('birth_date');
       expect(sql).toContain('nationality_code');
+      expect(sql).toContain('consent_preferences');
       expect(sql).toContain('WHERE user_id = $1');
     });
   });

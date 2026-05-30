@@ -157,4 +157,35 @@ describe('AuthMiddleware', () => {
     // parts[1] is undefined, so decode shouldn't be called
     expect(mockAuthService.decode).not.toHaveBeenCalled();
   });
+
+  it('attaches req.user but skips userContext for pure hiveid tokens', async () => {
+    const user = { email: 'jane@test.com', userId: 'uuid-h', roles: [], providerId: null };
+    mockAuthService.decode.mockResolvedValue({ email: 'jane@test.com', aud: 'hiveid' });
+    mockUsersService.findOne.mockResolvedValue(user);
+
+    const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer hiveid.token' } };
+    const next = jest.fn();
+    await middleware.use(req, {}, next);
+
+    expect(req.user).toBe(user);
+    expect(req.userContext).toBeUndefined();
+    expect(mockUserProviderStorage.findByUserId).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('hydrates userContext for admin+hiveid array audience tokens', async () => {
+    const user = { email: 'admin@test.com', userId: 'uuid-ah', roles: ['client'], providerId: 'prov-a' };
+    mockAuthService.decode.mockResolvedValue({ email: 'admin@test.com', aud: ['admin', 'hiveid'] });
+    mockUsersService.findOne.mockResolvedValue(user);
+    mockUserProviderStorage.findByUserId.mockResolvedValue([
+      { userId: 'uuid-ah', providerId: 'prov-a', providerRole: 'DIRECTOR' },
+    ]);
+
+    const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer dual.token' } };
+    const next = jest.fn();
+    await middleware.use(req, {}, next);
+
+    expect(req.userContext).toBeDefined();
+    expect(req.userContext.providerRoles).toEqual({ 'prov-a': 'DIRECTOR' });
+  });
 });

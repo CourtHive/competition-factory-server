@@ -1,10 +1,13 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { PersonsClientModule } from '../persons/persons-client.module';
 import { IdentityModule } from '../identity/identity.module';
 import { ConfigsModule } from 'src/config/config.module';
 import { AuditModule } from '../../audit/audit.module';
 import { EmailModule } from '../email/email.module';
 import { UsersModule } from '../../users/users.module';
+import { HiveIDController } from './hiveid.controller';
 import { AuthController } from './auth.controller';
+import { HiveIDService } from './hiveid.service';
 import { AuthMiddleware } from './auth.middleware';
 import { AuthGuard } from './guards/auth.guard';
 import { AuthService } from './auth.service';
@@ -28,6 +31,7 @@ const expiresIn: any = rawValidity && isValidJwtExpiresIn(rawValidity) ? rawVali
     EmailModule,
     IdentityModule,
     AuditModule,
+    PersonsClientModule,
     JwtModule.register({
       signOptions: { expiresIn },
       secret: process.env.JWT_SECRET,
@@ -36,6 +40,7 @@ const expiresIn: any = rawValidity && isValidJwtExpiresIn(rawValidity) ? rawVali
   ],
   providers: [
     AuthService,
+    HiveIDService,
     RefreshTokenService,
     {
       provide: APP_GUARD,
@@ -43,8 +48,8 @@ const expiresIn: any = rawValidity && isValidJwtExpiresIn(rawValidity) ? rawVali
     },
     ConfigService,
   ],
-  controllers: [AuthController],
-  exports: [AuthService, RefreshTokenService],
+  controllers: [AuthController, HiveIDController],
+  exports: [AuthService, HiveIDService, RefreshTokenService],
 })
 export class AuthModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

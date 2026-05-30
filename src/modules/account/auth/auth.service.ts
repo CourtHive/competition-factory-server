@@ -44,7 +44,8 @@ const PASSWORD_RESET_PURPOSE = 'password-reset';
 // tournament wifi doesn't immediately log officials out, short enough to bound
 // the window of a leaked access token. See RefreshTokenService for the refresh
 // side. Both the password-login path (signIn) and SSO handoff use this value.
-const ACCESS_TOKEN_TTL = '4h';
+export const ACCESS_TOKEN_TTL = '4h';
+export type AudienceClaimValue = 'admin' | 'hiveid';
 
 // Magic-link login codes are short-lived and single-use. 15 minutes is long
 // enough to receive the email and click, short enough to limit the window if
@@ -197,7 +198,7 @@ export class AuthService {
    * Shared by signIn and refreshSession so that a silently-refreshed access
    * token carries exactly the same claims as the one minted at login.
    */
-  private async buildSessionPayload(user: any): Promise<any> {
+  async buildSessionPayload(user: any): Promise<any> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userDetails } = user ?? {};
     const email = user.email;
@@ -288,15 +289,34 @@ export class AuthService {
    * Mint an access token (short-lived JWT) plus a long-lived rotating refresh
    * token for an already-built session payload. The refresh token's plaintext
    * is returned to the client exactly once; only its hash is persisted.
+   *
+   * `aud` becomes the JWT `aud` claim — `'admin'` for the admin app (default),
+   * `'hiveid'` for public-side HiveID sessions, or the array
+   * `['admin', 'hiveid']` once an existing admin has verified their HiveID
+   * identity (PR-G). Treat absent/legacy tokens as admin on the verify side
+   * (AuthGuard).
    */
-  private async issueSession(
+  async issueSession(
     userDetails: any,
     userAgent?: string,
+    aud: AudienceClaimValue | AudienceClaimValue[] = 'admin',
   ): Promise<{ token: string; refreshToken: string }> {
-    const token = await this.jwtService.signAsync(userDetails, { expiresIn: ACCESS_TOKEN_TTL });
+    const token = await this.signAccessToken(userDetails, aud);
     const userId = userDetails.userId ?? userDetails.user_id ?? userDetails.email;
     const refreshToken = await this.refreshTokenService.issue(userId, userDetails.email, userAgent);
     return { token, refreshToken };
+  }
+
+  /**
+   * Sign a short-lived access token carrying the given audience claim.
+   * Centralised so signIn, refreshSession, magic-link consume, and HiveID
+   * flows mint identical-shape tokens.
+   */
+  async signAccessToken(
+    payload: any,
+    aud: AudienceClaimValue | AudienceClaimValue[] = 'admin',
+  ): Promise<string> {
+    return this.jwtService.signAsync({ ...payload, aud }, { expiresIn: ACCESS_TOKEN_TTL });
   }
 
   /**
@@ -315,7 +335,7 @@ export class AuthService {
     const user = await this.usersService.findOne(rotated.email);
     if (!user) throw new UnauthorizedException();
     const userDetails = await this.buildSessionPayload(user);
-    const token = await this.jwtService.signAsync(userDetails, { expiresIn: ACCESS_TOKEN_TTL });
+    const token = await this.signAccessToken(userDetails, 'admin');
     return { token, refreshToken: rotated.refreshToken };
   }
 

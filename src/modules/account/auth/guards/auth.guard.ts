@@ -1,7 +1,10 @@
 import { CanActivate, ExecutionContext, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { AUDIENCE_KEY, AudienceClaim } from '../decorators/audience.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
+
+const DEFAULT_REQUIRED_AUDIENCES: AudienceClaim[] = ['admin'];
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -33,17 +36,31 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
+    let payload: any;
     try {
-      const payload = await this.jwtService.verifyAsync(token, {
+      payload = await this.jwtService.verifyAsync(token, {
         secret: process.env.JWT_SECRET,
       });
-      // assign payload to the request object for access in route handlers
-      request['user'] = payload;
     } catch (err: any) {
       const tokenPreview = token ? `"${token.substring(0, 20)}..."` : String(token);
       Logger.warn(`JWT rejected: ${err?.name || 'unknown'} — token: ${tokenPreview}`, 'AuthGuard');
       throw new UnauthorizedException();
     }
+
+    // Audience check. Routes declare what they accept via @Audience(...).
+    // Absent decorator → admin-only (legacy default). Legacy tokens with
+    // no `aud` claim are treated as 'admin' so existing sessions still
+    // work after this refactor.
+    const declared = this.reflector.getAllAndOverride<AudienceClaim[]>(AUDIENCE_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    const required = Array.isArray(declared) ? declared : DEFAULT_REQUIRED_AUDIENCES;
+    if (!audienceMatches(payload?.aud, required)) {
+      throw new UnauthorizedException();
+    }
+
+    request['user'] = payload;
     return true;
   }
 
@@ -51,4 +68,19 @@ export class AuthGuard implements CanActivate {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];
     return type === 'Bearer' ? token : undefined;
   }
+}
+
+/**
+ * Returns true when the token's `aud` claim overlaps the route's required
+ * audiences. Token `aud` may be a string, a string array, or absent;
+ * absent is treated as `'admin'` for backwards compatibility with tokens
+ * minted before this refactor.
+ */
+export function audienceMatches(tokenAud: unknown, required: AudienceClaim[]): boolean {
+  const tokenAuds: string[] = Array.isArray(tokenAud)
+    ? tokenAud
+    : typeof tokenAud === 'string'
+      ? [tokenAud]
+      : ['admin'];
+  return required.some((req) => tokenAuds.includes(req));
 }

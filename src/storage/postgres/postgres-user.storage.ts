@@ -317,7 +317,8 @@ export class PostgresUserStorage implements IUserStorage {
     const result = await this.pool.query(
       `SELECT user_id, person_id, person_revision,
               standard_family_name, standard_given_name,
-              birth_date, sex, nationality_code
+              birth_date, sex, nationality_code,
+              consent_preferences
          FROM users
         WHERE user_id = $1
         LIMIT 1`,
@@ -336,6 +337,7 @@ export class PostgresUserStorage implements IUserStorage {
         sex: row.sex,
         nationalityCode: row.nationality_code,
       },
+      consentPreferences: (row.consent_preferences as Record<string, unknown> | null) ?? {},
     };
   }
 
