@@ -168,4 +168,72 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
       expect(sql).toContain('WHERE user_id = $1');
     });
   });
+
+  describe('rewritePersonId', () => {
+    it('updates rows matching the OLD person_id with the new id + revision + cached fields', async () => {
+      pool.query.mockResolvedValueOnce({ rowCount: 1 });
+      const result = await storage.rewritePersonId({
+        fromPersonId: 'old-1',
+        toPersonId: 'new-1',
+        personRevision: 5,
+        cached: {
+          standardFamilyName: 'Allen',
+          standardGivenName: 'Charles',
+          birthDate: '1975-01-01',
+          sex: 'M',
+          nationalityCode: 'USA',
+        },
+      });
+      expect(result).toEqual({ rewrittenCount: 1 });
+      const [sql, params] = pool.query.mock.calls[0];
+      expect(sql).toContain('UPDATE users');
+      expect(sql).toContain('SET person_id = $1');
+      expect(sql).toContain('person_revision = $2');
+      expect(sql).toContain('WHERE person_id = $8');
+      expect(params).toEqual([
+        'new-1',
+        5,
+        'Allen',
+        'Charles',
+        '1975-01-01',
+        'M',
+        'USA',
+        'old-1',
+      ]);
+    });
+
+    it('returns rewrittenCount: 0 when no users had the old person_id', async () => {
+      pool.query.mockResolvedValueOnce({ rowCount: 0 });
+      const result = await storage.rewritePersonId({
+        fromPersonId: 'no-such',
+        toPersonId: 'new',
+        personRevision: 1,
+        cached: {},
+      });
+      expect(result).toEqual({ rewrittenCount: 0 });
+    });
+
+    it('tolerates a null rowCount (returns 0)', async () => {
+      pool.query.mockResolvedValueOnce({ rowCount: null });
+      const result = await storage.rewritePersonId({
+        fromPersonId: 'x',
+        toPersonId: 'y',
+        personRevision: 1,
+        cached: {},
+      });
+      expect(result).toEqual({ rewrittenCount: 0 });
+    });
+
+    it('coerces missing cached fields to null', async () => {
+      pool.query.mockResolvedValueOnce({ rowCount: 1 });
+      await storage.rewritePersonId({
+        fromPersonId: 'old',
+        toPersonId: 'new',
+        personRevision: 2,
+        cached: { standardGivenName: 'OnlyGiven' },
+      });
+      const params = pool.query.mock.calls[0][1];
+      expect(params).toEqual(['new', 2, null, 'OnlyGiven', null, null, null, 'old']);
+    });
+  });
 });

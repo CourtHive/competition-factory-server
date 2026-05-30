@@ -112,4 +112,20 @@ export interface IUserStorage {
    * resolved row returns `{ personId: null, personRevision: null, cached: {} }`.
    */
   getPersonLink(userId: string): Promise<UserPersonLink | null>;
+  /**
+   * Rewrite all users whose `person_id` matches `fromPersonId` to point
+   * at `toPersonId`, stamping the new `personRevision` + cached fields
+   * in the same UPDATE. Called by `PersonsClient` on every
+   * `personMerged` SSE event so locally-cached canonical fields stay
+   * in sync with the canonical Person registry.
+   *
+   * Returns the number of rows rewritten — usually 0 or 1 (one human
+   * has at most one users row), but the surface tolerates many.
+   */
+  rewritePersonId(args: {
+    fromPersonId: string;
+    toPersonId: string;
+    personRevision: number;
+    cached: CachedPersonFields;
+  }): Promise<{ rewrittenCount: number }>;
 }

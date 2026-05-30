@@ -338,4 +338,38 @@ export class PostgresUserStorage implements IUserStorage {
       },
     };
   }
+
+  async rewritePersonId(args: {
+    fromPersonId: string;
+    toPersonId: string;
+    personRevision: number;
+    cached: CachedPersonFields;
+  }): Promise<{ rewrittenCount: number }> {
+    // Called on every personMerged SSE event from courthive-persons.
+    // Tolerant of zero hits (the merged human may not have a local user
+    // row). Single UPDATE — fast even at higher merge volumes.
+    const result = await this.pool.query(
+      `UPDATE users
+          SET person_id = $1,
+              person_revision = $2,
+              standard_family_name = $3,
+              standard_given_name = $4,
+              birth_date = $5,
+              sex = $6,
+              nationality_code = $7,
+              updated_at = NOW()
+        WHERE person_id = $8`,
+      [
+        args.toPersonId,
+        args.personRevision,
+        args.cached.standardFamilyName ?? null,
+        args.cached.standardGivenName ?? null,
+        args.cached.birthDate ?? null,
+        args.cached.sex ?? null,
+        args.cached.nationalityCode ?? null,
+        args.fromPersonId,
+      ],
+    );
+    return { rewrittenCount: result.rowCount ?? 0 };
+  }
 }
