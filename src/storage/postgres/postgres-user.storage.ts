@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import { IUserStorage } from '../interfaces/user-storage.interface';
+import { CachedPersonFields, IUserStorage, UserPersonLink } from '../interfaces/user-storage.interface';
 import { PG_POOL } from './postgres.config';
 import { SUCCESS } from 'src/common/constants/app';
 
@@ -276,5 +276,66 @@ export class PostgresUserStorage implements IUserStorage {
       [email, providerId],
     );
     return { ...SUCCESS };
+  }
+
+  async setPersonLink(
+    userId: string,
+    args: { personId: string; personRevision: number; cached: CachedPersonFields },
+  ): Promise<{ success: boolean }> {
+    // Atomic one-query write: stamps person_id + person_revision + the five
+    // cached canonical fields together. The logical FK to
+    // courthive-persons.persons.person_id is validated at the caller
+    // (PersonsClient.resolve must have returned this personId); Postgres
+    // cannot enforce it because persons lives in a separate database per
+    // the Option-A decision 2026-05-30.
+    await this.pool.query(
+      `UPDATE users
+          SET person_id = $2,
+              person_revision = $3,
+              standard_family_name = $4,
+              standard_given_name = $5,
+              birth_date = $6,
+              sex = $7,
+              nationality_code = $8,
+              updated_at = NOW()
+        WHERE user_id = $1`,
+      [
+        userId,
+        args.personId,
+        args.personRevision,
+        args.cached.standardFamilyName ?? null,
+        args.cached.standardGivenName ?? null,
+        args.cached.birthDate ?? null,
+        args.cached.sex ?? null,
+        args.cached.nationalityCode ?? null,
+      ],
+    );
+    return { ...SUCCESS };
+  }
+
+  async getPersonLink(userId: string): Promise<UserPersonLink | null> {
+    const result = await this.pool.query(
+      `SELECT user_id, person_id, person_revision,
+              standard_family_name, standard_given_name,
+              birth_date, sex, nationality_code
+         FROM users
+        WHERE user_id = $1
+        LIMIT 1`,
+      [userId],
+    );
+    if (!result.rows.length) return null;
+    const row = result.rows[0];
+    return {
+      userId: row.user_id,
+      personId: row.person_id,
+      personRevision: row.person_revision,
+      cached: {
+        standardFamilyName: row.standard_family_name,
+        standardGivenName: row.standard_given_name,
+        birthDate: row.birth_date ? new Date(row.birth_date).toISOString().slice(0, 10) : null,
+        sex: row.sex,
+        nationalityCode: row.nationality_code,
+      },
+    };
   }
 }

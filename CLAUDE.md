@@ -8,7 +8,7 @@ Before doing anything else, read `../Mentat/CLAUDE.md`, `../Mentat/TASKS.md`, `.
 
 ## Project Overview
 
-NestJS 11 backend for the CourtHive tournament management platform. Provides a REST API, WebSocket gateway (Socket.IO), and pluggable storage (LevelDB or Postgres). All tournament mutations flow through `tods-competition-factory` with per-tournament locking and per-request async state isolation.
+NestJS 11 backend for the CourtHive tournament management platform. Provides a REST API, WebSocket gateway (Socket.IO), and Postgres storage. All tournament mutations flow through `tods-competition-factory` with per-tournament locking and per-request async state isolation.
 
 ## Commands
 
@@ -17,7 +17,6 @@ pnpm install              # Install dependencies (pnpm only)
 pnpm build                # NestJS CLI compile to build/ (rimraf + nest build)
 pnpm start                # Production server (NODE_ENV=production)
 pnpm watch                # Dev server with watch (NODE_ENV=development)
-pnpm hive-db              # Start net-level-server (LevelDB)
 pnpm test                 # Jest tests
 pnpm test:watch           # Jest watch mode
 pnpm test:cov             # Jest with coverage
@@ -28,7 +27,7 @@ pnpm format               # Prettier on src/ and test/
 pnpm storybook            # Storybook dev server on :6007
 ```
 
-Requires Redis running for cache. Set `STORAGE_PROVIDER=leveldb|postgres` in `.env`.
+Requires Redis running for cache. Postgres is the only storage backend (configured via `PG_*` env vars in `.env`).
 
 ## Architecture
 
@@ -36,7 +35,7 @@ Requires Redis running for cache. Set `STORAGE_PROVIDER=leveldb|postgres` in `.e
 
 `AppModule` is the root. Key modules:
 
-- **StorageModule** (global) -- pluggable storage selected by `STORAGE_PROVIDER` env var
+- **StorageModule** (global) -- Postgres-backed storage
 - **MessagingModule** -- WebSocket gateway (`/tmx` namespace), handles `executionQueue` messages
 - **FactoryModule** -- wraps `tods-competition-factory` engine calls
 - **AuthModule** -- JWT-based authentication
@@ -61,7 +60,7 @@ src/
 ### Storage Abstraction
 
 - **Interfaces**: `src/storage/interfaces/` -- ITournamentStorage, IUserStorage, IProviderStorage, ICalendarStorage, IAuthCodeStorage
-- **Implementations**: `src/storage/leveldb/` or `src/storage/postgres/`
+- **Implementation**: `src/storage/postgres/` (LevelDB removed 2026-05-30)
 - **Facade**: `src/storage/tournament-storage.service.ts` -- adds calendar + permission side-effects
 - **DI tokens**: `TOURNAMENT_STORAGE`, `USER_STORAGE`, `PROVIDER_STORAGE`, `CALENDAR_STORAGE`, `AUTH_CODE_STORAGE`
 

@@ -1,5 +1,32 @@
 export const USER_STORAGE = Symbol('USER_STORAGE');
 
+/**
+ * Cached canonical fields denormalized onto the `users` row from
+ * courthive-persons. Keeps the public surface resilient when persons
+ * is briefly unreachable. Refreshed on `personMerged` events or when
+ * `person_revision` mismatches.
+ */
+export interface CachedPersonFields {
+  standardFamilyName?: string | null;
+  standardGivenName?: string | null;
+  birthDate?: string | null;
+  sex?: string | null;
+  nationalityCode?: string | null;
+}
+
+/**
+ * Linkage from a CFS `users` row to a canonical courthive-persons row.
+ * `personId` is a LOGICAL FK (persons lives in a separate database per
+ * the Option-A decision 2026-05-30); validation happens here at the
+ * application layer, not via a Postgres `REFERENCES` constraint.
+ */
+export interface UserPersonLink {
+  userId: string;
+  personId: string | null;
+  personRevision: number | null;
+  cached: CachedPersonFields;
+}
+
 export interface IUserStorage {
   findOne(email: string): Promise<any | null>;
   create(user: { email: string; password: string; [key: string]: any }): Promise<any>;
@@ -67,4 +94,22 @@ export interface IUserStorage {
     verified: number;
     unverified: number;
   }>;
+  /**
+   * HiveID linkage write. Sets `person_id`, the cached canonical fields,
+   * and `person_revision` in a single UPDATE keyed by `userId`. Callers
+   * are responsible for having already resolved the personId against
+   * courthive-persons (via `POST /persons/resolve` or similar). The
+   * logical FK is NOT enforced by Postgres — persons lives in a
+   * separate database per the Option-A decision 2026-05-30.
+   */
+  setPersonLink(
+    userId: string,
+    args: { personId: string; personRevision: number; cached: CachedPersonFields },
+  ): Promise<{ success: boolean }>;
+  /**
+   * HiveID linkage read. Returns the user's canonical-Person link + cached
+   * fields, or null when the user does not exist. A linked-but-not-yet-
+   * resolved row returns `{ personId: null, personRevision: null, cached: {} }`.
+   */
+  getPersonLink(userId: string): Promise<UserPersonLink | null>;
 }
