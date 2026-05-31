@@ -157,4 +157,30 @@ describe('setMatchUpStatus', () => {
     // Should NOT get "No tournamentIds provided" — tournamentId found inside legacy params wrapper
     expect(result.error).not.toEqual('No tournamentIds provided');
   });
+
+  // score-relay (and any other matchUpId-only producer) does not know
+  // the drawId. The wrapper resolves it server-side via the factory's
+  // findMatchUp brute-force lookup.
+  it('resolves drawId server-side when caller only supplies matchUpId', async () => {
+    let result: any = await setMatchUpStatus(
+      {
+        tournamentId: TOURNAMENT_ID,
+        matchUpId, // no drawId, no eventId
+        outcome: {
+          score: {
+            sets: [
+              { side1Score: 6, side2Score: 1, winningSide: 1, setNumber: 1 },
+              { side1Score: 6, side2Score: 2, winningSide: 1, setNumber: 2 },
+            ],
+          },
+          matchUpFormat: 'SET3-S:6/TB7',
+          matchUpStatus: COMPLETED,
+          winningSide: 1,
+        },
+      },
+      undefined,
+      mockStorage,
+    );
+    expect(result.success).toEqual(true);
+  });
 });
