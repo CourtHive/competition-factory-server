@@ -73,15 +73,15 @@ export class TrackerTokenService {
     const exp = now + ttlSeconds;
 
     // jsonwebtoken refuses both `exp` in payload AND `expiresIn` in
-    // options — pick one. We hand-stamp `exp` so `expiresAt` in the
-    // response is the authoritative timestamp, not a derived round-trip.
-    const token = await this.jwtService.signAsync({
-      sub,
-      aud: 'score',
-      tournamentId,
-      iat: now,
-      exp,
-    });
+    // options. The AuthModule registers a global signOptions.expiresIn
+    // ('2h' from JWT_VALIDITY env), so we MUST NOT put `exp` in the
+    // payload — instead override expiresIn at the call site with our
+    // variable TTL. `expiresAt` in the response is derived from our
+    // own `exp` value, which matches what jsonwebtoken will stamp.
+    const token = await this.jwtService.signAsync(
+      { sub, aud: 'score', tournamentId, iat: now },
+      { expiresIn: ttlSeconds },
+    );
 
     const expiresAt = new Date(exp * 1000).toISOString();
 
