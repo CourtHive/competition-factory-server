@@ -3,18 +3,48 @@ import { UserCtx, type UserContext } from './decorators/user-context.decorator';
 import { AdminCreateUserDto } from './dto/adminCreateUser.dto';
 import { ForgotPasswordDto } from './dto/forgotPassword.dto';
 import { ResetPasswordDto } from './dto/resetPassword.dto';
-import { SUPER_ADMIN, CLIENT } from 'src/common/constants/roles';
+import { TrackerTokenDto } from './dto/trackerToken.dto';
+import { SUPER_ADMIN, CLIENT, SCORE } from 'src/common/constants/roles';
 import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { User } from './decorators/user.decorator';
 import { ModifyUserDto } from './dto/modifyUser.dto';
 import { AuthService } from './auth.service';
+import { TrackerTokenService } from './tracker-token.service';
 import { SignInDto } from './dto/signIn.dto';
 import { RemoveDto } from './dto/remove.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly trackerTokenService: TrackerTokenService,
+  ) {}
+
+  /**
+   * POST /auth/tracker-token — mint a short-lived JWT scoped to a single
+   * tournament for use by external score publishers (notably IONSport).
+   *
+   * Provider API-key middleware grants SCORE; RolesGuard admits. The
+   * service runs canMutateTournament against the tournament's parent
+   * provider so the caller can only mint for tournaments it owns.
+   *
+   * Returns { token, expiresAt }. TTL defaults to 1h; max 8h.
+   */
+  @Post('tracker-token')
+  @Roles([SCORE, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  async mintTrackerToken(
+    @Body() body: TrackerTokenDto,
+    @User() user: any,
+    @UserCtx() userContext: UserContext,
+  ) {
+    return this.trackerTokenService.mintTrackerToken(
+      { tournamentId: body.tournamentId, ttlSeconds: body.ttlSeconds },
+      { userId: user?.userId, providerId: user?.providerId },
+      userContext,
+    );
+  }
 
   /**
    * Returns the authenticated user's multi-provider context.

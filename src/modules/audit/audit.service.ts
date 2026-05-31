@@ -395,6 +395,38 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Record a tracker-token mint. Written by TrackerTokenService after the
+   * ownership gate passes and the JWT is signed. Lets ops trace which
+   * provider minted what scope, when, for how long.
+   */
+  async recordTrackerTokenIssued(params: {
+    tournamentId: string;
+    providerId?: string;
+    audience: 'admin' | 'score';
+    ttlSeconds: number;
+    expiresAt: string;
+    userId?: string;
+  }): Promise<void> {
+    const { tournamentId, providerId, audience, ttlSeconds, expiresAt, userId } = params;
+    const row: AuditRow = {
+      auditId: tools.UUID(),
+      tournamentId,
+      userId,
+      source: providerId ? `provider:${providerId}` : 'admin',
+      occurredAt: new Date().toISOString(),
+      actionType: 'TRACKER_TOKEN_ISSUED',
+      methods: [{ method: 'mintTrackerToken', params: { tournamentId, ttlSeconds } }],
+      status: 'applied',
+      metadata: { audience, ttlSeconds, expiresAt, providerId },
+    };
+    try {
+      await this.auditStorage.append(row);
+    } catch (err: any) {
+      this.logger.error(`Failed to record trackerTokenIssued audit for ${tournamentId}: ${err.message}`);
+    }
+  }
+
+  /**
    * Record a tournament save event (REST save, not executionQueue).
    */
   async recordSave(params: { tournamentId: string; userId?: string; userEmail?: string }): Promise<void> {

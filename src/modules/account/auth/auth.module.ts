@@ -8,6 +8,7 @@ import { UsersModule } from '../../users/users.module';
 import { HiveIDController } from './hiveid.controller';
 import { AuthController } from './auth.controller';
 import { HiveIDService } from './hiveid.service';
+import { TrackerTokenService } from './tracker-token.service';
 import { AuthMiddleware } from './auth.middleware';
 import { AuthGuard } from './guards/auth.guard';
 import { AuthService } from './auth.service';
@@ -41,6 +42,7 @@ const expiresIn: any = rawValidity && isValidJwtExpiresIn(rawValidity) ? rawVali
   providers: [
     AuthService,
     HiveIDService,
+    TrackerTokenService,
     RefreshTokenService,
     {
       provide: APP_GUARD,
@@ -49,7 +51,7 @@ const expiresIn: any = rawValidity && isValidJwtExpiresIn(rawValidity) ? rawVali
     ConfigService,
   ],
   controllers: [AuthController, HiveIDController],
-  exports: [AuthService, HiveIDService, RefreshTokenService],
+  exports: [AuthService, HiveIDService, TrackerTokenService, RefreshTokenService],
 })
 export class AuthModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

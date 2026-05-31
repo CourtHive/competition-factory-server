@@ -45,7 +45,7 @@ const PASSWORD_RESET_PURPOSE = 'password-reset';
 // the window of a leaked access token. See RefreshTokenService for the refresh
 // side. Both the password-login path (signIn) and SSO handoff use this value.
 export const ACCESS_TOKEN_TTL = '4h';
-export type AudienceClaimValue = 'admin' | 'hiveid';
+export type AudienceClaimValue = 'admin' | 'hiveid' | 'score';
 
 // Magic-link login codes are short-lived and single-use. 15 minutes is long
 // enough to receive the email and click, short enough to limit the window if
