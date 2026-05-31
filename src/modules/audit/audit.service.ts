@@ -102,12 +102,14 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   }): Promise<void> {
     const { tournamentIds, userId, userEmail, source, methods, status, errorCode, metadata } = params;
 
+    const actor = toActor(userId);
     for (const tournamentId of tournamentIds) {
       const row: AuditRow = {
         auditId: tools.UUID(),
         tournamentId,
         userId,
         userEmail,
+        actor,
         source: source ?? 'tmx',
         occurredAt: new Date().toISOString(),
         actionType: 'MUTATION',
@@ -119,6 +121,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
 
       try {
         await this.auditStorage.append(row);
+        this.recordRecovery('MUTATION');
       } catch (err: any) {
         this.recordFailure('MUTATION', tournamentId, err);
       }
@@ -144,6 +147,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       tournamentId,
       userId,
       userEmail,
+      actor: toActor({ providerId, userId }),
       source: 'tmx',
       occurredAt: new Date().toISOString(),
       actionType: 'DELETE_TOURNAMENT',
@@ -158,6 +162,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
 
     try {
       await this.auditStorage.append(row);
+      this.recordRecovery('DELETE_TOURNAMENT');
       this.logger.log(`Recorded deletion audit for ${tournamentId} (${tournamentName})`);
     } catch (err: any) {
       this.recordFailure('DELETE_TOURNAMENT', tournamentId, err);
@@ -184,6 +189,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       tournamentId: provisionerId,
       userId,
       userEmail,
+      actor: toActor(userId),
       source: 'admin',
       occurredAt: new Date().toISOString(),
       actionType: 'DELETE_PROVISIONER',
@@ -199,6 +205,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
 
     try {
       await this.auditStorage.append(row);
+      this.recordRecovery('DELETE_PROVISIONER');
       this.logger.log(
         `Recorded deletion audit for provisioner ${provisionerId} (${provisionerName ?? 'unnamed'}) — keys=${cascadeCounts.apiKeys}, assoc=${cascadeCounts.providerAssociations}, stamps=${cascadeCounts.tournamentStamps}`,
       );
@@ -245,6 +252,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       tournamentId,
       userId,
       userEmail,
+      actor: toActor(userId),
       source: source ?? 'tmx',
       occurredAt: new Date().toISOString(),
       actionType: 'DELETE_DRAW',
@@ -262,6 +270,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
 
     try {
       await this.auditStorage.append(row);
+      this.recordRecovery('DELETE_DRAW');
     } catch (err: any) {
       this.recordFailure('DELETE_DRAW', `${tournamentId}/${drawId}`, err);
     }
@@ -290,6 +299,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       tournamentId: targetUserId,
       userId: actorUserId,
       userEmail: actorEmail,
+      actor: toActor(actorUserId),
       source: source ?? 'admin',
       occurredAt: new Date().toISOString(),
       actionType: 'CONTACT_EMAIL_CHANGED',
@@ -305,6 +315,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
 
     try {
       await this.auditStorage.append(row);
+      this.recordRecovery('CONTACT_EMAIL_CHANGED');
     } catch (err: any) {
       this.recordFailure('CONTACT_EMAIL_CHANGED', targetUserId, err);
     }
@@ -327,6 +338,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       tournamentId: targetUserId,
       userId: targetUserId,
       userEmail: targetEmail,
+      actor: toActor(targetUserId),
       source: 'verify-link',
       occurredAt: new Date().toISOString(),
       actionType: 'CONTACT_EMAIL_VERIFIED',
@@ -337,6 +349,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
 
     try {
       await this.auditStorage.append(row);
+      this.recordRecovery('CONTACT_EMAIL_VERIFIED');
     } catch (err: any) {
       this.recordFailure('CONTACT_EMAIL_VERIFIED', targetUserId, err);
     }
@@ -412,6 +425,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       tournamentId,
       userId,
       userEmail,
+      actor: toActor(userId),
       source: 'audit-restore',
       occurredAt: new Date().toISOString(),
       actionType: 'RESTORE_DRAW',
@@ -428,6 +442,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
 
     try {
       await this.auditStorage.append(restoreRow);
+      this.recordRecovery('RESTORE_DRAW');
     } catch (err: any) {
       this.recordFailure('RESTORE_DRAW', `${tournamentId}/${drawId}`, err);
     }
@@ -486,6 +501,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       tournamentId,
       userId,
       userEmail,
+      actor: toActor(userId),
       source: 'tmx',
       occurredAt: new Date().toISOString(),
       actionType: 'SAVE',
@@ -495,6 +511,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
 
     try {
       await this.auditStorage.append(row);
+      this.recordRecovery('SAVE');
     } catch (err: any) {
       this.recordFailure('SAVE', tournamentId, err);
     }

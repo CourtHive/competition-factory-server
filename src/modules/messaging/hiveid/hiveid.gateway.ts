@@ -81,11 +81,26 @@ export class HiveIDGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   /**
    * Phase-4 hook: broadcast a personId-scoped update to the matching
-   * person room. Exposed so future PRs can wire callers (e.g. on
-   * personMerged the survivor's room is notified to refresh `/me`).
+   * person room. Wired by PersonsClient.handleMerge in Phase 4.0; later
+   * phases extend to roster/schedule/result kinds.
+   *
+   * If `this.server` is undefined (Nest hasn't bound the namespace yet
+   * — pre-bootstrap or mid-shutdown) we MUST log it. Without the warn,
+   * a personMerged is silently dropped: users.person_id was rewritten,
+   * the SSE cursor advanced, and zero downstream clients learned about
+   * it. The caller's try/catch never fires because we never throw.
+   *
+   * See Mentat/standards/architectural-standards.md A2 (fail-soft must
+   * surface) and A5 (cross-repo wire breaks need explicit visibility).
    */
   broadcastPersonUpdate(personId: string, payload: any): void {
     if (!personId || !payload) return;
-    this.server?.to(PERSON_ROOM_PREFIX + personId).emit('personUpdate', payload);
+    if (!this.server) {
+      this.logger.warn(
+        `personUpdate broadcast dropped for personId=${personId} — gateway server unbound (pre-bootstrap or mid-shutdown)`,
+      );
+      return;
+    }
+    this.server.to(PERSON_ROOM_PREFIX + personId).emit('personUpdate', payload);
   }
 }

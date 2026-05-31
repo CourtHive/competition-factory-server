@@ -103,7 +103,7 @@ export class ConfigReadinessService implements OnApplicationBootstrap {
       this.checkRequiredEnv('RELAY_SERVICE_JWT', {
         critical: false,
         warningWhenMissing:
-          'score-relay persistence will be anonymous (CFS RolesGuard rejects). Mint a SCORE-aud JWT and set this if relay-driven canonical persistence is in scope.',
+          "score-relay persistence will be anonymous (CFS RolesGuard rejects). Mint a JWT with aud: 'score' (or 'admin') AND the SCORE role, then set this. /factory/score declares @Audience(['admin', 'score']).",
       }),
       this.checkRequiredEnv('RESEND_API_KEY', {
         critical: false,

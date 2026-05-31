@@ -13,6 +13,7 @@ import { GetMatchUpsDto } from './dto/getMatchUps.dto';
 import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param, Logger, Req } from '@nestjs/common';
 import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
 import { ADMIN, CLIENT, GENERATE, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
+import { Audience } from 'src/modules/account/auth/decorators/audience.decorator';
 import { Public } from 'src/modules/account/auth/decorators/public.decorator';
 import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
@@ -152,6 +153,13 @@ export class FactoryController {
   }
 
   @Post('score')
+  // Accepts both audiences: 'admin' is the legacy TMX-user path,
+  // 'score' is for service tokens minted for score-relay's persistence
+  // forwarder (RELAY_SERVICE_JWT). Without the explicit @Audience the
+  // AuthGuard defaults to ['admin'] and rejects score-aud tokens with
+  // a generic 401, which previously misled operators following the
+  // config-readiness hint to mint a SCORE-aud JWT.
+  @Audience(['admin', 'score'])
   @Roles([SCORE, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   async scoreMatchUp(@Body() sms: SetMatchUpStatusDto) {

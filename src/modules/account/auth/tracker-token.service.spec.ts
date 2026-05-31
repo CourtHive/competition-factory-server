@@ -44,7 +44,17 @@ describe('TrackerTokenService', () => {
   }
 
   beforeEach(() => {
-    mockJwtService = new JwtService({ secret: 'test-secret' });
+    // IMPORTANT: mirror the real AuthModule's JwtModule.register() shape.
+    // The production module registers signOptions: { expiresIn: '<JWT_VALIDITY>' };
+    // a pre-fc1dc53 version of this spec constructed JwtService with no
+    // signOptions and missed the `Bad options.expiresIn option the payload
+    // already has an exp property` clash that hit prod.
+    // See Mentat/standards/architectural-standards.md A1 (mock divergence
+    // from module register options).
+    mockJwtService = new JwtService({
+      secret: 'test-secret',
+      signOptions: { expiresIn: '1d' },
+    });
     mockTournamentStorage = {
       fetchTournamentRecords: jest.fn().mockResolvedValue({
         tournamentRecords: { [TOURNAMENT_ID]: ownedTournament },
@@ -54,6 +64,20 @@ describe('TrackerTokenService', () => {
       recordTrackerTokenIssued: jest.fn().mockResolvedValue(undefined),
     };
     service = new TrackerTokenService(mockJwtService, mockTournamentStorage, mockAuditService);
+  });
+
+  // Sentinel: if a future change puts `exp` directly into the JWT
+  // payload while leaving signOptions.expiresIn set in the real module,
+  // jsonwebtoken throws 'Bad options.expiresIn option the payload already
+  // has an exp property'. This test asserts the service does NOT do that.
+  it('does not put exp in the payload when signOptions.expiresIn is set on the module', async () => {
+    await expect(
+      service.mintTrackerToken(
+        { tournamentId: TOURNAMENT_ID, ttlSeconds: 1800 },
+        { providerId: PROVIDER_ID },
+        makeContext(),
+      ),
+    ).resolves.toMatchObject({ token: expect.any(String) });
   });
 
   it('mints a token with score audience, tournamentId, and exp', async () => {
