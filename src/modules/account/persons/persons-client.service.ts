@@ -169,7 +169,11 @@ export class PersonsClient implements OnApplicationBootstrap, OnApplicationShutd
       try {
         await this.openStream();
         if (this.consecutiveErrors > 0) {
-          this.logger.log(`persons SSE recovered after ${this.consecutiveErrors} failure(s)`);
+          // Promoted to WARN so it mirrors the failure WARN: main.ts's
+          // logger config strips 'log' (see ['fatal','verbose','debug',
+          // 'error','warn']), so without this an outage emits visible
+          // WARNs forever and recovery is silent.
+          this.logger.warn(`persons SSE recovered after ${this.consecutiveErrors} failure(s)`);
         }
         this.consecutiveErrors = 0;
       } catch (err) {
@@ -225,7 +229,9 @@ export class PersonsClient implements OnApplicationBootstrap, OnApplicationShutd
       throw new Error(`HTTP ${res.status} opening SSE`);
     }
     this.connected = true;
-    this.logger.log(`SSE connected to ${url.href}`);
+    // WARN — matches the failure WARN level so the connect confirmation
+    // is visible under main.ts's logger filter (no 'log' level).
+    this.logger.warn(`SSE connected to ${url.href}`);
     await consumeSseStream(res, (event) => this.dispatchEvent(event), this.controller.signal);
   }
 
