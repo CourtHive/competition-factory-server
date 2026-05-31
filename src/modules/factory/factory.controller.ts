@@ -46,6 +46,34 @@ export class FactoryController {
     return result;
   }
 
+  /**
+   * Evict the top-level per-tournament cache keys after a mutation. Live
+   * WebSocket clients are already notified by broadcastMutation; this
+   * exists for HTTP polling clients (mobile, public viewers, automated
+   * dashboards) that would otherwise eat the 3-min cache TTL after a
+   * write and serve stale matchUps for that window.
+   *
+   * Covered keys (all fixed-shape, single-segment after tournamentId):
+   *   gmr|<tid>   getMatchUps
+   *   gac|<tid>   getAssistantContext
+   *   gti|<tid>   getTournamentInfo (GET shape, no flags)
+   *
+   * NOT covered: flag-variant keys like `gti|<tid>|<flags>` or
+   * `ged|<tid>|<eid>` because cache-manager has no pattern delete and
+   * we don't track issued keys. Those still respect the 3-min TTL.
+   * Acceptable for now — the live broadcast catches every interactive
+   * surface and polling-only consumers eat the same staleness as before.
+   */
+  private invalidateTournamentCache(tournamentIds: readonly string[]): void {
+    const prefixes = ['gmr', 'gac', 'gti'];
+    for (const tid of tournamentIds) {
+      if (!tid || typeof tid !== 'string') continue;
+      for (const prefix of prefixes) {
+        void this.cacheManager.del(`${prefix}|${tid}`);
+      }
+    }
+  }
+
   @Get()
   @Public()
   default() {
@@ -137,6 +165,7 @@ export class FactoryController {
       };
       this.broadcastService.broadcastMutation(payload);
       this.broadcastService.broadcastPublicNotices(payload, publicNotices);
+      this.invalidateTournamentCache(payload.tournamentIds);
     }
     return result;
   }
@@ -157,6 +186,7 @@ export class FactoryController {
       const { publicNotices } = result;
       this.broadcastService.broadcastMutation(eqd);
       this.broadcastService.broadcastPublicNotices(eqd, publicNotices);
+      this.invalidateTournamentCache(eqd.tournamentIds ?? []);
     }
     return result;
   }

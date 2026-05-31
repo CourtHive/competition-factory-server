@@ -88,6 +88,7 @@ describe('FactoryController', () => {
     const mockCache = {
       get: jest.fn().mockResolvedValue(undefined),
       set: jest.fn(),
+      del: jest.fn().mockResolvedValue(undefined),
     } as unknown as any;
 
     beforeEach(() => {
@@ -148,6 +149,7 @@ describe('FactoryController', () => {
     const mockCache = {
       get: jest.fn().mockResolvedValue(undefined),
       set: jest.fn(),
+      del: jest.fn().mockResolvedValue(undefined),
     } as unknown as any;
 
     beforeEach(() => {
