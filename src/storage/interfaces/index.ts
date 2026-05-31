@@ -76,3 +76,11 @@ export {
   type IRefreshTokenStorage,
   type RefreshTokenRow,
 } from './refresh-token-storage.interface';
+export {
+  REGISTRATION_ENTRY_STORAGE,
+  type IRegistrationEntryStorage,
+  type RegistrationEntry,
+  type RegistrationEntryUpsert,
+  type RegistrationStatus,
+  type RegistrationStatusUpdate,
+} from './registration-entry-storage.interface';

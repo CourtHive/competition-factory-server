@@ -13,13 +13,14 @@
  * boundary planning doc.
  */
 import { PersonsClientModule } from './persons/persons-client.module';
+import { RegistrationsModule } from './registrations/registrations.module';
 import { IdentityModule } from './identity/identity.module';
 import { EmailModule } from './email/email.module';
 import { AuthModule } from './auth/auth.module';
 import { Module } from '@nestjs/common';
 
 @Module({
-  imports: [AuthModule, EmailModule, IdentityModule, PersonsClientModule],
-  exports: [AuthModule, EmailModule, IdentityModule, PersonsClientModule],
+  imports: [AuthModule, EmailModule, IdentityModule, PersonsClientModule, RegistrationsModule],
+  exports: [AuthModule, EmailModule, IdentityModule, PersonsClientModule, RegistrationsModule],
 })
 export class AccountModule {}
