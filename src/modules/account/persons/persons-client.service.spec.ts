@@ -185,4 +185,72 @@ describe('PersonsClient', () => {
       expect(c.getStatus().baseUrl).toBe('http://localhost:3100');
     });
   });
+
+  describe('opt-out / disabled', () => {
+    afterEach(() => {
+      delete process.env.PERSONS_DISABLED;
+    });
+
+    it('skips the stream loop when PERSONS_DISABLED=true', () => {
+      process.env.PERSONS_DISABLED = 'true';
+      const c = new PersonsClient(storage);
+      const spy = jest.spyOn(c, 'runStreamLoop');
+      c.onApplicationBootstrap();
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('skips the stream loop when PERSONS_BASE_URL=disabled (case-insensitive)', () => {
+      process.env.PERSONS_BASE_URL = 'DISABLED';
+      const c = new PersonsClient(storage);
+      const spy = jest.spyOn(c, 'runStreamLoop');
+      c.onApplicationBootstrap();
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('runs the stream loop normally when neither opt-out is set', () => {
+      process.env.PERSONS_BASE_URL = 'http://test-persons:3100';
+      const c = new PersonsClient(storage);
+      const spy = jest.spyOn(c, 'runStreamLoop').mockResolvedValue(undefined);
+      c.onApplicationBootstrap();
+      expect(spy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('reconnect backoff + log throttling', () => {
+    it('logs first + milestone failures at warn, suppresses the noisy middle', async () => {
+      process.env.PERSONS_BASE_URL = 'http://test-persons:3100';
+      const c = new PersonsClient(storage) as any;
+      const warn = jest.spyOn(c.logger, 'warn').mockImplementation(() => undefined);
+      const debug = jest.spyOn(c.logger, 'debug').mockImplementation(() => undefined);
+
+      // Drive 12 failures by calling the private logger helper directly —
+      // exercises the milestone gate without spinning up the actual loop.
+      for (let i = 1; i <= 12; i++) {
+        c.consecutiveErrors = i;
+        c.logFailure(new Error('fetch failed'));
+      }
+      // First failure + the 10th milestone → 2 warn lines, the other 10
+      // routed to debug.
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(debug.mock.calls.length).toBeGreaterThanOrEqual(10);
+    });
+
+    it('computeBackoffMs grows exponentially and caps at 60s', () => {
+      const c = new PersonsClient(storage) as any;
+      c.consecutiveErrors = 0;
+      expect(c.computeBackoffMs()).toBe(5000);
+      c.consecutiveErrors = 1;
+      expect(c.computeBackoffMs()).toBe(5000);
+      c.consecutiveErrors = 2;
+      expect(c.computeBackoffMs()).toBe(10000);
+      c.consecutiveErrors = 3;
+      expect(c.computeBackoffMs()).toBe(20000);
+      c.consecutiveErrors = 4;
+      expect(c.computeBackoffMs()).toBe(40000);
+      c.consecutiveErrors = 5;
+      expect(c.computeBackoffMs()).toBe(60000); // capped
+      c.consecutiveErrors = 9999;
+      expect(c.computeBackoffMs()).toBe(60000);
+    });
+  });
 });

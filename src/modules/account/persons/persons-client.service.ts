@@ -28,7 +28,29 @@ import { CachedPersonFields, IUserStorage, USER_STORAGE } from '../../../storage
 import { consumeSseStream } from './sse-parser';
 
 const DEFAULT_PERSONS_BASE_URL = 'http://localhost:3100';
-const RECONNECT_DELAY_MS = 5000;
+
+/**
+ * Initial reconnect delay after a transient SSE failure. Doubles on each
+ * subsequent failure up to RECONNECT_MAX_DELAY_MS. Restores to the
+ * initial value on a successful (re-)connection.
+ */
+const RECONNECT_INITIAL_DELAY_MS = 5000;
+const RECONNECT_MAX_DELAY_MS = 60_000;
+
+/**
+ * Disable the SSE consumer entirely. Two ways to opt out:
+ *   PERSONS_DISABLED=true               — explicit flag, recommended
+ *   PERSONS_BASE_URL=disabled           — convenience: many envs lazily
+ *                                          set an empty URL when persons
+ *                                          isn't deployed there yet
+ * Both leave the HTTP `resolve` + `getById` methods callable but skip
+ * the always-on reconnect loop, so deployments without persons stop
+ * hammering the network and the logs.
+ */
+function personsDisabled(baseUrl: string): boolean {
+  if (process.env.PERSONS_DISABLED === 'true') return true;
+  return baseUrl.trim().toLowerCase() === 'disabled';
+}
 
 export interface PersonOtherId {
   provider: string;
@@ -93,6 +115,10 @@ export class PersonsClient implements OnApplicationBootstrap, OnApplicationShutd
   }
 
   onApplicationBootstrap(): void {
+    if (personsDisabled(this.baseUrl)) {
+      this.logger.log('persons SSE consumer disabled via PERSONS_DISABLED / PERSONS_BASE_URL=disabled');
+      return;
+    }
     this.streamLoop = this.runStreamLoop();
   }
 
@@ -142,15 +168,49 @@ export class PersonsClient implements OnApplicationBootstrap, OnApplicationShutd
     while (!this.controller.signal.aborted) {
       try {
         await this.openStream();
+        if (this.consecutiveErrors > 0) {
+          this.logger.log(`persons SSE recovered after ${this.consecutiveErrors} failure(s)`);
+        }
         this.consecutiveErrors = 0;
       } catch (err) {
         this.connected = false;
         this.consecutiveErrors++;
         if (this.controller.signal.aborted) return;
-        this.logger.warn(`SSE stream error (${this.consecutiveErrors}x): ${(err as Error).message}`);
+        this.logFailure(err as Error);
       }
       if (this.controller.signal.aborted) return;
-      await this.sleep(RECONNECT_DELAY_MS);
+      await this.sleep(this.computeBackoffMs());
+    }
+  }
+
+  /**
+   * Exponential backoff with a 60s cap: 5s, 10s, 20s, 40s, then 60s
+   * forever. Quiet enough that an unreachable persons service stops
+   * hammering local DNS / TCP and stops drowning the logs, but still
+   * snappy enough to reconnect within a minute once persons is back.
+   */
+  private computeBackoffMs(): number {
+    if (this.consecutiveErrors <= 0) return RECONNECT_INITIAL_DELAY_MS;
+    const exp = Math.min(this.consecutiveErrors - 1, 10); // cap shift before Math.pow
+    const delay = RECONNECT_INITIAL_DELAY_MS * 2 ** exp;
+    return Math.min(delay, RECONNECT_MAX_DELAY_MS);
+  }
+
+  /**
+   * Log throttling — every error otherwise produces a WARN line, so a
+   * persons outage of a few hours generates thousands of identical
+   * log lines. Emit the first failure loudly so the operator notices,
+   * then suppress until a milestone (10, 100, 1000, …) or every 50th
+   * failure once we're past the early stages.
+   */
+  private logFailure(err: Error): void {
+    const n = this.consecutiveErrors;
+    const isMilestone = n === 1 || n === 10 || n === 100 || n === 1000 || n % 50 === 0;
+    const message = `SSE stream error (${n}x): ${err.message}`;
+    if (isMilestone) {
+      this.logger.warn(message);
+    } else {
+      this.logger.debug(message);
     }
   }
 
