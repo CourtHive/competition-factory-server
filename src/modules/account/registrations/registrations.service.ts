@@ -69,6 +69,17 @@ export interface BulkAdminAction {
   statusReason?: string;
 }
 
+/**
+ * Director list payload — the storage entry enriched with the
+ * applicant's cached canonical name + login email so the TMX table
+ * can render a useful row without a follow-on lookup.
+ */
+export type AdminRegistrationRow = RegistrationEntry & {
+  applicantGivenName: string | null;
+  applicantFamilyName: string | null;
+  applicantEmail: string | null;
+};
+
 @Injectable()
 export class RegistrationsService {
   constructor(
@@ -151,11 +162,54 @@ export class RegistrationsService {
   //  threads it to the action handler — saves a second storage hit.
   // -------------------------------------------------------------------
 
-  async listForTournament(userContext: UserContext, tournamentId: string, statusFilter?: RegistrationStatus): Promise<RegistrationEntry[]> {
+  async listForTournament(
+    userContext: UserContext,
+    tournamentId: string,
+    statusFilter?: RegistrationStatus,
+  ): Promise<AdminRegistrationRow[]> {
     await this.assertAdminAccess(userContext, tournamentId);
     const rows = await this.storage.listByTournament(tournamentId);
-    if (statusFilter) return rows.filter((r) => r.status === statusFilter);
-    return rows;
+    const filtered = statusFilter ? rows.filter((r) => r.status === statusFilter) : rows;
+
+    // Enrich with cached canonical name + email by joining against
+    // `users`. N+1 over distinct userIds — fine for the typical
+    // tournament size (< 200 applicants).
+    const uniqueUserIds = Array.from(new Set(filtered.map((r) => r.userId)));
+    const userById = new Map<string, any>();
+    await Promise.all(
+      uniqueUserIds.map(async (userId) => {
+        try {
+          const user = await this.userStorage.findByUserId(userId);
+          if (user) userById.set(userId, user);
+        } catch {
+          /* keep going — missing user becomes an "(unknown)" applicant in the UI */
+        }
+      }),
+    );
+    const linkById = new Map<string, any>();
+    await Promise.all(
+      uniqueUserIds.map(async (userId) => {
+        try {
+          const link = await this.userStorage.getPersonLink(userId);
+          if (link) linkById.set(userId, link);
+        } catch {
+          /* same */
+        }
+      }),
+    );
+
+    return filtered.map((r) => {
+      const link = linkById.get(r.userId);
+      const user = userById.get(r.userId);
+      return {
+        ...r,
+        applicantGivenName:
+          link?.cached?.standardGivenName ?? user?.firstName ?? null,
+        applicantFamilyName:
+          link?.cached?.standardFamilyName ?? user?.lastName ?? null,
+        applicantEmail: user?.email ?? null,
+      } as AdminRegistrationRow;
+    });
   }
 
   async acceptRegistration(ctx: AdminActionContext): Promise<{ registration: RegistrationEntry; participantId: string }> {
