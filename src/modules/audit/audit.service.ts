@@ -11,6 +11,8 @@ import {
 } from 'src/storage/interfaces';
 import { tools } from 'tods-competition-factory';
 
+import { toActor } from './audit-actor';
+
 const DEFAULT_RETENTION_DAYS = 90;
 const PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000; // daily
 
@@ -19,6 +21,14 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AuditService.name);
   private pruneTimer: ReturnType<typeof setInterval> | null = null;
   private pruneStartupTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Per-actionType failure counter. Throttling pattern mirrors
+  // PersonsClient (feedback_persons_client_hardening): first ERROR at
+  // attempt 1, then powers-of-10 milestones (10, 100, 1000), then
+  // every 50th thereafter. Without throttling, a schema mismatch
+  // (e.g. the pre-036 audit user_id UUID type bug) hammers ERROR-level
+  // log lines once per inbound API call.
+  private readonly failureCounts = new Map<string, number>();
 
   constructor(
     @Inject(AUDIT_STORAGE) private readonly auditStorage: IAuditStorage,
@@ -41,6 +51,37 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   onModuleDestroy() {
     if (this.pruneStartupTimer) clearTimeout(this.pruneStartupTimer);
     if (this.pruneTimer) clearInterval(this.pruneTimer);
+  }
+
+  /**
+   * Increment the per-actionType failure counter and emit at the right
+   * level. First failure → ERROR (the operator notices). Subsequent
+   * failures throttle to DEBUG except at the 10/100/1000 + every-50th
+   * milestones where they re-emit at ERROR so a long-running outage
+   * stays visible without dominating the log file.
+   */
+  private recordFailure(actionType: string, tournamentId: string, err: Error): void {
+    const count = (this.failureCounts.get(actionType) ?? 0) + 1;
+    this.failureCounts.set(actionType, count);
+    const isMilestone = count === 1 || count === 10 || count === 100 || count === 1000 || count % 50 === 0;
+    const message = `Failed to record ${actionType} audit (${count}x) for ${tournamentId}: ${err.message}`;
+    if (isMilestone) this.logger.error(message);
+    else this.logger.debug(message);
+  }
+
+  /**
+   * Called on the first successful append of an actionType after one or
+   * more failures — emits an INFO-equivalent (LOG) line so the operator
+   * notices recovery, and resets the counter.
+   *
+   * Currently invoked manually inside the append-then-catch blocks. A
+   * later refactor could route every append through a single helper.
+   */
+  private recordRecovery(actionType: string): void {
+    const previous = this.failureCounts.get(actionType);
+    if (!previous) return;
+    this.failureCounts.delete(actionType);
+    this.logger.warn(`Audit append for ${actionType} recovered after ${previous} failure(s)`);
   }
 
   // ── Ingestion ──
@@ -79,7 +120,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       try {
         await this.auditStorage.append(row);
       } catch (err: any) {
-        this.logger.error(`Failed to record audit for ${tournamentId}: ${err.message}`);
+        this.recordFailure('MUTATION', tournamentId, err);
       }
     }
   }
@@ -119,7 +160,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       await this.auditStorage.append(row);
       this.logger.log(`Recorded deletion audit for ${tournamentId} (${tournamentName})`);
     } catch (err: any) {
-      this.logger.error(`Failed to record deletion audit for ${tournamentId}: ${err.message}`);
+      this.recordFailure('DELETE_TOURNAMENT', tournamentId, err);
     }
   }
 
@@ -162,7 +203,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
         `Recorded deletion audit for provisioner ${provisionerId} (${provisionerName ?? 'unnamed'}) — keys=${cascadeCounts.apiKeys}, assoc=${cascadeCounts.providerAssociations}, stamps=${cascadeCounts.tournamentStamps}`,
       );
     } catch (err: any) {
-      this.logger.error(`Failed to record provisioner deletion audit for ${provisionerId}: ${err.message}`);
+      this.recordFailure('DELETE_PROVISIONER', provisionerId, err);
     }
   }
 
@@ -222,7 +263,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.auditStorage.append(row);
     } catch (err: any) {
-      this.logger.error(`Failed to record draw deletion audit for ${tournamentId}/${drawId}: ${err.message}`);
+      this.recordFailure('DELETE_DRAW', `${tournamentId}/${drawId}`, err);
     }
   }
 
@@ -265,7 +306,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.auditStorage.append(row);
     } catch (err: any) {
-      this.logger.error(`Failed to record contact-email change audit for ${targetUserId}: ${err.message}`);
+      this.recordFailure('CONTACT_EMAIL_CHANGED', targetUserId, err);
     }
   }
 
@@ -297,7 +338,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.auditStorage.append(row);
     } catch (err: any) {
-      this.logger.error(`Failed to record contact-email verified audit for ${targetUserId}: ${err.message}`);
+      this.recordFailure('CONTACT_EMAIL_VERIFIED', targetUserId, err);
     }
   }
 
@@ -388,7 +429,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.auditStorage.append(restoreRow);
     } catch (err: any) {
-      this.logger.error(`Failed to record draw restore audit for ${tournamentId}/${drawId}: ${err.message}`);
+      this.recordFailure('RESTORE_DRAW', `${tournamentId}/${drawId}`, err);
     }
 
     return { success: true, tournamentId, eventId, drawId };
@@ -402,27 +443,35 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   async recordTrackerTokenIssued(params: {
     tournamentId: string;
     providerId?: string;
+    provisionerId?: string;
     audience: 'admin' | 'score';
     ttlSeconds: number;
     expiresAt: string;
     userId?: string;
   }): Promise<void> {
-    const { tournamentId, providerId, audience, ttlSeconds, expiresAt, userId } = params;
+    const { tournamentId, providerId, provisionerId, audience, ttlSeconds, expiresAt, userId } = params;
+    // Resolve the polymorphic actor — handles provisioner:<uuid>,
+    // provider:<uuid>, service:<name>, bare uuid (user). Replaces
+    // the pre-036 pattern of putting prefixed strings into a
+    // UUID-typed user_id column, which threw `invalid input syntax`
+    // every mint and spammed the logs.
+    const actor = toActor({ provisionerId, providerId, userId });
     const row: AuditRow = {
       auditId: tools.UUID(),
       tournamentId,
-      userId,
-      source: providerId ? `provider:${providerId}` : 'admin',
+      actor,
+      source: providerId ? `provider:${providerId}` : provisionerId ? `provisioner:${provisionerId}` : 'admin',
       occurredAt: new Date().toISOString(),
       actionType: 'TRACKER_TOKEN_ISSUED',
       methods: [{ method: 'mintTrackerToken', params: { tournamentId, ttlSeconds } }],
       status: 'applied',
-      metadata: { audience, ttlSeconds, expiresAt, providerId },
+      metadata: { audience, ttlSeconds, expiresAt, providerId, provisionerId },
     };
     try {
       await this.auditStorage.append(row);
+      this.recordRecovery('TRACKER_TOKEN_ISSUED');
     } catch (err: any) {
-      this.logger.error(`Failed to record trackerTokenIssued audit for ${tournamentId}: ${err.message}`);
+      this.recordFailure('TRACKER_TOKEN_ISSUED', tournamentId, err);
     }
   }
 
@@ -447,7 +496,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.auditStorage.append(row);
     } catch (err: any) {
-      this.logger.error(`Failed to record save audit for ${tournamentId}: ${err.message}`);
+      this.recordFailure('SAVE', tournamentId, err);
     }
   }
 

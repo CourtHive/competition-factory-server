@@ -1,6 +1,28 @@
 export const AUDIT_STORAGE = Symbol('AUDIT_STORAGE');
 
 /**
+ * Polymorphic actor — who initiated this audit event.
+ *
+ * Replaces the legacy UUID-typed `userId` field which broke for
+ * provisioner / provider / service callers whose identifiers aren't
+ * UUIDs (e.g. `provisioner:<uuid>`). The `kind` discriminates the
+ * identifier space:
+ *
+ *   'user'        regular human user; `id` is users.user_id (uuid)
+ *   'provisioner' provisioner API key; `id` is provisioners.provisioner_id (uuid)
+ *   'provider'    provider API key;    `id` is providers.provider_id (uuid)
+ *   'service'     internal service;    `id` is a free-form short name
+ *                                       (e.g. 'score-relay', 'audit-worker')
+ *
+ * Existing rows pre-migration-036 carry only `userId`. Post-036 rows
+ * carry an `actor` and leave `userId` undefined.
+ */
+export interface AuditActor {
+  kind: 'user' | 'provisioner' | 'provider' | 'service';
+  id: string;
+}
+
+/**
  * Audit row — one per executionQueue payload or system event (e.g. tournament deletion).
  *
  * Deliberately has NO foreign key to the tournaments table so audit rows
@@ -9,8 +31,10 @@ export const AUDIT_STORAGE = Symbol('AUDIT_STORAGE');
 export interface AuditRow {
   auditId: string;
   tournamentId: string;
+  /** @deprecated use `actor` — kept for back-compat with pre-036 rows. */
   userId?: string;
   userEmail?: string;
+  actor?: AuditActor;
   source?: string;
   occurredAt: string;
   actionType: 'MUTATION' | 'DELETE_TOURNAMENT' | 'DELETE_DRAW' | 'SAVE' | string;
