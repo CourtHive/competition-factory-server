@@ -1,4 +1,5 @@
 -- 033-add-user-person-link.sql
+-- AFFECTS: mixed
 --
 -- HiveID Integration Phase 1 PR-E.
 -- Extends the `users` table with the HiveID fields locked in

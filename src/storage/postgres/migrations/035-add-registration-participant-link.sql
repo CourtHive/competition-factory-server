@@ -1,4 +1,5 @@
 -- 035-add-registration-participant-link.sql
+-- AFFECTS: mixed
 --
 -- HiveID Phase 2-B — closes the loop between a RegistrationEntry and
 -- the TODS Participant it graduates into on acceptance.

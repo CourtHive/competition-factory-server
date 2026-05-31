@@ -1,4 +1,5 @@
 -- 034-add-registration-entries.sql
+-- AFFECTS: end-users
 --
 -- HiveID Phase 2-A — Closing the Registration Loop (applicant side).
 --
