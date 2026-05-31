@@ -178,10 +178,10 @@ export class ConfigReadinessService implements OnApplicationBootstrap {
     }
     lines.push('─────────────────────────────────────────────────────');
     const message = lines.join('\n');
-    // Choose log level by worst finding so the operator can spot the
-    // block via grep on WARN/ERROR if anything needs attention.
-    if (summary.fail > 0) this.logger.error(message);
-    else if (summary.warn > 0) this.logger.warn(message);
+    // Always emit at WARN (yellow) when there's anything to flag — the red
+    // ERROR rendering is hard to read on dark terminals; the ✗ markers and
+    // `fail=N` in the banner remain greppable for severity.
+    if (summary.fail > 0 || summary.warn > 0) this.logger.warn(message);
     else this.logger.log(message);
   }
 }
