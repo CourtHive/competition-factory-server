@@ -14,10 +14,11 @@
  *
  * No admin-side route lives here; AuthController owns the admin surface.
  */
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req } from '@nestjs/common';
 import { Audience } from './decorators/audience.decorator';
 import { HiveIDMagicLinkConsumeDto, HiveIDMagicLinkRequestDto } from './dto/hiveidMagicLink.dto';
 import { HiveIDVerifyExistingDto } from './dto/hiveidVerifyExisting.dto';
+import { HiveIDClaimDto } from './dto/hiveidClaim.dto';
 import { HiveIDSignupDto } from './dto/hiveidSignup.dto';
 import { HiveIDService } from './hiveid.service';
 import { Public } from './decorators/public.decorator';
@@ -59,5 +60,46 @@ export class HiveIDController {
   @HttpCode(HttpStatus.OK)
   getMe(@Req() req: any) {
     return this.hiveidService.getMe(req?.user?.userId);
+  }
+
+  /**
+   * GET /auth/hiveid/me/participations — every tournament where the
+   * caller has been claimed as a Participant via the CANONICAL_PERSON
+   * organisationId. Phase 1 surface for the "instant tournament
+   * history" moment after a backfilled HTS/CTS/BOBOCA user logs in.
+   */
+  @Audience(['hiveid'])
+  @Get('me/participations')
+  @HttpCode(HttpStatus.OK)
+  getMyParticipations(@Req() req: any) {
+    return this.hiveidService.getMyParticipations(req?.user?.userId);
+  }
+
+  /**
+   * GET /auth/hiveid/me/claimable/:tournamentId — Participants in the
+   * given tournament whose name overlaps the caller's cached canonical
+   * fields, minus anyone already linked to this personId.
+   */
+  @Audience(['hiveid'])
+  @Get('me/claimable/:tournamentId')
+  @HttpCode(HttpStatus.OK)
+  getClaimable(@Param('tournamentId') tournamentId: string, @Req() req: any) {
+    return this.hiveidService.getClaimableForTournament(req?.user?.userId, tournamentId);
+  }
+
+  /**
+   * POST /auth/hiveid/me/claim — link a tournament Participant to the
+   * caller's CourtHive identity by stamping a CANONICAL_PERSON entry on
+   * `Person.personOtherIds[]` via the `addPersonOtherId` factory mutation.
+   */
+  @Audience(['hiveid'])
+  @Post('me/claim')
+  @HttpCode(HttpStatus.OK)
+  claim(@Body() body: HiveIDClaimDto, @Req() req: any) {
+    return this.hiveidService.claimParticipant({
+      userId: req?.user?.userId,
+      tournamentId: body?.tournamentId ?? '',
+      participantId: body?.participantId ?? '',
+    });
   }
 }
