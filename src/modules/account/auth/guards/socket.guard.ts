@@ -1,10 +1,14 @@
 import { CanActivate, Injectable, ExecutionContext } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
+import { AUDIENCE_KEY, AudienceClaim } from '../decorators/audience.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { audienceMatches } from './auth.guard';
 import { Roles } from '../decorators/roles.decorator';
 import { Reflector } from '@nestjs/core';
 import { Socket } from 'socket.io';
+
+const DEFAULT_REQUIRED_AUDIENCES: AudienceClaim[] = ['admin'];
 
 @Injectable()
 export class SocketGuard implements CanActivate {
@@ -32,6 +36,22 @@ export class SocketGuard implements CanActivate {
       const user = await this.jwtService.verifyAsync(token, {
         secret: process.env.JWT_SECRET,
       });
+
+      // Audience check. Gateways declare the audience they accept via
+      // @Audience([...]) at class or method level. Absent decorator =
+      // admin-only (legacy default — matches AuthGuard). Tokens with no
+      // `aud` claim are treated as admin so existing TMX sessions keep
+      // working after the audience refactor.
+      const declared = this.reflector.getAllAndOverride<AudienceClaim[]>(AUDIENCE_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      const required = Array.isArray(declared) ? declared : DEFAULT_REQUIRED_AUDIENCES;
+      if (!audienceMatches(user?.aud, required)) {
+        client.emit('exception', { message: 'Token audience not accepted on this namespace' });
+        return false;
+      }
+
       return new Promise((resolve, reject) => {
         const roles = this.reflector.get(Roles, context.getHandler());
         const hasRole = !roles || !!user.roles?.find((role) => !!roles.find((item) => item === role));

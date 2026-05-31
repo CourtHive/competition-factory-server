@@ -1,6 +1,8 @@
 import { SocketGuard } from './socket.guard';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
+import { AUDIENCE_KEY } from '../decorators/audience.decorator';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 describe('SocketGuard', () => {
   let guard: SocketGuard;
@@ -97,5 +99,82 @@ describe('SocketGuard', () => {
 
     const { context } = createMockWsContext(`Bearer ${token}`);
     await expect(guard.canActivate(context)).rejects.toThrow('Unauthorized access');
+  });
+
+  describe('audience handling', () => {
+    function ctxWithAud(token: string, audience?: string[]) {
+      const emittedEvents: any[] = [];
+      const request: any = { user: undefined };
+      jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: any) => {
+        if (key === IS_PUBLIC_KEY) return false;
+        if (key === AUDIENCE_KEY) return audience;
+        return undefined;
+      });
+      jest.spyOn(reflector, 'get').mockReturnValue(undefined);
+      const client = {
+        handshake: { headers: { authorization: `Bearer ${token}` } },
+        emit: (event: string, data: any) => emittedEvents.push({ event, data }),
+        data: {} as any,
+      };
+      const context = {
+        getHandler: () => ({}),
+        getClass: () => ({}),
+        switchToWs: () => ({ getClient: () => client }),
+        switchToHttp: () => ({ getRequest: () => request }),
+      } as any;
+      return { context, client, emittedEvents, request };
+    }
+
+    it('rejects hiveid-only tokens on admin namespaces (default audience)', async () => {
+      const token = jwtService.sign({ email: 'jane@test.com', aud: 'hiveid' }, { secret: 'test-secret' });
+      const { context, emittedEvents } = ctxWithAud(token, undefined);
+      const result = await guard.canActivate(context);
+      expect(result).toBe(false);
+      expect(emittedEvents[0].event).toBe('exception');
+      expect(emittedEvents[0].data.message).toMatch(/audience/i);
+    });
+
+    it('admits hiveid tokens on @Audience(["hiveid"]) namespaces', async () => {
+      const token = jwtService.sign(
+        { email: 'jane@test.com', aud: 'hiveid', personId: 'p-1' },
+        { secret: 'test-secret' },
+      );
+      const { context, client } = ctxWithAud(token, ['hiveid']);
+      const result = await guard.canActivate(context);
+      expect(result).toBe(true);
+      expect(client.data.user.personId).toBe('p-1');
+    });
+
+    it('rejects admin-only tokens on hiveid namespaces', async () => {
+      const token = jwtService.sign({ email: 'admin@test.com', aud: 'admin' }, { secret: 'test-secret' });
+      const { context, emittedEvents } = ctxWithAud(token, ['hiveid']);
+      const result = await guard.canActivate(context);
+      expect(result).toBe(false);
+      expect(emittedEvents[0].event).toBe('exception');
+    });
+
+    it('treats legacy no-aud tokens as admin (back-compat for in-flight TMX sessions)', async () => {
+      const token = jwtService.sign({ email: 'legacy@test.com' }, { secret: 'test-secret' });
+      const { context } = ctxWithAud(token, undefined);
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+    });
+
+    it('admits dual-audience tokens on the admin namespace (default)', async () => {
+      const token = jwtService.sign(
+        { email: 'dual@test.com', aud: ['admin', 'hiveid'] },
+        { secret: 'test-secret' },
+      );
+      const { context } = ctxWithAud(token, undefined);
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+    });
+
+    it('admits dual-audience tokens on the hiveid namespace', async () => {
+      const token = jwtService.sign(
+        { email: 'dual@test.com', aud: ['admin', 'hiveid'] },
+        { secret: 'test-secret' },
+      );
+      const { context } = ctxWithAud(token, ['hiveid']);
+      await expect(guard.canActivate(context)).resolves.toBe(true);
+    });
   });
 });
