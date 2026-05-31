@@ -11,6 +11,7 @@ import { BoltHistoryModule } from '../bolt-history/bolt-history.module';
 // retirement windows #1 + #2.
 import { PoliciesModule } from '../policies/policies.module';
 import { AuditModule } from '../audit/audit.module';
+import { ConfigReadinessModule } from '../config-readiness/config-readiness.module';
 import { isModuleEnabled } from '../../config/server-profile';
 import { MessagingModule } from '../messaging/messaging.module';
 import { ProvidersModule } from '../providers/providers.module';
@@ -38,6 +39,7 @@ const coreModules = [
   RankingsWebhookModule,
   UsersModule,
   AccountModule,
+  ConfigReadinessModule,
 ];
 
 // Tournament modules — loaded for 'tournament' and 'full' profiles
