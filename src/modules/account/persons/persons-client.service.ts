@@ -25,6 +25,7 @@ import {
 } from '@nestjs/common';
 
 import { CachedPersonFields, IUserStorage, USER_STORAGE } from '../../../storage/interfaces/user-storage.interface';
+import { HiveIDGateway } from '../../messaging/hiveid/hiveid.gateway';
 import { consumeSseStream } from './sse-parser';
 
 const DEFAULT_PERSONS_BASE_URL = 'http://localhost:3100';
@@ -110,7 +111,10 @@ export class PersonsClient implements OnApplicationBootstrap, OnApplicationShutd
   private consecutiveErrors = 0;
   private streamLoop: Promise<void> | null = null;
 
-  constructor(@Inject(USER_STORAGE) private readonly userStorage: IUserStorage) {
+  constructor(
+    @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
+    private readonly hiveIDGateway: HiveIDGateway,
+  ) {
     this.baseUrl = process.env.PERSONS_BASE_URL ?? DEFAULT_PERSONS_BASE_URL;
   }
 
@@ -273,6 +277,28 @@ export class PersonsClient implements OnApplicationBootstrap, OnApplicationShutd
     });
     if (result.rewrittenCount > 0) {
       this.logger.log(`rewrote ${result.rewrittenCount} users row(s): ${args.deprecatedId} -> ${args.survivorId}`);
+    }
+
+    // HiveID Phase 4 MVP — fan out to per-person rooms so any open
+    // courthive-public /me session can refetch participations and
+    // update the displayed identity in real time. Race-tolerant:
+    // we emit to BOTH the survivor's room (canonical) and the
+    // deprecated id's room (covers clients holding a still-valid
+    // JWT issued before the merge — their first reconnect will
+    // re-establish under the survivor id).
+    const payload = {
+      kind: 'merged' as const,
+      prevPersonId: args.deprecatedId,
+      survivorPersonId: args.survivorId,
+      occurredAt: new Date().toISOString(),
+    };
+    try {
+      this.hiveIDGateway.broadcastPersonUpdate(args.survivorId, payload);
+      this.hiveIDGateway.broadcastPersonUpdate(args.deprecatedId, payload);
+    } catch (err) {
+      // Fan-out is best-effort — never block the merge itself on a
+      // broadcast failure (e.g. gateway not bound, server shutting down).
+      this.logger.warn(`personUpdate fan-out failed: ${(err as Error).message}`);
     }
   }
 
