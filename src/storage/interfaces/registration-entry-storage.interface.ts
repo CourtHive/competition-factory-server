@@ -29,6 +29,19 @@ export interface RegistrationEntry {
   appliedAt: string;
   statusAt: string;
   decidedByUserId: string | null;
+  /**
+   * Populated by the Phase 2-B accept orchestrator at the same moment
+   * the row's status flips to `accepted`. Logical FK to a TODS
+   * Participant inside `tournament_id`'s tournamentRecord.
+   */
+  participantId: string | null;
+  /**
+   * Per-event entry snapshots taken at acceptance time —
+   * `[{ eventId, entryStatus, entryStage }, ...]`. Lets the director
+   * see what events an applicant was actually graduated into without
+   * scanning the tournament record.
+   */
+  eventEntries: Array<{ eventId: string; entryStatus?: string; entryStage?: string }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,6 +60,14 @@ export interface RegistrationStatusUpdate {
   status: RegistrationStatus;
   statusReason?: string | null;
   decidedByUserId?: string | null;
+}
+
+export interface RegistrationParticipantLink {
+  registrationId: string;
+  participantId: string;
+  eventEntries: Array<{ eventId: string; entryStatus?: string; entryStage?: string }>;
+  decidedByUserId?: string | null;
+  statusReason?: string | null;
 }
 
 export interface IRegistrationEntryStorage {
@@ -73,4 +94,12 @@ export interface IRegistrationEntryStorage {
    * `decided_by_user_id`.
    */
   updateStatus(args: RegistrationStatusUpdate): Promise<RegistrationEntry | null>;
+
+  /**
+   * Phase 2-B graduation — flips status to `accepted`, links the new
+   * Participant id, and records which events were entered. Single
+   * UPDATE so the row is never partially-written. Director acceptance
+   * runs this AFTER `addParticipants` has succeeded in the factory.
+   */
+  linkParticipant(args: RegistrationParticipantLink): Promise<RegistrationEntry | null>;
 }

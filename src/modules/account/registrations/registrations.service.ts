@@ -1,30 +1,50 @@
 /**
- * RegistrationsService — applicant-side surface for HiveID Phase 2-A.
+ * RegistrationsService — both halves of the HiveID registration loop.
  *
- * Director-side acceptance (Phase 2-B — accept / waitlist / reject and
- * fire `addParticipants` into the factory) lives in a TMX-side
- * controller landing in a follow-on. This service owns ONLY the
- * applicant flows that the public app needs today:
+ *   Phase 2-A (applicant-side, audience: hiveid):
+ *     - apply         — POST  /me/registrations
+ *     - listForUser   — GET   /me/registrations
+ *     - withdraw      — DELETE /me/registrations/:registrationId
  *
- *   - submit a registration (creates an `applied` entry, or re-applies
- *     a previously withdrawn one)
- *   - list my own registrations across every tournament
- *   - withdraw a registration I own (terminal applicant state)
+ *   Phase 2-B (director-side, audience: admin, gated by canMutateTournament):
+ *     - listForTournament  — GET  /admin/tournaments/:tid/registrations
+ *     - acceptRegistration — POST /admin/tournaments/:tid/registrations/:rid/accept
+ *     - waitlistRegistration — POST .../waitlist
+ *     - rejectRegistration   — POST .../reject
+ *     - bulkAction           — POST .../bulk
  *
- * Every method is gated on the caller's HiveID `userId` matching the
- * row's `user_id` — the controller resolves the userId from the
- * audience-aware AuthGuard payload.
+ * The accept handler is server-orchestrated: it runs `addParticipants`
+ * (and per-event `addEventEntries`) through the existing
+ * `executionQueue` server-side, pre-stamping the HiveID canonical
+ * `personId` on `Person.personOtherIds[]` so the participations
+ * endpoint surfaces the new Participant immediately. After the
+ * factory mutations succeed, the RegistrationEntry's status flips to
+ * `accepted` and the `participantId` is linked.
  */
-import { BadRequestException, ForbiddenException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { randomUUID } from 'crypto';
 
 import {
   REGISTRATION_ENTRY_STORAGE,
   type IRegistrationEntryStorage,
   type RegistrationEntry,
+  type RegistrationStatus,
   USER_STORAGE,
   type IUserStorage,
 } from 'src/storage/interfaces';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import { AssignmentsService } from '../../factory/assignments.service';
+import { AuditService } from '../../audit/audit.service';
+import { CANONICAL_PERSON } from '../auth/hiveid.constants';
+import { canMutateTournament } from '../../factory/helpers/checkTournamentAccess';
+import { executionQueue as runExecutionQueue } from '../../factory/functions/private/executionQueue';
+import type { UserContext } from '../auth/decorators/user-context.decorator';
 
 export interface ApplyForTournamentInput {
   userId: string;
@@ -32,6 +52,21 @@ export interface ApplyForTournamentInput {
   eventIds?: string[];
   partnerUserId?: string | null;
   answers?: Record<string, unknown>;
+}
+
+export interface AdminActionContext {
+  userContext: UserContext;
+  tournamentId: string;
+  registrationId: string;
+  statusReason?: string;
+}
+
+export interface BulkAdminAction {
+  userContext: UserContext;
+  tournamentId: string;
+  registrationIds: string[];
+  action: 'accept' | 'waitlist' | 'reject';
+  statusReason?: string;
 }
 
 @Injectable()
@@ -42,16 +77,18 @@ export class RegistrationsService {
     @Inject(USER_STORAGE)
     private readonly userStorage: IUserStorage,
     private readonly tournamentStorageService: TournamentStorageService,
+    private readonly assignmentsService: AssignmentsService,
+    private readonly auditService: AuditService,
   ) {}
+
+  // -------------------------------------------------------------------
+  //  Applicant surface (Phase 2-A) — see file header for HTTP routes.
+  // -------------------------------------------------------------------
 
   async apply(input: ApplyForTournamentInput): Promise<RegistrationEntry> {
     if (!input.userId) throw new UnauthorizedException();
     if (!input.tournamentId) throw new BadRequestException('tournamentId is required');
 
-    // Verify the tournament exists + entries are open. The tournament
-    // record's `registrationProfile.entriesClose` (when set) gates
-    // applicant-side submits; absence means the director hasn't
-    // published a window and the form is closed.
     const { tournamentRecord } = await this.tournamentStorageService.findTournamentRecord({
       tournamentId: input.tournamentId,
     });
@@ -68,8 +105,6 @@ export class RegistrationsService {
       throw new BadRequestException('Entries for this tournament have not opened yet');
     }
 
-    // Cross-check the user's HiveID person link so the entry can be
-    // matched against canonical Person records in the director view.
     const link = await this.userStorage.getPersonLink(input.userId);
 
     const validatedEventIds = filterValidEventIds(tournamentRecord, input.eventIds);
@@ -108,6 +143,200 @@ export class RegistrationsService {
     });
     if (!updated) throw new BadRequestException('Withdraw failed');
     return updated;
+  }
+
+  // -------------------------------------------------------------------
+  //  Director surface (Phase 2-B). All admin paths flow through
+  //  `assertAdminAccess` which loads the tournament record once and
+  //  threads it to the action handler — saves a second storage hit.
+  // -------------------------------------------------------------------
+
+  async listForTournament(userContext: UserContext, tournamentId: string, statusFilter?: RegistrationStatus): Promise<RegistrationEntry[]> {
+    await this.assertAdminAccess(userContext, tournamentId);
+    const rows = await this.storage.listByTournament(tournamentId);
+    if (statusFilter) return rows.filter((r) => r.status === statusFilter);
+    return rows;
+  }
+
+  async acceptRegistration(ctx: AdminActionContext): Promise<{ registration: RegistrationEntry; participantId: string }> {
+    const { tournamentRecord } = await this.assertAdminAccess(ctx.userContext, ctx.tournamentId);
+    const entry = await this.loadActionableEntry(ctx.tournamentId, ctx.registrationId, ['applied', 'waitlisted']);
+    const applicantLink = await this.userStorage.getPersonLink(entry.userId);
+    const applicantUser = await this.userStorage.findByUserId(entry.userId);
+    if (!applicantUser) throw new BadRequestException('Applicant user not found');
+
+    const givenName = applicantLink?.cached.standardGivenName ?? applicantUser.firstName ?? '';
+    const familyName = applicantLink?.cached.standardFamilyName ?? applicantUser.lastName ?? '';
+    if (!givenName || !familyName) {
+      throw new BadRequestException('Applicant has no canonical name — ask them to complete their HiveID profile');
+    }
+
+    const participantId = randomUUID();
+    const validEvents = filterValidEventIds(tournamentRecord, entry.eventIds);
+
+    const personOtherIds = applicantLink?.personId
+      ? [{ organisationId: CANONICAL_PERSON, personId: applicantLink.personId, createdAt: new Date().toISOString() }]
+      : [];
+
+    const participant: any = {
+      participantId,
+      participantType: 'INDIVIDUAL',
+      participantName: `${givenName} ${familyName}`,
+      person: {
+        standardGivenName: givenName,
+        standardFamilyName: familyName,
+        birthDate: applicantLink?.cached.birthDate ?? null,
+        sex: applicantLink?.cached.sex ?? null,
+        nationalityCode: applicantLink?.cached.nationalityCode ?? null,
+        personOtherIds,
+      },
+    };
+
+    const methods: any[] = [
+      { method: 'addParticipants', params: { tournamentId: ctx.tournamentId, participants: [participant] } },
+    ];
+    for (const eventId of validEvents) {
+      methods.push({
+        method: 'addEventEntries',
+        params: {
+          eventId,
+          participantIds: [participantId],
+          entryStatus: 'DIRECT_ACCEPTANCE',
+        },
+      });
+    }
+
+    const result = await runExecutionQueue(
+      {
+        tournamentIds: [ctx.tournamentId],
+        methods,
+        userId: ctx.userContext.userId,
+        userEmail: ctx.userContext.email,
+        source: 'hiveid-acceptance',
+      },
+      undefined,
+      this.tournamentStorageService,
+      this.auditService,
+    );
+    if (!(result as any)?.success) {
+      const err = (result as any)?.error ?? 'addParticipants failed';
+      throw new BadRequestException(typeof err === 'string' ? err : JSON.stringify(err));
+    }
+
+    const eventEntries = validEvents.map((eventId) => ({
+      eventId,
+      entryStatus: 'DIRECT_ACCEPTANCE',
+    }));
+
+    const updated = await this.storage.linkParticipant({
+      registrationId: ctx.registrationId,
+      participantId,
+      eventEntries,
+      decidedByUserId: ctx.userContext.userId,
+      statusReason: ctx.statusReason ?? null,
+    });
+    if (!updated) throw new BadRequestException('Could not record acceptance — tournament mutation succeeded but status update failed');
+    return { registration: updated, participantId };
+  }
+
+  async waitlistRegistration(ctx: AdminActionContext): Promise<RegistrationEntry> {
+    await this.assertAdminAccess(ctx.userContext, ctx.tournamentId);
+    await this.loadActionableEntry(ctx.tournamentId, ctx.registrationId, ['applied', 'accepted', 'seeded']);
+    const updated = await this.storage.updateStatus({
+      registrationId: ctx.registrationId,
+      status: 'waitlisted',
+      decidedByUserId: ctx.userContext.userId,
+      statusReason: ctx.statusReason ?? null,
+    });
+    if (!updated) throw new BadRequestException('Could not update registration status');
+    return updated;
+  }
+
+  async rejectRegistration(ctx: AdminActionContext): Promise<RegistrationEntry> {
+    await this.assertAdminAccess(ctx.userContext, ctx.tournamentId);
+    await this.loadActionableEntry(ctx.tournamentId, ctx.registrationId, ['applied', 'waitlisted']);
+    const updated = await this.storage.updateStatus({
+      registrationId: ctx.registrationId,
+      status: 'rejected',
+      decidedByUserId: ctx.userContext.userId,
+      statusReason: ctx.statusReason ?? null,
+    });
+    if (!updated) throw new BadRequestException('Could not update registration status');
+    return updated;
+  }
+
+  async bulkAction(ctx: BulkAdminAction): Promise<{ results: Array<{ registrationId: string; ok: boolean; error?: string; participantId?: string }> }> {
+    await this.assertAdminAccess(ctx.userContext, ctx.tournamentId);
+    const results: Array<{ registrationId: string; ok: boolean; error?: string; participantId?: string }> = [];
+    for (const registrationId of ctx.registrationIds) {
+      try {
+        if (ctx.action === 'accept') {
+          const r = await this.acceptRegistration({
+            userContext: ctx.userContext,
+            tournamentId: ctx.tournamentId,
+            registrationId,
+            statusReason: ctx.statusReason,
+          });
+          results.push({ registrationId, ok: true, participantId: r.participantId });
+        } else if (ctx.action === 'waitlist') {
+          await this.waitlistRegistration({
+            userContext: ctx.userContext,
+            tournamentId: ctx.tournamentId,
+            registrationId,
+            statusReason: ctx.statusReason,
+          });
+          results.push({ registrationId, ok: true });
+        } else {
+          await this.rejectRegistration({
+            userContext: ctx.userContext,
+            tournamentId: ctx.tournamentId,
+            registrationId,
+            statusReason: ctx.statusReason,
+          });
+          results.push({ registrationId, ok: true });
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        results.push({ registrationId, ok: false, error: message });
+      }
+    }
+    return { results };
+  }
+
+  // -------------------------------------------------------------------
+  //  Helpers
+  // -------------------------------------------------------------------
+
+  private async assertAdminAccess(
+    userContext: UserContext | undefined,
+    tournamentId: string,
+  ): Promise<{ tournamentRecord: any }> {
+    if (!userContext) throw new UnauthorizedException();
+    if (!tournamentId) throw new BadRequestException('tournamentId is required');
+    const { tournamentRecord } = await this.tournamentStorageService.findTournamentRecord({ tournamentId });
+    if (!tournamentRecord) throw new BadRequestException('Tournament not found');
+    const assignedTournamentIds = await this.assignmentsService.getAssignedTournamentIds(userContext.userId);
+    if (!canMutateTournament(tournamentRecord, userContext, assignedTournamentIds)) {
+      throw new ForbiddenException('Not authorised to manage registrations for this tournament');
+    }
+    return { tournamentRecord };
+  }
+
+  private async loadActionableEntry(
+    tournamentId: string,
+    registrationId: string,
+    allowedStatuses: RegistrationStatus[],
+  ): Promise<RegistrationEntry> {
+    if (!registrationId) throw new BadRequestException('registrationId is required');
+    const entry = await this.storage.findById(registrationId);
+    if (!entry) throw new BadRequestException('Registration not found');
+    if (entry.tournamentId !== tournamentId) {
+      throw new BadRequestException('Registration does not belong to this tournament');
+    }
+    if (!allowedStatuses.includes(entry.status)) {
+      throw new BadRequestException(`Registration is in terminal state: ${entry.status}`);
+    }
+    return entry;
   }
 }
 

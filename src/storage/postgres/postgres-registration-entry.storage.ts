@@ -5,6 +5,7 @@ import type {
   IRegistrationEntryStorage,
   RegistrationEntry,
   RegistrationEntryUpsert,
+  RegistrationParticipantLink,
   RegistrationStatusUpdate,
 } from '../interfaces/registration-entry-storage.interface';
 import { PG_POOL } from './postgres.config';
@@ -12,7 +13,8 @@ import { PG_POOL } from './postgres.config';
 const SELECT_COLUMNS = `
   registration_id, tournament_id, user_id, person_id,
   event_ids, partner_user_id, answers, status, status_reason,
-  applied_at, status_at, decided_by_user_id, created_at, updated_at`;
+  applied_at, status_at, decided_by_user_id, participant_id,
+  event_entries, created_at, updated_at`;
 
 @Injectable()
 export class PostgresRegistrationEntryStorage implements IRegistrationEntryStorage {
@@ -88,6 +90,29 @@ export class PostgresRegistrationEntryStorage implements IRegistrationEntryStora
     );
     return result.rows.length ? mapRow(result.rows[0]) : null;
   }
+
+  async linkParticipant(args: RegistrationParticipantLink): Promise<RegistrationEntry | null> {
+    const result = await this.pool.query(
+      `UPDATE registration_entries
+          SET status = 'accepted',
+              status_reason = $3,
+              decided_by_user_id = $4,
+              participant_id = $2,
+              event_entries = $5::jsonb,
+              status_at = NOW(),
+              updated_at = NOW()
+        WHERE registration_id = $1
+        RETURNING ${SELECT_COLUMNS}`,
+      [
+        args.registrationId,
+        args.participantId,
+        args.statusReason ?? null,
+        args.decidedByUserId ?? null,
+        JSON.stringify(args.eventEntries ?? []),
+      ],
+    );
+    return result.rows.length ? mapRow(result.rows[0]) : null;
+  }
 }
 
 function mapRow(row: any): RegistrationEntry {
@@ -104,6 +129,8 @@ function mapRow(row: any): RegistrationEntry {
     appliedAt: toIso(row.applied_at),
     statusAt: toIso(row.status_at),
     decidedByUserId: row.decided_by_user_id,
+    participantId: row.participant_id ?? null,
+    eventEntries: row.event_entries ?? [],
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
   };

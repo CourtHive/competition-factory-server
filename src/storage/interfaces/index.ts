@@ -81,6 +81,7 @@ export {
   type IRegistrationEntryStorage,
   type RegistrationEntry,
   type RegistrationEntryUpsert,
+  type RegistrationParticipantLink,
   type RegistrationStatus,
   type RegistrationStatusUpdate,
 } from './registration-entry-storage.interface';
