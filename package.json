@@ -89,7 +89,7 @@
     "tods-competition-factory": "5.0.0",
     "tods-tmx-classic-converter": "3.0.5",
     "tslib": "^2.6.2",
-    "@courthive/provider-config": "^0.3.0",
+    "@courthive/provider-config": "^0.4.0",
     "@courthive/i18n": "link:../courthive-i18n",
     "courthive-ingest": "link:../courthive-ingest"
   },
