@@ -50,7 +50,7 @@ export class TrackerTokenService {
 
   async mintTrackerToken(
     params: MintTrackerTokenParams,
-    user: { userId?: string; providerId?: string },
+    user: { userId?: string; providerId?: string; provisionerId?: string },
     userContext: UserContext | undefined,
   ): Promise<MintTrackerTokenResult> {
     const tournamentId = params.tournamentId?.trim();
@@ -88,10 +88,18 @@ export class TrackerTokenService {
     // Audit the mint. Fail-soft: a write failure here must not leak the
     // token into the wild and back again — but it also must not drop a
     // successful authorization. We log + continue.
+    //
+    // For provisioner-keyed requests, the JWT subject still names the
+    // tenant provider (relay-side audience scope), but the audit row
+    // must attribute the mint to the provisioner — the principal that
+    // authorized the API call. Without forwarding provisionerId, an
+    // IONSport mint via X-Provider-Id: BOBOCA logs the row as a BOBOCA
+    // action, and the audit trail can't bound a provisioner's reach.
     try {
       await this.auditService.recordTrackerTokenIssued({
         tournamentId,
         providerId: user.providerId,
+        provisionerId: user.provisionerId,
         audience: 'score',
         ttlSeconds,
         expiresAt,
@@ -105,7 +113,15 @@ export class TrackerTokenService {
   }
 
   private clampTtl(raw: number | undefined): number {
-    if (raw === undefined || raw === null) return DEFAULT_TTL_SECONDS;
+    // Omitted (undefined) means "use the default". Explicit null is a
+    // caller-side bug — most likely a DTO field that wasn't supposed to
+    // be sent — so we reject loudly rather than silently substituting
+    // the default. This used to be lumped with undefined and produced
+    // surprising "I asked for null and got 3600" behavior.
+    if (raw === undefined) return DEFAULT_TTL_SECONDS;
+    if (raw === null) {
+      throw new BadRequestException('ttlSeconds must be a finite number (received null)');
+    }
     if (typeof raw !== 'number' || !Number.isFinite(raw)) {
       throw new BadRequestException('ttlSeconds must be a finite number');
     }

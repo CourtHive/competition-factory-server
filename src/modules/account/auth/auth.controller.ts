@@ -38,10 +38,15 @@ export class AuthController {
     @Body() body: TrackerTokenDto,
     @User() user: any,
     @UserCtx() userContext: UserContext,
+    @Req() req?: any,
   ) {
     return this.trackerTokenService.mintTrackerToken(
       { tournamentId: body.tournamentId, ttlSeconds: body.ttlSeconds },
-      { userId: user?.userId, providerId: user?.providerId },
+      {
+        userId: user?.userId,
+        providerId: user?.providerId,
+        provisionerId: req?.provisioner?.provisionerId,
+      },
       userContext,
     );
   }

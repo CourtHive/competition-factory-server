@@ -180,6 +180,39 @@ describe('TrackerTokenService', () => {
     );
   });
 
+  // Audit attribution pollution under X-Provider-Id (MED, 2026-05-31
+  // punch list). When a provisioner mints with its API key + an
+  // X-Provider-Id header, the middleware sets req.provisioner.provisionerId
+  // AND synthesizes req.user.providerId from the header. The audit row
+  // must attribute the mint to the provisioner — otherwise the action
+  // logs against the tenant provider (e.g. BOBOCA) and the audit trail
+  // can't be used to bound a provisioner's blast radius.
+  it('forwards provisionerId to the audit row so toActor stamps a provisioner actor', async () => {
+    const PROVISIONER_ID = 'pv-ionsport';
+    await service.mintTrackerToken(
+      { tournamentId: TOURNAMENT_ID, ttlSeconds: 1800 },
+      { providerId: PROVIDER_ID, provisionerId: PROVISIONER_ID },
+      makeContext(),
+    );
+    expect(mockAuditService.recordTrackerTokenIssued).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tournamentId: TOURNAMENT_ID,
+        providerId: PROVIDER_ID,
+        provisionerId: PROVISIONER_ID,
+      }),
+    );
+  });
+
+  it('omits provisionerId from the audit row when no provisioner is on the call', async () => {
+    await service.mintTrackerToken(
+      { tournamentId: TOURNAMENT_ID },
+      { providerId: PROVIDER_ID },
+      makeContext(),
+    );
+    const call = mockAuditService.recordTrackerTokenIssued.mock.calls[0][0];
+    expect(call.provisionerId).toBeUndefined();
+  });
+
   it('does not fail the mint when the audit write throws', async () => {
     mockAuditService.recordTrackerTokenIssued.mockRejectedValueOnce(new Error('audit-down'));
     await expect(
@@ -199,5 +232,30 @@ describe('TrackerTokenService', () => {
         makeContext(),
       ),
     ).rejects.toThrow(/finite/);
+  });
+
+  // LOW (2026-05-31 punch list): TTL clamp used to treat explicit
+  // `null` like an omitted field and silently substitute the default.
+  // A caller passing `ttlSeconds: null` (DTO bug, hand-rolled JSON,
+  // etc.) now gets a clear error instead of an unexpected 3600s token.
+  it('rejects explicit null ttlSeconds with a finite-number error', async () => {
+    await expect(
+      service.mintTrackerToken(
+        { tournamentId: TOURNAMENT_ID, ttlSeconds: null as any },
+        { providerId: PROVIDER_ID },
+        makeContext(),
+      ),
+    ).rejects.toThrow(/finite number \(received null\)/);
+  });
+
+  it('still defaults to 3600s when ttlSeconds is omitted entirely', async () => {
+    // Sanity check that we did not also break the canonical default path.
+    const result = await service.mintTrackerToken(
+      { tournamentId: TOURNAMENT_ID },
+      { providerId: PROVIDER_ID },
+      makeContext(),
+    );
+    const decoded: any = await mockJwtService.verifyAsync(result.token);
+    expect(decoded.exp - decoded.iat).toBe(3600);
   });
 });
