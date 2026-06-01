@@ -182,7 +182,21 @@ export class ProvisionerMiddleware implements NestMiddleware {
       userEmail: decoded.email,
     };
 
-    // X-Provider-Id support mirrors the API-key path
+    // X-Provider-Id support mirrors the API-key path: when the
+    // provisioner administers the requested provider, downstream
+    // endpoints need @User()/@UserCtx() populated so the
+    // canMutateTournament gate (and similar) admits the call. AuthGuard
+    // short-circuits on req.provisioner, so it won't fill these in
+    // itself.
+    //
+    // Critically, the JWT path may run AFTER AuthMiddleware has
+    // already set req.user from the real user record (full roles
+    // including SUPER_ADMIN, real userId/email). Clobbering with a
+    // synthetic identity downgrades a legitimate super-admin who
+    // happens to also be a provisioner — they hit /audit/* or any
+    // SUPER_ADMIN-gated route with X-Provider-Id and get a 403 that
+    // would have succeeded pre-diff. So we MERGE the impersonation
+    // context into the existing identity rather than replacing it.
     const providerId: string | undefined = req.headers['x-provider-id'];
     if (providerId) {
       let relationship: 'owner' | 'subsidiary' | null = null;
@@ -193,6 +207,53 @@ export class ProvisionerMiddleware implements NestMiddleware {
       }
       if (relationship) {
         req.provisionerRelationship = relationship;
+
+        // Path A — AuthMiddleware already populated req.user from the
+        // real user. Keep userId/email/roles intact; just attach the
+        // providerId scope and ensure providerRoles[providerId] grants
+        // PROVIDER_ADMIN (via the provisioner relationship) without
+        // dropping anything the user already had.
+        if (req.user) {
+          req.user = { ...req.user, providerId };
+          if (req.userContext) {
+            req.userContext = {
+              ...req.userContext,
+              providerRoles: {
+                ...(req.userContext.providerRoles ?? {}),
+                // Don't downgrade an existing provider-level role; only
+                // attach PROVIDER_ADMIN when the caller doesn't already
+                // hold a direct role on the impersonated provider.
+                ...(req.userContext.providerRoles?.[providerId]
+                  ? {}
+                  : { [providerId]: 'PROVIDER_ADMIN' }),
+              },
+              providerIds: req.userContext.providerIds?.includes(providerId)
+                ? req.userContext.providerIds
+                : [...(req.userContext.providerIds ?? []), providerId],
+            } satisfies UserContext;
+          }
+          return;
+        }
+
+        // Path B — no AuthMiddleware-populated identity (e.g. the JWT
+        // had no admin audience, so buildUserContext was skipped, but
+        // it still carried PROVISIONER + provisionerIds). Synthesize
+        // the same shape the API-key path produces.
+        req.user = {
+          userId: `provisioner:${provisioner.provisionerId}`,
+          email: `provisioner@${provisioner.name}`,
+          roles: [CLIENT, GENERATE, SCORE],
+          providerId,
+        };
+        req.userContext = {
+          userId: `provisioner:${provisioner.provisionerId}`,
+          email: `provisioner@${provisioner.name}`,
+          isSuperAdmin: false,
+          globalRoles: [CLIENT, GENERATE, SCORE],
+          providerRoles: { [providerId]: 'PROVIDER_ADMIN' },
+          providerIds: [providerId],
+          provisionerProviderIds: [],
+        } satisfies UserContext;
       }
     }
   }

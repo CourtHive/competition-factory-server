@@ -271,6 +271,217 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
 
     expect(req.provisioner).toBeUndefined();
   });
+
+  // Asymmetric 403 fix (MED, 2026-05-31 punch list): the JWT path must
+  // synthesize req.user + req.userContext just like the API-key path
+  // when X-Provider-Id is present and the relationship resolves. Without
+  // this, /auth/tracker-token's canMutateTournament gate sees undefined
+  // userContext and 403s, while the API-key path succeeds for the same
+  // impersonation.
+  it('synthesizes req.user + req.userContext when X-Provider-Id resolves to a relationship', async () => {
+    const provisionerStorage = {
+      getProvisioner: jest.fn().mockResolvedValue({
+        provisionerId: 'prov-1',
+        name: 'IONSport',
+        config: {},
+        isActive: true,
+      }),
+    };
+    const providerStorage = makeMockProviderStorage('owner');
+    const jwtService = makeMockJwtService({
+      userId: 'u-nikola',
+      email: 'nikola@ionsport.test',
+      roles: ['provisioner'],
+      provisionerIds: ['prov-1'],
+    });
+    const middleware = makeMiddleware(
+      makeMockApiKeyStorage(),
+      providerStorage,
+      provisionerStorage,
+      jwtService,
+    );
+    const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt', { 'x-provider-id': 'provider-abc' });
+    await middleware.use(req, {}, jest.fn());
+
+    expect(req.provisionerRelationship).toBe('owner');
+    // Mirror exactly the API-key path's synthetic identity shape so
+    // downstream auth gates have no way to distinguish the two paths.
+    expect(req.user).toEqual({
+      userId: 'provisioner:prov-1',
+      email: 'provisioner@IONSport',
+      roles: ['client', 'generate', 'score'],
+      providerId: 'provider-abc',
+    });
+    expect(req.userContext).toEqual({
+      userId: 'provisioner:prov-1',
+      email: 'provisioner@IONSport',
+      isSuperAdmin: false,
+      globalRoles: ['client', 'generate', 'score'],
+      providerRoles: { 'provider-abc': 'PROVIDER_ADMIN' },
+      providerIds: ['provider-abc'],
+      provisionerProviderIds: [],
+    });
+  });
+
+  it('does not set req.user / req.userContext when X-Provider-Id is missing on the JWT path', async () => {
+    const provisionerStorage = {
+      getProvisioner: jest.fn().mockResolvedValue({
+        provisionerId: 'prov-1',
+        name: 'IONSport',
+        config: {},
+        isActive: true,
+      }),
+    };
+    const jwtService = makeMockJwtService({
+      userId: 'u',
+      roles: ['provisioner'],
+      provisionerIds: ['prov-1'],
+    });
+    const middleware = makeMiddleware(
+      makeMockApiKeyStorage(),
+      makeMockProviderStorage(),
+      provisionerStorage,
+      jwtService,
+    );
+    const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt');
+    await middleware.use(req, {}, jest.fn());
+
+    expect(req.provisioner).toBeDefined();
+    expect(req.user).toBeUndefined();
+    expect(req.userContext).toBeUndefined();
+  });
+
+  // Code-review fix #1 (2026-06-01): when AuthMiddleware has already
+  // populated req.user with the real authenticated user (e.g. a
+  // super-admin who also happens to administer this provisioner), the
+  // JWT path must NOT clobber that identity. It merges the impersonation
+  // context instead — preserving SUPER_ADMIN roles, real userId/email,
+  // and other providerRoles entries.
+  it('merges X-Provider-Id into an existing AuthMiddleware-populated identity without downgrading', async () => {
+    const provisionerStorage = {
+      getProvisioner: jest.fn().mockResolvedValue({
+        provisionerId: 'prov-1',
+        name: 'IONSport',
+        config: {},
+        isActive: true,
+      }),
+    };
+    const providerStorage = makeMockProviderStorage('owner');
+    const jwtService = makeMockJwtService({
+      userId: 'u-admin',
+      email: 'admin@courthive.test',
+      roles: ['provisioner', 'superadmin'],
+      provisionerIds: ['prov-1'],
+    });
+    const middleware = makeMiddleware(
+      makeMockApiKeyStorage(),
+      providerStorage,
+      provisionerStorage,
+      jwtService,
+    );
+    const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt', { 'x-provider-id': 'provider-abc' });
+    // AuthMiddleware already ran upstream and populated req.user / req.userContext.
+    req.user = {
+      userId: 'u-admin',
+      email: 'admin@courthive.test',
+      roles: ['client', 'generate', 'score', 'superadmin'],
+    };
+    req.userContext = {
+      userId: 'u-admin',
+      email: 'admin@courthive.test',
+      isSuperAdmin: true,
+      globalRoles: ['client', 'generate', 'score', 'superadmin'],
+      providerRoles: { 'other-provider': 'DIRECTOR' },
+      providerIds: ['other-provider'],
+      provisionerProviderIds: [],
+    };
+    await middleware.use(req, {}, jest.fn());
+
+    expect(req.provisionerRelationship).toBe('owner');
+    // Real identity preserved — userId/email/roles untouched, providerId attached.
+    expect(req.user.userId).toBe('u-admin');
+    expect(req.user.email).toBe('admin@courthive.test');
+    expect(req.user.roles).toContain('superadmin');
+    expect(req.user.providerId).toBe('provider-abc');
+    // userContext keeps SUPER_ADMIN and the prior provider, gains the new providerId.
+    expect(req.userContext.isSuperAdmin).toBe(true);
+    expect(req.userContext.globalRoles).toContain('superadmin');
+    expect(req.userContext.providerRoles).toEqual({
+      'other-provider': 'DIRECTOR',
+      'provider-abc': 'PROVIDER_ADMIN',
+    });
+    expect(req.userContext.providerIds.sort()).toEqual(['other-provider', 'provider-abc']);
+  });
+
+  it('does not downgrade an existing direct provider role when merging', async () => {
+    const provisionerStorage = {
+      getProvisioner: jest.fn().mockResolvedValue({
+        provisionerId: 'prov-1',
+        name: 'IONSport',
+        config: {},
+        isActive: true,
+      }),
+    };
+    const providerStorage = makeMockProviderStorage('owner');
+    const jwtService = makeMockJwtService({
+      userId: 'u',
+      roles: ['provisioner'],
+      provisionerIds: ['prov-1'],
+    });
+    const middleware = makeMiddleware(
+      makeMockApiKeyStorage(),
+      providerStorage,
+      provisionerStorage,
+      jwtService,
+    );
+    const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt', { 'x-provider-id': 'provider-abc' });
+    req.user = { userId: 'u', email: 'u@x', roles: ['client'] };
+    req.userContext = {
+      userId: 'u',
+      email: 'u@x',
+      isSuperAdmin: false,
+      globalRoles: ['client'],
+      // User already has DIRECTOR on provider-abc directly; merging
+      // PROVIDER_ADMIN would be an upgrade, but the merge logic keeps
+      // the existing direct role intact.
+      providerRoles: { 'provider-abc': 'DIRECTOR' },
+      providerIds: ['provider-abc'],
+      provisionerProviderIds: [],
+    };
+    await middleware.use(req, {}, jest.fn());
+
+    expect(req.userContext.providerRoles['provider-abc']).toBe('DIRECTOR');
+  });
+
+  it('does not set req.user / req.userContext when X-Provider-Id is not in the provisioner relationship', async () => {
+    const provisionerStorage = {
+      getProvisioner: jest.fn().mockResolvedValue({
+        provisionerId: 'prov-1',
+        name: 'IONSport',
+        config: {},
+        isActive: true,
+      }),
+    };
+    const providerStorage = makeMockProviderStorage(null); // unmanaged
+    const jwtService = makeMockJwtService({
+      userId: 'u',
+      roles: ['provisioner'],
+      provisionerIds: ['prov-1'],
+    });
+    const middleware = makeMiddleware(
+      makeMockApiKeyStorage(),
+      providerStorage,
+      provisionerStorage,
+      jwtService,
+    );
+    const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt', { 'x-provider-id': 'unmanaged' });
+    await middleware.use(req, {}, jest.fn());
+
+    expect(req.provisioner).toBeDefined();
+    expect(req.provisionerRelationship).toBeUndefined();
+    expect(req.user).toBeUndefined();
+    expect(req.userContext).toBeUndefined();
+  });
 });
 
 describe('hashApiKey', () => {
