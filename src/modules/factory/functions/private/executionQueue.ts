@@ -1,5 +1,6 @@
 import { withTournamentLock } from 'src/services/tournamentMutex';
 import { getMutationEngine } from '../../engines/getMutationEngine';
+import { tournamentEngine } from 'tods-competition-factory';
 import { Logger } from '@nestjs/common';
 
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
@@ -37,6 +38,12 @@ export async function executionQueue(
     const mutationResult = await withTournamentLock(tournamentIds, async () => {
       const result: any = await storage.fetchTournamentRecords({ tournamentIds });
       if (result.error) return result;
+
+      // Backfill drawId/eventId for matchUpId-only setMatchUpStatus calls
+      // (score-relay-style producers don't know the drawId). Runs against
+      // the lock-acquired record, replacing the prior pre-lock fetch in
+      // setMatchUpStatus.ts that doubled the storage round-trip.
+      resolveMatchUpReferences(methods, result.tournamentRecords);
 
       const mutationEngine = getMutationEngine(
         {
@@ -138,6 +145,47 @@ function buildAuditMetadata(payload: any): Record<string, any> | undefined {
   if (payload?.factoryVersion) meta.factoryVersion = payload.factoryVersion;
   if (payload?.timestamp) meta.clientTimestamp = payload.timestamp;
   return Object.keys(meta).length ? meta : undefined;
+}
+
+/**
+ * Backfill `drawId`/`eventId` on `setMatchUpStatus` methods that only
+ * carry a `matchUpId`. Operates on the lock-acquired tournament record
+ * passed in by the caller — no additional storage round-trip.
+ *
+ * Scope: only the single-tournament case. For a multi-tournament
+ * executionQueue payload, we refuse to guess which tournament owns the
+ * matchUpId — searching all records risks resolving to the wrong
+ * tournament's draw (matchUpIds are usually UUIDs but can collide in
+ * fixtures or replay payloads, and the factory error from "no match"
+ * is preferable to mutating the wrong draw). The caller is expected to
+ * pass drawId/eventId explicitly in that case.
+ *
+ * Mutates each eligible method's `params` in place. Uses the sync
+ * `tournamentEngine` (not the per-request asyncEngine) because
+ * findMatchUp is a pure read and the setState→findMatchUp sequence
+ * here runs synchronously with no await in between — so concurrent
+ * requests can't clobber each other's state within this function.
+ */
+function resolveMatchUpReferences(methods: any[], tournamentRecords: Record<string, any> | undefined): void {
+  if (!methods?.length || !tournamentRecords) return;
+  const tournamentIds = Object.keys(tournamentRecords);
+  if (tournamentIds.length !== 1) return;
+  const tournamentRecord = tournamentRecords[tournamentIds[0]];
+  if (!tournamentRecord) return;
+
+  for (const m of methods) {
+    if (m?.method !== 'setMatchUpStatus') continue;
+    const params = m.params;
+    if (!params?.matchUpId) continue;
+    if (params.drawId || params.eventId) continue;
+    const found: any = tournamentEngine
+      .setState(tournamentRecord)
+      .findMatchUp({ matchUpId: params.matchUpId });
+    if (found?.matchUp?.drawId) {
+      params.drawId = found.matchUp.drawId;
+      if (found.matchUp.eventId) params.eventId = found.matchUp.eventId;
+    }
+  }
 }
 
 /** Fire-and-forget: stamp tournament_provisioner table + parentOrganisation extension. */
