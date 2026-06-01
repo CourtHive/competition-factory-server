@@ -32,6 +32,28 @@ export class AuditController {
   }
 
   /**
+   * Get every audit row written by a specific actor (provisioner,
+   * provider, user, or service). Bounds a principal's blast radius and
+   * exercises the migration-036 partial index `idx_audit_log_actor`.
+   * Super-admin only.
+   */
+  @Post('actor')
+  @Roles([SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  getByActor(
+    @Body()
+    body: {
+      actorType: 'user' | 'provisioner' | 'provider' | 'service';
+      actorId: string;
+      from?: string;
+      to?: string;
+      limit?: number;
+    },
+  ) {
+    return this.auditService.getByActor(body);
+  }
+
+  /**
    * Get audit rows for deleted draw definitions. Each row's
    * metadata.deletedDrawSnapshot contains the full drawDefinition body so the
    * deletion is recoverable. Super-admin only.

@@ -67,6 +67,42 @@ export interface IAuditStorage {
     options?: { from?: string; to?: string; limit?: number },
   ): Promise<AuditRow[]>;
 
+  /**
+   * Query audit rows for one actor (provisioner / provider / user /
+   * service), newest first. Hits the migration-036 partial index
+   * `idx_audit_log_actor (actor_type, actor_id, occurred_at DESC)`.
+   * The classic use-case is bounding a provisioner's blast radius —
+   * "what did `provisioner:<id>` do across all tournaments".
+   */
+  findByActor(
+    actorType: AuditActor['kind'],
+    actorId: string,
+    options?: { from?: string; to?: string; limit?: number },
+  ): Promise<AuditRow[]>;
+
   /** Delete audit rows older than the given date. Returns count of deleted rows. */
   prune(olderThan: Date): Promise<number>;
+
+  /**
+   * Persist a failure-counter increment so milestone log emission
+   * survives process restarts (A4). Best-effort — AuditService calls
+   * this fire-and-forget; if the same DB outage is what produced the
+   * audit-append failure in the first place, this also fails and the
+   * in-memory counter remains the source of truth for this process.
+   */
+  incrementFailureCount(actionType: string, errorMessage?: string): Promise<void>;
+
+  /**
+   * Drop the persisted counter for `actionType` on recovery. The matching
+   * in-memory clear is the source of truth for the live-process logger;
+   * this just makes the persisted state mirror it.
+   */
+  clearFailureCount(actionType: string): Promise<void>;
+
+  /**
+   * Read all persisted failure counters. Called once on AuditService
+   * boot to hydrate the in-memory map so chronic-failure detection
+   * survives a deploy.
+   */
+  loadFailureCounts(): Promise<Array<{ actionType: string; count: number }>>;
 }

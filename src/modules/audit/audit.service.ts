@@ -30,6 +30,24 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   // log lines once per inbound API call.
   private readonly failureCounts = new Map<string, number>();
 
+  // Per-actionType serialization for persisted-counter writes. Concurrent
+  // recordFailure / recordRecovery for the same actionType used to race
+  // at the DB and could produce INSERT → INSERT-on-conflict → DELETE
+  // ordering that left the row gone while in-memory still tracked
+  // failures — defeating migration-037's restart-survival promise. The
+  // chain forces inc/clear ops to land in call order per key.
+  private readonly counterDbWriteChain = new Map<string, Promise<unknown>>();
+  private chainCounterWrite(actionType: string, op: () => Promise<unknown>): void {
+    const prev = this.counterDbWriteChain.get(actionType) ?? Promise.resolve();
+    const next = prev.then(op, op).catch(() => undefined);
+    this.counterDbWriteChain.set(actionType, next);
+    next.finally(() => {
+      if (this.counterDbWriteChain.get(actionType) === next) {
+        this.counterDbWriteChain.delete(actionType);
+      }
+    });
+  }
+
   constructor(
     @Inject(AUDIT_STORAGE) private readonly auditStorage: IAuditStorage,
     @Optional() private readonly tournamentStorageService?: TournamentStorageService,
@@ -37,9 +55,41 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     private readonly tournamentProvisionerStorage?: ITournamentProvisionerStorage,
   ) {}
 
-  onModuleInit() {
+  async onModuleInit() {
     const retentionDays = this.getRetentionDays();
     this.logger.log(`Audit trail active — retention: ${retentionDays} days, prune interval: daily`);
+
+    // Hydrate the in-memory failure counter from persisted state so the
+    // milestone logic continues across restarts instead of re-emitting
+    // loud "(1x)" ERRORs for chronic failures on every deploy. Best
+    // effort — if loadFailureCounts isn't supported by the storage
+    // backing (older tests pre-037), the in-memory map just starts
+    // empty as before.
+    //
+    // Bound the await with a 5-second ceiling so a hung Postgres at
+    // boot (DB unreachable, slow connect) doesn't block the entire
+    // NestJS bootstrap chain. If we hit the ceiling, prune still
+    // schedules, the counter starts empty, and the next failure-side
+    // upsert via chainCounterWrite will lazily re-establish the row.
+    const hydrationTimeoutMs = 5_000;
+    try {
+      const hydrationPromise = this.auditStorage.loadFailureCounts?.() ?? Promise.resolve([]);
+      const persisted = await Promise.race([
+        hydrationPromise,
+        new Promise<never>((_resolve, reject) =>
+          setTimeout(() => reject(new Error(`hydration timed out after ${hydrationTimeoutMs}ms`)), hydrationTimeoutMs).unref(),
+        ),
+      ]);
+      for (const { actionType, count } of persisted) {
+        this.failureCounts.set(actionType, count);
+      }
+      if (persisted.length > 0) {
+        const summary = persisted.map((p) => `${p.actionType}=${p.count}`).join(', ');
+        this.logger.warn(`Audit failure counters hydrated from persisted state: ${summary}`);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Audit failure counter hydration failed: ${err.message}`);
+    }
 
     // Run prune once on startup (deferred) then on interval
     this.pruneStartupTimer = setTimeout(() => this.pruneExpired(), 10_000);
@@ -67,6 +117,16 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     const message = `Failed to record ${actionType} audit (${count}x) for ${tournamentId}: ${err.message}`;
     if (isMilestone) this.logger.error(message);
     else this.logger.debug(message);
+
+    // Persist the increment so the counter survives process restarts
+    // (A4). Per-actionType chained — concurrent recordFailure /
+    // recordRecovery calls land in call order at the DB. If the same DB
+    // outage caused the original append failure, this also fails and
+    // the in-memory count continues to drive milestone logic for the
+    // rest of this process lifetime.
+    this.chainCounterWrite(actionType, () =>
+      this.auditStorage.incrementFailureCount?.(actionType, err.message) ?? Promise.resolve(),
+    );
   }
 
   /**
@@ -82,6 +142,15 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     if (!previous) return;
     this.failureCounts.delete(actionType);
     this.logger.warn(`Audit append for ${actionType} recovered after ${previous} failure(s)`);
+
+    // Drop the persisted counter so a future failure of the same
+    // actionType starts a fresh milestone progression. Chained on the
+    // same per-actionType promise as recordFailure so the DELETE can't
+    // race ahead of (or interleave between) outstanding INSERT-on-
+    // conflict ops for this key.
+    this.chainCounterWrite(actionType, () =>
+      this.auditStorage.clearFailureCount?.(actionType) ?? Promise.resolve(),
+    );
   }
 
   // ── Ingestion ──
@@ -535,6 +604,23 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     limit?: number;
   }): Promise<{ success: boolean; auditRows: AuditRow[] }> {
     const rows = await this.auditStorage.findByActionType('DELETE_TOURNAMENT', params);
+    return { success: true, auditRows: rows };
+  }
+
+  /**
+   * Get every audit row stamped by one actor — provisioner, provider,
+   * user, or service. Use to bound a provisioner's blast radius
+   * ("what did `provisioner:<id>` do this week") and to drive the
+   * migration-036 partial index that was otherwise dead weight.
+   */
+  async getByActor(params: {
+    actorType: 'user' | 'provisioner' | 'provider' | 'service';
+    actorId: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+  }): Promise<{ success: boolean; auditRows: AuditRow[] }> {
+    const rows = await this.auditStorage.findByActor(params.actorType, params.actorId, params);
     return { success: true, auditRows: rows };
   }
 
