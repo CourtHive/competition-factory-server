@@ -161,10 +161,23 @@ function buildAuditMetadata(payload: any): Record<string, any> | undefined {
  * pass drawId/eventId explicitly in that case.
  *
  * Mutates each eligible method's `params` in place. Uses the sync
- * `tournamentEngine` (not the per-request asyncEngine) because
- * findMatchUp is a pure read and the setState→findMatchUp sequence
- * here runs synchronously with no await in between — so concurrent
- * requests can't clobber each other's state within this function.
+ * `tournamentEngine` singleton because it's the only factory engine
+ * with the full governor surface (findMatchUp, etc.) bound — the
+ * `asyncEngine()` factory returns a bare engine without method imports,
+ * and the imported-method variant (`tournamentEngineAsync`) is internal
+ * to the factory's test suite, not on the public surface.
+ *
+ * Sync-singleton safety: the setState→findMatchUp sequence here runs
+ * synchronously with no `await` in between, so Node can't preempt
+ * mid-sequence and contaminate the read inside this function. The
+ * LATENT risk (code-review fix #9 from 2026-06-01) is that any future
+ * src/ caller that uses `tournamentEngine` elsewhere on the same hot
+ * path could race with this call. As of this session no other src/
+ * code uses the sync engine in production paths — the invariant
+ * "tournamentEngine is read-only outside this function" is the only
+ * thing keeping it safe. If that ever changes, expose
+ * `tournamentEngineAsync` from the factory's public index and switch
+ * here.
  */
 function resolveMatchUpReferences(methods: any[], tournamentRecords: Record<string, any> | undefined): void {
   if (!methods?.length || !tournamentRecords) return;

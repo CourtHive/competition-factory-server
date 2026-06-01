@@ -120,13 +120,21 @@ export class PostgresAuditStorage implements IAuditStorage {
   }
 
   async incrementFailureCount(actionType: string, errorMessage?: string): Promise<void> {
+    // COALESCE on last_failure_message — if a caller passes undefined
+    // (or a non-Error throw whose `.message` is missing), preserve the
+    // prior diagnostic rather than clobbering it with NULL. Code-review
+    // fix #10 from the 2026-06-01 punch-list-cleanup session: today
+    // every caller forwards `err.message` from a real Error, but
+    // tomorrow's caller (a `throw 'string'`, a wrapper with an optional
+    // message argument, etc.) shouldn't be able to silently wipe the
+    // useful prior error from the side-table.
     await this.pool.query(
       `INSERT INTO audit_failure_counts (action_type, count, first_failure_at, last_failure_at, last_failure_message)
        VALUES ($1, 1, NOW(), NOW(), $2)
        ON CONFLICT (action_type) DO UPDATE
          SET count = audit_failure_counts.count + 1,
              last_failure_at = NOW(),
-             last_failure_message = EXCLUDED.last_failure_message`,
+             last_failure_message = COALESCE(EXCLUDED.last_failure_message, audit_failure_counts.last_failure_message)`,
       [actionType, errorMessage ?? null],
     );
   }
