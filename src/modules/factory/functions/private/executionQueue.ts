@@ -1,6 +1,6 @@
 import { withTournamentLock } from 'src/services/tournamentMutex';
 import { getMutationEngine } from '../../engines/getMutationEngine';
-import { tournamentEngine } from 'tods-competition-factory';
+import { tournamentEngineAsync } from 'tods-competition-factory';
 import { Logger } from '@nestjs/common';
 
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
@@ -160,24 +160,19 @@ function buildAuditMetadata(payload: any): Record<string, any> | undefined {
  * is preferable to mutating the wrong draw). The caller is expected to
  * pass drawId/eventId explicitly in that case.
  *
- * Mutates each eligible method's `params` in place. Uses the sync
- * `tournamentEngine` singleton because it's the only factory engine
- * with the full governor surface (findMatchUp, etc.) bound — the
- * `asyncEngine()` factory returns a bare engine without method imports,
- * and the imported-method variant (`tournamentEngineAsync`) is internal
- * to the factory's test suite, not on the public surface.
+ * Mutates each eligible method's `params` in place. Uses
+ * `tournamentEngineAsync` — the per-request-isolated engine variant
+ * built atop `asyncEngine()` + `importMethods(governors, true, 1)`.
+ * Each request gets its own state, so a concurrent call to the same
+ * helper (or anywhere else that reads from `tournamentEngineAsync`)
+ * can't contaminate this one's `setState(...).findMatchUp(...)` pair.
  *
- * Sync-singleton safety: the setState→findMatchUp sequence here runs
- * synchronously with no `await` in between, so Node can't preempt
- * mid-sequence and contaminate the read inside this function. The
- * LATENT risk (code-review fix #9 from 2026-06-01) is that any future
- * src/ caller that uses `tournamentEngine` elsewhere on the same hot
- * path could race with this call. As of this session no other src/
- * code uses the sync engine in production paths — the invariant
- * "tournamentEngine is read-only outside this function" is the only
- * thing keeping it safe. If that ever changes, expose
- * `tournamentEngineAsync` from the factory's public index and switch
- * here.
+ * Closes code-review fix #9 from the 2026-06-01 punch-list-cleanup
+ * session. Earlier the call used the sync `tournamentEngine` singleton
+ * and relied on the read-only invariant "no other src/ caller touches
+ * the sync engine on the same hot path" — fragile by design. The
+ * factory promoted `tournamentEngineAsync` to its public index in PR
+ * #4405 so this swap is now possible without a custom governor build.
  */
 function resolveMatchUpReferences(methods: any[], tournamentRecords: Record<string, any> | undefined): void {
   if (!methods?.length || !tournamentRecords) return;
@@ -191,7 +186,7 @@ function resolveMatchUpReferences(methods: any[], tournamentRecords: Record<stri
     const params = m.params;
     if (!params?.matchUpId) continue;
     if (params.drawId || params.eventId) continue;
-    const found: any = tournamentEngine
+    const found: any = tournamentEngineAsync
       .setState(tournamentRecord)
       .findMatchUp({ matchUpId: params.matchUpId });
     if (found?.matchUp?.drawId) {
