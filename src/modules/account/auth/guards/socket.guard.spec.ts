@@ -177,4 +177,73 @@ describe('SocketGuard', () => {
       await expect(guard.canActivate(context)).resolves.toBe(true);
     });
   });
+
+  // 2026-06-01: SocketGuard reads handshake.auth.token before falling
+  // back to the Authorization header. The auth callback in
+  // socket.io-client re-runs on every reconnect, so this is the path
+  // that survives a JWT rotation; the header gets baked at construct
+  // time and stales on the first reconnect.
+  describe('handshake.auth.token preference', () => {
+    function ctxWithAuthPayload(authPayload: { token?: any } | undefined, headerToken?: string) {
+      const emittedEvents: any[] = [];
+      const request: any = { user: undefined };
+      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+      jest.spyOn(reflector, 'get').mockReturnValue(undefined);
+      const client = {
+        handshake: {
+          headers: { authorization: headerToken ? `Bearer ${headerToken}` : undefined },
+          auth: authPayload,
+        },
+        emit: (event: string, data: any) => emittedEvents.push({ event, data }),
+        data: {} as any,
+      };
+      const context = {
+        getHandler: () => ({}),
+        getClass: () => ({}),
+        switchToWs: () => ({ getClient: () => client }),
+        switchToHttp: () => ({ getRequest: () => request }),
+      } as any;
+      return { context, client, emittedEvents, request };
+    }
+
+    it('admits when handshake.auth.token carries a valid JWT', async () => {
+      const token = jwtService.sign({ email: 'fresh@test.com' }, { secret: 'test-secret' });
+      const { context, request } = ctxWithAuthPayload({ token });
+      const result = await guard.canActivate(context);
+      expect(result).toBe(true);
+      expect(request.user.email).toBe('fresh@test.com');
+    });
+
+    it('prefers handshake.auth.token over the stale Authorization header on reconnect', async () => {
+      const stale = jwtService.sign({ email: 'stale@test.com' }, { secret: 'test-secret' });
+      const fresh = jwtService.sign({ email: 'fresh@test.com' }, { secret: 'test-secret' });
+      const { context, request } = ctxWithAuthPayload({ token: fresh }, stale);
+      const result = await guard.canActivate(context);
+      expect(result).toBe(true);
+      expect(request.user.email).toBe('fresh@test.com');
+    });
+
+    it('falls back to the Authorization header when handshake.auth is empty', async () => {
+      const token = jwtService.sign({ email: 'header@test.com' }, { secret: 'test-secret' });
+      const { context, request } = ctxWithAuthPayload(undefined, token);
+      const result = await guard.canActivate(context);
+      expect(result).toBe(true);
+      expect(request.user.email).toBe('header@test.com');
+    });
+
+    it('falls back to the Authorization header when handshake.auth.token is the empty string', async () => {
+      const token = jwtService.sign({ email: 'header@test.com' }, { secret: 'test-secret' });
+      const { context, request } = ctxWithAuthPayload({ token: '' }, token);
+      const result = await guard.canActivate(context);
+      expect(result).toBe(true);
+      expect(request.user.email).toBe('header@test.com');
+    });
+
+    it('rejects when neither path carries a token', async () => {
+      const { context, emittedEvents } = ctxWithAuthPayload(undefined, undefined);
+      const result = await guard.canActivate(context);
+      expect(result).toBe(false);
+      expect(emittedEvents[0]).toEqual({ event: 'exception', data: { message: 'Not logged in or token expired' } });
+    });
+  });
 });

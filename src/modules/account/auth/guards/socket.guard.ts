@@ -68,6 +68,13 @@ export class SocketGuard implements CanActivate {
   }
 
   private extractTokenFromClient(client: Socket): string | undefined {
+    // Prefer handshake.auth.token — socket.io-client's `auth` callback
+    // re-runs on every reconnect attempt, so this is the path that
+    // survives JWT rotation (the Authorization header gets baked in at
+    // initial connect and goes stale on the first reconnect after a
+    // refresh — fixed for /hiveid socket clients on 2026-06-01).
+    const authToken = (client.handshake.auth as { token?: unknown } | undefined)?.token;
+    if (typeof authToken === 'string' && authToken.length > 0) return authToken;
     const [type, token] = client.handshake.headers.authorization?.split(' ') ?? '';
     return type === 'Bearer' ? token : undefined;
   }
