@@ -21,8 +21,8 @@ importers:
         specifier: ^1.13.0
         version: 1.16.1
       courthive-components:
-        specifier: 2.0.0
-        version: 2.0.0(@tiptap/pm@3.24.0)
+        specifier: 3.0.0
+        version: 3.0.0(@tiptap/pm@3.24.0)
       i18next:
         specifier: ^26.0.0
         version: 26.3.0(typescript@6.0.3)
@@ -1190,8 +1190,8 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  courthive-components@2.0.0:
-    resolution: {integrity: sha512-86wUa7Sdo+4DZG4DSV2X4dSfC7BBscZj5FKoA8KSa3x73zAULqVaddVv3lx4dGBsWbI8X3mw7ijMzFz4Pe/noQ==}
+  courthive-components@3.0.0:
+    resolution: {integrity: sha512-4DLTdFJWYspvqlieFspMyDz4UoUezdHnZ0E6PhrXK+4Ua69ZhqVc4uWACnBDbnMgZaxyoX+OpEKbphwMqZqptw==}
     engines: {node: '>=22'}
 
   cross-spawn@7.0.6:
@@ -2060,6 +2060,10 @@ packages:
 
   tods-competition-factory@5.0.0:
     resolution: {integrity: sha512-78pkcHJ9qhbZrQMpIUEwxcEN79+BmSgQ9LcqIU0EuaKqNmpdEW6NQGigcfMA9m7/YLNYjExiyl2+drYrpH7ctg==}
+    engines: {node: '>=22'}
+
+  tods-competition-factory@5.1.0:
+    resolution: {integrity: sha512-m/b8r6xr/yLwRvhMTa+9dFe0YVLZXBGkIn4/9d7ZfTHp2G0XptLMMtssPJpQIy9ULRmN5ePUZ+IBgGDSh5DQFQ==}
     engines: {node: '>=22'}
 
   ts-api-utils@2.5.0:
@@ -3175,7 +3179,7 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  courthive-components@2.0.0(@tiptap/pm@3.24.0):
+  courthive-components@3.0.0(@tiptap/pm@3.24.0):
     dependencies:
       '@tiptap/core': 3.24.0(@tiptap/pm@3.24.0)
       '@tiptap/extension-color': 3.24.0(@tiptap/extension-text-style@3.24.0(@tiptap/core@3.24.0(@tiptap/pm@3.24.0)))
@@ -3192,7 +3196,7 @@ snapshots:
       focus-trap: 8.2.1
       timepicker-ui: 4.3.0
       tippy.js: 6.3.7
-      tods-competition-factory: 5.0.0
+      tods-competition-factory: 5.1.0
       vanillajs-datepicker: 1.3.4
     transitivePeerDependencies:
       - '@tiptap/pm'
@@ -4124,6 +4128,8 @@ snapshots:
       '@popperjs/core': 2.11.8
 
   tods-competition-factory@5.0.0: {}
+
+  tods-competition-factory@5.1.0: {}
 
   ts-api-utils@2.5.0(typescript@6.0.3):
     dependencies:
