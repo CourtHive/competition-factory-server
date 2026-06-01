@@ -23,12 +23,23 @@ export function getMutationEngine(services?, publicNotices?: any[]) {
   const engineAsync = asyncEngine();
   const clearCache = (tournamentId) => {
     if (!tournamentId || typeof tournamentId !== 'string') return;
-    // remove cached tournammentInfo so that event will be immediately available
-    const infoKey = `gti|${tournamentId}`;
-    services?.cacheManager?.del(infoKey);
-    // remove cached scheduling
-    const scheduleKey = `gtm|${tournamentId}`;
-    services?.cacheManager?.del(scheduleKey);
+    // Evict every fixed-shape per-tournament cache key on every
+    // mutation-triggered notice. Covers both the WebSocket path
+    // (tmxMessages → executionQueue → getMutationEngine subscriptions
+    // → here) AND the HTTP path (controller's invalidateTournamentCache
+    // catches the same shapes via its side-table). Flag-variant
+    // gti|<tid>|<flags> keys are NOT evicted here — they're only
+    // tracked in the HTTP controller's side-table. WS-driven mutations
+    // therefore leave flag-variant tournamentInfo reads stale until
+    // the 3-minute cache-manager TTL elapses (acceptable: the live
+    // broadcast already notifies interactive clients, and polling
+    // consumers that need consistency should re-read via the
+    // no-flags route).
+    services?.cacheManager?.del(`gti|${tournamentId}`);
+    services?.cacheManager?.del(`gtm|${tournamentId}`);
+    services?.cacheManager?.del(`gac|${tournamentId}`);
+    services?.cacheManager?.del(`gtp|${tournamentId}`);
+    services?.cacheManager?.del(`gmr|${tournamentId}`);
   };
   globalState.setSubscriptions({
     subscriptions: {

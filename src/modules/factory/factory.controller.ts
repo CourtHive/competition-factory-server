@@ -31,6 +31,49 @@ export class FactoryController {
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
+  // Side-table of issued cache keys per tournamentId. cache-manager has
+  // no prefix-delete primitive, so we record every key shape we hand to
+  // it (gmr|<tid>, gac|<tid>, gti|<tid>, gti|<tid>|<flags>,
+  // ged|<tid>|<eid>, gtm|<tid>, gtp|<tid>) and iterate-delete on write.
+  // All current keys are shaped `<prefix>|<tid>[|<...>]`, so segment [1]
+  // is the tournament id — see trackTournamentKey.
+  //
+  // Memory bound: each tournament's Set is capped via FIFO eviction so a
+  // read-only public viewer that polls thousands of flag-variant
+  // combinations can't grow the side-table without limit. When a key is
+  // evicted from the tracking Set, the corresponding cache entry is
+  // simply not iterate-evicted on the next mutation — it ages out via
+  // the 3-minute cache-manager TTL instead. The cap matches the
+  // expected superset of distinct keys a single tournament can produce
+  // (5 fixed + 16 flag variants + up to ~150 per-event keys).
+  private static readonly KEYS_PER_TOURNAMENT_CAP = 200;
+  private readonly cacheKeysByTournament = new Map<string, Set<string>>();
+
+  // Stringified-falsy values we refuse to use as tournament-id buckets.
+  // Filtered post-hoc rather than at key construction because the key
+  // is built across many call sites; a single chokepoint here is the
+  // cheapest correct fix.
+  private static readonly REJECTED_TID_LITERALS = new Set(['undefined', 'null', 'NaN', 'false', '']);
+
+  private trackTournamentKey(key: string): void {
+    const segments = key.split('|');
+    const tid = segments[1];
+    if (!tid || FactoryController.REJECTED_TID_LITERALS.has(tid)) return;
+    let set = this.cacheKeysByTournament.get(tid);
+    if (!set) {
+      set = new Set<string>();
+      this.cacheKeysByTournament.set(tid, set);
+    }
+    set.add(key);
+    // FIFO eviction once we cross the cap — Set preserves insertion
+    // order, so the first iterator value is the oldest entry.
+    while (set.size > FactoryController.KEYS_PER_TOURNAMENT_CAP) {
+      const oldest = set.values().next().value;
+      if (oldest === undefined) break;
+      set.delete(oldest);
+    }
+  }
+
   async cacheFx(key, fx, params) {
     if (key && typeof key === 'string') {
       const cachedData: any = await this.cacheManager.get(key);
@@ -43,35 +86,32 @@ export class FactoryController {
     const result = await fx(params);
     if (!result.error && key && typeof key === 'string') {
       this.cacheManager.set(key, result, 60 * 3 * 1000); // 3 minutes
+      this.trackTournamentKey(key);
     }
     return result;
   }
 
   /**
-   * Evict the top-level per-tournament cache keys after a mutation. Live
+   * Evict every issued per-tournament cache key after a mutation. Live
    * WebSocket clients are already notified by broadcastMutation; this
    * exists for HTTP polling clients (mobile, public viewers, automated
    * dashboards) that would otherwise eat the 3-min cache TTL after a
-   * write and serve stale matchUps for that window.
+   * write and serve stale data for that window.
    *
-   * Covered keys (all fixed-shape, single-segment after tournamentId):
-   *   gmr|<tid>   getMatchUps
-   *   gac|<tid>   getAssistantContext
-   *   gti|<tid>   getTournamentInfo (GET shape, no flags)
-   *
-   * NOT covered: flag-variant keys like `gti|<tid>|<flags>` or
-   * `ged|<tid>|<eid>` because cache-manager has no pattern delete and
-   * we don't track issued keys. Those still respect the 3-min TTL.
-   * Acceptable for now — the live broadcast catches every interactive
-   * surface and polling-only consumers eat the same staleness as before.
+   * Driven by the cacheKeysByTournament side-table so we cover every
+   * variant we hand to cacheFx — including flag-variant keys
+   * (gti|<tid>|<flags>) and per-event keys (ged|<tid>|<eid>) that the
+   * previous fixed-prefix list missed.
    */
   private invalidateTournamentCache(tournamentIds: readonly string[]): void {
-    const prefixes = ['gmr', 'gac', 'gti'];
     for (const tid of tournamentIds) {
       if (!tid || typeof tid !== 'string') continue;
-      for (const prefix of prefixes) {
-        void this.cacheManager.del(`${prefix}|${tid}`);
+      const keys = this.cacheKeysByTournament.get(tid);
+      if (!keys) continue;
+      for (const key of keys) {
+        void this.cacheManager.del(key);
       }
+      this.cacheKeysByTournament.delete(tid);
     }
   }
 
