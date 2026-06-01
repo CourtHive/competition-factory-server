@@ -1,5 +1,64 @@
 # Changelog
 
+## [2.8.0](https://github.com/CourtHive/competition-factory-server/compare/v2.7.0...v2.8.0) (2026-06-01)
+
+
+### Features
+
+* **account:** add /auth/hiveid/* endpoints + audience-aware AuthGuard (PR-G) ([15c64f3](https://github.com/CourtHive/competition-factory-server/commit/15c64f320358b86eaa8130c06430c9583881de4c))
+* **account:** add PersonsClient — HTTP + SSE consumer for courthive-persons (HiveID PR-F) ([0b61bcc](https://github.com/CourtHive/competition-factory-server/commit/0b61bccf0af578dfa7ecda65b649029ce8d5a275))
+* **account:** audit events for contact-email change + verify ([369435f](https://github.com/CourtHive/competition-factory-server/commit/369435f5636fc52a45ee38de3402975c73522cc2))
+* **account:** backfill nudge tile for recovery email coverage ([d2b4c54](https://github.com/CourtHive/competition-factory-server/commit/d2b4c54be619ac124a6bd8fffe059140b0060889))
+* **account:** editable contactEmail in admin modifyUser path ([37746e8](https://github.com/CourtHive/competition-factory-server/commit/37746e8d70d21aab61ee2c067b6f0e9f7213b4dc))
+* **account:** provider-admin scoping on modifyUser ([b530897](https://github.com/CourtHive/competition-factory-server/commit/b530897c368a4864f8f8cf276303bcee7d3cadcc))
+* **admin-client:** /system Audit tab for restoring deleted draws ([1368d6c](https://github.com/CourtHive/competition-factory-server/commit/1368d6ca49e569e4edd4ffd1513a3094901a3278))
+* **admin-client:** /system Audit tab for restoring deleted draws ([0db89c4](https://github.com/CourtHive/competition-factory-server/commit/0db89c44436fa345dd217840f643374bc479c472))
+* **admin-client:** recovery email field in Edit User modal ([41e7ca4](https://github.com/CourtHive/competition-factory-server/commit/41e7ca4029ba664d429105e7605232367580aa3d))
+* **admin-client:** themeTokens + stylesheetUrl in provider caps editor ([150af17](https://github.com/CourtHive/competition-factory-server/commit/150af17dfbc51327e0a76be65e5792479e6cb325))
+* **audit:** add POST /audit/restore-draw + IAuditStorage.findById ([cadb25f](https://github.com/CourtHive/competition-factory-server/commit/cadb25f26c6ddbdbe2bdb2cf2059be52b1511739))
+* **audit:** failure-counter persistence, actor query, hardened tests ([ee09a27](https://github.com/CourtHive/competition-factory-server/commit/ee09a27f1b5b8beb2db0713623a1fd653ec35ef9))
+* **audit:** polymorphic actor + milestone-throttled failure logs ([9b656a3](https://github.com/CourtHive/competition-factory-server/commit/9b656a3d93cdcd7be23d8ab6a308667ff273c784))
+* **auth:** /auth/tracker-token mints score-aud JWTs for score-relay ([fc1dc53](https://github.com/CourtHive/competition-factory-server/commit/fc1dc5302de74af67955791d900a9f2d9b54fd2f))
+* capture draw-deletion audit trail via factory AUDIT topic (CODES Phase 6) ([7e09fd1](https://github.com/CourtHive/competition-factory-server/commit/7e09fd10b9afa4c4d42b115a85d4769abdffe3f0))
+* capture draw-deletion audit trail via factory AUDIT topic (CODES Phase 6) ([fd51329](https://github.com/CourtHive/competition-factory-server/commit/fd513297d7e595fe107c8d0b9b9798f57d81647d))
+* **config:** config-readiness service and admin endpoint ([2d3697c](https://github.com/CourtHive/competition-factory-server/commit/2d3697c1aa0dc27c25422494886283500fd62a1d))
+* **factory:** invalidate per-tournament cache after writes ([835db6e](https://github.com/CourtHive/competition-factory-server/commit/835db6e69fa9f791c6d589c175e4dd84192e8e96))
+* **factory:** synchronous L2 validation gate on /factory/save ([7e63321](https://github.com/CourtHive/competition-factory-server/commit/7e633212db7cccc63d8578aed6b2b01430d412bd))
+* **hiveid:** participations + claimable + claim endpoints (PR-J.5) ([b719abb](https://github.com/CourtHive/competition-factory-server/commit/b719abbb59214ba708ee18e3cc610b0d4a440c8c))
+* **messaging:** add /hiveid socket namespace + audience-aware SocketGuard (PR-H) ([6a7813b](https://github.com/CourtHive/competition-factory-server/commit/6a7813b79c75b5929b02c222a5f3f10b56afc8ed))
+* **persons:** fan personMerged events out to /hiveid rooms (Phase 4.0 MVP) ([8d591f5](https://github.com/CourtHive/competition-factory-server/commit/8d591f5402d1056d72217424ef5b8b93996d6e26))
+* **providers:** public branding-by-tournament endpoint + ITA seed script ([6be6b0c](https://github.com/CourtHive/competition-factory-server/commit/6be6b0ce6906372df1e0948e410614a300466159))
+* **registrations:** /me/registrations applicant surface (hiveid phase 2-A) ([4614eb0](https://github.com/CourtHive/competition-factory-server/commit/4614eb0fa217db09e59f9092e2044576abeae566))
+* **registrations:** director-side acceptance flow (hiveid phase 2-B) ([24afb77](https://github.com/CourtHive/competition-factory-server/commit/24afb77c46d4ccf55140089edee513ccb0a0b609))
+* **registrations:** enrich admin list with applicant cached name + email ([bc9105e](https://github.com/CourtHive/competition-factory-server/commit/bc9105ecb4380c1d5887f85551efee3e3ba5dd36))
+* **score:** resolve drawId server-side in setMatchUpStatus wrapper ([e0f9320](https://github.com/CourtHive/competition-factory-server/commit/e0f9320cfe2fa8764241aa176561aa651a46a9cd))
+* **users:** add hiveid linkage columns + storage methods (PR-E) ([61c8033](https://github.com/CourtHive/competition-factory-server/commit/61c80335f1d1685200c9ee2ad67beb9736138750))
+
+
+### Bug Fixes
+
+* **admin-client:** dark-mode capable sanctioning + systemTab ([85b85c7](https://github.com/CourtHive/competition-factory-server/commit/85b85c78b3ae5c20c0f752242cdedfe60ce72cc8))
+* **admin-client:** replace native window.prompt/confirm with themed cModal ([55f9f62](https://github.com/CourtHive/competition-factory-server/commit/55f9f6280ea87645f4c02466b571ed14e3bf6f4f))
+* **auth:** override JwtModule's global expiresIn at the tracker-token call site ([97dca4c](https://github.com/CourtHive/competition-factory-server/commit/97dca4c37a66dfe7cb40eb9abcdebe94f6fcbbe5))
+* **auth:** tracker-token attributes mints to provisioner + rejects null ttl ([68d9d1b](https://github.com/CourtHive/competition-factory-server/commit/68d9d1b3ee96d4f67973b7b53d1cd3d225d0ed12))
+* close 4 HIGH items from the design-flaws punch list ([dcb7ceb](https://github.com/CourtHive/competition-factory-server/commit/dcb7ceb70533376e0354c62ff3d4ff0207ea17e3))
+* **config-readiness:** emit summary at WARN (yellow) instead of ERROR (red) ([c1ce8e4](https://github.com/CourtHive/competition-factory-server/commit/c1ce8e4ed3a60eefec07e8cf666360edbc03969e))
+* **config-readiness:** letter-boundary placeholder regex + env restored via replaceProperty ([a25c349](https://github.com/CourtHive/competition-factory-server/commit/a25c34970452803711450a4bdef273d2a7ab1301))
+* **factory:** per-tournament cache invalidation, side-table cap, WS prefix extension ([3d6e717](https://github.com/CourtHive/competition-factory-server/commit/3d6e7175d580edb80a67532ef17ae63151dbdc27))
+* **factory:** stamp provisioner ownership + await save in /factory/generate ([1ad525c](https://github.com/CourtHive/competition-factory-server/commit/1ad525c4b47c137c80be5d8bf29f90c9f1464f5a))
+* **persons-client:** surface SSE connect + recovery at warn level ([41aecd2](https://github.com/CourtHive/competition-factory-server/commit/41aecd206ce3e0861c8f6581f83a86b875ad2686))
+* **persons:** exponential backoff + log throttling + PERSONS_DISABLED opt-out ([d0ad805](https://github.com/CourtHive/competition-factory-server/commit/d0ad805e0cb504396983d37f274ccbde8b093a64))
+* **provisioner:** jwt path synthesizes req.user and preserves super_admin ([57d9f5f](https://github.com/CourtHive/competition-factory-server/commit/57d9f5fef6f680a3b94d980eb21d857551afe34e))
+* **socket-guard:** accept handshake.auth.token before authorization header ([9f7cdd7](https://github.com/CourtHive/competition-factory-server/commit/9f7cdd73fee019344b5da49774e1c99de77fd199))
+* **types:** null-safety on tournamentEngine.allTournamentMatchUps spec ([7ce5dfa](https://github.com/CourtHive/competition-factory-server/commit/7ce5dfaf47e92f6915fb1c08c4ab582ee28940e1))
+
+
+### Documentation
+
+* add Provider Theming page ([5e3a934](https://github.com/CourtHive/competition-factory-server/commit/5e3a934eac54117fba034a9d8cf46691367cc969))
+* **env:** surface PERSONS_DISABLED opt-out in .env.example ([176e539](https://github.com/CourtHive/competition-factory-server/commit/176e539b0ea38076b7fa2f563da68530666c956d))
+* **factory:** strengthen comments + COALESCE-preserve last_failure_message ([a76075c](https://github.com/CourtHive/competition-factory-server/commit/a76075cab10561245cddd5f87417a1401843a5fd))
+
 ## [2.7.0](https://github.com/CourtHive/competition-factory-server/compare/v2.6.0...v2.7.0) (2026-05-25)
 
 
