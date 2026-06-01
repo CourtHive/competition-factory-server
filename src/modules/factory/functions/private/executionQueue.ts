@@ -43,7 +43,7 @@ export async function executionQueue(
       // (score-relay-style producers don't know the drawId). Runs against
       // the lock-acquired record, replacing the prior pre-lock fetch in
       // setMatchUpStatus.ts that doubled the storage round-trip.
-      resolveMatchUpReferences(methods, result.tournamentRecords);
+      await resolveMatchUpReferences(methods, result.tournamentRecords);
 
       const mutationEngine = getMutationEngine(
         {
@@ -174,21 +174,26 @@ function buildAuditMetadata(payload: any): Record<string, any> | undefined {
  * factory promoted `tournamentEngineAsync` to its public index in PR
  * #4405 so this swap is now possible without a custom governor build.
  */
-function resolveMatchUpReferences(methods: any[], tournamentRecords: Record<string, any> | undefined): void {
+async function resolveMatchUpReferences(
+  methods: any[],
+  tournamentRecords: Record<string, any> | undefined,
+): Promise<void> {
   if (!methods?.length || !tournamentRecords) return;
   const tournamentIds = Object.keys(tournamentRecords);
   if (tournamentIds.length !== 1) return;
   const tournamentRecord = tournamentRecords[tournamentIds[0]];
   if (!tournamentRecord) return;
 
+  // tournamentEngineAsync's setState + findMatchUp return promises; the
+  // per-call state isolation runs the methods through asyncEngineInvoke
+  // which is genuinely async. Each iteration awaits both calls.
   for (const m of methods) {
     if (m?.method !== 'setMatchUpStatus') continue;
     const params = m.params;
     if (!params?.matchUpId) continue;
     if (params.drawId || params.eventId) continue;
-    const found: any = tournamentEngineAsync
-      .setState(tournamentRecord)
-      .findMatchUp({ matchUpId: params.matchUpId });
+    await tournamentEngineAsync.setState(tournamentRecord);
+    const found: any = await tournamentEngineAsync.findMatchUp({ matchUpId: params.matchUpId });
     if (found?.matchUp?.drawId) {
       params.drawId = found.matchUp.drawId;
       if (found.matchUp.eventId) params.eventId = found.matchUp.eventId;
