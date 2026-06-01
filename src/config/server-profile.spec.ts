@@ -1,53 +1,54 @@
 import { getServerProfile, isModuleEnabled } from './server-profile';
 
-describe('server-profile', () => {
-  const originalEnv = process.env.SERVER_PROFILE;
+// Per architectural-standards.md A6: prefer `jest.replaceProperty` over
+// manual snapshot+restore — auto-restored on test teardown even if the
+// test body throws.
 
-  afterEach(() => {
-    if (originalEnv === undefined) {
-      delete process.env.SERVER_PROFILE;
-    } else {
-      process.env.SERVER_PROFILE = originalEnv;
-    }
-  });
+describe('server-profile', () => {
+  function withServerProfile(value: string | undefined): void {
+    const next = { ...process.env };
+    if (value === undefined) delete next.SERVER_PROFILE;
+    else next.SERVER_PROFILE = value;
+    jest.replaceProperty(process, 'env', next);
+  }
 
   describe('getServerProfile', () => {
     it('defaults to full when not set', () => {
-      delete process.env.SERVER_PROFILE;
+      withServerProfile(undefined);
       expect(getServerProfile()).toBe('full');
     });
 
     it('returns tournament when set', () => {
-      process.env.SERVER_PROFILE = 'tournament';
+      withServerProfile('tournament');
       expect(getServerProfile()).toBe('tournament');
     });
 
     it('returns provider when set', () => {
-      process.env.SERVER_PROFILE = 'provider';
+      withServerProfile('provider');
       expect(getServerProfile()).toBe('provider');
     });
 
     it('returns full for invalid values', () => {
-      process.env.SERVER_PROFILE = 'invalid';
+      withServerProfile('invalid');
       expect(getServerProfile()).toBe('full');
     });
   });
 
   describe('isModuleEnabled', () => {
     it('enables all modules for full profile', () => {
-      process.env.SERVER_PROFILE = 'full';
+      withServerProfile('full');
       expect(isModuleEnabled('tournament')).toBe(true);
       expect(isModuleEnabled('provider')).toBe(true);
     });
 
     it('enables only tournament modules for tournament profile', () => {
-      process.env.SERVER_PROFILE = 'tournament';
+      withServerProfile('tournament');
       expect(isModuleEnabled('tournament')).toBe(true);
       expect(isModuleEnabled('provider')).toBe(false);
     });
 
     it('enables only provider modules for provider profile', () => {
-      process.env.SERVER_PROFILE = 'provider';
+      withServerProfile('provider');
       expect(isModuleEnabled('tournament')).toBe(false);
       expect(isModuleEnabled('provider')).toBe(true);
     });

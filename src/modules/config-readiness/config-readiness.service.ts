@@ -41,6 +41,21 @@ const PLACEHOLDER_SECRET_HINTS = [
   'your-secret-here',
 ];
 
+// Letter-boundary heuristics: a placeholder must appear surrounded by
+// non-letter characters (string boundaries, digits, hyphens, underscores,
+// whitespace). This avoids false positives on long high-entropy secrets
+// that contain a hint substring purely by chance — e.g. a random
+// base64-encoded secret that happens to spell "changeme" between two
+// random letters. Operators inserting placeholders always write them as
+// recognizable tokens, not embedded inside random alnum entropy.
+function escapeRegex(raw: string): string {
+  return raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+const PLACEHOLDER_SECRET_REGEXES = PLACEHOLDER_SECRET_HINTS.map((hint) => {
+  const body = escapeRegex(hint).replace(/\s+/g, '\\s+');
+  return new RegExp(`(?:^|[^A-Za-z])${body}(?:$|[^A-Za-z])`, 'i');
+});
+
 @Injectable()
 export class ConfigReadinessService implements OnApplicationBootstrap {
   private readonly logger = new Logger(ConfigReadinessService.name);
@@ -136,8 +151,7 @@ export class ConfigReadinessService implements OnApplicationBootstrap {
       };
     }
     if (options.suspectPlaceholder) {
-      const lowered = raw.toLowerCase();
-      const looksPlaceholder = PLACEHOLDER_SECRET_HINTS.some((hint) => lowered.includes(hint));
+      const looksPlaceholder = PLACEHOLDER_SECRET_REGEXES.some((re) => re.test(raw));
       if (looksPlaceholder) {
         return {
           name,
