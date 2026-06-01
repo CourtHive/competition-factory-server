@@ -2058,10 +2058,6 @@ packages:
   tippy.js@6.3.7:
     resolution: {integrity: sha512-E1d3oP2emgJ9dRQZdf3Kkn0qJgI6ZLpyS5z6ZkY1DF3kaQaBsGZsndEpHwx+eC+tYM41HaSNvNtLx8tU57FzTQ==}
 
-  tods-competition-factory@4.2.0:
-    resolution: {integrity: sha512-fTDEO72jDLYPGf7zdTF6hYc65Q21OJ0ZbWVLA5Wh0EhJCvjQvDcJvj59LY508kJR+9JCF95FBPJZLJ8LAJZGUw==}
-    engines: {node: '>=22'}
-
   tods-competition-factory@5.0.0:
     resolution: {integrity: sha512-78pkcHJ9qhbZrQMpIUEwxcEN79+BmSgQ9LcqIU0EuaKqNmpdEW6NQGigcfMA9m7/YLNYjExiyl2+drYrpH7ctg==}
     engines: {node: '>=22'}
@@ -4126,8 +4122,6 @@ snapshots:
   tippy.js@6.3.7:
     dependencies:
       '@popperjs/core': 2.11.8
-
-  tods-competition-factory@4.2.0: {}
 
   tods-competition-factory@5.0.0: {}
 
