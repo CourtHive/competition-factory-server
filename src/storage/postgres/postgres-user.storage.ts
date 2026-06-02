@@ -11,7 +11,7 @@ export class PostgresUserStorage implements IUserStorage {
 
   async findOne(email: string): Promise<any | null> {
     const result = await this.pool.query(
-      'SELECT user_id, email, password, provider_id, last_selected_provider_id, must_change_password, contact_email, email_verified_at, roles, permissions, data FROM users WHERE email = $1',
+      'SELECT user_id, email, password, provider_id, last_selected_provider_id, must_change_password, contact_email, email_verified_at, roles, permissions, data, standard_given_name, standard_family_name FROM users WHERE email = $1',
       [email],
     );
     if (!result.rows.length) return null;
@@ -28,12 +28,19 @@ export class PostgresUserStorage implements IUserStorage {
       roles: row.roles,
       permissions: row.permissions,
       ...row.data,
+      // Coalesce HiveID-cached canonical names (written by setPersonLink) into
+      // the legacy firstName/lastName surface so admin UI + email templates
+      // see a populated name for HiveID-linked users who never had names
+      // written through the JSON-blob path. Explicit `data.firstName` /
+      // `data.lastName` win when present so admin edits aren't shadowed.
+      firstName: row.data?.firstName ?? row.standard_given_name ?? undefined,
+      lastName: row.data?.lastName ?? row.standard_family_name ?? undefined,
     };
   }
 
   async findByContactEmail(contactEmail: string): Promise<any | null> {
     const result = await this.pool.query(
-      `SELECT user_id, email, password, provider_id, last_selected_provider_id, must_change_password, contact_email, email_verified_at, roles, permissions, data
+      `SELECT user_id, email, password, provider_id, last_selected_provider_id, must_change_password, contact_email, email_verified_at, roles, permissions, data, standard_given_name, standard_family_name
          FROM users
         WHERE LOWER(contact_email) = LOWER($1)
         LIMIT 1`,
@@ -53,6 +60,8 @@ export class PostgresUserStorage implements IUserStorage {
       roles: row.roles,
       permissions: row.permissions,
       ...row.data,
+      firstName: row.data?.firstName ?? row.standard_given_name ?? undefined,
+      lastName: row.data?.lastName ?? row.standard_family_name ?? undefined,
     };
   }
 
@@ -235,13 +244,15 @@ export class PostgresUserStorage implements IUserStorage {
         u.permissions,
         u.data,
         u.last_access,
+        u.standard_given_name,
+        u.standard_family_name,
         COALESCE(
           ARRAY_AGG(up.provider_id ORDER BY up.created_at) FILTER (WHERE up.provider_id IS NOT NULL),
           ARRAY[]::TEXT[]
         ) AS provider_ids
       FROM users u
       LEFT JOIN user_providers up ON up.user_id = u.user_id
-      GROUP BY u.user_id, u.email, u.provider_id, u.roles, u.permissions, u.data, u.last_access
+      GROUP BY u.user_id, u.email, u.provider_id, u.roles, u.permissions, u.data, u.last_access, u.standard_given_name, u.standard_family_name
     `);
     if (!result.rows.length) return { success: false, message: 'No users found' };
     // Spread `data` first so canonical column-derived fields win on conflict.
@@ -258,6 +269,9 @@ export class PostgresUserStorage implements IUserStorage {
         roles: row.roles,
         permissions: row.permissions,
         lastAccess: row.last_access,
+        // Same coalesce as findOne — see comment there.
+        firstName: row.data?.firstName ?? row.standard_given_name ?? undefined,
+        lastName: row.data?.lastName ?? row.standard_family_name ?? undefined,
       },
     }));
     return { ...SUCCESS, users };

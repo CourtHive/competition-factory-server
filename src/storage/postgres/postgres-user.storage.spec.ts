@@ -241,4 +241,102 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
       expect(params).toEqual(['new', 2, null, 'OnlyGiven', null, null, null, 'old']);
     });
   });
+
+  // Coalesce behavior added so HiveID-linked users (whose canonical name
+  // lives in standard_given_name / standard_family_name) have firstName /
+  // lastName populated on read. Explicit `data.firstName` / `data.lastName`
+  // must still win so admin edits aren't shadowed by the HiveID cache.
+  describe('firstName / lastName projection', () => {
+    it('findOne falls back to standard_* columns when data JSON lacks the names', async () => {
+      pool.query.mockResolvedValueOnce({
+        rows: [{
+          user_id: 'u-1',
+          email: 'h@test.com',
+          data: { tournamentProfile: true },
+          standard_given_name: 'Charles',
+          standard_family_name: 'Allen',
+        }],
+      });
+      const result: any = await storage.findOne('h@test.com');
+      expect(result.firstName).toBe('Charles');
+      expect(result.lastName).toBe('Allen');
+    });
+
+    it('findOne prefers data.firstName / lastName over standard_* (admin edit wins)', async () => {
+      pool.query.mockResolvedValueOnce({
+        rows: [{
+          user_id: 'u-2',
+          email: 'edited@test.com',
+          data: { firstName: 'Bob', lastName: 'Edits' },
+          standard_given_name: 'Robert',
+          standard_family_name: 'Canonical',
+        }],
+      });
+      const result: any = await storage.findOne('edited@test.com');
+      expect(result.firstName).toBe('Bob');
+      expect(result.lastName).toBe('Edits');
+    });
+
+    it('findOne returns undefined when neither source has a name', async () => {
+      pool.query.mockResolvedValueOnce({
+        rows: [{
+          user_id: 'u-3',
+          email: 'blank@test.com',
+          data: {},
+          standard_given_name: null,
+          standard_family_name: null,
+        }],
+      });
+      const result: any = await storage.findOne('blank@test.com');
+      expect(result.firstName).toBeUndefined();
+      expect(result.lastName).toBeUndefined();
+    });
+
+    it('findByContactEmail applies the same coalesce', async () => {
+      pool.query.mockResolvedValueOnce({
+        rows: [{
+          user_id: 'u-4',
+          email: 'contact@test.com',
+          data: {},
+          standard_given_name: 'Charles',
+          standard_family_name: 'Allen',
+        }],
+      });
+      const result: any = await storage.findByContactEmail('recovery@example.com');
+      expect(result.firstName).toBe('Charles');
+      expect(result.lastName).toBe('Allen');
+    });
+
+    it('findAll coalesces per user — explicit data wins, standard_* fills gaps', async () => {
+      pool.query.mockResolvedValueOnce({
+        rows: [
+          {
+            user_id: 'u-edited',
+            email: 'edited@test.com',
+            data: { firstName: 'Bob' },
+            standard_given_name: 'Robert',
+            standard_family_name: 'Canonical',
+            provider_ids: [],
+            roles: [],
+            permissions: [],
+          },
+          {
+            user_id: 'u-hive',
+            email: 'hive@test.com',
+            data: {},
+            standard_given_name: 'Charles',
+            standard_family_name: 'Allen',
+            provider_ids: [],
+            roles: [],
+            permissions: [],
+          },
+        ],
+      });
+      const result: any = await storage.findAll();
+      expect(result.users[0].value.firstName).toBe('Bob');
+      expect(result.users[0].value.lastName).toBe('Canonical');
+      expect(result.users[1].value.firstName).toBe('Charles');
+      expect(result.users[1].value.lastName).toBe('Allen');
+    });
+  });
 });
