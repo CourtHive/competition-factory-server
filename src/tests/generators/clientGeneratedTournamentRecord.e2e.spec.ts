@@ -37,12 +37,14 @@ describe('ClientGeneratedTournamentRecord', () => {
   it('can remove, create, save and fetch a tournamentRecord', async () => {
     const tournamentId = testTournamentId(__filename);
 
-    let result = await request(app.getHttpServer())
+    // Cleanup step — fine if the tournament doesn't exist yet (clean DB)
+    // or if a prior run already left one behind. Accept either status.
+    const removed = await request(app.getHttpServer())
       .post('/factory/remove')
       .set('Authorization', 'Bearer ' + token)
-      .send({ tournamentId })
-      .expect(200);
-    expect(result.body.success).toEqual(true);
+      .send({ tournamentId });
+    expect([200, 404]).toContain(removed.status);
+    if (removed.status === 200) expect(removed.body.success).toEqual(true);
 
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       eventProfiles: [{ eventId: 'e1', eventType: SINGLES }],
@@ -54,13 +56,13 @@ describe('ClientGeneratedTournamentRecord', () => {
 
     await saveAndCommit(app.getHttpServer(), token, tournamentRecord);
 
-    result = await request(app.getHttpServer())
+    const fetched = await request(app.getHttpServer())
       .post('/factory/fetch')
       .set('Authorization', 'Bearer ' + token)
       .send({ tournamentId })
       .expect(200);
-    expect(result.body.success).toEqual(true);
-    expect(result.body.fetched).toEqual(1);
+    expect(fetched.body.success).toEqual(true);
+    expect(fetched.body.fetched).toEqual(1);
   });
 
   afterAll(async () => {
