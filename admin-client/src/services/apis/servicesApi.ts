@@ -88,8 +88,6 @@ export async function modifyUser({
   permissions,
   services,
   contactEmail,
-  firstName,
-  lastName,
 }: {
   email: string;
   providerId?: string;
@@ -97,10 +95,8 @@ export async function modifyUser({
   permissions: string[];
   services: string[];
   contactEmail?: string;
-  firstName?: string;
-  lastName?: string;
 }) {
-  return await baseApi.post('/auth/modify', { email, providerId, roles, permissions, services, contactEmail, firstName, lastName });
+  return await baseApi.post('/auth/modify', { email, providerId, roles, permissions, services, contactEmail });
 }
 
 export async function adminResendVerification({ email }: { email: string }) {
