@@ -1,5 +1,13 @@
-packages:
-  - 'audit-worker'
+# audit-worker is intentionally NOT listed here. It has its own
+# pnpm-workspace.yaml (`packages: []`) declaring it a standalone
+# workspace root with its own pnpm-lock.yaml. Listing it here makes
+# pnpm v11 consolidate its dependencies into the root lockfile on
+# install AND delete `audit-worker/pnpm-lock.yaml` as part of that
+# normalization — which breaks `mentat-build-all.sh`'s install path
+# (`pnpm install --ignore-workspace` from audit-worker/, which
+# requires the standalone lockfile). Keep audit-worker installs
+# separate; run `pnpm install` inside `audit-worker/` to refresh.
+packages: []
 
 # Keep pnpm v11's supply-chain minimumReleaseAge policy active for
 # third-party packages (1440 minutes = 1 day floor), but exempt every
