@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.9.0](https://github.com/CourtHive/competition-factory-server/compare/v2.8.0...v2.9.0) (2026-06-02)
+
+
+### Features
+
+* **account:** project standard_given_name into firstName on user reads ([d9fe115](https://github.com/CourtHive/competition-factory-server/commit/d9fe1152c4fd38fd1d05c854df0898ddcfb5220e))
+* **admin-client:** first/last name fields in create + edit user modals — wip ([cf2819e](https://github.com/CourtHive/competition-factory-server/commit/cf2819e8b2ef10d386775a4ad2bdd4fb443afd79))
+* **auth:** log audience-mismatch + refresh-health endpoint ([0060b4d](https://github.com/CourtHive/competition-factory-server/commit/0060b4d280e9f7ca609873b57882aeb0b9fcaca6))
+
+
+### Bug Fixes
+
+* **build:** stop pnpm at CFS root from deleting audit-worker lockfile ([547826f](https://github.com/CourtHive/competition-factory-server/commit/547826f3ec2c95a11395405dc50df01ba02fd135))
+
+
+### Reverts
+
+* **admin-client:** drop incomplete firstname/lastname wip from 0060b4d ([3c18113](https://github.com/CourtHive/competition-factory-server/commit/3c18113cfcf059129233461190aac74fdc6870fa))
+
+
+### Documentation
+
+* **readme:** drop pluggable-storage / LevelDB language ([dec52df](https://github.com/CourtHive/competition-factory-server/commit/dec52df1bc872a9d0ee2e6b30178176f299eb80f))
+* **seeds:** drop pinned factory@3.x version from example metadata ([d1c8f16](https://github.com/CourtHive/competition-factory-server/commit/d1c8f1634c691bf7f6666074f945b139c5327370))
+
 ## [2.8.0](https://github.com/CourtHive/competition-factory-server/compare/v2.7.0...v2.8.0) (2026-06-01)
 
 
