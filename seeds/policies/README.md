@@ -24,7 +24,7 @@ The directory under `seeds/policies/` does NOT determine `providerId` — each J
   "version": "1.0.0",
   "visibility": "TEMPLATE_REF",
   "definition": { "awardProfiles": [ ... ] },
-  "metadata": { "source": "tods-competition-factory@3.x fixtures" }
+  "metadata": { "source": "tods-competition-factory fixtures" }
 }
 ```
 
