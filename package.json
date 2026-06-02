@@ -86,7 +86,7 @@
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "socket.io": "4.8.3",
-    "tods-competition-factory": "5.1.0",
+    "tods-competition-factory": "5.2.1",
     "tods-tmx-classic-converter": "3.0.5",
     "tslib": "^2.6.2",
     "@courthive/provider-config": "^0.4.0",
