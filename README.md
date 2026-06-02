@@ -13,7 +13,7 @@
 
 The **Competition Factory Server** is a production-ready backend for managing competitions across sports disciplines, built on [NestJS 11](https://nestjs.com/) and powered by the [tods-competition-factory](https://github.com/CourtHive/tods-competition-factory) engine. It is built on open data standards — specifically CODES (Competition Open Data Exchange Standards) — providing a vendor-neutral foundation for representing tournament structures, participants, draws, scheduling, and results across any sport.
 
-The server provides a real-time WebSocket gateway (Socket.IO) for client-server mutation synchronization, a REST API for public competition data, pluggable storage backends (LevelDB or PostgreSQL), Redis-backed caching, JWT authentication with role-based access control, and per-tournament concurrency locks to prevent lost updates from interleaved mutations.
+The server provides a real-time WebSocket gateway (Socket.IO) for client-server mutation synchronization, a REST API for public competition data, PostgreSQL persistence (JSONB), Redis-backed caching, JWT authentication with role-based access control, and per-tournament concurrency locks to prevent lost updates from interleaved mutations.
 
 It is designed to work with the [TMX](https://github.com/CourtHive/TMX) tournament management client as its primary frontend, but can serve any client that speaks its WebSocket protocol or REST endpoints.
 
@@ -21,7 +21,7 @@ It is designed to work with the [TMX](https://github.com/CourtHive/TMX) tourname
 
 - **Standards-based** — Built on CODES (Competition Open Data Exchange Standards) for interoperability across sports and systems
 - **Real-time mutation sync** — Server-first architecture ensures data consistency; clients apply mutations locally only after server acknowledgment
-- **Pluggable storage** — Switch between LevelDB (default, zero-config) and PostgreSQL (JSONB) via a single environment variable
+- **PostgreSQL storage** — JSONB-backed persistence with calendar + permission side-effects layered through a thin storage facade
 - **Role-based access control** — JWT authentication with hierarchical roles (superadmin, admin, client) and provider-scoped permissions
 - **Per-tournament locking** — Async mutex with sorted acquisition prevents deadlocks and lost updates from concurrent requests
 - **Provider multi-tenancy** — Organizations (providers) manage their own competitions, users, and calendars in isolation
@@ -37,7 +37,7 @@ Full setup instructions, architecture guides, and configuration reference are av
 The documentation covers:
 
 - **Getting Started** — Prerequisites, installation, and environment configuration
-- **Storage** — Pluggable storage architecture, LevelDB setup, PostgreSQL migration
+- **Storage** — PostgreSQL schema, calendar + permission side-effects, storage facade
 - **Authentication** — Admin account creation, roles and permissions, JWT structure
 - **Architecture** — Server modules, mutation flow, WebSocket gateway, provider configuration
 
