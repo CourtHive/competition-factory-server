@@ -27,8 +27,22 @@ export class SsoTokenService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     const url = process.env.REDIS_URL || 'redis://localhost:6379';
     try {
-      this.client = createClient({ url });
-      this.client.on('error', (err) => this.logger.error(`Redis client error: ${err.message}`));
+      this.client = createClient({
+        url,
+        socket: {
+          connectTimeout: 2000,
+          // node-redis defaults to retrying initial connect forever with a
+          // 50ms linear backoff, which silently hangs nest boot when Redis
+          // is down (await client.connect() never resolves, the catch
+          // below never runs). Bound to ~3 attempts so connect() rejects
+          // and the catch handler can mark the service unavailable.
+          reconnectStrategy: (retries) => {
+            if (retries >= 3) return new Error('Redis unreachable');
+            return Math.min(retries * 200, 1000);
+          },
+        },
+      });
+      this.client.on('error', (err) => this.logger.warn(`Redis client error: ${err.message}`));
       await this.client.connect();
       this.logger.log('SSO token Redis client connected');
     } catch (err: any) {
