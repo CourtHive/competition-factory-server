@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.10.0](https://github.com/CourtHive/competition-factory-server/compare/v2.9.0...v2.10.0) (2026-06-02)
+
+
+### Features
+
+* **audit:** record PASSWORD_RESET for every password-mutation path ([b9207a9](https://github.com/CourtHive/competition-factory-server/commit/b9207a9260c65c5c80c9d381d912873f0fb747d6))
+
+
+### Bug Fixes
+
+* **sso:** bound redis initial connect so boot survives redis-down ([454638b](https://github.com/CourtHive/competition-factory-server/commit/454638bc6b80ca2ca22ed63c48a93b05e382bd7e))
+
 ## [2.9.0](https://github.com/CourtHive/competition-factory-server/compare/v2.8.0...v2.9.0) (2026-06-02)
 
 
