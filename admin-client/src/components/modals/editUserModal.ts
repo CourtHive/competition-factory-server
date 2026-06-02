@@ -47,6 +47,18 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
       // input model (the badge is read-only, not a form field).
       { text: '', id: 'recoveryEmailStatusAnchor' },
       {
+        iconLeft: 'fa-regular fa-user',
+        value: user?.firstName || '',
+        label: t('system.firstName'),
+        field: 'firstName',
+        width: '50%',
+        fieldPair: {
+          value: user?.lastName || '',
+          label: t('system.lastName'),
+          field: 'lastName',
+        },
+      },
+      {
         text: t('modals.inviteUser.roles'),
         header: true,
       },
@@ -200,6 +212,8 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
     const userPermsSelected = permissions.map((perm) => inputs[perm]?.checked && perm).filter(Boolean);
     const userServicesSelected = services.map((svc) => inputs[svc]?.checked && svc).filter(Boolean);
     const contactEmail = (inputs.contactEmail?.value ?? '').trim();
+    const firstName = (inputs.firstName?.value ?? '').trim();
+    const lastName = (inputs.lastName?.value ?? '').trim();
 
     modifyUser({
       email,
@@ -208,6 +222,8 @@ export function editUserModal({ user, providers = [], callback }: EditUserModalP
       permissions: userPermsSelected,
       services: userServicesSelected,
       contactEmail,
+      firstName,
+      lastName,
     }).then(
       (res) => {
         tmxToast({ message: t('system.userUpdated'), intent: 'is-success' });

@@ -34,6 +34,31 @@ export interface IRefreshTokenStorage {
 
   /** Delete already-expired rows. Returns the number removed. */
   deleteExpired(): Promise<number>;
+
+  /**
+   * Per-user rotation health for the last N days. Used by the admin
+   * `/auth/refresh-health/:email` diagnostic to spot users whose browser
+   * never successfully rotates (every "session" is a fresh login —
+   * `families == tokens` and `revoked == 0`).
+   */
+  getRotationHealth(email: string, sinceDays: number): Promise<RotationHealth>;
+}
+
+export interface RotationHealth {
+  email: string;
+  sinceDays: number;
+  families: number;
+  tokens: number;
+  revoked: number;
+  active: number;
+  rotationRatio: number;
+  distinctUserAgents: string[];
+  latest: Array<{
+    createdAt: string;
+    familyId: string;
+    revoked: boolean;
+    userAgent: string | null;
+  }>;
 }
 
 export interface RefreshTokenRow {

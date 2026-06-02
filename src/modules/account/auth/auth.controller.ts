@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, Req } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Inject, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { REFRESH_TOKEN_STORAGE, type IRefreshTokenStorage } from 'src/storage/interfaces';
 import { UserCtx, type UserContext } from './decorators/user-context.decorator';
 import { AdminCreateUserDto } from './dto/adminCreateUser.dto';
 import { ForgotPasswordDto } from './dto/forgotPassword.dto';
@@ -19,6 +20,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly trackerTokenService: TrackerTokenService,
+    @Inject(REFRESH_TOKEN_STORAGE) private readonly refreshTokenStorage: IRefreshTokenStorage,
   ) {}
 
   /**
@@ -60,6 +62,30 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   getMe(@UserCtx() ctx: UserContext) {
     return ctx;
+  }
+
+  /**
+   * SUPER_ADMIN-only diagnostic. Returns the target user's recent
+   * refresh-token rotation health: family count, rotation ratio,
+   * distinct user agents, and the last 20 token events. Used to
+   * triage "kicked out every navigation" reports — a user whose
+   * `families == tokens` and `revoked == 0` has a client that is
+   * never successfully calling /auth/refresh.
+   *
+   * Default window is 7 days; pass `?days=N` (1..30) to widen.
+   */
+  @Get('refresh-health/:email')
+  @Roles([SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  async refreshHealth(
+    @Param('email') email: string,
+    @Query('days') days?: string,
+    @UserCtx() ctx?: UserContext,
+  ) {
+    if (!ctx?.isSuperAdmin) throw new ForbiddenException();
+    const parsed = Number.parseInt(days ?? '7', 10);
+    const sinceDays = Number.isFinite(parsed) ? Math.max(1, Math.min(30, parsed)) : 7;
+    return this.refreshTokenStorage.getRotationHealth(email, sinceDays);
   }
 
   @Public()

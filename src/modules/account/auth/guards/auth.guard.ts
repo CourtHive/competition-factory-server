@@ -57,6 +57,14 @@ export class AuthGuard implements CanActivate {
     ]);
     const required = Array.isArray(declared) ? declared : DEFAULT_REQUIRED_AUDIENCES;
     if (!audienceMatches(payload?.aud, required)) {
+      const tokenAud = JSON.stringify(payload?.aud ?? null);
+      const requiredAud = JSON.stringify(required);
+      const email = payload?.email ?? '<no-email>';
+      const route = `${request.method ?? '?'} ${request.url ?? request.originalUrl ?? '?'}`;
+      Logger.warn(
+        `JWT audience mismatch: ${email} aud=${tokenAud} required=${requiredAud} route=${route}`,
+        'AuthGuard',
+      );
       throw new UnauthorizedException();
     }
 

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import { IRefreshTokenStorage, RefreshTokenRow } from '../interfaces/refresh-token-storage.interface';
+import { IRefreshTokenStorage, RefreshTokenRow, RotationHealth } from '../interfaces/refresh-token-storage.interface';
 import { PG_POOL } from './postgres.config';
 
 @Injectable()
@@ -61,6 +61,52 @@ export class PostgresRefreshTokenStorage implements IRefreshTokenStorage {
   async deleteExpired(): Promise<number> {
     const result = await this.pool.query('DELETE FROM refresh_tokens WHERE expires_at <= NOW()');
     return result.rowCount ?? 0;
+  }
+
+  async getRotationHealth(email: string, sinceDays: number): Promise<RotationHealth> {
+    const since = `${sinceDays} days`;
+    const summary = await this.pool.query(
+      `SELECT
+         COUNT(DISTINCT family_id)::int AS families,
+         COUNT(*)::int AS tokens,
+         COUNT(*) FILTER (WHERE revoked_at IS NOT NULL)::int AS revoked,
+         COUNT(*) FILTER (WHERE revoked_at IS NULL AND expires_at > NOW())::int AS active
+       FROM refresh_tokens
+       WHERE email = $1 AND created_at > NOW() - $2::interval`,
+      [email, since],
+    );
+    const uaRows = await this.pool.query(
+      `SELECT DISTINCT user_agent
+       FROM refresh_tokens
+       WHERE email = $1 AND created_at > NOW() - $2::interval AND user_agent IS NOT NULL`,
+      [email, since],
+    );
+    const latestRows = await this.pool.query(
+      `SELECT created_at, family_id, revoked_at, user_agent
+       FROM refresh_tokens
+       WHERE email = $1 AND created_at > NOW() - $2::interval
+       ORDER BY created_at DESC LIMIT 20`,
+      [email, since],
+    );
+
+    const tokens = summary.rows[0]?.tokens ?? 0;
+    const revoked = summary.rows[0]?.revoked ?? 0;
+    return {
+      email,
+      sinceDays,
+      families: summary.rows[0]?.families ?? 0,
+      tokens,
+      revoked,
+      active: summary.rows[0]?.active ?? 0,
+      rotationRatio: tokens > 0 ? revoked / tokens : 0,
+      distinctUserAgents: uaRows.rows.map((r) => r.user_agent).filter(Boolean),
+      latest: latestRows.rows.map((r) => ({
+        createdAt: r.created_at?.toISOString?.() ?? r.created_at,
+        familyId: r.family_id,
+        revoked: !!r.revoked_at,
+        userAgent: r.user_agent ?? null,
+      })),
+    };
   }
 }
 

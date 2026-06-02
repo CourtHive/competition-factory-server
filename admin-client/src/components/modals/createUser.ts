@@ -89,6 +89,18 @@ export function createUserModal(callback, providers = [], selectedProviderId?: s
           label: t('modals.createUser.contactEmail'),
           field: 'contactEmail',
         },
+        {
+          iconLeft: 'fa-regular fa-user',
+          autocomplete: 'off',
+          label: t('system.firstName'),
+          field: 'firstName',
+          width: '50%',
+          fieldPair: {
+            autocomplete: 'off',
+            label: t('system.lastName'),
+            field: 'lastName',
+          },
+        },
         // Password field — pre-filled with a generated 12-char password.
         // Admin can edit, regenerate, or copy. Server-side will also
         // generate one if the field is left empty (defensive double-fill).
@@ -222,6 +234,8 @@ export function createUserModal(callback, providers = [], selectedProviderId?: s
     const email = inputs.email.value;
     const password = (inputs.password?.value || '').trim() || undefined;
     const contactEmail = (inputs.contactEmail?.value || '').trim() || undefined;
+    const firstName = (inputs.firstName?.value || '').trim() || undefined;
+    const lastName = (inputs.lastName?.value || '').trim() || undefined;
     const providerId = values.providerId || inputs.providerId?.value || undefined;
     const providerRole = (inputs.providerRole?.value === 'PROVIDER_ADMIN'
       ? 'PROVIDER_ADMIN'
@@ -269,6 +283,8 @@ export function createUserModal(callback, providers = [], selectedProviderId?: s
       email,
       password,
       contactEmail,
+      firstName,
+      lastName,
       providerId,
       providerRole,
       roles: userRoles as string[],
