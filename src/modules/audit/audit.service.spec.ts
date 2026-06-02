@@ -680,4 +680,65 @@ describe('AuditService', () => {
       ).resolves.not.toThrow();
     });
   });
+
+  describe('recordPasswordReset', () => {
+    it('appends a PASSWORD_RESET row attributed to the target on the token-reset flow', async () => {
+      await service.recordPasswordReset({
+        targetUserId: 'u-target',
+        targetEmail: 'target@login',
+        flow: 'token-reset',
+      });
+      const row = mockStorage.append.mock.calls[0][0];
+      expect(row.actionType).toBe('PASSWORD_RESET');
+      expect(row.tournamentId).toBe('u-target');
+      expect(row.userId).toBe('u-target');
+      expect(row.userEmail).toBe('target@login');
+      expect(row.source).toBe('token-reset');
+      expect(row.status).toBe('applied');
+      expect(row.metadata).toEqual({
+        targetUserId: 'u-target',
+        targetEmail: 'target@login',
+        flow: 'token-reset',
+      });
+    });
+
+    it('attributes the row to the editor on the admin-reset flow', async () => {
+      await service.recordPasswordReset({
+        targetUserId: 'u-target',
+        targetEmail: 'target@login',
+        flow: 'admin-reset',
+        actorUserId: 'u-admin',
+        actorEmail: 'admin@test.com',
+      });
+      const row = mockStorage.append.mock.calls[0][0];
+      expect(row.tournamentId).toBe('u-target');
+      expect(row.userId).toBe('u-admin');
+      expect(row.userEmail).toBe('admin@test.com');
+      expect(row.source).toBe('admin-reset');
+      expect(row.metadata.flow).toBe('admin-reset');
+    });
+
+    it('carries the flow through metadata for first-login + self-change', async () => {
+      await service.recordPasswordReset({
+        targetUserId: 'u-1',
+        flow: 'first-login',
+      });
+      await service.recordPasswordReset({
+        targetUserId: 'u-2',
+        flow: 'self-change',
+      });
+      expect(mockStorage.append.mock.calls[0][0].metadata.flow).toBe('first-login');
+      expect(mockStorage.append.mock.calls[1][0].metadata.flow).toBe('self-change');
+    });
+
+    it('does not throw when storage.append fails (fail-soft)', async () => {
+      mockStorage.append.mockRejectedValue(new Error('DB down'));
+      await expect(
+        service.recordPasswordReset({
+          targetUserId: 'u-target',
+          flow: 'token-reset',
+        }),
+      ).resolves.not.toThrow();
+    });
+  });
 });

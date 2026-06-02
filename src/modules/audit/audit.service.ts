@@ -425,6 +425,63 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Record a successful password write. Covers all four code paths in
+   * AuthService:
+   *
+   *   - `token-reset`   : `resetPassword(token, newPassword)` — user
+   *                       clicked a reset link from forgot-password mail
+   *                       and set a new password. Self-attributed via
+   *                       the token's userId claim.
+   *   - `first-login`   : `completeFirstLogin(limitedToken, newPassword)`
+   *                       — admin-created account completing its forced
+   *                       initial password set.
+   *   - `admin-reset`   : `adminResetPassword(email, newPassword, editor)`
+   *                       — SUPER_ADMIN / PROVIDER_ADMIN / provisioner
+   *                       rewriting a target user's password. Actor is
+   *                       the editor, target is the affected user.
+   *   - `self-change`   : `changePassword(email, current, new)` — logged-
+   *                       in user rotating their own password.
+   *
+   * Filed against the target user (tournamentId slot mirrors the
+   * recordContactEmailChanged convention so audit queries by user_id
+   * pick up password events alongside contact-email events). Metadata
+   * carries `flow` so a single PASSWORD_RESET action_type can be sliced
+   * by code path. Fail-soft via the same throttled-counter pattern as
+   * the other recorders so a transient DB failure can't roll back the
+   * password write itself.
+   */
+  async recordPasswordReset(params: {
+    targetUserId: string;
+    targetEmail?: string;
+    flow: 'token-reset' | 'first-login' | 'admin-reset' | 'self-change';
+    actorUserId?: string;
+    actorEmail?: string;
+  }): Promise<void> {
+    const { targetUserId, targetEmail, flow, actorUserId, actorEmail } = params;
+
+    const row: AuditRow = {
+      auditId: tools.UUID(),
+      tournamentId: targetUserId,
+      userId: actorUserId ?? targetUserId,
+      userEmail: actorEmail ?? targetEmail,
+      actor: toActor(actorUserId ?? targetUserId),
+      source: flow,
+      occurredAt: new Date().toISOString(),
+      actionType: 'PASSWORD_RESET',
+      methods: [{ method: 'setPasswordByUserId', params: { targetUserId } }],
+      status: 'applied',
+      metadata: { targetUserId, targetEmail, flow },
+    };
+
+    try {
+      await this.auditStorage.append(row);
+      this.recordRecovery('PASSWORD_RESET');
+    } catch (err: any) {
+      this.recordFailure('PASSWORD_RESET', targetUserId, err);
+    }
+  }
+
+  /**
    * Restore a previously deleted drawDefinition from its audit-trail snapshot.
    *
    * Idempotency is enforced at two layers:

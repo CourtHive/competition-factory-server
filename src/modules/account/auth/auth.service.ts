@@ -601,6 +601,12 @@ export class AuthService {
     const hashed = await hashPassword(newPassword);
     await this.userStorage.setPasswordByUserId(user.userId, hashed);
 
+    await this.auditService.recordPasswordReset({
+      targetUserId: user.userId,
+      targetEmail: user.email,
+      flow: 'token-reset',
+    });
+
     // A password reset invalidates every existing session: kill all refresh
     // tokens so a leaked/forgotten credential can't keep a session alive.
     this.refreshTokenService.revokeAllForUser(user.userId).catch((err: any) => {
@@ -822,6 +828,13 @@ export class AuthService {
     }
     const hashed = await hashPassword(newPassword);
     await this.userStorage.completeFirstLogin(email, hashed);
+
+    await this.auditService.recordPasswordReset({
+      targetUserId: user.userId,
+      targetEmail: user.email,
+      flow: 'first-login',
+    });
+
     return await this.signIn(email, newPassword);
   }
 
@@ -882,6 +895,14 @@ export class AuthService {
     // Admin reset invalidates the target's existing sessions.
     const targetUserId = user.userId ?? user.user_id;
     if (targetUserId) {
+      await this.auditService.recordPasswordReset({
+        targetUserId,
+        targetEmail: email,
+        flow: 'admin-reset',
+        actorUserId: editor?.userContext?.userId,
+        actorEmail: editor?.userContext?.email,
+      });
+
       this.refreshTokenService.revokeAllForUser(targetUserId).catch((err: any) => {
         Logger.warn(`revokeAllForUser(${targetUserId}) after admin reset failed: ${err?.message ?? err}`, AuthService.name);
       });
@@ -906,6 +927,16 @@ export class AuthService {
 
     const updated = { ...user, password: await hashPassword(newPassword) };
     await this.userStorage.update(email, updated);
+
+    const targetUserId = user.userId ?? user.user_id;
+    if (targetUserId) {
+      await this.auditService.recordPasswordReset({
+        targetUserId,
+        targetEmail: email,
+        flow: 'self-change',
+      });
+    }
+
     return { ...SUCCESS };
   }
 

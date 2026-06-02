@@ -101,6 +101,7 @@ describe('AuthService', () => {
     mockAuditService = {
       recordContactEmailChanged: jest.fn().mockResolvedValue(undefined),
       recordContactEmailVerified: jest.fn().mockResolvedValue(undefined),
+      recordPasswordReset: jest.fn().mockResolvedValue(undefined),
     };
 
     authService = new AuthService(
@@ -1410,6 +1411,99 @@ describe('AuthService', () => {
       expect(result.token).toBeDefined();
       expect(result.refreshToken).toBe('rtok_test');
       expect(mockRefreshTokenService.issue).toHaveBeenCalledWith('u-1', 'a@test.com', 'jest-agent');
+    });
+  });
+
+  // Verifies each of the four password-mutation paths emits a single
+  // PASSWORD_RESET audit row with the correct `flow` tag and (where
+  // applicable) actor attribution. Closes the gap surfaced by the
+  // charles@intennse.com 2026-06-02 reset event where no audit_log
+  // row existed to attribute the reset.
+  describe('password-mutation audit logging', () => {
+    beforeEach(() => {
+      mockAuditService.recordPasswordReset.mockClear();
+    });
+
+    it('resetPassword (token-reset flow) audits with target-self attribution', async () => {
+      const token = await jwtService.signAsync(
+        { userId: 'u-1', contactEmail: 'alice@example.com', purpose: 'password-reset' },
+        { expiresIn: '1h' },
+      );
+      mockUserStorage.findByUserId.mockResolvedValue({
+        userId: 'u-1',
+        email: 'alice@test.com',
+        contactEmail: 'alice@example.com',
+        emailVerifiedAt: '2026-05-22T00:00:00Z',
+      });
+      await authService.resetPassword(token, 'newPass');
+      expect(mockAuditService.recordPasswordReset).toHaveBeenCalledTimes(1);
+      expect(mockAuditService.recordPasswordReset).toHaveBeenCalledWith({
+        targetUserId: 'u-1',
+        targetEmail: 'alice@test.com',
+        flow: 'token-reset',
+      });
+    });
+
+    it('completeFirstLogin (first-login flow) audits the target', async () => {
+      const token = await jwtService.signAsync(
+        { email: 'first@test.com', purpose: 'first-login-password-change' },
+        { expiresIn: '1d' },
+      );
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-first',
+        email: 'first@test.com',
+        password: await bcrypt.hash('newPass', 4),
+        roles: ['client'],
+        mustChangePassword: false,
+      });
+      await authService.completeFirstLogin(token, 'newPass');
+      expect(mockAuditService.recordPasswordReset).toHaveBeenCalledWith({
+        targetUserId: 'u-first',
+        targetEmail: 'first@test.com',
+        flow: 'first-login',
+      });
+    });
+
+    it('adminResetPassword (admin-reset flow) audits with editor attribution', async () => {
+      const editorCtx = {
+        userContext: {
+          userId: 'u-admin',
+          email: 'admin@test.com',
+          isSuperAdmin: true,
+          globalRoles: ['superadmin'],
+          providerRoles: {},
+          providerIds: [],
+        },
+      };
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-target',
+        email: 'target@test.com',
+        password: 'h',
+        roles: ['client'],
+      });
+      await authService.adminResetPassword('target@test.com', 'forcedNew', editorCtx);
+      expect(mockAuditService.recordPasswordReset).toHaveBeenCalledWith({
+        targetUserId: 'u-target',
+        targetEmail: 'target@test.com',
+        flow: 'admin-reset',
+        actorUserId: 'u-admin',
+        actorEmail: 'admin@test.com',
+      });
+    });
+
+    it('changePassword (self-change flow) audits the target', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-self',
+        email: 'self@test.com',
+        password: await bcrypt.hash('oldPass', 4),
+        roles: ['client'],
+      });
+      await authService.changePassword('self@test.com', 'oldPass', 'newPass');
+      expect(mockAuditService.recordPasswordReset).toHaveBeenCalledWith({
+        targetUserId: 'u-self',
+        targetEmail: 'self@test.com',
+        flow: 'self-change',
+      });
     });
   });
 });
