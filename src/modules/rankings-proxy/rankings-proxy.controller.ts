@@ -20,6 +20,8 @@
 import { All, Controller, HttpException, HttpStatus, Logger, Param, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
+import { Public } from '../account/auth/decorators/public.decorator';
+
 const RANKINGS_BASE_URL = process.env.RANKINGS_BASE_URL ?? 'http://localhost:3110';
 
 @Controller('api/rankings')
@@ -30,6 +32,7 @@ export class RankingsProxyController {
   // Splat capture works through Nest's wildcard match below; we rebuild
   // the upstream path from req.params.path[0] (Express joins extras).
   @All('*splat')
+  @Public()
   async proxy(
     @Param('splat') splat: string[] | string,
     @Query() query: Record<string, string>,
