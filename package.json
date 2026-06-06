@@ -1,6 +1,6 @@
 {
   "name": "competition-factory-server",
-  "packageManager": "pnpm@11.5.1",
+  "packageManager": "pnpm@11.5.2",
   "private": true,
   "version": "2.10.0",
   "description": "Server side factory mutations",
