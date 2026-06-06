@@ -18,7 +18,6 @@ import { MessagingModule } from '../messaging/messaging.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { StorageModule } from '../../storage/storage.module';
 import { ConfigsModule } from '../../config/config.module';
-import { ServeStaticModule } from '@nestjs/serve-static';
 import { FactoryModule } from '../factory/factory.module';
 import { I18nModule } from '../i18n/i18n.module';
 import { RuntimeConfigController } from './runtime-config.controller';
@@ -28,11 +27,16 @@ import { UsersModule } from '../users/users.module';
 import { AccountModule } from '../account/account.module';
 import { AppService } from './app.service';
 import { Module } from '@nestjs/common';
-import { join } from 'path';
 
-// Core modules — always loaded regardless of profile
+// Core modules — always loaded regardless of profile.
+//
+// The admin-client SPA used to be served here via
+//   ServeStaticModule.forRoot({ rootPath: join(process.cwd(), 'client') })
+// which exposed shared/client/admin/ at /admin. Removed 2026-06-06 (WS-17
+// step #3) — courthive-console (the wholesale relocation in courthive-ams/
+// client/) supersedes admin-client; NGINX serves /admin from
+// /var/www/courthive-console/ at the edge. See planning/AMS_DEPLOY_AND_RETIREMENT.md.
 const coreModules = [
-  ServeStaticModule.forRoot({ rootPath: join(process.cwd(), 'client') }),
   StorageModule,
   ConfigsModule,
   FederationDataModule,
