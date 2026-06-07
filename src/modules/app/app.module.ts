@@ -18,6 +18,7 @@ import { MessagingModule } from '../messaging/messaging.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { StorageModule } from '../../storage/storage.module';
 import { ConfigsModule } from '../../config/config.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
 import { FactoryModule } from '../factory/factory.module';
 import { I18nModule } from '../i18n/i18n.module';
 import { RuntimeConfigController } from './runtime-config.controller';
@@ -27,16 +28,30 @@ import { UsersModule } from '../users/users.module';
 import { AccountModule } from '../account/account.module';
 import { AppService } from './app.service';
 import { Module } from '@nestjs/common';
+import { join } from 'path';
 
 // Core modules — always loaded regardless of profile.
 //
-// The admin-client SPA used to be served here via
-//   ServeStaticModule.forRoot({ rootPath: join(process.cwd(), 'client') })
-// which exposed shared/client/admin/ at /admin. Removed 2026-06-06 (WS-17
-// step #3) — courthive-console (the wholesale relocation in courthive-ams/
-// client/) supersedes admin-client; NGINX serves /admin from
-// /var/www/courthive-console/ at the edge. See planning/AMS_DEPLOY_AND_RETIREMENT.md.
+// /tmx, /tmx-beta, /pub are served from `client/<sub>` on this server.
+// /admin used to be served the same way from `client/admin`, but as of
+// WS-17 step #3 (commit f27f168) that SPA is retired — its replacement
+// is courthive-console at `/console/`, served by NGINX at the edge from
+// /var/www/courthive-console/. See planning/AMS_DEPLOY_AND_RETIREMENT.md.
+//
+// The original WS-17 commit retired the whole `ServeStaticModule.forRoot
+// ({ rootPath: client })` block, which also took `/tmx`, `/tmx-beta` and
+// `/pub` down — the catch-all root was serving them too. Re-add the
+// module with per-path entries so admin stays retired but the other
+// three are restored.
+const clientRoot = join(process.cwd(), 'client');
+const staticClientModules = [
+  ServeStaticModule.forRoot({ rootPath: join(clientRoot, 'tmx'), serveRoot: '/tmx' }),
+  ServeStaticModule.forRoot({ rootPath: join(clientRoot, 'tmx-beta'), serveRoot: '/tmx-beta' }),
+  ServeStaticModule.forRoot({ rootPath: join(clientRoot, 'pub'), serveRoot: '/pub' }),
+];
+
 const coreModules = [
+  ...staticClientModules,
   StorageModule,
   ConfigsModule,
   FederationDataModule,
