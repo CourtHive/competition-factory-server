@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.11.0](https://github.com/CourtHive/competition-factory-server/compare/v2.10.0...v2.11.0) (2026-06-07)
+
+
+### Features
+
+* **policies:** seed TYPTI ranking-points policy ([6c89f1d](https://github.com/CourtHive/competition-factory-server/commit/6c89f1d0f59e0229682963e134ce05d614dcb6d1))
+* **rankings-proxy:** expose courthive-rankings via /api/rankings/* ([217036f](https://github.com/CourtHive/competition-factory-server/commit/217036ffb8413e68aaa3f6c4565d341e601f2839))
+
+
+### Bug Fixes
+
+* **rankings-proxy:** mark catch-all @Public to bypass global AuthGuard ([7d7eaea](https://github.com/CourtHive/competition-factory-server/commit/7d7eaeac914b15ee9a899d50215bf654b24f72e0))
+
 ## [2.10.0](https://github.com/CourtHive/competition-factory-server/compare/v2.9.0...v2.10.0) (2026-06-03)
 
 
