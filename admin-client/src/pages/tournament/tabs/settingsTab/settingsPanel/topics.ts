@@ -12,6 +12,7 @@
 import { PERMISSION_GROUPS } from 'types/permissionGroups';
 import type {
   AllowedCategory,
+  AllowedTierSystem,
   ProviderConfigCaps,
   ProviderConfigSettings,
 } from '@courthive/provider-config';
@@ -32,7 +33,14 @@ import {
 } from './constants';
 import { chipMultiSelect } from './widgets';
 
-export type TopicId = 'permissions' | 'allowed' | 'policies' | 'defaults' | 'print' | 'categories';
+export type TopicId =
+  | 'permissions'
+  | 'allowed'
+  | 'policies'
+  | 'defaults'
+  | 'print'
+  | 'categories'
+  | 'tierSystems';
 
 export interface TopologyEntry {
   topologyId: string;
@@ -86,6 +94,7 @@ export const TOPICS: TopicDescriptor[] = [
   { id: 'defaults', label: 'Defaults', icon: 'fa-sliders', render: renderDefaults },
   { id: 'print', label: 'Print Configuration', icon: 'fa-print', render: renderPrint },
   { id: 'categories', label: 'Categories', icon: 'fa-layer-group', render: renderCategories },
+  { id: 'tierSystems', label: 'Tier systems', icon: 'fa-medal', render: renderTierSystems },
 ];
 
 // ── Permissions (real editor) ──────────────────────────────────────────────
@@ -751,6 +760,175 @@ function renderCategories(host: HTMLElement, ctx: TopicContext): void {
       delBtn.className = 'sp-row-del-btn';
       delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
       delBtn.title = 'Remove category';
+      delBtn.addEventListener('click', () => {
+        rows.splice(idx, 1);
+        emit();
+        rebuild();
+      });
+      delCell.appendChild(delBtn);
+      tr.appendChild(delCell);
+
+      table.appendChild(tr);
+    });
+  }
+
+  rebuild();
+}
+
+// ── Tier systems (allowedTierSystems editor) ───────────────────────────────
+//
+// When non-empty, TMX's edit-tournament drawer renders the tier system
+// field as a select instead of free-form text. Each row carries a
+// federation namespace (`system`), an optional display label, and an
+// optional fixed value list. Mirrors the renderCategories pattern but
+// fully inline — no modal — since tier system strings are operator-typed,
+// not chosen from a controlled vocabulary.
+// See Mentat/planning/TOURNAMENT_LEVEL_AND_TIER.md Phase 2.5.
+function renderTierSystems(host: HTMLElement, ctx: TopicContext): void {
+  const root = topicShell(
+    'Tier systems',
+    'Restrict the federation tier systems (ITF Junior, ATP, PPA, …) operators can pick from the edit-tournament drawer. Empty list = drawer falls back to free-form text.',
+  );
+  host.appendChild(root);
+  const body = root.querySelector<HTMLElement>('.sp-topic-body')!;
+
+  const universe = ctx.caps.policies?.allowedTierSystems ?? [];
+  const rows: AllowedTierSystem[] = [...(ctx.draft.policies?.allowedTierSystems ?? [])];
+
+  const tableHost = document.createElement('div');
+  tableHost.className = 'sp-row-editor';
+  body.appendChild(tableHost);
+
+  const table = document.createElement('div');
+  table.className = 'sp-row-table';
+  tableHost.appendChild(table);
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'sp-row-add-btn';
+  addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add tier system';
+  addBtn.addEventListener('click', () => {
+    rows.push({ system: '', displayName: '' });
+    emit();
+    rebuild();
+  });
+  tableHost.appendChild(addBtn);
+
+  if (universe.length) {
+    const hint = document.createElement('div');
+    hint.className = 'sp-row-hint';
+    hint.textContent = `Provisioner-allowed: ${universe.map((s) => s.system).join(', ')}`;
+    tableHost.appendChild(hint);
+  }
+
+  function emit(): void {
+    // Drop rows with no system; coerce empty `values` arrays to undefined
+    // so a partially-filled row doesn't bloat the persisted shape.
+    const cleaned: AllowedTierSystem[] = rows
+      .filter((r) => r.system?.trim())
+      .map((r) => {
+        const cleanedRow: AllowedTierSystem = { system: r.system.trim() };
+        if (r.displayName?.trim()) cleanedRow.displayName = r.displayName.trim();
+        if (r.values?.length) cleanedRow.values = r.values.map((v) => v.trim()).filter(Boolean);
+        return cleanedRow;
+      });
+    ctx.draft.policies = { ...(ctx.draft.policies ?? {}) };
+    if (cleaned.length) {
+      ctx.draft.policies.allowedTierSystems = cleaned;
+    } else {
+      delete ctx.draft.policies.allowedTierSystems;
+    }
+    ctx.onChange();
+  }
+
+  function rebuild(): void {
+    table.innerHTML = '';
+
+    const headerRow = document.createElement('div');
+    headerRow.className = 'sp-row-header';
+    const systemHead = document.createElement('div');
+    systemHead.className = 'sp-row-cell-header';
+    systemHead.textContent = 'System *';
+    const labelHead = document.createElement('div');
+    labelHead.className = 'sp-row-cell-header';
+    labelHead.textContent = 'Display name';
+    const valuesHead = document.createElement('div');
+    valuesHead.className = 'sp-row-cell-header';
+    valuesHead.textContent = 'Values (comma-separated, optional)';
+    headerRow.appendChild(systemHead);
+    headerRow.appendChild(labelHead);
+    headerRow.appendChild(valuesHead);
+    headerRow.appendChild(document.createElement('div'));
+    table.appendChild(headerRow);
+
+    if (rows.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'sp-row-empty';
+      empty.textContent = 'No tier systems. Click Add tier system to start.';
+      table.appendChild(empty);
+      return;
+    }
+
+    rows.forEach((row, idx) => {
+      const tr = document.createElement('div');
+      tr.className = 'sp-row';
+
+      // System
+      const systemCell = document.createElement('div');
+      systemCell.className = 'sp-row-cell';
+      const systemInput = document.createElement('input');
+      systemInput.type = 'text';
+      systemInput.className = 'sp-field-input';
+      systemInput.placeholder = 'e.g. ITF_JUNIOR';
+      systemInput.value = row.system ?? '';
+      systemInput.addEventListener('input', () => {
+        rows[idx] = { ...rows[idx], system: systemInput.value };
+        emit();
+      });
+      systemCell.appendChild(systemInput);
+      tr.appendChild(systemCell);
+
+      // Display name
+      const labelCell = document.createElement('div');
+      labelCell.className = 'sp-row-cell';
+      const labelInput = document.createElement('input');
+      labelInput.type = 'text';
+      labelInput.className = 'sp-field-input';
+      labelInput.placeholder = 'e.g. ITF Junior';
+      labelInput.value = row.displayName ?? '';
+      labelInput.addEventListener('input', () => {
+        rows[idx] = { ...rows[idx], displayName: labelInput.value };
+        emit();
+      });
+      labelCell.appendChild(labelInput);
+      tr.appendChild(labelCell);
+
+      // Values (CSV) — empty means "no value constraint; free-form in drawer".
+      const valuesCell = document.createElement('div');
+      valuesCell.className = 'sp-row-cell';
+      const valuesInput = document.createElement('input');
+      valuesInput.type = 'text';
+      valuesInput.className = 'sp-field-input';
+      valuesInput.placeholder = 'e.g. J1, J100, J500';
+      valuesInput.value = (row.values ?? []).join(', ');
+      valuesInput.addEventListener('input', () => {
+        const next = valuesInput.value
+          .split(',')
+          .map((v) => v.trim())
+          .filter(Boolean);
+        rows[idx] = { ...rows[idx], values: next.length ? next : undefined };
+        emit();
+      });
+      valuesCell.appendChild(valuesInput);
+      tr.appendChild(valuesCell);
+
+      const delCell = document.createElement('div');
+      delCell.className = 'sp-row-cell-delete';
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'sp-row-del-btn';
+      delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+      delBtn.title = 'Remove tier system';
       delBtn.addEventListener('click', () => {
         rows.splice(idx, 1);
         emit();
