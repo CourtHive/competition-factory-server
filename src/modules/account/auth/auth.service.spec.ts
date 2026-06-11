@@ -287,6 +287,72 @@ describe('AuthService', () => {
       expect(decoded.lastSelectedProviderId).toBeNull();
     });
 
+    it('embeds providerIds[] in the JWT derived from user_providers', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-pids',
+        email: 'pids@test.com',
+        password: 'secret',
+        providerId: 'prov-ION',
+        roles: ['client'],
+      });
+      mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
+        { userId: 'u-pids', providerId: 'prov-ION', providerRole: 'PROVIDER_ADMIN', organisationName: 'ION', organisationAbbreviation: 'ION' },
+        { userId: 'u-pids', providerId: 'prov-BOBOCA', providerRole: 'DIRECTOR', organisationName: 'Battle of Boca', organisationAbbreviation: 'BOBOCA' },
+      ]);
+      const result: any = await authService.signIn('pids@test.com', 'secret');
+      const decoded = await jwtService.verifyAsync(result.token);
+      expect(decoded.providerIds).toEqual(['prov-ION', 'prov-BOBOCA']);
+    });
+
+    it('derives effective home provider from the single user_providers row when users.provider_id is NULL', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-null-home',
+        email: 'null-home@test.com',
+        password: 'secret',
+        providerId: null,
+        roles: ['client', 'admin'],
+      });
+      mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
+        { userId: 'u-null-home', providerId: 'prov-INTENNSE', providerRole: 'PROVIDER_ADMIN', organisationName: 'INTENNSE Tennis', organisationAbbreviation: 'NTNS' },
+      ]);
+      mockProviderStorage.getProvider.mockResolvedValue({ organisationName: 'INTENNSE Tennis', organisationAbbreviation: 'NTNS' });
+
+      const result: any = await authService.signIn('null-home@test.com', 'secret');
+      const decoded = await jwtService.verifyAsync(result.token);
+
+      // Provider load + lastAccess use the derived home (the user_providers row)
+      expect(mockProviderStorage.getProvider).toHaveBeenCalledWith('prov-INTENNSE');
+      expect(decoded.provider).toEqual(expect.objectContaining({ organisationAbbreviation: 'NTNS' }));
+      // The race-closing claim: TMX can read providerIds straight from state
+      expect(decoded.providerIds).toEqual(['prov-INTENNSE']);
+
+      // lastAccess fired for the derived home, not the (NULL) explicit one
+      await Promise.resolve();
+      expect(mockProviderStorage.updateLastAccess).toHaveBeenCalledWith('prov-INTENNSE');
+    });
+
+    it('leaves provider unset when users.provider_id is NULL and multiple user_providers rows exist', async () => {
+      // Ambiguous home — defer to TMX provider switcher rather than guess.
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-multi-null',
+        email: 'multi-null@test.com',
+        password: 'secret',
+        providerId: null,
+        roles: ['client'],
+      });
+      mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
+        { userId: 'u-multi-null', providerId: 'prov-A', providerRole: 'PROVIDER_ADMIN', organisationName: 'A', organisationAbbreviation: 'A' },
+        { userId: 'u-multi-null', providerId: 'prov-B', providerRole: 'PROVIDER_ADMIN', organisationName: 'B', organisationAbbreviation: 'B' },
+      ]);
+      const result: any = await authService.signIn('multi-null@test.com', 'secret');
+      const decoded = await jwtService.verifyAsync(result.token);
+
+      expect(mockProviderStorage.getProvider).not.toHaveBeenCalled();
+      expect(decoded.provider).toBeUndefined();
+      // providerIds still carries both — TMX can still validate mutations
+      expect(decoded.providerIds).toEqual(['prov-A', 'prov-B']);
+    });
+
     it('returns a limited token when user.mustChangePassword=true', async () => {
       mockUsersService.findOne.mockResolvedValue({
         email: 'fresh@test.com',

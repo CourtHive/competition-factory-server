@@ -203,8 +203,53 @@ export class AuthService {
     const { password, ...userDetails } = user ?? {};
     const email = user.email;
 
-    if (user.providerId) {
-      const provider = await this.providerStorage.getProvider(user.providerId);
+    // Multi-provider associations from user_providers. Loaded first so
+    // both the JWT `providerIds` claim and the effective home-provider
+    // derivation below can reuse this single round-trip.
+    let associations: Array<{
+      providerId: string;
+      providerRole: string;
+      organisationName?: string;
+      organisationAbbreviation?: string;
+    }> = [];
+    if (user.userId) {
+      try {
+        const enriched = await this.userProviderStorage.findByUserIdEnriched(user.userId);
+        associations = enriched.map((row) => ({
+          providerId: row.providerId,
+          providerRole: row.providerRole,
+          organisationName: row.organisationName,
+          organisationAbbreviation: row.organisationAbbreviation,
+        }));
+      } catch (err) {
+        Logger.warn(`Failed to load providerAssociations for ${email}: ${(err as Error).message}`);
+      }
+    }
+    userDetails.providerAssociations = associations;
+    // Flat provider id list — lets TMX validate mutation targets against
+    // the user's known providers immediately from the JWT, without waiting
+    // for /auth/me to round-trip. Closes the race that produced "Not
+    // authorized" toasts for users with NULL users.provider_id whose
+    // userContext cache hadn't yet populated.
+    userDetails.providerIds = associations.map((a) => a.providerId);
+    // `lastSelectedProviderId` was loaded with the user record. If the
+    // persisted value no longer matches any current association (e.g. the
+    // association was revoked between sessions), nullify it so TMX-side
+    // precedence falls through to the legacy provider_id default.
+    if (userDetails.lastSelectedProviderId) {
+      const stillValid = associations.some((a) => a.providerId === userDetails.lastSelectedProviderId);
+      if (!stillValid) userDetails.lastSelectedProviderId = null;
+    }
+
+    // Effective home provider — explicit `users.provider_id`, otherwise
+    // the single user_providers association as a safe fallback for users
+    // created without an explicit home (the admin "Add User" flow doesn't
+    // always set it). Multi-association NULL-home users keep a NULL home
+    // and rely on TMX's provider switcher.
+    const effectiveHomeProviderId =
+      user.providerId ?? (associations.length === 1 ? associations[0].providerId : undefined);
+    if (effectiveHomeProviderId) {
+      const provider = await this.providerStorage.getProvider(effectiveHomeProviderId);
       userDetails.provider = provider;
       // Two-tier provider config: compute effective shape (caps ∩ settings)
       // and embed in the login response so TMX can apply it immediately.
@@ -216,20 +261,19 @@ export class AuthService {
       );
     }
 
-    // Track last access time for user and their provider. Failures are
-    // non-fatal but must be visible — silent .catch() previously masked
+    // Track last access time for user and effective home provider. Failures
+    // are non-fatal but must be visible — silent .catch() previously masked
     // case-mismatch and connection bugs that produced stale `last_access`
     // columns in the admin UI.
     //
     // Super-admin access never counts toward a provider's activity (they're
-    // operating on every provider; crediting their home provider would be
-    // misleading). User-level lastAccess always updates regardless of role.
+    // operating on every provider; crediting their home would be misleading).
     const isSuperAdmin = (user.roles ?? []).includes(SUPER_ADMIN);
     this.userStorage.updateLastAccess(email).catch((err: any) => {
       Logger.warn(`updateLastAccess(user=${email}) failed: ${err?.message ?? err}`, AuthService.name);
     });
-    if (user.providerId && !isSuperAdmin) {
-      const providerId = user.providerId;
+    if (effectiveHomeProviderId && !isSuperAdmin) {
+      const providerId = effectiveHomeProviderId;
       this.providerStorage.updateLastAccess(providerId).catch((err: any) => {
         Logger.warn(`updateLastAccess(provider=${providerId}) failed: ${err?.message ?? err}`, AuthService.name);
       });
@@ -250,35 +294,6 @@ export class AuthService {
         Logger.warn(`Failed to load provisioner context for ${email}: ${(err as Error).message}`);
         userDetails.provisionerIds = [];
         userDetails.provisionerProviders = [];
-      }
-    }
-
-    // Multi-provider session context. Load the user's full set of provider
-    // associations from user_providers so TMX can surface them in the
-    // provider switcher and resolve the active session provider. See
-    // Mentat/planning/MULTI_PROVIDER_SESSION_CONTEXT.md for the design.
-    //
-    // `lastSelectedProviderId` was loaded with the user record (above). If
-    // the persisted value no longer matches any current association (e.g.
-    // the association was revoked between sessions), nullify it so the
-    // TMX-side precedence falls through to the legacy provider_id default.
-    if (user.userId) {
-      try {
-        const enriched = await this.userProviderStorage.findByUserIdEnriched(user.userId);
-        const associations = enriched.map((row) => ({
-          providerId: row.providerId,
-          providerRole: row.providerRole,
-          organisationName: row.organisationName,
-          organisationAbbreviation: row.organisationAbbreviation,
-        }));
-        userDetails.providerAssociations = associations;
-        if (userDetails.lastSelectedProviderId) {
-          const stillValid = associations.some((a) => a.providerId === userDetails.lastSelectedProviderId);
-          if (!stillValid) userDetails.lastSelectedProviderId = null;
-        }
-      } catch (err) {
-        Logger.warn(`Failed to load providerAssociations for ${email}: ${(err as Error).message}`);
-        userDetails.providerAssociations = [];
       }
     }
 
