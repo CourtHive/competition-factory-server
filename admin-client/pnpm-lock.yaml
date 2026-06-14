@@ -4,16 +4,13 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  '@courthive/provider-config': link:../../provider-config
-
 importers:
 
   .:
     dependencies:
       '@courthive/provider-config':
-        specifier: link:../../provider-config
-        version: link:../../provider-config
+        specifier: ^0.6.0
+        version: 0.6.0
       animate.css:
         specifier: ^4.1.1
         version: 4.1.1
@@ -21,8 +18,8 @@ importers:
         specifier: ^1.13.0
         version: 1.17.0
       courthive-components:
-        specifier: 3.3.0
-        version: 3.3.0(@tiptap/pm@3.25.0)
+        specifier: 3.4.0
+        version: 3.4.0(@tiptap/pm@3.25.0)
       i18next:
         specifier: ^26.0.0
         version: 26.3.1(typescript@6.0.3)
@@ -101,6 +98,10 @@ packages:
   '@babel/runtime@7.29.7':
     resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
     engines: {node: '>=6.9.0'}
+
+  '@courthive/provider-config@0.6.0':
+    resolution: {integrity: sha512-k2Rmk+nbmsvyCoi+t7zbEz9berSfSr2jlXEg7sOKY3mWT3pwOsbegpzfe25FvdBUdevrsrzCA+JIKzD36YAp2g==}
+    engines: {node: '>=20'}
 
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
@@ -1189,8 +1190,8 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  courthive-components@3.3.0:
-    resolution: {integrity: sha512-7cWPhT8y0yq8Ei4Fuk8PvgZk4mk2+CaUIlDPsoM8IAicTcdfJm5tPlPNPeSZjcHW27kKMLO255vQMH/G8dPFUA==}
+  courthive-components@3.4.0:
+    resolution: {integrity: sha512-SQ4fN5Qc4FVWGnTnwCPZZCYPthvjDyLsD9/lVGfGH51mEfvO3Z3aYsSO2ztdpoFePLCGz2ScSRQ6zrwrCWwE6A==}
     engines: {node: '>=22'}
 
   cross-spawn@7.0.6:
@@ -2058,10 +2059,6 @@ packages:
   tippy.js@6.3.7:
     resolution: {integrity: sha512-E1d3oP2emgJ9dRQZdf3Kkn0qJgI6ZLpyS5z6ZkY1DF3kaQaBsGZsndEpHwx+eC+tYM41HaSNvNtLx8tU57FzTQ==}
 
-  tods-competition-factory@5.5.0:
-    resolution: {integrity: sha512-RWVwUlJMXI+iW5Ypg+ZEMeS4o4h8I2x2EJjYj/JFpEsMCX5TFcbP5HqoWFMaAxEVR1KFMn5QjZ2rjaDSsrAnTA==}
-    engines: {node: '>=22'}
-
   tods-competition-factory@5.6.0:
     resolution: {integrity: sha512-7kimYiSb0N+GpmnPIwLZ70Qu5NRlWBjSULyrWnjj85NZ/UKreagQt2LrdRs2STDXtRFIEZzQp5hH289ydod6Iw==}
     engines: {node: '>=22'}
@@ -2247,6 +2244,8 @@ snapshots:
   '@babel/helper-validator-identifier@7.29.7': {}
 
   '@babel/runtime@7.29.7': {}
+
+  '@courthive/provider-config@0.6.0': {}
 
   '@emnapi/core@1.10.0':
     dependencies:
@@ -3179,7 +3178,7 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  courthive-components@3.3.0(@tiptap/pm@3.25.0):
+  courthive-components@3.4.0(@tiptap/pm@3.25.0):
     dependencies:
       '@tiptap/core': 3.25.0(@tiptap/pm@3.25.0)
       '@tiptap/extension-color': 3.25.0(@tiptap/extension-text-style@3.25.0(@tiptap/core@3.25.0(@tiptap/pm@3.25.0)))
@@ -3196,7 +3195,7 @@ snapshots:
       focus-trap: 8.2.1
       timepicker-ui: 4.3.0
       tippy.js: 6.3.7
-      tods-competition-factory: 5.5.0
+      tods-competition-factory: 5.6.0
       vanillajs-datepicker: 1.3.4
     transitivePeerDependencies:
       - '@tiptap/pm'
@@ -4121,8 +4120,6 @@ snapshots:
   tippy.js@6.3.7:
     dependencies:
       '@popperjs/core': 2.11.8
-
-  tods-competition-factory@5.5.0: {}
 
   tods-competition-factory@5.6.0: {}
 
