@@ -21,8 +21,8 @@ importers:
         specifier: ^1.13.0
         version: 1.18.0
       courthive-components:
-        specifier: 3.4.0
-        version: 3.4.0(@tiptap/pm@3.26.1)
+        specifier: 3.4.3
+        version: 3.4.3(@tiptap/pm@3.26.1)
       i18next:
         specifier: ^26.0.0
         version: 26.3.1(typescript@6.0.3)
@@ -1189,8 +1189,8 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  courthive-components@3.4.0:
-    resolution: {integrity: sha512-SQ4fN5Qc4FVWGnTnwCPZZCYPthvjDyLsD9/lVGfGH51mEfvO3Z3aYsSO2ztdpoFePLCGz2ScSRQ6zrwrCWwE6A==}
+  courthive-components@3.4.3:
+    resolution: {integrity: sha512-F7CfYTU1uI6+zVPb/DrGb+HkC3InGlwbeRQMWyOMMJjjWkz5V16Cd905GF5Z1yAyOl0sTA20KRreQJL/caBsGw==}
     engines: {node: '>=22'}
 
   cross-spawn@7.0.6:
@@ -3175,7 +3175,7 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  courthive-components@3.4.0(@tiptap/pm@3.26.1):
+  courthive-components@3.4.3(@tiptap/pm@3.26.1):
     dependencies:
       '@tiptap/core': 3.26.1(@tiptap/pm@3.26.1)
       '@tiptap/extension-color': 3.26.1(@tiptap/extension-text-style@3.26.1(@tiptap/core@3.26.1(@tiptap/pm@3.26.1)))
