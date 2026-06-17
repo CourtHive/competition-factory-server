@@ -1052,6 +1052,40 @@ describe('AuthService', () => {
       expect(mockUserStorage.update).not.toHaveBeenCalled();
     });
 
+    // Regression: a mixed-case email reached userStorage.update verbatim
+    // and matched zero rows in `WHERE email = $1` (Postgres TEXT is case-
+    // sensitive). modifyUser still returned success because the UPDATE
+    // succeeded with rowCount=0 — the admin saw "User updated" but
+    // nothing persisted. usersService.findOne lowercases internally so
+    // the row was found; only the write path was case-mismatched.
+    it('normalizes a mixed-case email so userStorage.update matches the canonical row', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'user@test.com', userId: 'u-1', password: 'h', roles: ['client'],
+      });
+      await authService.modifyUser({
+        email: 'User@TEST.com',
+        roles: ['client', 'admin'],
+      }, superAdminEditor);
+      expect(mockUserStorage.update).toHaveBeenCalledWith(
+        'user@test.com',
+        expect.objectContaining({ roles: ['client', 'admin'] }),
+      );
+    });
+
+    it('trims surrounding whitespace from email before writing', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'user@test.com', userId: 'u-1', password: 'h', roles: ['client'],
+      });
+      await authService.modifyUser({
+        email: '  user@test.com  ',
+        roles: ['client', 'admin'],
+      }, superAdminEditor);
+      expect(mockUserStorage.update).toHaveBeenCalledWith(
+        'user@test.com',
+        expect.anything(),
+      );
+    });
+
     describe('authorization', () => {
       const providerAdminEditor = (providerId: string) => ({
         userContext: {
@@ -1209,6 +1243,22 @@ describe('AuthService', () => {
       expect(mockUserStorage.update).toHaveBeenCalled();
       // SUPER_ADMIN doesn't need to inspect provider associations.
       expect(mockUserProviderStorage.findByUserId).not.toHaveBeenCalled();
+    });
+
+    // Regression — see the matching test in modifyUser. Same case-mismatch
+    // root cause: userStorage.update used the input email verbatim and
+    // matched zero rows when the caller passed mixed-case.
+    it('normalizes a mixed-case email so userStorage.update matches the canonical row', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'target@test.com',
+        userId: 'target-uuid',
+        password: 'old-hash',
+      });
+      await authService.adminResetPassword('Target@TEST.com', 'newpw', superAdminCtx);
+      expect(mockUserStorage.update).toHaveBeenCalledWith(
+        'target@test.com',
+        expect.anything(),
+      );
     });
 
     it('allows a PROVIDER_ADMIN at one of the target user\u2019s providers', async () => {

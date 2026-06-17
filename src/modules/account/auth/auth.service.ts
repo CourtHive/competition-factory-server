@@ -865,11 +865,15 @@ export class AuthService {
    * can reset (the previous behavior).
    */
   async adminResetPassword(
-    email: string,
+    rawEmail: string,
     newPassword?: string,
     editor?: { userContext?: UserContext; provisionerIds?: string[] },
   ) {
-    if (!email) return { error: 'Email is required' };
+    if (!rawEmail) return { error: 'Email is required' };
+    // Normalize for the same reason as modifyUser — userStorage.update
+    // matches by exact email, so a mixed-case input would silently
+    // update zero rows below.
+    const email = rawEmail.toLowerCase().trim();
     const user = await this.usersService.findOne(email);
     if (!user) return { error: 'User not found' };
 
@@ -959,8 +963,16 @@ export class AuthService {
     params: { email: string; [key: string]: any },
     editor?: { userContext?: UserContext; provisionerIds?: string[] },
   ) {
-    const { email, contactEmail, ...updates } = params;
-    if (!email) return { error: 'Email is required' };
+    const { email: rawEmail, contactEmail, ...updates } = params;
+    if (!rawEmail) return { error: 'Email is required' };
+
+    // Normalize once. usersService.findOne lowercases internally for the
+    // SQL lookup, so a mixed-case input still finds the (lowercase)
+    // canonical row — but userStorage.update further down uses the email
+    // verbatim in `WHERE email = $1`. Without normalizing here, a mixed-
+    // case input matches zero rows on update and the change silently
+    // disappears while modifyUser still returns success.
+    const email = rawEmail.toLowerCase().trim();
 
     const user = await this.usersService.findOne(email);
     if (!user) return { error: 'User not found' };
