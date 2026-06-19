@@ -6,6 +6,15 @@ import { Meta } from '@storybook/addon-docs/blocks';
 
 Provisioners create and manage SSO users — users who authenticate via the provisioner's external identity system rather than a local password.
 
+> **`POST /provisioner/users` is the only user-creation endpoint available to a provisioner
+> API key.** It creates an SSO-only account and validates the provisioner→provider relationship
+> directly. The console admin endpoints that create **password** accounts and send "set your
+> password" onboarding email (`/auth/admin-create-user`) — along with `/auth/admin-reset-password`,
+> `/auth/modify`, and the `user_providers` association endpoints — **reject API-key callers with
+> 403**. Those require a real authenticated administrator (a human `PROVIDER_ADMIN`/`SUPER_ADMIN`,
+> or a `PROVISIONER`-role JWT user). See **Provisioner/Authentication → Authorization boundary**
+> for why.
+
 ## Create SSO User
 
 ```http
