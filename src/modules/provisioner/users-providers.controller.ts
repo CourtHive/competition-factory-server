@@ -25,6 +25,7 @@ import {
   Inject,
   Param,
   Put,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 
@@ -97,12 +98,14 @@ export class UsersProvidersController {
     @Body() body: { providerRole?: string },
     @User() user?: any,
     @UserCtx() userContext?: UserContext,
+    @Req() req?: any,
   ) {
     await assertProviderEditor({
       userContext,
       providerId,
       provisionerIds: user?.provisionerIds,
       provisionerProviderStorage: this.provisionerProviderStorage,
+      isProvisioner: !!req?.provisioner,
     });
 
     const providerRole = body?.providerRole;
@@ -135,12 +138,14 @@ export class UsersProvidersController {
     @Param('providerId') providerId: string,
     @User() user?: any,
     @UserCtx() userContext?: UserContext,
+    @Req() req?: any,
   ) {
     await assertProviderEditor({
       userContext,
       providerId,
       provisionerIds: user?.provisionerIds,
       provisionerProviderStorage: this.provisionerProviderStorage,
+      isProvisioner: !!req?.provisioner,
     });
 
     // Last-admin-block also gates remove — can't leave the provider

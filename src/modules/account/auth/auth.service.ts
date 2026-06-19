@@ -695,7 +695,7 @@ export class AuthService {
       permissions?: string[];
       services?: string[];
     },
-    editor?: { userContext?: UserContext; provisionerIds?: string[] },
+    editor?: { userContext?: UserContext; provisionerIds?: string[]; isProvisioner?: boolean },
   ) {
     const email = (body?.email ?? '').toLowerCase().trim();
     if (!email) return { error: 'Email is required' };
@@ -720,6 +720,7 @@ export class AuthService {
         providerId,
         provisionerIds: editor?.provisionerIds,
         provisionerProviderStorage: this.provisionerProviderStorage,
+        isProvisioner: editor?.isProvisioner,
       });
     }
 
@@ -867,7 +868,7 @@ export class AuthService {
   async adminResetPassword(
     rawEmail: string,
     newPassword?: string,
-    editor?: { userContext?: UserContext; provisionerIds?: string[] },
+    editor?: { userContext?: UserContext; provisionerIds?: string[]; isProvisioner?: boolean },
   ) {
     if (!rawEmail) return { error: 'Email is required' };
     // Normalize for the same reason as modifyUser — userStorage.update
@@ -893,6 +894,7 @@ export class AuthService {
             providerId: row.providerId,
             provisionerIds: editor?.provisionerIds,
             provisionerProviderStorage: this.provisionerProviderStorage,
+            isProvisioner: editor?.isProvisioner,
           });
           allowed = true;
           break;
@@ -961,7 +963,7 @@ export class AuthService {
 
   async modifyUser(
     params: { email: string; [key: string]: any },
-    editor?: { userContext?: UserContext; provisionerIds?: string[] },
+    editor?: { userContext?: UserContext; provisionerIds?: string[]; isProvisioner?: boolean },
   ) {
     const { email: rawEmail, contactEmail, ...updates } = params;
     if (!rawEmail) return { error: 'Email is required' };
@@ -1062,7 +1064,7 @@ export class AuthService {
    */
   private async assertModifyUserAuthority(
     user: any,
-    editor?: { userContext?: UserContext; provisionerIds?: string[] },
+    editor?: { userContext?: UserContext; provisionerIds?: string[]; isProvisioner?: boolean },
   ): Promise<void> {
     const targetUserId = user.userId ?? user.user_id;
     const targetRows = targetUserId
@@ -1075,6 +1077,7 @@ export class AuthService {
           providerId: row.providerId,
           provisionerIds: editor?.provisionerIds,
           provisionerProviderStorage: this.provisionerProviderStorage,
+          isProvisioner: editor?.isProvisioner,
         });
         return;
       } catch {

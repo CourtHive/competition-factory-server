@@ -13,6 +13,19 @@
  *   PROVISIONER administering P → may edit at P
  *   PROVIDER_ADMIN at P      → may edit at P
  *   anyone else              → 403
+ *
+ * One subtlety: when a request is authenticated as a provisioner
+ * (`req.provisioner` set — API key or PROVISIONER-role JWT), ProvisionerMiddleware
+ * mints a *synthetic* `providerRoles[P] = PROVIDER_ADMIN` for the impersonated
+ * provider so tournament/score endpoints work unchanged. That synthetic role must
+ * NOT be treated as real PROVIDER_ADMIN authority for user administration —
+ * otherwise a bare `prov_` API key + `X-Provider-Id` could create/modify/reset
+ * users (the loophole this guards against). Callers pass `isProvisioner` so that,
+ * for provisioner-authenticated requests, authority must come from a real
+ * provisioner→provider relationship (`provisionerIds`) — which an API key, having
+ * no `provisionerIds`, never satisfies. A PROVISIONER-role JWT user still passes
+ * via that relationship branch; a plain PROVIDER_ADMIN human (no `req.provisioner`)
+ * still passes via `providerRoles`.
  */
 import { ForbiddenException } from '@nestjs/common';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
@@ -30,6 +43,14 @@ export interface AssertProviderEditorArgs {
   provisionerIds?: string[];
   /** Required when `provisionerIds` is non-empty so the provisioner→provider relationship can be checked. */
   provisionerProviderStorage?: IProvisionerProviderStorage;
+  /**
+   * True when the request is authenticated as a provisioner (`req.provisioner`
+   * is set). When true, the synthetic `providerRoles[providerId] === PROVIDER_ADMIN`
+   * minted by ProvisionerMiddleware is ignored — authority must come from a real
+   * provisioner→provider relationship via `provisionerIds`. Closes the API-key
+   * loophole where `prov_` + `X-Provider-Id` could administer users.
+   */
+  isProvisioner?: boolean;
 }
 
 /**
@@ -37,12 +58,16 @@ export interface AssertProviderEditorArgs {
  * user_provider rows at `providerId`. Returns void on success.
  */
 export async function assertProviderEditor(args: AssertProviderEditorArgs): Promise<void> {
-  const { userContext, providerId, provisionerIds, provisionerProviderStorage } = args;
+  const { userContext, providerId, provisionerIds, provisionerProviderStorage, isProvisioner } = args;
   if (!userContext) throw new ForbiddenException('Authentication required');
 
   if (userContext.isSuperAdmin) return;
 
-  if (userContext.providerRoles?.[providerId] === PROVIDER_ADMIN) return;
+  // A real PROVIDER_ADMIN (human with a user_providers row) is authorised here.
+  // Skip this branch for provisioner-authenticated requests: their PROVIDER_ADMIN
+  // role is synthetic (minted from the provisioner→provider relationship), so it
+  // must be re-proven via `provisionerIds` below rather than trusted outright.
+  if (!isProvisioner && userContext.providerRoles?.[providerId] === PROVIDER_ADMIN) return;
 
   if (provisionerIds?.length && provisionerProviderStorage) {
     for (const provisionerId of provisionerIds) {

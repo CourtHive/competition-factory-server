@@ -150,10 +150,12 @@ export class AuthController {
     @Body() body: AdminCreateUserDto,
     @User() user?: any,
     @UserCtx() userContext?: UserContext,
+    @Req() req?: any,
   ) {
     return this.authService.adminCreateUser(body, {
       userContext,
       provisionerIds: user?.provisionerIds,
+      isProvisioner: !!req?.provisioner,
     });
   }
 
@@ -174,10 +176,12 @@ export class AuthController {
     @Body() params: ModifyUserDto,
     @User() user?: any,
     @UserCtx() userContext?: UserContext,
+    @Req() req?: any,
   ) {
     return this.authService.modifyUser(params, {
       userContext,
       provisionerIds: user?.provisionerIds,
+      isProvisioner: !!req?.provisioner,
     });
   }
 
@@ -197,10 +201,12 @@ export class AuthController {
     @Body() body: { email: string; newPassword?: string },
     @User() user?: any,
     @UserCtx() userContext?: UserContext,
+    @Req() req?: any,
   ) {
     return this.authService.adminResetPassword(body.email, body.newPassword, {
       userContext,
       provisionerIds: user?.provisionerIds,
+      isProvisioner: !!req?.provisioner,
     });
   }
 

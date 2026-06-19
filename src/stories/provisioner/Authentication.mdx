@@ -70,6 +70,36 @@ request.userContext = {
 };
 ```
 
+## Authorization boundary — what the synthetic context can and cannot do
+
+The synthetic `providerRoles[providerId] = 'PROVIDER_ADMIN'` exists so **tournament and
+scoring** endpoints (`/factory/*`, `/auth/tracker-token`, …) accept the call and route
+ownership to the right provider. It is **not** a general grant of provider-admin authority.
+
+In particular, it does **not** authorize **user administration**. The account-administration
+endpoints funnel through a single authorization helper, `assertProviderEditor`, which treats a
+provisioner-authenticated request specially: the synthetic `PROVIDER_ADMIN` role is ignored, and
+authority must instead come from a **real provisioner→provider relationship**. An API key carries
+no `provisionerIds`, so it never satisfies that check and is rejected with **403**.
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Caller</th><th style={{ textAlign: 'left' }}>Tournament / scoring ops</th><th style={{ textAlign: 'left' }}>User administration</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Provisioner <strong>API key</strong> (<code>prov_sk_live_*</code>) + <code>X-Provider-Id</code></td><td>✅ Allowed (synthetic <code>PROVIDER_ADMIN</code>)</td><td>❌ <strong>403</strong> — synthetic role not honored</td></tr>
+    <tr><td>Provisioner <strong>JWT user</strong> (<code>PROVISIONER</code> role) + <code>X-Provider-Id</code></td><td>✅ Allowed</td><td>✅ Allowed via the real provisioner→provider relationship</td></tr>
+    <tr><td>Human <strong>PROVIDER_ADMIN</strong> (normal session)</td><td>✅ Allowed</td><td>✅ Allowed (real <code>user_providers</code> role)</td></tr>
+  </tbody>
+</table>
+
+The user-administration endpoints gated this way are `/auth/admin-create-user`,
+`/auth/admin-reset-password`, `/auth/modify`, and the admin-UI `user_providers` association
+endpoints (`PUT`/`DELETE /provisioner/users/:userId/providers/:providerId`). To provision end-user
+accounts from an integration, use the SSO endpoint `POST /provisioner/users` (see
+**Provisioner/User Management**), which is purpose-built for API-key callers and validates the
+provisioner→provider relationship directly.
+
 ## Security Properties
 
 - **No plaintext storage** — API keys are SHA-256 hashed before persistence
