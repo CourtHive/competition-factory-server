@@ -59,6 +59,38 @@ describe('assertProviderEditor', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('rejects a provisioner-authenticated request relying on the synthetic PROVIDER_ADMIN role', async () => {
+    // The API-key loophole: ProvisionerMiddleware mints providerRoles[P]=PROVIDER_ADMIN
+    // for the impersonated provider. With isProvisioner set and no real
+    // provisioner→provider relationship (provisionerIds), this must be rejected.
+    await expect(
+      assertProviderEditor({
+        userContext: ctx({
+          userId: 'provisioner:prov-1',
+          providerRoles: { [PROVIDER_P]: 'PROVIDER_ADMIN' },
+          providerIds: [PROVIDER_P],
+        }),
+        providerId: PROVIDER_P,
+        isProvisioner: true,
+      }),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('allows a provisioner-authenticated request backed by a real provisioner→provider relationship', async () => {
+    // A PROVISIONER-role JWT user carries provisionerIds; the relationship branch
+    // authorises even though the synthetic providerRoles shortcut is skipped.
+    const storage = mockProvisionerProviderStorage([['prov-1', PROVIDER_P]]);
+    await expect(
+      assertProviderEditor({
+        userContext: ctx({ providerRoles: { [PROVIDER_P]: 'PROVIDER_ADMIN' }, providerIds: [PROVIDER_P] }),
+        providerId: PROVIDER_P,
+        provisionerIds: ['prov-1'],
+        provisionerProviderStorage: storage,
+        isProvisioner: true,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it('rejects PROVIDER_ADMIN at a different provider', async () => {
     await expect(
       assertProviderEditor({
