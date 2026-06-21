@@ -1,3 +1,5 @@
+import { Logger } from '@nestjs/common';
+
 import { ConsumerRegistryService } from './consumer-registry.service';
 import { ProjectorService } from './projector.service';
 import { buildMidBoltHistory } from './fixtures/sample-bolt-history';
@@ -6,6 +8,19 @@ describe('ProjectorService', () => {
   let registry: ConsumerRegistryService;
   let projector: ProjectorService;
   let fetchMock: jest.Mock;
+
+  // Registry emits consumer-registration lines at log level; these specs
+  // assert on dispatch behaviour, not log output, so silence the noise.
+  let logSpy: jest.SpyInstance;
+  let warnSpy: jest.SpyInstance;
+  beforeAll(() => {
+    logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+  });
+  afterAll(() => {
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
 
   beforeEach(() => {
     registry = new ConsumerRegistryService();

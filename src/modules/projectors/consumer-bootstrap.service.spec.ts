@@ -1,3 +1,5 @@
+import { Logger } from '@nestjs/common';
+
 import { ConsumerBootstrap } from './consumer-bootstrap.service';
 import {
   ConsumerRegistryService,
@@ -16,6 +18,19 @@ describe('ConsumerBootstrap', () => {
   let registry: ConsumerRegistryService;
   let bootstrap: ConsumerBootstrap;
   const ORIGINAL_ENV = { ...process.env };
+
+  // Registry/bootstrap emit consumer-registration lines at log level; these
+  // specs assert on registry state, not log output, so silence the noise.
+  let logSpy: jest.SpyInstance;
+  let warnSpy: jest.SpyInstance;
+  beforeAll(() => {
+    logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+  });
+  afterAll(() => {
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
 
   beforeEach(() => {
     registry = new ConsumerRegistryService();

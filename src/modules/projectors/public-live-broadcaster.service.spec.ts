@@ -1,3 +1,5 @@
+import { Logger } from '@nestjs/common';
+
 import { ConsumerRegistryService, isCallbackConsumer } from './consumer-registry.service';
 import { PublicLiveBroadcaster } from './public-live-broadcaster.service';
 import { PublicGateway } from 'src/modules/messaging/public/public.gateway';
@@ -6,6 +8,19 @@ describe('PublicLiveBroadcaster', () => {
   let registry: ConsumerRegistryService;
   let publicGateway: jest.Mocked<PublicGateway>;
   let broadcaster: PublicLiveBroadcaster;
+
+  // Registry emits consumer-registration lines at log level; these specs
+  // assert on broadcast behaviour, not log output, so silence the noise.
+  let logSpy: jest.SpyInstance;
+  let warnSpy: jest.SpyInstance;
+  beforeAll(() => {
+    logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+  });
+  afterAll(() => {
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
 
   beforeEach(() => {
     registry = new ConsumerRegistryService();

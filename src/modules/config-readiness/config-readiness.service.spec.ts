@@ -1,3 +1,5 @@
+import { Logger } from '@nestjs/common';
+
 import { ConfigReadinessService } from './config-readiness.service';
 
 // F2 (architectural-standards.md A6): the previous wipe-and-restore-on-
@@ -9,6 +11,20 @@ import { ConfigReadinessService } from './config-readiness.service';
 describe('ConfigReadinessService', () => {
   let service: ConfigReadinessService;
   const baselineEnv = { ...process.env };
+
+  // The service emits its delineated readiness block at log/warn on every
+  // run; these specs assert on the returned report, not the log output, so
+  // silence the chatty levels to keep the Jest summary readable.
+  let logSpy: jest.SpyInstance;
+  let warnSpy: jest.SpyInstance;
+  beforeAll(() => {
+    logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+  });
+  afterAll(() => {
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
 
   beforeEach(() => {
     service = new ConfigReadinessService();
