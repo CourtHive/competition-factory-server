@@ -22,6 +22,9 @@ import {
   type IUserStorage,
   PROVIDER_STORAGE,
   type IProviderStorage,
+  CHAT_STORAGE,
+  type IChatStorage,
+  type ChatMessageRecord,
 } from 'src/storage/interfaces';
 import { UsersService } from 'src/modules/users/users.service';
 import { tools } from 'tods-competition-factory';
@@ -40,6 +43,39 @@ import {
 
 export const TOURNAMENT_ROOM_PREFIX = 'tournament:';
 const ADMIN_CHAT_MONITOR_ROOM = 'admin:chatMonitor';
+const MAX_CHAT_MESSAGE_LENGTH = 2000;
+
+/** Shape a persisted chat record into the `chatMessage`/`chatHistory` wire
+ *  payload clients consume (timestamp in epoch ms, like the legacy relay). */
+function toWireMessage(record: ChatMessageRecord): {
+  seq: number;
+  userName: string;
+  message: string;
+  timestamp: number;
+  clientMsgId?: string;
+  isAdmin: boolean;
+} {
+  return {
+    seq: record.seq,
+    userName: record.userName,
+    message: record.message,
+    timestamp: Date.parse(record.createdAt),
+    clientMsgId: record.clientMsgId,
+    isAdmin: record.isAdmin,
+  };
+}
+
+/** Wire shape for the super-admin monitor — adds the provider/tournament
+ *  identity used to render the grouping pills. */
+function toAdminFeed(record: ChatMessageRecord): Record<string, any> {
+  return {
+    ...toWireMessage(record),
+    tournamentId: record.tournamentId,
+    providerId: record.providerId,
+    providerAbbr: record.providerAbbr,
+    tournamentName: record.tournamentName,
+  };
+}
 
 export interface RoomMember {
   socketId: string;
@@ -70,6 +106,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     private readonly provisionerProviderStorage: IProvisionerProviderStorage,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
+    @Inject(CHAT_STORAGE) private readonly chatStorage: IChatStorage,
     private readonly tournamentStorageService: TournamentStorageService,
     private readonly broadcastService: TournamentBroadcastService,
     private readonly assignmentsService: AssignmentsService,
@@ -158,6 +195,11 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     const roomMembers = await this.server?.in(room).fetchSockets();
     this.logger.log(`[room] Client ${client.id} joined ${room} — room now has ${roomMembers?.length ?? '?'} member(s)`);
     await this.broadcastRoomPresence(tournamentId);
+
+    // Backfill recent chat to the joining socket only. The visibility check
+    // above already gated entry into the room, so this needs no extra gate.
+    const { records: chatHistory } = await this.chatStorage.recentMessages({ tournamentId });
+    client.emit('chatHistory', { tournamentId, messages: (chatHistory ?? []).map(toWireMessage) });
 
     // Loading a tournament is the strongest signal of "active" we have.
     // - User: always stamp lastAccess (super-admins included; that's per-user
@@ -288,27 +330,58 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   @Roles([CLIENT, SUPER_ADMIN])
   async chatMessage(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
     const tournamentId = data?.tournamentId;
-    if (!tournamentId || !data?.message) return;
+    const message = typeof data?.message === 'string' ? data.message.slice(0, MAX_CHAT_MESSAGE_LENGTH) : '';
+    if (!tournamentId || !message.trim()) return;
 
-    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
-    const payload = {
-      userName: data.userName,
-      message: data.message,
-      timestamp: Date.now(),
-    };
-
-    // Relay to other clients in the tournament room
-    client.to(room).emit('chatMessage', payload);
-
-    // Also relay to the admin chat monitor room so super-admins can see
-    // all chat across all providers/tournaments in real time.
-    this.server?.to(ADMIN_CHAT_MONITOR_ROOM).emit('adminChatFeed', {
-      ...payload,
+    // Persist first — the assigned seq is the authoritative ordering key that
+    // makes backfill + gap-detection work. Only relay what was durably stored.
+    const { record, error } = await this.chatStorage.appendMessage({
       tournamentId,
       providerId: data.providerId,
       providerAbbr: data.providerAbbr,
       tournamentName: data.tournamentName,
+      userName: data.userName,
+      message,
+      clientMsgId: data.clientMsgId,
     });
+    if (error || !record) {
+      this.logger.warn(`[chat] persist failed for ${tournamentId}: ${error}`);
+      client.emit('chatRejected', { clientMsgId: data.clientMsgId, error: error ?? 'persist failed' });
+      return;
+    }
+
+    const wire = toWireMessage(record);
+    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
+
+    // Relay to other clients in the room (sender excluded — it reconciles its
+    // optimistic copy via the ack below, avoiding a duplicate render).
+    client.to(room).emit('chatMessage', wire);
+
+    // Ack the sender with the authoritative seq so its optimistic message is
+    // confirmed and de-duplicated against any later history / gap fetch.
+    client.emit('chatAccepted', { clientMsgId: record.clientMsgId, seq: record.seq, timestamp: wire.timestamp });
+
+    // Mirror to the super-admin monitor room (live cross-tournament feed).
+    this.server?.to(ADMIN_CHAT_MONITOR_ROOM).emit('adminChatFeed', toAdminFeed(record));
+  }
+
+  /**
+   * Gap fill: a client that detects its `lastSeenSeq` trails the latest seq it
+   * has observed requests everything newer. Gated by current room membership —
+   * the socket can only be in the room if `joinTournament` (with its
+   * `canViewTournament` check) succeeded, so no separate auth path is needed.
+   */
+  @SubscribeMessage('chatSince')
+  @Roles([CLIENT, SUPER_ADMIN])
+  async chatSince(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
+    const tournamentId = data?.tournamentId;
+    const afterSeq = Number(data?.afterSeq);
+    if (!tournamentId || !Number.isFinite(afterSeq)) return;
+    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
+    if (!client.rooms.has(room)) return;
+
+    const { records } = await this.chatStorage.messagesSince({ tournamentId, afterSeq });
+    client.emit('chatHistory', { tournamentId, gap: true, messages: (records ?? []).map(toWireMessage) });
   }
 
   // ── Admin chat monitor (SUPER_ADMIN only) ──
@@ -322,6 +395,10 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   async joinChatMonitor(@ConnectedSocket() client: Socket): Promise<void> {
     await client.join(ADMIN_CHAT_MONITOR_ROOM);
     this.logger.log(`[chat-monitor] ${client.id} joined admin chat monitor`);
+
+    // Backfill the cross-tournament history so the monitor opens populated.
+    const { records } = await this.chatStorage.recentAcrossTournaments({});
+    client.emit('adminChatHistory', { messages: (records ?? []).map(toAdminFeed) });
   }
 
   @SubscribeMessage('leaveChatMonitor')
@@ -344,28 +421,44 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
 
     const verifiedUser = client.data?.user;
     const userName = data.userName || verifiedUser?.email || 'Admin';
+    const message = String(data.message).slice(0, MAX_CHAT_MESSAGE_LENGTH);
 
     const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
-    const payload = {
-      userName,
-      message: data.message,
-      timestamp: Date.now(),
-      isAdmin: true,
-    };
 
-    // Send to the tournament room (all clients including the admin if they're in that room)
-    this.server?.to(room).emit('chatMessage', payload);
-
-    // Also echo back to the monitor room so other monitoring admins see it
-    this.server?.to(ADMIN_CHAT_MONITOR_ROOM).emit('adminChatFeed', {
-      ...payload,
+    // Persist the admin reply too (is_admin) so it appears in tournament
+    // backfill and gap fills like any other message. Tolerate persist failure
+    // — still relay so the live experience degrades gracefully.
+    const { record } = await this.chatStorage.appendMessage({
       tournamentId,
       providerId: data.providerId,
       providerAbbr: data.providerAbbr,
       tournamentName: data.tournamentName,
+      userName,
+      message,
+      isAdmin: true,
     });
+    const wire = record
+      ? toWireMessage(record)
+      : { userName, message, timestamp: Date.now(), isAdmin: true };
 
-    this.logger.log(`[chat-monitor] admin reply to ${tournamentId}: ${data.message.substring(0, 50)}`);
+    // Send to the tournament room (all clients including the admin if they're in that room)
+    this.server?.to(room).emit('chatMessage', wire);
+
+    // Also echo back to the monitor room so other monitoring admins see it
+    this.server?.to(ADMIN_CHAT_MONITOR_ROOM).emit(
+      'adminChatFeed',
+      record
+        ? toAdminFeed(record)
+        : {
+            ...wire,
+            tournamentId,
+            providerId: data.providerId,
+            providerAbbr: data.providerAbbr,
+            tournamentName: data.tournamentName,
+          },
+    );
+
+    this.logger.log(`[chat-monitor] admin reply to ${tournamentId}: ${message.substring(0, 50)}`);
   }
 
   @SubscribeMessage('tmx')

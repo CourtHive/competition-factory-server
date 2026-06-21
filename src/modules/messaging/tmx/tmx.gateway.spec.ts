@@ -68,6 +68,15 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
   const userProvisionerStorage: any = { findProvisionerIdsByUser: jest.fn().mockResolvedValue([]) };
   const provisionerProviderStorage: any = { findByProvisioner: jest.fn().mockResolvedValue([]) };
   const auditService: any = { recordMutation: jest.fn().mockResolvedValue(undefined) };
+  const chatStorage: any = {
+    appendMessage: jest.fn().mockResolvedValue({
+      record: { seq: 1, tournamentId: 't', userName: 'u', message: 'm', isAdmin: false, createdAt: new Date(0).toISOString() },
+    }),
+    recentMessages: jest.fn().mockResolvedValue({ records: [] }),
+    messagesSince: jest.fn().mockResolvedValue({ records: [] }),
+    recentAcrossTournaments: jest.fn().mockResolvedValue({ records: [] }),
+    pruneOlderThan: jest.fn().mockResolvedValue({ deleted: 0 }),
+  };
 
   const gateway = new TmxGateway(
     cacheManager,
@@ -76,14 +85,97 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     provisionerProviderStorage,
     userStorage,
     providerStorage,
+    chatStorage,
     tournamentStorageService,
     broadcastService,
     assignmentsService,
     usersService,
     auditService,
   );
-  return { gateway, userStorage, providerStorage, auditService };
+  return { gateway, userStorage, providerStorage, auditService, chatStorage };
 }
+
+describe('TmxGateway chat persistence', () => {
+  it('persists a chatMessage, relays it with seq, and acks the sender', async () => {
+    const { gateway, chatStorage } = buildGateway();
+    chatStorage.appendMessage.mockResolvedValue({
+      record: { seq: 42, tournamentId: 't1', userName: 'u', message: 'hi', isAdmin: false, clientMsgId: 'c1', createdAt: new Date(1000).toISOString() },
+    });
+    const socket = makeSocket();
+    const relay = { emit: jest.fn() };
+    socket.to.mockReturnValue(relay);
+    gateway.server = makeMockServer({});
+
+    await gateway.chatMessage({ tournamentId: 't1', userName: 'u', message: 'hi', clientMsgId: 'c1' }, socket as any);
+
+    expect(chatStorage.appendMessage).toHaveBeenCalledWith(expect.objectContaining({ tournamentId: 't1', message: 'hi', clientMsgId: 'c1' }));
+    // Relayed to the room (sender excluded) with the persisted seq.
+    expect(socket.to).toHaveBeenCalledWith('tournament:t1');
+    expect(relay.emit).toHaveBeenCalledWith('chatMessage', expect.objectContaining({ seq: 42, message: 'hi' }));
+    // Sender gets the authoritative seq to reconcile its optimistic copy.
+    expect(socket.emit).toHaveBeenCalledWith('chatAccepted', expect.objectContaining({ clientMsgId: 'c1', seq: 42 }));
+  });
+
+  it('drops an empty message without persisting', async () => {
+    const { gateway, chatStorage } = buildGateway();
+    const socket = makeSocket();
+    await gateway.chatMessage({ tournamentId: 't1', userName: 'u', message: '   ' }, socket as any);
+    expect(chatStorage.appendMessage).not.toHaveBeenCalled();
+  });
+
+  it('rejects to the sender when persistence fails', async () => {
+    const { gateway, chatStorage } = buildGateway();
+    chatStorage.appendMessage.mockResolvedValue({ error: 'db down' });
+    const socket = makeSocket();
+    await gateway.chatMessage({ tournamentId: 't1', userName: 'u', message: 'hi', clientMsgId: 'c9' }, socket as any);
+    expect(socket.emit).toHaveBeenCalledWith('chatRejected', expect.objectContaining({ clientMsgId: 'c9' }));
+  });
+
+  it('backfills chat history to the joining socket', async () => {
+    const { gateway, chatStorage } = buildGateway();
+    chatStorage.recentMessages.mockResolvedValue({
+      records: [{ seq: 1, tournamentId: 't1', userName: 'a', message: 'm1', isAdmin: false, createdAt: new Date(0).toISOString() }],
+    });
+    const socket = makeSocket({ user: { email: 'me@test.com' } });
+    gateway.server = makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] });
+
+    await gateway.joinTournament({ tournamentId: 't1' }, socket as any);
+
+    expect(chatStorage.recentMessages).toHaveBeenCalledWith({ tournamentId: 't1' });
+    expect(socket.emit).toHaveBeenCalledWith('chatHistory', expect.objectContaining({ tournamentId: 't1', messages: expect.any(Array) }));
+  });
+
+  it('chatSince only answers when the socket is in the tournament room', async () => {
+    const { gateway, chatStorage } = buildGateway();
+    const socket = makeSocket();
+
+    // Not in the room → ignored.
+    await gateway.chatSince({ tournamentId: 't1', afterSeq: 5 }, socket as any);
+    expect(chatStorage.messagesSince).not.toHaveBeenCalled();
+
+    // In the room → answered with a gap-flagged chatHistory.
+    socket.rooms.add('tournament:t1');
+    chatStorage.messagesSince.mockResolvedValue({ records: [] });
+    await gateway.chatSince({ tournamentId: 't1', afterSeq: 5 }, socket as any);
+    expect(chatStorage.messagesSince).toHaveBeenCalledWith({ tournamentId: 't1', afterSeq: 5 });
+    expect(socket.emit).toHaveBeenCalledWith('chatHistory', expect.objectContaining({ gap: true }));
+  });
+
+  it('backfills cross-tournament history when an admin joins the monitor', async () => {
+    const { gateway, chatStorage } = buildGateway();
+    chatStorage.recentAcrossTournaments.mockResolvedValue({
+      records: [{ seq: 7, tournamentId: 't9', providerId: 'p', providerAbbr: 'ACME', tournamentName: 'Open', userName: 'x', message: 'hey', isAdmin: false, createdAt: new Date(0).toISOString() }],
+    });
+    const socket = makeSocket({ user: { email: 'admin@test.com', roles: ['superadmin'] } });
+
+    await gateway.joinChatMonitor(socket as any);
+
+    expect(socket.emit).toHaveBeenCalledWith(
+      'adminChatHistory',
+      expect.objectContaining({ messages: [expect.objectContaining({ seq: 7, providerAbbr: 'ACME', tournamentName: 'Open' })] }),
+    );
+  });
+});
 
 describe('TmxGateway.handleConnection', () => {
   it('records connectedAt and an empty per-tournament joinedAt map', () => {

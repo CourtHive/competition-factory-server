@@ -46,14 +46,24 @@ describe('MigrationRunnerService', () => {
   });
 
   it('reports all migrations up to date when all are applied', async () => {
+    // connect() is now also used to hold the advisory lock that serialises
+    // concurrent runners, so it IS called once even with nothing pending —
+    // assert instead that no migration was applied (no BEGIN issued).
+    const clientQueries: string[] = [];
+    mockPool.connect.mockResolvedValue({
+      query: jest.fn().mockImplementation((sql: string) => {
+        clientQueries.push(sql);
+        return Promise.resolve({ rows: [] });
+      }),
+      release: jest.fn(),
+    });
     queryResults = [
       undefined, // CREATE TABLE
       { rows: ALL_DISK_MIGRATIONS.map((name) => ({ name })) },
     ];
     service = new MigrationRunnerService(mockPool);
     await service.onModuleInit();
-    // Should not call connect() for any migration
-    expect(mockPool.connect).not.toHaveBeenCalled();
+    expect(clientQueries).not.toContain('BEGIN');
   });
 
   it('applies pending migrations in order', async () => {

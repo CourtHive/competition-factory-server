@@ -13,6 +13,7 @@ import { REGISTRATION_ENTRY_STORAGE } from './interfaces/registration-entry-stor
 import { OFFICIATING_STORAGE } from './interfaces/officiating-storage.interface';
 import { SANCTIONING_STORAGE } from './interfaces/sanctioning-storage.interface';
 import { BOLT_HISTORY_STORAGE } from './interfaces/bolt-history.interface';
+import { CHAT_STORAGE } from './interfaces/chat-storage.interface';
 import { TOURNAMENT_STORAGE } from './interfaces/tournament-storage.interface';
 import { ASSIGNMENT_STORAGE } from './interfaces/assignment-storage.interface';
 import { AUTH_CODE_STORAGE } from './interfaces/auth-code-storage.interface';
@@ -40,6 +41,7 @@ import { PostgresSanctioningStorage } from './postgres/postgres-sanctioning.stor
 import { PostgresOfficiatingStorage } from './postgres/postgres-officiating.storage';
 import { PostgresAuditStorage } from './postgres/postgres-audit.storage';
 import { PostgresBoltHistoryStorage } from './postgres/postgres-bolt-history.storage';
+import { PostgresChatStorage } from './postgres/postgres-chat.storage';
 import { PostgresTournamentStorage } from './postgres/postgres-tournament.storage';
 import { PostgresAssignmentStorage } from './postgres/postgres-assignment.storage';
 import { PostgresProviderStorage } from './postgres/postgres-provider.storage';
@@ -108,6 +110,7 @@ const providerArchiveStorageProvider = makeStorageProvider(PROVIDER_ARCHIVE_STOR
 const policyStorageProvider = makeStorageProvider(POLICY_STORAGE, PostgresPolicyStorage);
 const refreshTokenStorageProvider = makeStorageProvider(REFRESH_TOKEN_STORAGE, PostgresRefreshTokenStorage);
 const registrationEntryStorageProvider = makeStorageProvider(REGISTRATION_ENTRY_STORAGE, PostgresRegistrationEntryStorage);
+const chatStorageProvider = makeStorageProvider(CHAT_STORAGE, PostgresChatStorage);
 
 @Global()
 @Module({
@@ -140,6 +143,7 @@ const registrationEntryStorageProvider = makeStorageProvider(REGISTRATION_ENTRY_
     policyStorageProvider,
     refreshTokenStorageProvider,
     registrationEntryStorageProvider,
+    chatStorageProvider,
     TournamentStorageService,
   ],
   exports: [
@@ -169,6 +173,7 @@ const registrationEntryStorageProvider = makeStorageProvider(REGISTRATION_ENTRY_
     POLICY_STORAGE,
     REFRESH_TOKEN_STORAGE,
     REGISTRATION_ENTRY_STORAGE,
+    CHAT_STORAGE,
     TournamentStorageService,
   ],
 })

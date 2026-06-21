@@ -85,3 +85,9 @@ export {
   type RegistrationStatus,
   type RegistrationStatusUpdate,
 } from './registration-entry-storage.interface';
+export {
+  CHAT_STORAGE,
+  type IChatStorage,
+  type ChatMessageRecord,
+  type AppendChatMessageInput,
+} from './chat-storage.interface';

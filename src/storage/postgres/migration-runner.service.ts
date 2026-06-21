@@ -28,6 +28,15 @@ import { PG_POOL } from './postgres.config';
 // project root for both `nest start` and `pnpm watch`.
 const MIGRATIONS_DIR = join(process.cwd(), 'src', 'storage', 'postgres', 'migrations');
 
+// Arbitrary, stable key for the session-level advisory lock that serialises
+// migration application across concurrent runners (parallel jest workers, or
+// multiple app instances booting at once). Without it, two runners can both
+// see a new CREATE TABLE migration pending and race the create, colliding on
+// pg_type ("duplicate key value violates unique constraint
+// pg_type_typname_nsp_index"). ALTER-only migrations don't create a row type
+// so never tripped this — a new-table migration does.
+const MIGRATION_ADVISORY_LOCK_KEY = 728041;
+
 @Injectable()
 export class MigrationRunnerService implements OnModuleInit {
   private readonly logger = new Logger(MigrationRunnerService.name);
@@ -49,21 +58,42 @@ export class MigrationRunnerService implements OnModuleInit {
     }
 
     await this.ensureTrackingTable();
-    const applied = await this.getAppliedMigrations();
-    const pending = await this.getPendingMigrations(applied);
+    await this.withAdvisoryLock(async () => {
+      // Re-read applied migrations AFTER acquiring the lock: another runner may
+      // have applied the pending set while we were blocked.
+      const applied = await this.getAppliedMigrations();
+      const pending = await this.getPendingMigrations(applied);
 
-    if (pending.length === 0) {
-      this.logger.log('All migrations up to date');
-      return;
+      if (pending.length === 0) {
+        this.logger.log('All migrations up to date');
+        return;
+      }
+
+      this.logger.log(`Applying ${pending.length} pending migration(s)...`);
+      for (const migration of pending) {
+        await this.applyMigration(migration);
+      }
+      this.logger.log('All migrations applied successfully');
+    });
+  }
+
+  /**
+   * Run `fn` while holding a session-level Postgres advisory lock so concurrent
+   * runners apply migrations one-at-a-time. The lock is acquired and released
+   * on the same dedicated connection (advisory locks are session-scoped).
+   */
+  private async withAdvisoryLock(fn: () => Promise<void>): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('SELECT pg_advisory_lock($1)', [MIGRATION_ADVISORY_LOCK_KEY]);
+      await fn();
+    } finally {
+      try {
+        await client.query('SELECT pg_advisory_unlock($1)', [MIGRATION_ADVISORY_LOCK_KEY]);
+      } finally {
+        client.release();
+      }
     }
-
-    this.logger.log(`Applying ${pending.length} pending migration(s)...`);
-
-    for (const migration of pending) {
-      await this.applyMigration(migration);
-    }
-
-    this.logger.log('All migrations applied successfully');
   }
 
   private async ensureTrackingTable(): Promise<void> {

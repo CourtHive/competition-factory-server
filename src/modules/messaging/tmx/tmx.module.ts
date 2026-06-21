@@ -3,6 +3,7 @@ import { AssignmentsService } from '../../factory/assignments.service';
 import { UsersModule } from '../../users/users.module';
 import { AuditModule } from '../../audit/audit.module';
 import { AdminPresenceController } from './admin-presence.controller';
+import { ChatRetentionService } from './chat-retention.service';
 import { TmxGateway } from './tmx.gateway';
 import { Module } from '@nestjs/common';
 
@@ -13,6 +14,6 @@ import { Module } from '@nestjs/common';
 @Module({
   imports: [BroadcastModule, UsersModule, AuditModule],
   controllers: [AdminPresenceController],
-  providers: [TmxGateway, AssignmentsService],
+  providers: [TmxGateway, AssignmentsService, ChatRetentionService],
 })
 export class TmxModule {}
