@@ -37,6 +37,10 @@ export class TournamentStorageService {
     return this.tournamentStorage.fetchTournamentRecords(params);
   }
 
+  async fetchTournamentUpdatedAt(params: { tournamentId?: string }) {
+    return this.tournamentStorage.fetchTournamentUpdatedAt(params);
+  }
+
   async listTournamentIds() {
     return this.tournamentStorage.listTournamentIds();
   }

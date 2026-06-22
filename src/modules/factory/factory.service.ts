@@ -88,6 +88,40 @@ export class FactoryService {
     return result;
   }
 
+  // Lightweight staleness probe — returns only `updatedAt`, never the full
+  // record. Reuses the exact same access gates as `fetchTournamentRecords`,
+  // run against a minimal record projected from the JSONB, so the probe can't
+  // leak a timestamp for a tournament the user couldn't otherwise fetch.
+  async fetchTournamentUpdatedAt(params: { tournamentId?: string }, user, userContext?: UserContext) {
+    const validUser = checkUser({ user, userContext });
+    if (!validUser) return { error: 'Invalid user' };
+
+    const { tournamentId } = params;
+    if (!tournamentId) return { error: 'Missing tournamentId' };
+
+    const result: any = await this.tournamentStorageService.fetchTournamentUpdatedAt({ tournamentId });
+    if (result.error) return result;
+
+    const minimalRecord = {
+      parentOrganisation: result.providerId ? { organisationId: result.providerId } : undefined,
+      extensions: result.extensions ?? [],
+      updatedAt: result.updatedAt,
+    };
+    const tournamentRecords = { [tournamentId]: minimalRecord };
+
+    const allowUser = checkProvider({ tournamentRecords, user, userContext });
+    if (!allowUser) return { error: 'User not allowed' };
+
+    if (userContext) {
+      const assignedIds = await this.assignmentsService.getAssignedTournamentIds(userContext.userId);
+      if (!canViewTournament(minimalRecord, userContext, assignedIds)) {
+        return { error: 'User not allowed' };
+      }
+    }
+
+    return { success: true, tournamentId, updatedAt: result.updatedAt };
+  }
+
   async generateTournamentRecord(
     params,
     user,
