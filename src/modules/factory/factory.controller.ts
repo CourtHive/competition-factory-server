@@ -1,4 +1,5 @@
 import { GetScheduledMatchUpsDto } from './dto/getCompetitionScheduleMatchUps.dto';
+import { FetchTournamentUpdatedAtDto } from './dto/fetchTournamentUpdatedAt.dto';
 import { RemoveTournamentRecordsDto } from './dto/removeTournamentRecords.dto';
 import { FetchTournamentRecordsDto } from './dto/fetchTournamentRecords.dto';
 import { QueryTournamentRecordsDto } from './dto/queryTournamentRecords.dto';
@@ -248,6 +249,20 @@ export class FactoryController {
     @UserCtx() userContext?: UserContext,
   ) {
     return this.factoryService.fetchTournamentRecords(ftd, user, userContext);
+  }
+
+  // Lightweight staleness probe — returns only `{ updatedAt }`, used by the TMX
+  // client to detect whether it has fallen behind the server without pulling the
+  // full tournament record.
+  @Post('updated-at')
+  @Roles([CLIENT, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  fetchTournamentUpdatedAt(
+    @Body() dto: FetchTournamentUpdatedAtDto,
+    @User() user?: any,
+    @UserCtx() userContext?: UserContext,
+  ) {
+    return this.factoryService.fetchTournamentUpdatedAt(dto, user, userContext);
   }
 
   @Post('generate')

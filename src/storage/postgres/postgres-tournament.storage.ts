@@ -45,6 +45,37 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     return { ...SUCCESS, tournamentRecords, fetched, notFound };
   }
 
+  async fetchTournamentUpdatedAt({ tournamentId }: { tournamentId?: string }) {
+    if (!tournamentId) {
+      return { error: factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD };
+    }
+
+    // Project only the few fields needed — Postgres extracts them server-side so
+    // the full `data` JSONB blob is never transferred.
+    const result = await this.pool.query(
+      `SELECT tournament_id,
+              data->>'updatedAt' AS updated_at,
+              data->'parentOrganisation'->>'organisationId' AS provider_id,
+              data->'extensions' AS extensions
+         FROM tournaments
+        WHERE tournament_id = $1`,
+      [tournamentId],
+    );
+
+    if (!result.rows.length) {
+      return { error: factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD };
+    }
+
+    const row = result.rows[0];
+    return {
+      ...SUCCESS,
+      tournamentId: row.tournament_id,
+      updatedAt: row.updated_at,
+      providerId: row.provider_id,
+      extensions: row.extensions ?? [],
+    };
+  }
+
   async saveTournamentRecord({ tournamentRecord }: { tournamentRecord: any }) {
     const key = tournamentRecord?.tournamentId;
     if (!key) return { error: 'Invalid tournamentRecord' };
