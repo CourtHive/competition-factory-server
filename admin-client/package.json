@@ -28,7 +28,7 @@
     "jwt-decode": "^4.0.0",
     "navigo": "^8.11.1",
     "tabulator-tables": "^6.3.1",
-    "tods-competition-factory": "5.6.0"
+    "tods-competition-factory": "5.7.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
