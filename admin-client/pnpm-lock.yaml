@@ -34,7 +34,7 @@ importers:
         version: 8.11.1
       tabulator-tables:
         specifier: ^6.3.1
-        version: 6.5.0
+        version: 6.5.1
       tods-competition-factory:
         specifier: 5.7.0
         version: 5.7.0
@@ -2023,8 +2023,8 @@ packages:
   tabbable@6.4.0:
     resolution: {integrity: sha512-05PUHKSNE8ou2dwIxTngl4EzcnsCDZGJ/iCLtDflR/SHB/ny14rXc+qU5P4mG9JkusiV7EivzY9Mhm55AzAvCg==}
 
-  tabulator-tables@6.5.0:
-    resolution: {integrity: sha512-n0S4rvb2tGJnVBXoiB8ns1liGfSz+sgniG5a92vEY+Wqj3R4L2LB+bF29OeWmEJwo4KAsdhfeknW2S92s/mvMw==}
+  tabulator-tables@6.5.1:
+    resolution: {integrity: sha512-hTbw97QbUmh33d/87xdPFQUdm+1W2+l0WQuafYvqw95tEjC4o0sMLMd/Ie7KJ5u7/QlfpM03ZCqjw3TuEiPrdw==}
 
   timepicker-ui@4.4.0:
     resolution: {integrity: sha512-+ncFBnZYrBxk8viJ6eZv2jZ5UeMnVuxtOBecHZBxpE+zgn9zpZsStXLcYVDAvBPnECIEcQJwvZ60s6/qEt08jQ==}
@@ -4097,7 +4097,7 @@ snapshots:
 
   tabbable@6.4.0: {}
 
-  tabulator-tables@6.5.0: {}
+  tabulator-tables@6.5.1: {}
 
   timepicker-ui@4.4.0: {}
 
