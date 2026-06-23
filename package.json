@@ -2,7 +2,7 @@
   "name": "competition-factory-server",
   "packageManager": "pnpm@11.8.0",
   "private": true,
-  "version": "2.12.0",
+  "version": "2.13.0",
   "description": "Server side factory mutations",
   "license": "MIT",
   "engines": {
