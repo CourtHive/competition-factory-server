@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.13.1](https://github.com/CourtHive/competition-factory-server/compare/v2.13.0...v2.13.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* **audit:** serialize error code, stamp rest-path identity, log info field ([4a58d09](https://github.com/CourtHive/competition-factory-server/commit/4a58d096d895cf55b14ae61aae868776319d3e24))
+* **deps:** update courthive-components to 3.4.4 in admin-client ([fdf6776](https://github.com/CourtHive/competition-factory-server/commit/fdf6776c92453a4f94ee05556fc6b446c5bf72ef))
+* **deps:** update tods-competition-factory to 5.7.1 ([8cf1895](https://github.com/CourtHive/competition-factory-server/commit/8cf1895421f49e340fb927de18aeb498cab3eedf))
+
 ## [2.11.0](https://github.com/CourtHive/competition-factory-server/compare/v2.10.0...v2.11.0) (2026-06-07)
 
 
