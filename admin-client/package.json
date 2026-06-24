@@ -20,7 +20,7 @@
     "test:e2e:prod": "TEST_PROD=1 playwright test --config e2e/playwright.config.ts"
   },
   "dependencies": {
-    "@courthive/provider-config": "^0.6.0",
+    "@courthive/provider-config": "^0.7.0",
     "animate.css": "^4.1.1",
     "axios": "^1.13.0",
     "courthive-components": "3.4.4",
