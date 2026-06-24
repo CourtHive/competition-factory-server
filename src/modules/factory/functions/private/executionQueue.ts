@@ -101,7 +101,7 @@ export async function executionQueue(
           source: payload?.auditSource?.type === 'provisioner' ? 'provisioner' : payload?.source ?? 'tmx',
           methods: methods.map((m: any) => ({ method: m.method, params: m.params })),
           status: innerResult.success ? 'applied' : innerResult.error ? 'rejected' : 'partial',
-          errorCode: innerResult.error ? String(innerResult.error) : undefined,
+          errorCode: serializeErrorCode(innerResult.error),
           metadata: buildAuditMetadata(payload),
         }).catch((err) => Logger.error(`Audit hook failed: ${err.message}`, 'executionQueue'));
       }
@@ -131,6 +131,21 @@ export async function executionQueue(
     }
     return { error: message, tournamentIds };
   }
+}
+
+/**
+ * Reduce a factory error to a stable, queryable string for
+ * `audit_log.error_code`. Factory errors are objects (`{ code, message }`),
+ * but some internal failures return a plain string (e.g. 'Storage not
+ * provided'). The prior `String(error)` stringified the OBJECT case to the
+ * useless literal "[object Object]", which made it impossible to filter
+ * rejected rows by failure class. Prefer the stable `code` (e.g.
+ * ERR_INVALID_DATE), fall back to the human message, then a JSON dump.
+ */
+function serializeErrorCode(error: any): string | undefined {
+  if (!error) return undefined;
+  if (typeof error === 'string') return error;
+  return error.code ?? error.message ?? JSON.stringify(error);
 }
 
 /**

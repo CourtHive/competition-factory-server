@@ -1,4 +1,4 @@
-import { InternalServerErrorException } from '@nestjs/common';
+import { InternalServerErrorException, Logger } from '@nestjs/common';
 import { checkEngineError } from './engineError';
 
 describe('checkEngineError', () => {
@@ -50,6 +50,35 @@ describe('checkEngineError', () => {
       expect(response.context).toEqual(result.context);
       expect(response.stack).toEqual(['addEventEntries']);
     }
+  });
+
+  it('logs the info disambiguator so out-of-range and malformed dates differ in the log', () => {
+    const spy = jest.spyOn(Logger, 'error').mockImplementation(() => undefined);
+    const result = {
+      success: false,
+      error: { message: 'Invalid Date', code: 'ERR_INVALID_DATE' },
+      context: { scheduledDate: '2026-03-21' },
+      info: 'scheduledDate must be within tournament start and end dates',
+      stack: ['addMatchUpScheduleItems'],
+    };
+    expect(() => checkEngineError(result)).toThrow(InternalServerErrorException);
+    expect(spy).toHaveBeenCalledWith(
+      'addMatchUpScheduleItems: Invalid Date | context: {"scheduledDate":"2026-03-21"} | info: scheduledDate must be within tournament start and end dates',
+    );
+    spy.mockRestore();
+  });
+
+  it('omits the info segment when the error result carries no info', () => {
+    const spy = jest.spyOn(Logger, 'error').mockImplementation(() => undefined);
+    const result = {
+      success: false,
+      error: { message: 'Invalid Date', code: 'ERR_INVALID_DATE' },
+      context: { scheduledDate: 'banana' },
+      stack: ['addMatchUpScheduleItems'],
+    };
+    expect(() => checkEngineError(result)).toThrow(InternalServerErrorException);
+    expect(spy).toHaveBeenCalledWith('addMatchUpScheduleItems: Invalid Date | context: {"scheduledDate":"banana"}');
+    spy.mockRestore();
   });
 
   it('falls back to "error" prefix when no methodName or stack is provided', () => {

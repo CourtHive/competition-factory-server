@@ -174,6 +174,45 @@ describe('FactoryController', () => {
       expect(mockBroadcast.broadcastPublicNotices).toHaveBeenCalledWith(eqd, publicNotices);
     });
 
+    it('stamps the JWT-verified identity (userEmail/userId) onto the payload', async () => {
+      const mockService = {
+        executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
+      } as unknown as FactoryService;
+      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+
+      const eqd = { tournamentIds: ['t1'], methods: [{ method: 'setMatchUpStatus', params: {} }] };
+      const mockReq = {
+        provisioner: undefined,
+        headers: {},
+        auditSource: undefined,
+        user: { email: 'director@example.com', sub: '11111111-2222-3333-4444-555555555555' },
+      };
+      await mockController.executionQueue(eqd as any, mockReq);
+
+      expect(mockService.executionQueue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userEmail: 'director@example.com',
+          userId: '11111111-2222-3333-4444-555555555555',
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('records userEmail but no userId when the JWT carries no id-shaped identifier', async () => {
+      const mockService = {
+        executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
+      } as unknown as FactoryService;
+      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+
+      const eqd = { tournamentIds: ['t1'], methods: [] };
+      const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined, user: { email: 'd@e.com' } };
+      await mockController.executionQueue(eqd as any, mockReq);
+
+      const passed = (mockService.executionQueue as jest.Mock).mock.calls[0][0];
+      expect(passed.userEmail).toBe('d@e.com');
+      expect(passed.userId).toBeUndefined();
+    });
+
     it('does not broadcast after failed executionQueue', async () => {
       const mockService = {
         executionQueue: jest.fn().mockResolvedValue({ error: 'something failed' }),

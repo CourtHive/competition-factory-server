@@ -227,10 +227,17 @@ export class FactoryController {
     const provisioner = req.provisioner
       ? { provisionerId: req.provisioner.provisionerId, providerId: req.headers?.['x-provider-id'] }
       : undefined;
-    const result = await this.factoryService.executionQueue(
-      { ...eqd, provisioner, auditSource: req.auditSource },
-      { cacheManager: this.cacheManager },
-    );
+    // Stamp the JWT-verified identity onto the payload so the audit hook records
+    // the authenticated user. Mirrors tmx.gateway.ts — without it, REST-path
+    // mutations land in audit_log with a null user_email/user_id (the socket
+    // path stamps it; this path previously did not). userId is only assigned
+    // when present: audit_log.user_id is UUID-typed, so an email fallback would
+    // crash the INSERT — the email belongs in userEmail.
+    const verifiedUser = req.user;
+    const payload: any = { ...eqd, provisioner, auditSource: req.auditSource };
+    if (verifiedUser?.email) payload.userEmail = verifiedUser.email;
+    if (verifiedUser?.userId || verifiedUser?.sub) payload.userId = verifiedUser.userId ?? verifiedUser.sub;
+    const result = await this.factoryService.executionQueue(payload, { cacheManager: this.cacheManager });
     if (result?.success) {
       const { publicNotices } = result;
       this.broadcastService.broadcastMutation(eqd);

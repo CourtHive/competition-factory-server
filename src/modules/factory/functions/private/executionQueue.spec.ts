@@ -60,4 +60,44 @@ describe('executionQueue', () => {
     }, undefined, mockStorage);
     expect(result.error).toEqual(factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD);
   });
+
+  it('records the factory error CODE (not "[object Object]") on a rejected mutation', async () => {
+    await removeTournamentRecords({ tournamentId });
+    const gen: any = await generateTournamentRecord(
+      { tournamentAttributes: { tournamentId }, drawProfiles: [{ drawSize: 8 }] },
+      testUser,
+    );
+    expect(gen.success).toEqual(true);
+
+    const recordMutation = jest.fn().mockResolvedValue(undefined);
+    const auditService = { recordMutation } as any;
+
+    // Schedule against a non-existent draw → the engine returns an
+    // object-shaped factory error ({ message, code }). Pre-fix the audit
+    // hook String()'d the object to the useless literal "[object Object]".
+    const payload = {
+      methods: [
+        {
+          method: 'addMatchUpScheduleItems',
+          params: {
+            drawId: 'no-such-draw',
+            matchUpId: 'no-such-matchup',
+            schedule: { scheduledDate: '2024-01-01' },
+            tournamentId,
+          },
+        },
+      ],
+      tournamentIds: [tournamentId],
+      rollbackOnError: true,
+    };
+
+    const result: any = await executionQueue(payload, undefined, mockStorage, auditService);
+    expect(result.success).not.toBe(true);
+    expect(recordMutation).toHaveBeenCalledTimes(1);
+    const recorded = recordMutation.mock.calls[0][0];
+    expect(recorded.status).toBe('rejected');
+    expect(typeof recorded.errorCode).toBe('string');
+    expect(recorded.errorCode).not.toBe('[object Object]');
+    expect(recorded.errorCode.startsWith('ERR_')).toBe(true);
+  });
 });
