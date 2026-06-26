@@ -46,10 +46,14 @@ export interface IChatStorage {
     limit?: number;
   }): Promise<{ records?: ChatMessageRecord[]; error?: string }>;
 
-  /** Admin monitor backfill: most-recent messages across ALL tournaments
-   *  within `sinceMs` (default 24h), capped by `limit`, ascending seq. */
-  recentAcrossTournaments(params: {
-    sinceMs?: number;
+  /** Admin monitor page: most-recent messages across ALL tournaments, capped
+   *  by `limit`, returned in ascending seq order. When `beforeSeq` is given,
+   *  returns the page immediately older than it (for "load older"). No time
+   *  window — the retention prune (CHAT_RETENTION_DAYS, default 30d) is the
+   *  natural floor for how far back paging reaches. An empty result means the
+   *  retention edge was reached. */
+  adminMessagesBefore(params: {
+    beforeSeq?: number;
     limit?: number;
   }): Promise<{ records?: ChatMessageRecord[]; error?: string }>;
 

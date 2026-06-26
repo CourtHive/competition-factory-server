@@ -90,25 +90,38 @@ export class PostgresChatStorage implements IChatStorage {
     }
   }
 
-  async recentAcrossTournaments(params: {
-    sinceMs?: number;
+  async adminMessagesBefore(params: {
+    beforeSeq?: number;
     limit?: number;
   }): Promise<{ records?: ChatMessageRecord[]; error?: string }> {
-    const sinceMs = params.sinceMs ?? DEFAULT_BACKFILL_MS;
     const limit = params.limit ?? ADMIN_DEFAULT_LIMIT;
+    const beforeSeq = params.beforeSeq;
     try {
-      const result = await this.pool.query(
-        `SELECT * FROM (
-           SELECT ${SELECT_COLS} FROM chat_messages
-           WHERE created_at > now() - ($1::bigint * interval '1 millisecond')
-           ORDER BY seq DESC
-           LIMIT $2
-         ) recent ORDER BY seq ASC`,
-        [sinceMs, limit],
-      );
+      // Take the most-recent `limit` (DESC), optionally older than `beforeSeq`,
+      // then re-order ascending so the client renders oldest→newest. No time
+      // window: paging reaches back to wherever the retention prune has cut.
+      const result =
+        beforeSeq && Number.isFinite(beforeSeq)
+          ? await this.pool.query(
+              `SELECT * FROM (
+                 SELECT ${SELECT_COLS} FROM chat_messages
+                 WHERE seq < $1
+                 ORDER BY seq DESC
+                 LIMIT $2
+               ) page ORDER BY seq ASC`,
+              [beforeSeq, limit],
+            )
+          : await this.pool.query(
+              `SELECT * FROM (
+                 SELECT ${SELECT_COLS} FROM chat_messages
+                 ORDER BY seq DESC
+                 LIMIT $1
+               ) page ORDER BY seq ASC`,
+              [limit],
+            );
       return { records: result.rows.map(mapRow) };
     } catch (err: any) {
-      return { error: err?.message ?? 'recentAcrossTournaments failed' };
+      return { error: err?.message ?? 'adminMessagesBefore failed' };
     }
   }
 

@@ -53,6 +53,24 @@ describe('PostgresChatStorage', () => {
     expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('seq > $2'), ['t1', 42, expect.any(Number)]);
   });
 
+  it('adminMessagesBefore (no beforeSeq) fetches the most-recent page, no seq filter', async () => {
+    const pool = makePool([dbRow({ seq: '3' }), dbRow({ seq: '5' })]);
+    const storage = new PostgresChatStorage(pool);
+    const { records } = await storage.adminMessagesBefore({});
+    expect(records!.map((r) => r.seq)).toEqual([3, 5]);
+    const [sql, params] = pool.query.mock.calls[0];
+    expect(sql).not.toContain('seq <');
+    expect(params).toEqual([expect.any(Number)]); // just the limit
+  });
+
+  it('adminMessagesBefore (beforeSeq) pages older with a seq < filter', async () => {
+    const pool = makePool([dbRow({ seq: '1' }), dbRow({ seq: '2' })]);
+    const storage = new PostgresChatStorage(pool);
+    const { records } = await storage.adminMessagesBefore({ beforeSeq: 3 });
+    expect(records!.map((r) => r.seq)).toEqual([1, 2]);
+    expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('seq < $1'), [3, expect.any(Number)]);
+  });
+
   it('pruneOlderThan returns the deleted count', async () => {
     const pool = makePool([], 9);
     const storage = new PostgresChatStorage(pool);
