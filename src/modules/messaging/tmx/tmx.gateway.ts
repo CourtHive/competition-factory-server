@@ -396,9 +396,28 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     await client.join(ADMIN_CHAT_MONITOR_ROOM);
     this.logger.log(`[chat-monitor] ${client.id} joined admin chat monitor`);
 
-    // Backfill the cross-tournament history so the monitor opens populated.
-    const { records } = await this.chatStorage.recentAcrossTournaments({});
-    client.emit('adminChatHistory', { messages: (records ?? []).map(toAdminFeed) });
+    // Backfill the most-recent cross-tournament page so the monitor opens
+    // populated regardless of how recent the last activity was. The client
+    // can page further back via `adminChatLoadOlder` to the 30d retention edge.
+    const { records } = await this.chatStorage.adminMessagesBefore({});
+    client.emit('adminChatHistory', { messages: (records ?? []).map(toAdminFeed), older: false });
+  }
+
+  /**
+   * Super-admin pages back through cross-tournament history. Returns the page
+   * of messages immediately older than `beforeSeq` (the oldest seq the client
+   * currently holds). An empty `messages` array signals the retention edge —
+   * the client disables its "load older" affordance.
+   */
+  @SubscribeMessage('adminChatLoadOlder')
+  @Roles([SUPER_ADMIN])
+  async adminChatLoadOlder(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
+    if (!client.rooms.has(ADMIN_CHAT_MONITOR_ROOM)) return;
+    const beforeSeq = Number(data?.beforeSeq);
+    if (!Number.isFinite(beforeSeq)) return;
+
+    const { records } = await this.chatStorage.adminMessagesBefore({ beforeSeq });
+    client.emit('adminChatHistory', { messages: (records ?? []).map(toAdminFeed), older: true });
   }
 
   @SubscribeMessage('leaveChatMonitor')

@@ -74,7 +74,7 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     }),
     recentMessages: jest.fn().mockResolvedValue({ records: [] }),
     messagesSince: jest.fn().mockResolvedValue({ records: [] }),
-    recentAcrossTournaments: jest.fn().mockResolvedValue({ records: [] }),
+    adminMessagesBefore: jest.fn().mockResolvedValue({ records: [] }),
     pruneOlderThan: jest.fn().mockResolvedValue({ deleted: 0 }),
   };
 
@@ -161,19 +161,51 @@ describe('TmxGateway chat persistence', () => {
     expect(socket.emit).toHaveBeenCalledWith('chatHistory', expect.objectContaining({ gap: true }));
   });
 
-  it('backfills cross-tournament history when an admin joins the monitor', async () => {
+  it('backfills the most-recent cross-tournament page when an admin joins the monitor', async () => {
     const { gateway, chatStorage } = buildGateway();
-    chatStorage.recentAcrossTournaments.mockResolvedValue({
+    chatStorage.adminMessagesBefore.mockResolvedValue({
       records: [{ seq: 7, tournamentId: 't9', providerId: 'p', providerAbbr: 'ACME', tournamentName: 'Open', userName: 'x', message: 'hey', isAdmin: false, createdAt: new Date(0).toISOString() }],
     });
     const socket = makeSocket({ user: { email: 'admin@test.com', roles: ['superadmin'] } });
 
     await gateway.joinChatMonitor(socket as any);
 
+    // Opens with the most-recent page (no beforeSeq), flagged as not-older.
+    expect(chatStorage.adminMessagesBefore).toHaveBeenCalledWith({});
     expect(socket.emit).toHaveBeenCalledWith(
       'adminChatHistory',
-      expect.objectContaining({ messages: [expect.objectContaining({ seq: 7, providerAbbr: 'ACME', tournamentName: 'Open' })] }),
+      expect.objectContaining({
+        older: false,
+        messages: [expect.objectContaining({ seq: 7, providerAbbr: 'ACME', tournamentName: 'Open' })],
+      }),
     );
+  });
+
+  it('pages older cross-tournament history on adminChatLoadOlder (older: true)', async () => {
+    const { gateway, chatStorage } = buildGateway();
+    chatStorage.adminMessagesBefore.mockResolvedValue({
+      records: [{ seq: 3, tournamentId: 't9', providerAbbr: 'ACME', tournamentName: 'Open', userName: 'x', message: 'older', isAdmin: false, createdAt: new Date(0).toISOString() }],
+    });
+    const socket = makeSocket({ user: { email: 'admin@test.com', roles: ['superadmin'] } });
+    socket.rooms.add('admin:chatMonitor');
+
+    await gateway.adminChatLoadOlder({ beforeSeq: 7 }, socket as any);
+
+    expect(chatStorage.adminMessagesBefore).toHaveBeenCalledWith({ beforeSeq: 7 });
+    expect(socket.emit).toHaveBeenCalledWith(
+      'adminChatHistory',
+      expect.objectContaining({ older: true, messages: [expect.objectContaining({ seq: 3 })] }),
+    );
+  });
+
+  it('ignores adminChatLoadOlder when the socket is not in the monitor room', async () => {
+    const { gateway, chatStorage } = buildGateway();
+    const socket = makeSocket({ user: { email: 'admin@test.com', roles: ['superadmin'] } });
+
+    await gateway.adminChatLoadOlder({ beforeSeq: 7 }, socket as any);
+
+    expect(chatStorage.adminMessagesBefore).not.toHaveBeenCalled();
+    expect(socket.emit).not.toHaveBeenCalled();
   });
 });
 
