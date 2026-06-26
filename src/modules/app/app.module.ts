@@ -4,12 +4,13 @@ import { RankingsProxyModule } from '../rankings-proxy/rankings-proxy.module';
 import { RankingsWebhookModule } from '../rankings-webhook/rankings-webhook.module';
 import { ProvisionerModule } from '../provisioner/provisioner.module';
 import { BoltHistoryModule } from '../bolt-history/bolt-history.module';
-// OfficiatingModule + SanctioningModule retired 2026-05-27: superseded by AMS
+// OfficiatingModule + SanctioningModule retired 2026-05-27 (un-registered) and
+// their module dirs + orphaned storage layer removed 2026-06-26: superseded by AMS
 // (AMS-WS-07, AMS-WS-08); no consumer in TMX/admin-client/AMS-console calls the
-// CFS routes. Module directories kept for a follow-up sweep; CFS Postgres
-// tables (officiating/sanctioning) retained pending a data migration into
-// courthive_ams. See Mentat/planning/AMS_DEPLOY_AND_RETIREMENT.md §CFS
-// retirement windows #1 + #2.
+// CFS routes. CFS Postgres tables (sanctioning_records etc.) + migration 013 are
+// RETAINED pending a data migration into courthive_ams — provider archive / cleanup
+// / revive still read those tables via raw SQL. See
+// Mentat/planning/AMS_DEPLOY_AND_RETIREMENT.md §CFS retirement windows #1 + #2.
 import { PoliciesModule } from '../policies/policies.module';
 import { AuditModule } from '../audit/audit.module';
 import { ConfigReadinessModule } from '../config-readiness/config-readiness.module';

@@ -2,7 +2,7 @@
  * Server instance profiles control which NestJS modules are loaded.
  *
  * - tournament: Tournament operations only (factory, messaging, cache)
- * - provider:   Provider/org operations (sanctioning, officiating, calendar, email)
+ * - provider:   Provider/org operations (policies, calendar, email)
  * - full:       All modules (default — suitable for small orgs or development)
  *
  * Set via SERVER_PROFILE env var. Defaults to 'full'.

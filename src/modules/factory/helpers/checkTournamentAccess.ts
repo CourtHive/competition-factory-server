@@ -1,7 +1,6 @@
 /**
  * Per-user tournament visibility and mutation access control.
  *
- * Mirrors the pattern in sanctioning/helpers/checkSanctioningAccess.ts.
  * All access decisions flow through this file so there is a single
  * authoritative decision point. Gated by ENABLE_TOURNAMENT_ACCESS_SCOPING;
  * when the flag is off, every check returns true (legacy behavior).

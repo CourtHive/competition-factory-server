@@ -10,8 +10,6 @@ import { USER_PROVISIONER_STORAGE } from './interfaces/user-provisioner-storage.
 import { PROVIDER_ARCHIVE_STORAGE } from './interfaces/provider-archive-storage.interface';
 import { REFRESH_TOKEN_STORAGE } from './interfaces/refresh-token-storage.interface';
 import { REGISTRATION_ENTRY_STORAGE } from './interfaces/registration-entry-storage.interface';
-import { OFFICIATING_STORAGE } from './interfaces/officiating-storage.interface';
-import { SANCTIONING_STORAGE } from './interfaces/sanctioning-storage.interface';
 import { BOLT_HISTORY_STORAGE } from './interfaces/bolt-history.interface';
 import { CHAT_STORAGE } from './interfaces/chat-storage.interface';
 import { TOURNAMENT_STORAGE } from './interfaces/tournament-storage.interface';
@@ -37,8 +35,6 @@ import { PostgresUserProvisionerStorage } from './postgres/postgres-user-provisi
 import { PostgresProviderArchiveStorage } from './postgres/postgres-provider-archive.storage';
 import { PostgresRefreshTokenStorage } from './postgres/postgres-refresh-token.storage';
 import { PostgresRegistrationEntryStorage } from './postgres/postgres-registration-entry.storage';
-import { PostgresSanctioningStorage } from './postgres/postgres-sanctioning.storage';
-import { PostgresOfficiatingStorage } from './postgres/postgres-officiating.storage';
 import { PostgresAuditStorage } from './postgres/postgres-audit.storage';
 import { PostgresBoltHistoryStorage } from './postgres/postgres-bolt-history.storage';
 import { PostgresChatStorage } from './postgres/postgres-chat.storage';
@@ -92,8 +88,6 @@ const providerCatalogStorageProvider = makeStorageProvider(
 );
 const calendarStorageProvider = makeStorageProvider(CALENDAR_STORAGE, PostgresCalendarStorage);
 const authCodeStorageProvider = makeStorageProvider(AUTH_CODE_STORAGE, PostgresAuthCodeStorage);
-const officiatingStorageProvider = makeStorageProvider(OFFICIATING_STORAGE, PostgresOfficiatingStorage);
-const sanctioningStorageProvider = makeStorageProvider(SANCTIONING_STORAGE, PostgresSanctioningStorage);
 const boltHistoryStorageProvider = makeStorageProvider(BOLT_HISTORY_STORAGE, PostgresBoltHistoryStorage);
 const boltHistoryReportingProvider = makeStorageProvider(BOLT_HISTORY_REPORTING, PostgresBoltHistoryReportingStorage);
 const userProviderStorageProvider = makeStorageProvider(USER_PROVIDER_STORAGE, PostgresUserProviderStorage);
@@ -125,8 +119,6 @@ const chatStorageProvider = makeStorageProvider(CHAT_STORAGE, PostgresChatStorag
     providerCatalogStorageProvider,
     calendarStorageProvider,
     authCodeStorageProvider,
-    officiatingStorageProvider,
-    sanctioningStorageProvider,
     boltHistoryStorageProvider,
     boltHistoryReportingProvider,
     userProviderStorageProvider,
@@ -155,8 +147,6 @@ const chatStorageProvider = makeStorageProvider(CHAT_STORAGE, PostgresChatStorag
     PROVIDER_CATALOG_STORAGE,
     CALENDAR_STORAGE,
     AUTH_CODE_STORAGE,
-    OFFICIATING_STORAGE,
-    SANCTIONING_STORAGE,
     BOLT_HISTORY_STORAGE,
     BOLT_HISTORY_REPORTING,
     USER_PROVIDER_STORAGE,
