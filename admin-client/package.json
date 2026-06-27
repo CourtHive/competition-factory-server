@@ -1,6 +1,6 @@
 {
   "name": "competition-factory-admin",
-  "packageManager": "pnpm@11.8.0",
+  "packageManager": "pnpm@11.9.0",
   "private": true,
   "version": "0.1.0",
   "type": "module",
