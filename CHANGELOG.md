@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.0](https://github.com/CourtHive/competition-factory-server/compare/v2.13.1...v2.14.0) (2026-06-27)
+
+
+### Features
+
+* **chat:** page admin chat monitor through full retention window ([#783](https://github.com/CourtHive/competition-factory-server/issues/783)) ([96cab4b](https://github.com/CourtHive/competition-factory-server/commit/96cab4b6cfc168c457c49fd0b127faf064e0c786))
+
 ## [2.13.1](https://github.com/CourtHive/competition-factory-server/compare/v2.13.0...v2.13.1) (2026-06-24)
 
 
