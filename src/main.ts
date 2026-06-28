@@ -14,7 +14,11 @@ import { json } from 'body-parser';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: ['fatal', 'verbose', 'debug', 'error', 'warn'] });
   app.enableCors({
-    methods: ['GET', 'POST'],
+    // PUT/PATCH/DELETE back the console's edit flows (provider settings, user +
+    // provisioner management). Same-origin in prod (NGINX), but cross-origin in
+    // dev/e2e (console on a separate Vite port) — without these the browser
+    // blocks the preflight and the edit silently fails (net::ERR_FAILED).
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization', 'If-None-Match'],
     // Browsers hide non-safelisted response headers from cross-origin
     // JavaScript by default. `ETag` is what TMX's i18n runtime-loader
