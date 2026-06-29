@@ -258,4 +258,51 @@ describe('TrackerTokenService', () => {
     const decoded: any = await mockJwtService.verifyAsync(result.token);
     expect(decoded.exp - decoded.iat).toBe(3600);
   });
+
+  describe('mintProviderScoringToken', () => {
+    it('mints a provider-audience token carrying the scorer identity + scope', async () => {
+      const result = await service.mintProviderScoringToken(
+        { tournamentId: TOURNAMENT_ID, personId: 'person-1', displayName: 'Ivy ION', verified: true, ttlSeconds: 3600 },
+        { providerId: PROVIDER_ID },
+        makeContext(),
+      );
+      const decoded: any = await mockJwtService.verifyAsync(result.token);
+      expect(decoded.aud).toBe('provider');
+      expect(decoded.tournamentId).toBe(TOURNAMENT_ID);
+      expect(decoded.providerId).toBe(PROVIDER_ID);
+      expect(decoded.personId).toBe('person-1');
+      expect(decoded.email_verified).toBe(true);
+    });
+
+    it('rejects when personId is missing', async () => {
+      await expect(
+        service.mintProviderScoringToken(
+          { tournamentId: TOURNAMENT_ID, personId: '' },
+          { providerId: PROVIDER_ID },
+          makeContext(),
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects when the caller does not own the tournament', async () => {
+      await expect(
+        service.mintProviderScoringToken(
+          { tournamentId: TOURNAMENT_ID, personId: 'person-1' },
+          { providerId: 'other-provider' },
+          makeContext({ providerRoles: { 'other-provider': 'PROVIDER_ADMIN' }, providerIds: ['other-provider'] }),
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('writes the audit row with provider audience', async () => {
+      await service.mintProviderScoringToken(
+        { tournamentId: TOURNAMENT_ID, personId: 'person-1' },
+        { providerId: PROVIDER_ID, userId: 'u-key' },
+        makeContext(),
+      );
+      expect(mockAuditService.recordTrackerTokenIssued).toHaveBeenCalledWith(
+        expect.objectContaining({ tournamentId: TOURNAMENT_ID, providerId: PROVIDER_ID, audience: 'provider' }),
+      );
+    });
+  });
 });

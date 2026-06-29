@@ -38,6 +38,16 @@ export interface MintTrackerTokenResult {
   expiresAt: string; // ISO-8601
 }
 
+export interface MintProviderScoringTokenParams {
+  tournamentId: string;
+  /** Canonical Person id of the scorer the provider is attesting. */
+  personId: string;
+  displayName?: string;
+  /** Provider attests the scorer is verified (gates TMX nomination). */
+  verified?: boolean;
+  ttlSeconds?: number;
+}
+
 @Injectable()
 export class TrackerTokenService {
   private readonly logger = new Logger(TrackerTokenService.name);
@@ -107,6 +117,66 @@ export class TrackerTokenService {
       });
     } catch (err) {
       this.logger.warn(`trackerTokenIssued audit failed: ${(err as Error).message}`);
+    }
+
+    return { token, expiresAt };
+  }
+
+  /**
+   * Mint a `provider`-audience relay token so a provider's own client app
+   * (e.g. IONSport) can be a first-class score-relay client. The token is
+   * scoped to a single tournament (the relay enforces that scope from the
+   * `tournamentId` claim with no DB lookup) and carries the provider-attested
+   * scorer identity so TMX classifies + nominates it like any HiveID scorer.
+   */
+  async mintProviderScoringToken(
+    params: MintProviderScoringTokenParams,
+    user: { userId?: string; providerId?: string; provisionerId?: string },
+    userContext: UserContext | undefined,
+  ): Promise<MintTrackerTokenResult> {
+    const tournamentId = params.tournamentId?.trim();
+    if (!tournamentId) throw new BadRequestException('tournamentId is required');
+    const personId = params.personId?.trim();
+    if (!personId) throw new BadRequestException('personId is required');
+
+    const ttlSeconds = this.clampTtl(params.ttlSeconds);
+
+    const tournament = await this.loadTournament(tournamentId);
+    if (!tournament) throw new NotFoundException(`tournament ${tournamentId} not found`);
+    if (!canMutateTournament(tournament, userContext)) {
+      throw new ForbiddenException('caller does not own this tournament');
+    }
+
+    const sub = user.providerId ? `provider:${user.providerId}` : user.userId ?? 'unknown';
+    const now = Math.floor(Date.now() / 1000);
+    const exp = now + ttlSeconds;
+    const token = await this.jwtService.signAsync(
+      {
+        sub,
+        aud: 'provider',
+        tournamentId,
+        providerId: user.providerId,
+        personId,
+        displayName: params.displayName,
+        email_verified: params.verified === true,
+        iat: now,
+      },
+      { expiresIn: ttlSeconds },
+    );
+    const expiresAt = new Date(exp * 1000).toISOString();
+
+    try {
+      await this.auditService.recordTrackerTokenIssued({
+        tournamentId,
+        providerId: user.providerId,
+        provisionerId: user.provisionerId,
+        audience: 'provider',
+        ttlSeconds,
+        expiresAt,
+        userId: user.userId,
+      });
+    } catch (err) {
+      this.logger.warn(`providerScoringTokenIssued audit failed: ${(err as Error).message}`);
     }
 
     return { token, expiresAt };

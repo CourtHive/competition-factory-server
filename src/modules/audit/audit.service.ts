@@ -585,7 +585,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     tournamentId: string;
     providerId?: string;
     provisionerId?: string;
-    audience: 'admin' | 'score';
+    audience: 'admin' | 'score' | 'provider';
     ttlSeconds: number;
     expiresAt: string;
     userId?: string;

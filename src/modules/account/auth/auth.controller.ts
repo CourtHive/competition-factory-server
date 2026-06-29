@@ -4,6 +4,7 @@ import { UserCtx, type UserContext } from './decorators/user-context.decorator';
 import { AdminCreateUserDto } from './dto/adminCreateUser.dto';
 import { ForgotPasswordDto } from './dto/forgotPassword.dto';
 import { ResetPasswordDto } from './dto/resetPassword.dto';
+import { ProviderScoringTokenDto } from './dto/providerScoringToken.dto';
 import { TrackerTokenDto } from './dto/trackerToken.dto';
 import { SUPER_ADMIN, CLIENT, SCORE } from 'src/common/constants/roles';
 import { Public } from './decorators/public.decorator';
@@ -44,6 +45,38 @@ export class AuthController {
   ) {
     return this.trackerTokenService.mintTrackerToken(
       { tournamentId: body.tournamentId, ttlSeconds: body.ttlSeconds },
+      {
+        userId: user?.userId,
+        providerId: user?.providerId,
+        provisionerId: req?.provisioner?.provisionerId,
+      },
+      userContext,
+    );
+  }
+
+  /**
+   * POST /auth/provider-scoring-token — mint a `provider`-audience relay token
+   * so a provider's own client app (e.g. IONSport) can be a score-relay client.
+   * Same provider API-key + ownership gate as /auth/tracker-token; scoped to one
+   * tournament and carrying the provider-attested scorer identity.
+   */
+  @Post('provider-scoring-token')
+  @Roles([SCORE, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  async mintProviderScoringToken(
+    @Body() body: ProviderScoringTokenDto,
+    @User() user: any,
+    @UserCtx() userContext: UserContext,
+    @Req() req?: any,
+  ) {
+    return this.trackerTokenService.mintProviderScoringToken(
+      {
+        tournamentId: body.tournamentId,
+        personId: body.personId,
+        displayName: body.displayName,
+        verified: body.verified,
+        ttlSeconds: body.ttlSeconds,
+      },
       {
         userId: user?.userId,
         providerId: user?.providerId,
