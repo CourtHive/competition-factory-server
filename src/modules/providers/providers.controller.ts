@@ -251,6 +251,19 @@ export class ProvidersController {
   }
 
   /**
+   * Public scoring-launch lookup keyed by tournamentId. Returns only the
+   * owning provider's `integrations.scoringLaunch` slice so the
+   * unauthenticated viewer (courthive-public) can resolve which scoring
+   * app a per-matchUp "Score this match" action launches. Defaults to
+   * EPIXODIC when unmapped/undeclared. All other config stays private.
+   */
+  @Public()
+  @Get('by-tournament/:tournamentId/scoring-launch')
+  getPublicScoringLaunchByTournament(@Param('tournamentId') tournamentId: string) {
+    return this.providers.getPublicScoringLaunchByTournament(tournamentId);
+  }
+
+  /**
    * Authenticated multi-provider calendar — used by TMX.
    * Returns one filtered calendar per provider the user is associated with.
    * Optional body.providerAbbr to scope to a single provider.

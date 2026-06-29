@@ -1,7 +1,7 @@
 import { scopeCalendarForUser } from 'src/modules/factory/helpers/checkTournamentAccess';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
-import { computeEffectiveConfig, validateSettings } from '@courthive/provider-config';
+import { computeEffectiveConfig, DEFAULT_SCORING_LAUNCH, validateSettings } from '@courthive/provider-config';
 import { Inject, Injectable } from '@nestjs/common';
 import { tools } from 'tods-competition-factory';
 
@@ -207,6 +207,26 @@ export class ProvidersService {
     if (!provider) return { ...SUCCESS, branding: undefined };
     const effective = computeEffectiveConfig(provider.providerConfigCaps, provider.providerConfigSettings);
     return { ...SUCCESS, branding: effective.branding };
+  }
+
+  /**
+   * Public-safe scoring-launch lookup keyed by tournamentId — used by
+   * unauthenticated viewers (courthive-public) to resolve which scoring
+   * app a per-matchUp "Score this match" action launches. Returns ONLY
+   * the `integrations.scoringLaunch` slice; all other config stays
+   * private (mirrors `getPublicBrandingByTournament`).
+   *
+   * Falls back to `DEFAULT_SCORING_LAUNCH` (EPIXODIC) when the tournament
+   * has no provider mapping, the provider was deleted, or the provider
+   * declared no scoringLaunch — so the viewer always has a launch target.
+   */
+  async getPublicScoringLaunchByTournament(tournamentId: string) {
+    const tp = await this.tournamentProvisionerStorage.getByTournament(tournamentId);
+    if (!tp?.providerId) return { ...SUCCESS, scoringLaunch: DEFAULT_SCORING_LAUNCH };
+    const provider = await this.providerStorage.getProvider(tp.providerId);
+    if (!provider) return { ...SUCCESS, scoringLaunch: DEFAULT_SCORING_LAUNCH };
+    const effective = computeEffectiveConfig(provider.providerConfigCaps, provider.providerConfigSettings);
+    return { ...SUCCESS, scoringLaunch: effective.integrations?.scoringLaunch ?? DEFAULT_SCORING_LAUNCH };
   }
 
   /**

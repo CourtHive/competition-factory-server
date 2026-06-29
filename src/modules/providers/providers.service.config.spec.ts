@@ -191,4 +191,51 @@ describe('ProvidersService — provider config two-tier methods', () => {
       expect(result.branding).toBeUndefined();
     });
   });
+
+  describe('getPublicScoringLaunchByTournament', () => {
+    it('defaults to EPIXODIC when tournament has no provider mapping', async () => {
+      const svc = makeService(makeProviderStorage(null), makeTournamentProvisionerStorage(null));
+      const result: any = await svc.getPublicScoringLaunchByTournament('t-orphan');
+      expect(result.success).toBe(true);
+      expect(result.scoringLaunch).toEqual({ app: 'EPIXODIC' });
+    });
+
+    it('defaults to EPIXODIC when the mapped provider was deleted', async () => {
+      const svc = makeService(
+        makeProviderStorage(null),
+        makeTournamentProvisionerStorage({ tournamentId: 't-1', providerId: 'p-gone' }),
+      );
+      const result: any = await svc.getPublicScoringLaunchByTournament('t-1');
+      expect(result.scoringLaunch).toEqual({ app: 'EPIXODIC' });
+    });
+
+    it('defaults to EPIXODIC when the provider declared no scoringLaunch', async () => {
+      const svc = makeService(
+        makeProviderStorage({ providerConfigCaps: { permissions: { canCreateEvents: true } } }),
+        makeTournamentProvisionerStorage({ tournamentId: 't-1', providerId: 'p-1' }),
+      );
+      const result: any = await svc.getPublicScoringLaunchByTournament('t-1');
+      expect(result.scoringLaunch).toEqual({ app: 'EPIXODIC' });
+    });
+
+    it('returns the declared EXTERNAL scoringLaunch (IONSport) and leaks nothing else', async () => {
+      const svc = makeService(
+        makeProviderStorage({
+          providerConfigCaps: {
+            integrations: { scoringLaunch: { app: 'EXTERNAL', urlTemplate: 'https://ionsport.app/m/${matchUpId}' } },
+            permissions: { canCreateOfficials: false }, // must NOT leak
+          },
+          providerConfigSettings: { participantPrivacy: { cityState: true } }, // must NOT leak
+        }),
+        makeTournamentProvisionerStorage({ tournamentId: 't-1', providerId: 'p-1' }),
+      );
+      const result: any = await svc.getPublicScoringLaunchByTournament('t-1');
+      expect(result.success).toBe(true);
+      expect(result.scoringLaunch).toEqual({ app: 'EXTERNAL', urlTemplate: 'https://ionsport.app/m/${matchUpId}' });
+      expect((result as any).permissions).toBeUndefined();
+      expect((result as any).participantPrivacy).toBeUndefined();
+      expect((result as any).branding).toBeUndefined();
+      expect((result as any).effective).toBeUndefined();
+    });
+  });
 });
