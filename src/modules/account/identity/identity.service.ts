@@ -58,11 +58,18 @@ export class IdentityService {
    * raw GET so link-previewers (Slack, Discord, anti-spam scanners)
    * don't accidentally consume the single-use token.
    */
-  private buildVerifyUrl(token: string): string {
+  private buildVerifyUrl(token: string, landing: 'admin' | 'public' = 'admin'): string {
     const appConfig: any = this.configService.get('app');
     const base = String(appConfig?.baseUrl ?? process.env.APP_BASE_URL ?? '').replace(/\/+$/, '');
     if (!base) {
       throw new Error('APP_BASE_URL is not set; cannot generate verification link.');
+    }
+    // HiveID (public-side) verification links land on courthive-public; admin
+    // contact-email verification lands on the admin-client. Both POST the same
+    // single-use token to the shared @Public `/auth/verify-email` endpoint.
+    if (landing === 'public') {
+      const publicPath = `/${(process.env.PUBLIC_URL ?? '/public/').replace(/^\/+|\/+$/g, '')}/`;
+      return `${base}${publicPath}#/verify-email/${token}`;
     }
     return `${base}/admin/#/verify-email/${token}`;
   }
@@ -117,6 +124,7 @@ export class IdentityService {
 
   async resendVerification(
     user: { userId: string; firstName?: string; email: string },
+    opts?: { landing?: 'admin' | 'public' },
   ): Promise<{ success: true; status: 'pending_verification' | 'already_verified' | 'no_contact_email' }> {
     if (!user?.userId) throw new UnauthorizedException();
     const record = await this.userStorage.findOne(user.email);
@@ -135,7 +143,7 @@ export class IdentityService {
       data: {
         firstName: user.firstName ?? record.firstName ?? '',
         email: record.contactEmail,
-        verifyUrl: this.buildVerifyUrl(token),
+        verifyUrl: this.buildVerifyUrl(token, opts?.landing ?? 'admin'),
         expiresInMinutes: VERIFICATION_TOKEN_TTL_MINUTES,
       },
       tag: 'email-verification',

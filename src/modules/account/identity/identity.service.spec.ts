@@ -151,6 +151,20 @@ describe('IdentityService', () => {
         expect.objectContaining({ to: 'alice@example.com', tag: 'email-verification' }),
       );
     });
+
+    it('defaults to an admin-client verify URL', async () => {
+      mockUserStorage.findOne.mockResolvedValue({ contactEmail: 'alice@example.com', emailVerifiedAt: null });
+      await identityService.resendVerification({ userId: 'u-1', email: 'u-1@login' });
+      const sendCall = mockEmailService.sendTemplated.mock.calls.at(-1)[0];
+      expect(sendCall.data.verifyUrl).toMatch(/^https:\/\/nest\.test\.example\/admin\/#\/verify-email\//);
+    });
+
+    it('builds a courthive-public verify URL when landing is "public" (HiveID)', async () => {
+      mockUserStorage.findOne.mockResolvedValue({ contactEmail: 'alice@example.com', emailVerifiedAt: null });
+      await identityService.resendVerification({ userId: 'u-1', email: 'u-1@login' }, { landing: 'public' });
+      const sendCall = mockEmailService.sendTemplated.mock.calls.at(-1)[0];
+      expect(sendCall.data.verifyUrl).toMatch(/^https:\/\/nest\.test\.example\/public\/#\/verify-email\//);
+    });
   });
 
   describe('adminResendVerification', () => {

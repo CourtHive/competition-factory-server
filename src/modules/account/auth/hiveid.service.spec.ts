@@ -72,7 +72,9 @@ describe('HiveIDService', () => {
       setAccessCode: jest.fn().mockResolvedValue({ success: true }),
       consumeAccessCode: jest.fn(),
     };
-    mockIdentityService = {};
+    mockIdentityService = {
+      resendVerification: jest.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
+    };
     mockAuditService = {};
     mockPersonsClient = {
       resolve: jest.fn(),
@@ -105,6 +107,7 @@ describe('HiveIDService', () => {
       authService,
       mockUsersService,
       mockEmailService,
+      mockIdentityService,
       mockConfigService,
       mockPersonsClient,
       mockTournamentStorageService,
@@ -158,11 +161,31 @@ describe('HiveIDService', () => {
       expect(result.token).toBeDefined();
       expect(result.refreshToken).toBe('rtok_test_token');
       expect(decodeToken(result.token).aud).toBe('hiveid');
+      // Brand-new signup is not yet verified — claim must be false.
+      expect(decodeToken(result.token).email_verified).toBe(false);
       expect(mockUserStorage.setPersonLink).toHaveBeenCalledWith('u-new', expect.objectContaining({
         personId: 'person-123',
         personRevision: 1,
       }));
       expect(mockUserStorage.setContactEmail).toHaveBeenCalledWith('u-new', 'new@test.com');
+      // Fires the email-verification mail with a courthive-public landing.
+      expect(mockIdentityService.resendVerification).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'u-new', email: 'new@test.com' }),
+        { landing: 'public' },
+      );
+    });
+
+    it('still issues a session when the verification email fails to send', async () => {
+      mockUsersService.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ userId: 'u-new', email: 'new@test.com' });
+      mockPersonsClient.resolve.mockResolvedValue({ status: 'minted', personId: 'p-1', personRevision: 1 });
+      mockPersonsClient.getById.mockResolvedValue({ person: { standardGivenName: 'Jane', standardFamilyName: 'Doe' } });
+      mockIdentityService.resendVerification.mockRejectedValueOnce(new Error('smtp down'));
+
+      const result: any = await service.signup({ email: 'new@test.com', firstName: 'Jane', lastName: 'Doe' });
+      expect(result.status).toBe('created');
+      expect(result.token).toBeDefined();
     });
 
     it('throws 409 ConflictException when the email already exists', async () => {
@@ -387,6 +410,8 @@ describe('HiveIDService', () => {
       expect(result.status).toBe('authenticated');
       expect(result.personId).toBe('p-1');
       expect(decodeToken(result.token).aud).toBe('hiveid');
+      // A consumed magic link proves mailbox control — claim must be true.
+      expect(decodeToken(result.token).email_verified).toBe(true);
       expect(mockUserStorage.markEmailVerified).toHaveBeenCalledWith('u-1');
     });
   });
@@ -436,6 +461,27 @@ describe('HiveIDService', () => {
 
     it('throws when no userId is provided', async () => {
       await expect(service.getMe('')).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+  });
+
+  describe('resendVerification', () => {
+    it('delegates to IdentityService with a public landing', async () => {
+      const result: any = await service.resendVerification({
+        userId: 'u-1',
+        email: 'jane@test.com',
+        firstName: 'Jane',
+      });
+      expect(result.status).toBe('pending_verification');
+      expect(mockIdentityService.resendVerification).toHaveBeenCalledWith(
+        { userId: 'u-1', email: 'jane@test.com', firstName: 'Jane' },
+        { landing: 'public' },
+      );
+    });
+
+    it('throws when the caller is unauthenticated', async () => {
+      await expect(service.resendVerification({ userId: '', email: '' })).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
     });
   });
 

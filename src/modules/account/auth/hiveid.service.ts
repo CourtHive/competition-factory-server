@@ -37,6 +37,7 @@ import { PersonsClient, type PersonFragmentInput } from '../persons/persons-clie
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { AuditService } from '../../audit/audit.service';
 import type { HiveIDSignupDto } from './dto/hiveidSignup.dto';
+import { IdentityService } from '../identity/identity.service';
 import { EmailService } from '../email/email.service';
 import { UsersService } from '../../users/users.service';
 import { AuthService } from './auth.service';
@@ -103,6 +104,7 @@ export class HiveIDService {
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
     private readonly emailService: EmailService,
+    private readonly identityService: IdentityService,
     private readonly configService: ConfigService,
     private readonly personsClient: PersonsClient,
     private readonly tournamentStorageService: TournamentStorageService,
@@ -209,12 +211,32 @@ export class HiveIDService {
     }
     await this.userStorage.setPersonLink(userId, { personId, personRevision, cached });
 
+    // Fire the email-verification mail (public landing → courthive-public).
+    // Best-effort: a mail failure must NOT block signup — the user already has
+    // a session and can resend from /#/me. Verified status gates official
+    // scorer nomination (Phase D), not basic access or crowd scoring.
+    try {
+      await this.identityService.resendVerification(
+        { userId, email, firstName: cached.standardGivenName ?? body.firstName.trim() },
+        { landing: 'public' },
+      );
+    } catch (err) {
+      Logger.warn(
+        `hiveid signup: verification email for ${email} failed: ${(err as Error).message}`,
+        HiveIDService.name,
+      );
+    }
+
     const payload = {
       userId,
       email,
       personId,
       firstName: cached.standardGivenName,
       lastName: cached.standardFamilyName,
+      // Brand-new signup — verification mail just sent, not yet confirmed.
+      // The relay carries this claim through to crowdScoredBy so TMX can gate
+      // scorer-nomination on email-verified status without any extra lookup.
+      email_verified: false,
     };
     const session = await this.authService.issueSession(payload, userAgent, 'hiveid');
     return {
@@ -304,6 +326,9 @@ export class HiveIDService {
       payload.personId = linkPersonId;
       payload.personRevision = linkRevision;
     }
+    // Existing admin proving control of their password — reflect their current
+    // verified status (admins linking a HiveID are typically already verified).
+    payload.email_verified = !!user.emailVerifiedAt;
     const session = await this.authService.issueSession(payload, userAgent, ['admin', 'hiveid']);
     return {
       status: 'verified' as const,
@@ -389,6 +414,9 @@ export class HiveIDService {
       personRevision: link?.personRevision ?? null,
       firstName: link?.cached.standardGivenName ?? user.firstName ?? null,
       lastName: link?.cached.standardFamilyName ?? user.lastName ?? null,
+      // A successful magic-link consume is proof of mailbox control — the email
+      // is verified by this point (stamped just above when not already set).
+      email_verified: true,
     };
     const session = await this.authService.issueSession(payload, userAgent, 'hiveid');
     return {
@@ -404,6 +432,20 @@ export class HiveIDService {
       },
       ...session,
     };
+  }
+
+  /**
+   * POST /auth/hiveid/resend-verification — re-send the email-verification
+   * mail (public landing) for the authenticated HiveID user. Idempotent;
+   * delegates to the shared IdentityService flow, which no-ops when already
+   * verified or no contact_email is set.
+   */
+  async resendVerification(args: { userId: string; email: string; firstName?: string }) {
+    if (!args?.userId || !args?.email) throw new UnauthorizedException();
+    return this.identityService.resendVerification(
+      { userId: args.userId, email: args.email, firstName: args.firstName },
+      { landing: 'public' },
+    );
   }
 
   /**

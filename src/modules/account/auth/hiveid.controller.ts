@@ -63,6 +63,22 @@ export class HiveIDController {
   }
 
   /**
+   * POST /auth/hiveid/resend-verification — re-send the email-verification
+   * mail for the authenticated HiveID user. The link lands on courthive-public
+   * and POSTs the token to the shared @Public `/auth/verify-email` endpoint.
+   */
+  @Audience(['hiveid'])
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  resendVerification(@Req() req: any) {
+    return this.hiveidService.resendVerification({
+      userId: req?.user?.userId,
+      email: req?.user?.email,
+      firstName: req?.user?.firstName,
+    });
+  }
+
+  /**
    * GET /auth/hiveid/me/participations — every tournament where the
    * caller has been claimed as a Participant via the CANONICAL_PERSON
    * organisationId. Phase 1 surface for the "instant tournament
