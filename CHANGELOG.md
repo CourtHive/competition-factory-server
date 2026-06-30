@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.15.0](https://github.com/CourtHive/competition-factory-server/compare/v2.14.0...v2.15.0) (2026-06-30)
+
+
+### Features
+
+* **account:** hiveid email verification and email_verified claim ([4fefe75](https://github.com/CourtHive/competition-factory-server/commit/4fefe75032a98f24a04b34d47213350efca842bb))
+* **auth:** provider-scoring-token mint for relay clients ([a83f5b0](https://github.com/CourtHive/competition-factory-server/commit/a83f5b0ac3c27cadf884902d6f461c1b899891ca))
+* **providers:** public scoring-launch endpoint by tournament ([33ab316](https://github.com/CourtHive/competition-factory-server/commit/33ab316a8cc5f780b7a8c7ce4e896ae7c77bec17))
+* **scripts:** add idempotent intennse provider provisioning script ([fc79c95](https://github.com/CourtHive/competition-factory-server/commit/fc79c951d6d69d304f7c06fd5081e33f7d5d779c))
+
+
+### Bug Fixes
+
+* **cors:** allow PUT/PATCH/DELETE cross-origin ([51f877a](https://github.com/CourtHive/competition-factory-server/commit/51f877a6cbb4014b1f3213ce500b18f62c215eb9))
+* **deps:** bump audit-worker tods-competition-factory to 5.9.0 ([8c88c6a](https://github.com/CourtHive/competition-factory-server/commit/8c88c6a64d12f6879db7458f4c1fe93c091325f7))
+
 ## [2.14.0](https://github.com/CourtHive/competition-factory-server/compare/v2.13.1...v2.14.0) (2026-06-27)
 
 

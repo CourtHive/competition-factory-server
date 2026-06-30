@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/CourtHive/competition-factory-server/compare/audit-worker-v1.1.1...audit-worker-v1.1.2) (2026-06-30)
+
+
+### Bug Fixes
+
+* **deps:** bump audit-worker tods-competition-factory to 5.9.0 ([8c88c6a](https://github.com/CourtHive/competition-factory-server/commit/8c88c6a64d12f6879db7458f4c1fe93c091325f7))
+
 ## [1.1.1](https://github.com/CourtHive/competition-factory-server/compare/audit-worker-v1.1.0...audit-worker-v1.1.1) (2026-06-24)
 
 
