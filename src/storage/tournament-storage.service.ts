@@ -300,6 +300,18 @@ export class TournamentStorageService {
     return this.updateCalendar({ provider, tournaments: updatedEntries });
   }
 
+  /**
+   * Public: list a provider's calendar tournament entries (each with
+   * tournamentId + tournament.startDate/endDate). Used by the "apply
+   * participant-privacy policy to existing tournaments" action to enumerate
+   * and classify a provider's tournaments without loading full records.
+   */
+  async listProviderTournaments({ providerId }: { providerId: string }): Promise<any[]> {
+    const result: any = await this.getProviderCalendar({ providerId });
+    if (result?.error) return [];
+    return result.tournaments ?? [];
+  }
+
   // --- Private helpers ---
 
   private async getProviderCalendar({ providerId }: { providerId: string }) {

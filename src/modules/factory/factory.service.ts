@@ -15,10 +15,15 @@ import { AssignmentsService } from './assignments.service';
 import { AuditService } from '../audit/audit.service';
 import { checkProvider } from './helpers/checkProvider';
 import { attachProviderPrivacyOnCreate } from './helpers/attachProviderPrivacyOnCreate';
+import { selectPrivacyApplyTargets } from './helpers/selectPrivacyApplyTargets';
 import { BadRequestException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
+import { computeEffectiveConfig } from '@courthive/provider-config';
 import { checkUser } from './helpers/checkUser';
 import publicQueries from './functions/public';
-import { askEngine } from 'tods-competition-factory';
+import { askEngine, factoryConstants } from 'tods-competition-factory';
+
+const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PARTICIPANT;
+const EXISTING_POLICY_TYPE = factoryConstants.errorConditionConstants.EXISTING_POLICY_TYPE;
 
 // types and interfaces
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
@@ -63,6 +68,76 @@ export class FactoryService {
     }
 
     return result;
+  }
+
+  /**
+   * Apply the provider's selected participant-privacy policy to its EXISTING
+   * tournaments. UPCOMING tournaments are always targeted; IN-PROGRESS ones
+   * only when `includeInProgress` is set; COMPLETED tournaments are never
+   * touched (confirmed decision — never force a privacy change on a finished
+   * event). Each attach runs through the full executionQueue mutation path
+   * (per-tournament lock + save + audit + broadcast); `attachPolicies` is
+   * idempotent, so a tournament that already carries the policy is reported
+   * as `alreadyAttached` rather than re-written.
+   */
+  async applyParticipantPrivacyToExisting(
+    { providerId, includeInProgress }: { providerId: string; includeInProgress?: boolean },
+    userContext?: UserContext,
+  ) {
+    const provider: any = await this.providerStorage.getProvider(providerId);
+    if (!provider) return { error: 'Provider not found' };
+
+    const policy = computeEffectiveConfig(provider?.caps, provider?.settings)?.participantPrivacyPolicy;
+    if (!policy || !Object.keys(policy).length) {
+      return { error: 'NO_PRIVACY_POLICY', policyConfigured: false };
+    }
+
+    const tournaments = await this.tournamentStorageService.listProviderTournaments({ providerId });
+    const today = new Date().toISOString().split('T')[0];
+    const targets = selectPrivacyApplyTargets(tournaments, { includeInProgress: !!includeInProgress, today });
+
+    const attached: string[] = [];
+    const alreadyAttached: string[] = [];
+    const failed: Array<{ tournamentId: string; error: any }> = [];
+
+    for (const tournamentId of targets.selected) {
+      const params = {
+        methods: [{ method: 'attachPolicies', params: { policyDefinitions: { [POLICY_TYPE_PARTICIPANT]: policy }, tournamentId } }],
+        tournamentIds: [tournamentId],
+        userId: userContext?.userId,
+        source: 'ams-apply-privacy',
+      };
+      // Call the private mutation path directly (not this.executionQueue) so a
+      // per-tournament EXISTING_POLICY_TYPE result is inspected, not thrown by
+      // checkEngineError.
+      const res: any = await eq(
+        params,
+        undefined,
+        this.tournamentStorageService,
+        this.auditService,
+        this.tournamentProvisionerStorage,
+        this.providerStorage,
+      ).catch((err) => ({ error: err?.message ?? String(err) }));
+
+      const errorCode = res?.error?.code ?? res?.error;
+      if (res?.success) attached.push(tournamentId);
+      else if (errorCode === EXISTING_POLICY_TYPE) alreadyAttached.push(tournamentId);
+      else failed.push({ tournamentId, error: errorCode ?? 'attach failed' });
+    }
+
+    return {
+      success: true,
+      policyConfigured: true,
+      attached,
+      alreadyAttached,
+      failed,
+      counts: {
+        upcoming: targets.upcoming.length,
+        inProgress: targets.inProgress.length,
+        completed: targets.completed.length,
+        selected: targets.selected.length,
+      },
+    };
   }
 
   async score(params, cacheManager) {
