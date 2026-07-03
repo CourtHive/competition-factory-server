@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.0](https://github.com/CourtHive/competition-factory-server/compare/v2.15.0...v2.16.0) (2026-07-03)
+
+
+### Features
+
+* **participants:** honor attached participant-privacy policy in getParticipants ([#799](https://github.com/CourtHive/competition-factory-server/issues/799)) ([04d3c25](https://github.com/CourtHive/competition-factory-server/commit/04d3c2545b21f9ef6d8b8be75f2bc88e9a7e6806))
+
 ## [2.15.0](https://github.com/CourtHive/competition-factory-server/compare/v2.14.0...v2.15.0) (2026-06-30)
 
 
