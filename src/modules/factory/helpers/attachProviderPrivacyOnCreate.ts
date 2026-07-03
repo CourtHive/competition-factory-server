@@ -48,7 +48,7 @@ export async function attachProviderPrivacyOnCreate(record: any, deps: Deps): Pr
   if (existing?.error !== MISSING_TOURNAMENT_RECORD) return false;
 
   const provider: any = await deps.providerStorage.getProvider(providerId);
-  const policy = computeEffectiveConfig(provider?.caps, provider?.settings)?.participantPrivacyPolicy;
+  const policy = computeEffectiveConfig(provider?.providerConfigCaps, provider?.providerConfigSettings)?.participantPrivacyPolicy;
   if (!policy || !Object.keys(policy).length) return false;
 
   const result: any = policyGovernor.attachPolicies({

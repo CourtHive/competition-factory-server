@@ -273,7 +273,7 @@ export async function attachProviderPolicies({
     let policy: Record<string, any> | undefined;
     try {
       const provider: any = await providerStorage.getProvider(providerId);
-      const effective = computeEffectiveConfig(provider?.caps, provider?.settings);
+      const effective = computeEffectiveConfig(provider?.providerConfigCaps, provider?.providerConfigSettings);
       policy = effective?.participantPrivacyPolicy;
     } catch (err: any) {
       Logger.error(`Privacy policy resolve failed for provider ${providerId}: ${err?.message}`, 'executionQueue');

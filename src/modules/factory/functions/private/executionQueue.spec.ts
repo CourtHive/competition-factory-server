@@ -111,8 +111,8 @@ describe('attachProviderPolicies (privacy attach hook)', () => {
   // A provider whose effective config exposes the selected privacy policy.
   const providerStorage: any = {
     getProvider: jest.fn().mockResolvedValue({
-      caps: {},
-      settings: { participantPrivacyPolicy: privacyPolicy },
+      providerConfigCaps: {},
+      providerConfigSettings: { participantPrivacyPolicy: privacyPolicy },
     }),
   };
 
@@ -167,7 +167,7 @@ describe('attachProviderPolicies (privacy attach hook)', () => {
 
   it('is a no-op when the provider has no privacy policy configured', async () => {
     const bareProviderStorage: any = {
-      getProvider: jest.fn().mockResolvedValue({ caps: {}, settings: {} }),
+      getProvider: jest.fn().mockResolvedValue({ providerConfigCaps: {}, providerConfigSettings: {} }),
     };
     const engine = makeEngine({ tournamentId, parentOrganisation: { organisationId: PROVIDER_ID } });
     const applied = await attachProviderPolicies({

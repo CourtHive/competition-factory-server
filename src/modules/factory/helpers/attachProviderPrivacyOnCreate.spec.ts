@@ -22,7 +22,7 @@ const existsStorage = {
 };
 
 const providerWithPolicy = {
-  getProvider: jest.fn().mockResolvedValue({ caps: {}, settings: { participantPrivacyPolicy: privacyPolicy } }),
+  getProvider: jest.fn().mockResolvedValue({ providerConfigCaps: {}, providerConfigSettings: { participantPrivacyPolicy: privacyPolicy } }),
 };
 
 function participantPolicyOn(record: any) {
@@ -78,7 +78,7 @@ describe('attachProviderPrivacyOnCreate (REST /factory/save create path)', () =>
 
   it('does NOT attach when the provider has no privacy policy configured', async () => {
     const record = makeRecord();
-    const bareProvider = { getProvider: jest.fn().mockResolvedValue({ caps: {}, settings: {} }) };
+    const bareProvider = { getProvider: jest.fn().mockResolvedValue({ providerConfigCaps: {}, providerConfigSettings: {} }) };
     const attached = await attachProviderPrivacyOnCreate(record, {
       tournamentStorageService: notFoundStorage as any,
       providerStorage: bareProvider as any,

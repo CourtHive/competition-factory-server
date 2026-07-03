@@ -87,7 +87,7 @@ export class FactoryService {
     const provider: any = await this.providerStorage.getProvider(providerId);
     if (!provider) return { error: 'Provider not found' };
 
-    const policy = computeEffectiveConfig(provider?.caps, provider?.settings)?.participantPrivacyPolicy;
+    const policy = computeEffectiveConfig(provider?.providerConfigCaps, provider?.providerConfigSettings)?.participantPrivacyPolicy;
     if (!policy || !Object.keys(policy).length) {
       return { error: 'NO_PRIVACY_POLICY', policyConfigured: false };
     }
@@ -119,9 +119,13 @@ export class FactoryService {
         this.providerStorage,
       ).catch((err) => ({ error: err?.message ?? String(err) }));
 
+      // Factory error constants are objects ({ code, message }); the executionQueue
+      // result surfaces the error as an object or a bare string. Normalise both to
+      // a code for comparison.
+      const existingCode = (EXISTING_POLICY_TYPE as any)?.code ?? EXISTING_POLICY_TYPE;
       const errorCode = res?.error?.code ?? res?.error;
       if (res?.success) attached.push(tournamentId);
-      else if (errorCode === EXISTING_POLICY_TYPE) alreadyAttached.push(tournamentId);
+      else if (errorCode === existingCode) alreadyAttached.push(tournamentId);
       else failed.push({ tournamentId, error: errorCode ?? 'attach failed' });
     }
 

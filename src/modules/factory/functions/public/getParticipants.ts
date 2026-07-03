@@ -59,7 +59,7 @@ export async function getParticipants(
   if (providerId && providerStorage) {
     try {
       const provider = await providerStorage.getProvider(providerId);
-      const effective = computeEffectiveConfig(provider?.caps, provider?.settings);
+      const effective = computeEffectiveConfig(provider?.providerConfigCaps, provider?.providerConfigSettings);
       participantPrivacy = effective.participantPrivacy;
     } catch {
       // Provider lookup failure → fall through to default-strict policy.
