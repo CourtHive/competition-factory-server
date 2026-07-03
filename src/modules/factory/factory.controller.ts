@@ -11,9 +11,10 @@ import { ExecutionQueueDto } from './dto/executionQueue.dto';
 import { GetEventDataDto } from './dto/getEventData.dto';
 import { GetMatchUpsDto } from './dto/getMatchUps.dto';
 
-import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param, Logger, Req } from '@nestjs/common';
+import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param, Logger, Req, ForbiddenException } from '@nestjs/common';
 import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
-import { ADMIN, CLIENT, GENERATE, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
+import { ADMIN, CLIENT, GENERATE, PROVIDER_ADMIN, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
+import { ApplyPrivacyPolicyDto } from './dto/applyPrivacyPolicy.dto';
 import { Audience } from 'src/modules/account/auth/decorators/audience.decorator';
 import { Public } from 'src/modules/account/auth/decorators/public.decorator';
 import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
@@ -321,6 +322,23 @@ export class FactoryController {
     @UserCtx() userContext?: UserContext,
   ) {
     return this.factoryService.saveTournamentRecords(std, user, userContext);
+  }
+
+  // Apply the provider's selected participant-privacy policy to its existing
+  // tournaments (upcoming always; in-progress on opt-in; never completed).
+  // Provider-scoped: only a PROVIDER_ADMIN of the target provider (or a
+  // super-admin) may run it.
+  @Post('apply-privacy-policy')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  applyPrivacyPolicy(@Body() dto: ApplyPrivacyPolicyDto, @UserCtx() ctx?: UserContext) {
+    const { providerId, includeInProgress } = dto ?? ({} as ApplyPrivacyPolicyDto);
+    if (!providerId) return { error: 'providerId required' };
+    const isProviderAdmin = ctx?.providerRoles?.[providerId] === PROVIDER_ADMIN;
+    if (!ctx?.isSuperAdmin && !isProviderAdmin) {
+      throw new ForbiddenException('PROVIDER_ADMIN role required');
+    }
+    return this.factoryService.applyParticipantPrivacyToExisting({ providerId, includeInProgress }, ctx);
   }
 
   @Get('save-status/:saveId')
