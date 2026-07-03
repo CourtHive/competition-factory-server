@@ -66,7 +66,19 @@ export async function getParticipants(
     }
   }
 
-  const policyDefinitions = buildParticipantPrivacyPolicy(participantPrivacy);
+  // Prefer a participant-privacy POLICY attached to the tournamentRecord. The
+  // provider's selected privacy policy is attached on tournament creation (and
+  // via "apply to existing"), and the factory applies it during participant
+  // filtering. Only when no policy is attached do we fall back to the legacy
+  // participantPrivacy toggle → default-strict policy.
+  const attached = queryGovernor.getPolicyDefinitions({
+    tournamentRecord,
+    policyTypes: [POLICY_TYPE_PARTICIPANT],
+  })?.policyDefinitions;
+
+  const policyDefinitions = attached?.[POLICY_TYPE_PARTICIPANT]
+    ? attached
+    : buildParticipantPrivacyPolicy(participantPrivacy);
 
   const participantResult = queryGovernor.getParticipants({
     policyDefinitions,
