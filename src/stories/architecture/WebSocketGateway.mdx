@@ -8,14 +8,19 @@ The server uses Socket.IO for real-time bidirectional communication with TMX cli
 
 ## Namespace
 
-All TMX communication uses the `/tmx` Socket.IO namespace.
+All TMX communication uses the `/tmx` Socket.IO namespace, declared on `TmxGateway` via `@WebSocketGateway({ cors: { origin: '*' }, namespace: 'tmx' })`.
 
 ```typescript
-// Client connection
-const socket = io('http://localhost:8383/tmx');
+// Client connection — the JWT is supplied via the auth callback so it
+// is re-sent on every reconnect (see Authentication below)
+const socket = io('http://localhost:8383/tmx', {
+  auth: (cb) => cb({ token: currentAccessToken }),
+});
 ```
 
 ## Message Types
+
+Each handler is a `@SubscribeMessage(...)` method on `TmxGateway`, guarded by `SocketGuard` and (except `test`) a `@Roles([...])` decorator.
 
 ### Client → Server
 
@@ -25,9 +30,11 @@ const socket = io('http://localhost:8383/tmx');
   </thead>
   <tbody>
     <tr><td><code>executionQueue</code></td><td>Execute tournament mutations (the primary mutation path)</td></tr>
-    <tr><td><code>fetchTournament</code></td><td>Request a tournament record by ID</td></tr>
-    <tr><td><code>saveTournament</code></td><td>Save/upload a tournament record</td></tr>
-    <tr><td><code>authenticate</code></td><td>Authenticate with JWT token</td></tr>
+    <tr><td><code>joinTournament</code> / <code>leaveTournament</code></td><td>Join/leave a tournament room (<code>tournament:&#123;id&#125;</code>); join runs a <code>canViewTournament</code> visibility check</td></tr>
+    <tr><td><code>chatMessage</code> / <code>chatSince</code></td><td>Send a tournament chat message / request messages after a sequence number (gap fill)</td></tr>
+    <tr><td><code>joinChatMonitor</code> / <code>leaveChatMonitor</code> / <code>adminChatLoadOlder</code> / <code>adminChatReply</code></td><td>Super-admin cross-tournament chat monitor (SUPER_ADMIN only)</td></tr>
+    <tr><td><code>timestamp</code></td><td>Latency/clock probe — server echoes its current time</td></tr>
+    <tr><td><code>test</code></td><td>Unauthenticated connectivity/cache probe (<code>@Public()</code>)</td></tr>
   </tbody>
 </table>
 
@@ -35,36 +42,47 @@ const socket = io('http://localhost:8383/tmx');
 
 <table>
   <thead>
-    <tr><th style={{ textAlign: 'left' }}>Message Type</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+    <tr><th style={{ textAlign: 'left' }}>Event</th><th style={{ textAlign: 'left' }}>Description</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>ack</code></td><td>Acknowledge a mutation request (with <code>ackId</code>)</td></tr>
-    <tr><td><code>tournamentRecord</code></td><td>Deliver a requested tournament record</td></tr>
-    <tr><td><code>error</code></td><td>Error response</td></tr>
-    <tr><td><code>broadcast</code></td><td>Tournament changes broadcast to other connected clients</td></tr>
+    <tr><td><code>ack</code></td><td>Acknowledge an <code>executionQueue</code> request (carries <code>ackId</code>)</td></tr>
+    <tr><td><code>tournamentMutation</code></td><td>Approved methods broadcast to other clients in the tournament room</td></tr>
+    <tr><td><code>roomPresence</code></td><td>Current socket count for a tournament room</td></tr>
+    <tr><td><code>boltHistoryUpdated</code></td><td>Live-scoreboard document update for a tournament</td></tr>
+    <tr><td><code>chatMessage</code> / <code>chatHistory</code> / <code>chatAccepted</code> / <code>chatRejected</code></td><td>Chat relay, backfill, and per-message ack/reject</td></tr>
+    <tr><td><code>adminChatFeed</code> / <code>adminChatHistory</code></td><td>Cross-tournament chat feed for the super-admin monitor</td></tr>
+    <tr><td><code>exception</code></td><td>Auth/authorization error (e.g. missing token, not authorized to view a tournament)</td></tr>
   </tbody>
 </table>
 
-## Authentication Flow
+## Authentication
 
-1. Client connects to `/tmx` namespace
-2. Client sends `authenticate` message with JWT token
-3. Server validates token, associates socket with user/provider
-4. Subsequent messages are authorized based on user roles
+There is **no** `authenticate` message. `SocketGuard` (applied to `TmxGateway` via `@UseGuards(SocketGuard)`) authenticates and authorizes every guarded message:
+
+1. The client supplies its JWT through the Socket.IO `auth.token` handshake field (preferred — it is re-sent on every reconnect, so it survives token rotation) or, as a fallback, an `Authorization: Bearer` header.
+2. `SocketGuard` verifies the JWT with `JWT_SECRET`.
+3. It runs an **audience** check: the token's `aud` claim must overlap the gateway's required audiences. Absent `@Audience(...)` defaults to `['admin']`, and legacy tokens with no `aud` claim are treated as `admin`.
+4. It enforces the handler's `@Roles([...])` (most handlers require `CLIENT` or `SUPER_ADMIN`) and stores the verified user on `client.data.user` for downstream handlers.
+
+On failure the guard emits an `exception` event and rejects the message. `executionQueue` applies an additional per-tournament authorization gate (`canMutateTournament` + the owning provider's mutation-permission map) before the mutation runs.
 
 ## Mutation Acknowledgement
 
-Each mutation request includes an `ackId`. The server responds with an `ack` message containing:
+Each `executionQueue` request includes an `ackId`. The server (`tmxMessages.executionQueue`) responds with an `ack` event:
 
 ```json
-{
-  "ackId": "original-request-id",
-  "success": true,
-  "methods": [{ "method": "addEvent", "success": true }]
-}
+// success
+{ "ackId": "original-request-id", "success": true }
+
+// error (optional context/info/stack/tournamentIds included when present)
+{ "ackId": "original-request-id", "error": "…", "tournamentIds": ["…"] }
 ```
 
 The client waits for this `ack` before applying mutations locally, ensuring server-client consistency.
+
+## Per-Request State Isolation
+
+The gateway serves many concurrent sockets from one Node.js process. Each `executionQueue` runs against its own factory-engine state, isolated via Node.js `async_hooks` (`asyncGlobalState`), while `withTournamentLock` serializes requests that touch the same tournament. See [Mutation Flow](?path=/docs/architecture-mutation-flow--docs) for details.
 
 ## Broadcasting
 

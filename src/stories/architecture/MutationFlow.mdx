@@ -46,15 +46,29 @@ User Action (TMX client)
 
 With `serverFirst: true` (default), the flow is:
 
-1. **Client** sends mutation methods to server via Socket.IO
-2. **Server** acquires tournament lock (`withTournamentLock`)
-3. **Server** fetches tournament records from storage
-4. **Server** executes all methods via `mutationEngine.executionQueue()`
-5. **Server** saves updated records to storage
-6. **Server** broadcasts changes to other connected clients
-7. **Server** sends `ack` back to originating client
-8. **Client** receives `ack`, applies same mutations locally via factory engine
-9. **Client** saves to IndexedDB
+1. **Client** sends mutation methods to the server via Socket.IO (`executionQueue` message)
+2. **Server gateway** (`TmxGateway.messageHandler`) authorizes the request per-tournament — `canMutateTournament` access plus the owning provider's mutation-permission map — and stamps the JWT-verified identity onto the payload
+3. **Server** (`executionQueue`) acquires the per-tournament lock (`withTournamentLock`)
+4. **Server** fetches tournament records from storage into the request's isolated factory-engine state
+5. **Server** executes all methods via `mutationEngine.executionQueue(methods, rollbackOnError)`
+6. **Server** saves updated records to storage (then flushes deferred cache keys and records the audit entry, still inside the lock)
+7. **Server** (`tmxMessages.executionQueue`) sends `ack` back to the originating client
+8. **Server gateway** broadcasts the approved methods to other `/tmx` clients in the tournament room and sanitized notices to `/public` viewers
+9. **Client** receives `ack`, applies the same mutations locally via the factory engine
+10. **Client** saves to IndexedDB
+
+The `ack` is emitted from `tmxMessages.executionQueue` (see `client.emit('ack', response)`); the broadcast then happens back in `TmxGateway.messageHandler` once the handler returns success.
+
+## Per-Request State Isolation
+
+The server processes many concurrent requests through a single Node.js process, so the factory engine cannot hold mutable state on a shared singleton. Instead, each request gets its own factory-engine state via Node.js `async_hooks`:
+
+- `getMutationEngine` builds an `asyncEngine()` instance and wires the factory's state provider to `asyncGlobalState` (`globalState.setStateProvider(asyncGlobalState)`).
+- `asyncGlobalState` registers an `async_hooks` `createHook` and keys per-context state (`tournamentRecords`, `subscriptions`, `notices`, `methods`, `modified`) by `executionAsyncId()`. The `init` hook propagates state to child async contexts; `destroy` cleans it up.
+- Because state is scoped to the async execution context, two concurrent `executionQueue` requests never see each other's `setState(...)` / notices — no cross-request contamination.
+- The same isolation lets `resolveMatchUpReferences` safely use `tournamentEngineAsync.setState(...).findMatchUp(...)` to backfill `drawId`/`eventId` on `setMatchUpStatus` methods that carry only a `matchUpId`.
+
+Per-request state isolation and the per-tournament mutex are complementary: `async_hooks` keeps concurrent requests' engine state separate, while `withTournamentLock` serializes requests that target the *same* tournament so their read-modify-write cycles cannot interleave.
 
 ## REST API Mutations
 
@@ -104,7 +118,9 @@ The server uses per-tournament mutexes to prevent concurrent modifications:
     <tr><td>Client</td><td><code>TMX/src/services/messaging/socketIo.ts</code></td><td>Socket.IO communication</td></tr>
     <tr><td>Server</td><td><code>src/modules/messaging/tmx/tmx.gateway.ts</code></td><td>WebSocket gateway</td></tr>
     <tr><td>Server</td><td><code>src/modules/messaging/tmx/tmxMessages.ts</code></td><td>Message routing</td></tr>
-    <tr><td>Server</td><td><code>src/modules/factory/functions/private/executionQueue.ts</code></td><td>Mutation execution</td></tr>
-    <tr><td>Server</td><td><code>src/services/tournamentMutex.ts</code></td><td>Concurrency control</td></tr>
+    <tr><td>Server</td><td><code>src/modules/factory/functions/private/executionQueue.ts</code></td><td>Mutation execution (lock, fetch, execute, save, audit)</td></tr>
+    <tr><td>Server</td><td><code>src/modules/factory/engines/getMutationEngine.ts</code></td><td>Builds the per-request async engine and wires subscriptions</td></tr>
+    <tr><td>Server</td><td><code>src/modules/factory/engines/asyncGlobalState.ts</code></td><td>Per-request factory state via Node.js <code>async_hooks</code></td></tr>
+    <tr><td>Server</td><td><code>src/services/tournamentMutex.ts</code></td><td>Per-tournament mutex (sorted acquisition, 30s timeout)</td></tr>
   </tbody>
 </table>

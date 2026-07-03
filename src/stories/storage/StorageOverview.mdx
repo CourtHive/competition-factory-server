@@ -4,7 +4,7 @@ import { Meta } from '@storybook/addon-docs/blocks';
 
 # Storage Architecture
 
-The server uses a pluggable storage abstraction, selected at startup via the `STORAGE_PROVIDER` environment variable.
+The server stores all data in **PostgreSQL** — the only supported backend (the former LevelDB backend was removed on 2026-05-30). Records are stored as JSONB documents behind a set of storage interfaces, so the persistence layer stays decoupled from domain services. The schema is applied automatically on startup by `MigrationRunnerService`; there is no manual migration step.
 
 ## Architecture
 

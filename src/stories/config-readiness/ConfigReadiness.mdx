@@ -1,0 +1,88 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Configuration/Config Readiness" />
+
+# Config Readiness
+
+`ConfigReadinessService` validates runtime configuration at boot and on demand. It **never blocks server start** — even a CRITICAL finding (placeholder `JWT_SECRET`, missing DB creds) only emits a loud, delineated block at the top of the log so the operator can choose to bounce the process. TMX traffic keeps flowing in the meantime. The same report is available as structured JSON so deploy automation can decide.
+
+## What it checks
+
+`gatherChecks()` runs a fixed set of environment/runtime checks. Each returns `{ name, level, status, detail? }`, where `level` ∈ `INFO | WARN | CRITICAL` and `status` ∈ `ok | warn | fail`.
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Check</th><th style={{ textAlign: 'left' }}>Level when missing/bad</th><th style={{ textAlign: 'left' }}>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>JWT_SECRET</code></td><td>CRITICAL (fail)</td><td>Missing, or value matches a placeholder shape — "DO NOT deploy this"</td></tr>
+    <tr><td><code>DATABASE_URL</code></td><td>WARN</td><td>Unset — <code>PG_*</code> variables take over</td></tr>
+    <tr><td><code>EMAIL_FROM</code></td><td>WARN</td><td>Resend will reject outbound mail</td></tr>
+    <tr><td><code>APP_BASE_URL</code></td><td>WARN</td><td>Verification + password-reset links use a placeholder URL</td></tr>
+    <tr><td><code>PERSONS_BASE_URL</code></td><td>WARN</td><td>PersonsClient falls back to <code>http://localhost:3100</code></td></tr>
+    <tr><td><code>RELAY_SERVICE_JWT</code></td><td>WARN</td><td>score-relay persistence is anonymous (RolesGuard rejects); mint a <code>score</code>/<code>admin</code>-aud JWT with the SCORE role</td></tr>
+    <tr><td><code>RESEND_API_KEY</code></td><td>WARN</td><td>Outbound email disabled until set</td></tr>
+    <tr><td><code>node-version</code></td><td>WARN</td><td>Warns below the documented minimum (node &gt;= 22)</td></tr>
+  </tbody>
+</table>
+
+### Placeholder-secret detection
+
+`JWT_SECRET` is additionally tested against known `.env.example` placeholder hints (`replace this`, `placeholder`, `change me`/`changeme`, `your-secret-here`). To avoid false positives on long high-entropy secrets that happen to contain a hint substring, the match uses letter-boundary regexes — a placeholder must appear surrounded by non-letter characters, since operators write placeholders as recognizable tokens, not embedded inside random alnum entropy.
+
+## Admin endpoint
+
+`ConfigReadinessController` mounts at `/admin/config/readiness`, SUPER_ADMIN-gated (the report is verbose enough to leak operator-relevant config state).
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Route</th><th style={{ textAlign: 'left' }}>Behaviour</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>GET /admin/config/readiness</code></td><td>Return the most recent boot/manual report (runs a manual pass if none cached)</td></tr>
+    <tr><td><code>POST /admin/config/readiness</code></td><td>Re-run all checks with no restart</td></tr>
+  </tbody>
+</table>
+
+The JSON report shape:
+
+```json
+{
+  "generatedAt": "2026-07-03T...Z",
+  "hostname": "...",
+  "summary": { "ok": 6, "warn": 2, "fail": 0, "total": 8 },
+  "checks": [ { "name": "JWT_SECRET", "level": "INFO", "status": "ok" }, ... ]
+}
+```
+
+## Boot behaviour and log format
+
+On `onApplicationBootstrap` the service runs `runAndLog('boot')`, caches the report, and emits a delineated block. The block is emitted at WARN (yellow) whenever anything is flagged — the red ERROR rendering is hard to read on dark terminals; the `✗` markers and `fail=N` in the banner stay greppable for severity:
+
+```
+─────────────────────────────────────────────────────
+Config readiness (boot) — ok=6 warn=2 fail=0
+  ✓ [INFO] JWT_SECRET
+  ⚠ [WARN] EMAIL_FROM — Resend will reject outbound mail.
+  ...
+─────────────────────────────────────────────────────
+```
+
+The output format is intentionally stable for scripting on top of `grep`. To add a check, append a `checkRequiredEnv(...)`-style entry to `gatherChecks()`.
+
+## Health-check usage
+
+Deploy automation can `POST /admin/config/readiness` after a rollout and gate promotion on `summary.fail === 0`, or `grep` the boot log block for `fail=` / `✗`. Because the server starts regardless of findings, this is an advisory readiness signal, not a liveness gate.
+
+## Source files
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>src/modules/config-readiness/config-readiness.service.ts</code></td><td>Checks, placeholder detection, log block</td></tr>
+    <tr><td><code>src/modules/config-readiness/config-readiness.controller.ts</code></td><td>SUPER_ADMIN GET/POST endpoints</td></tr>
+    <tr><td><code>src/modules/config-readiness/config-readiness.module.ts</code></td><td>Module definition</td></tr>
+  </tbody>
+</table>

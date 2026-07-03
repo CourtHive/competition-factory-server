@@ -1,0 +1,119 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Messaging/Tournament Chat" />
+
+# Tournament Chat
+
+Tournament chat is a per-tournament message stream carried over the `/tmx` Socket.IO namespace. Messages are broadcast to everyone in the tournament room **and persisted** to Postgres, so a connecting client can backfill recent history, gap-fill anything it missed while disconnected, and a super-admin can monitor chat across all tournaments.
+
+Chat was previously relay-only (broadcast to the room and forgotten). Persistence was added in migration `038-add-chat-messages.sql`.
+
+## How persistence works
+
+Every accepted message is inserted before it is relayed — the assigned `seq` (a `BIGSERIAL` PRIMARY KEY) is the single authoritative ordering and gap-detection key. Only what is durably stored is broadcast, so `seq` is monotonic across the whole table (per-tournament contiguity is not required).
+
+```
+client emits 'chatMessage'
+  → TmxGateway.chatMessage()
+    → chatStorage.appendMessage()   (persist first, assign seq)
+    → client.to(room).emit('chatMessage', wire)   (relay to others)
+    → client.emit('chatAccepted', { clientMsgId, seq, timestamp })  (ack sender)
+    → server.to('admin:chatMonitor').emit('adminChatFeed', ...)     (admin monitor)
+```
+
+Messages are capped at `MAX_CHAT_MESSAGE_LENGTH` (2000 chars). On persist failure the sender receives `chatRejected` instead of `chatAccepted`.
+
+## Retention, backfill, and gap-fill windows
+
+Three distinct windows are in play:
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Window</th><th style={{ textAlign: 'left' }}>Value</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Retention</td><td><code>CHAT_RETENTION_DAYS</code> (default 30)</td><td>Older messages are pruned daily by <code>ChatRetentionService</code></td></tr>
+    <tr><td>Backfill on join</td><td>24h (<code>recentMessages</code> default)</td><td>Recent history pushed to a socket when it joins a tournament room</td></tr>
+    <tr><td>Gap-fill</td><td>bounded by <code>afterSeq</code></td><td>Everything with <code>seq &gt; afterSeq</code> a returning client missed</td></tr>
+  </tbody>
+</table>
+
+The backfill window is intentionally shorter than retention so a client returning after a longer absence can still gap-fill from its last-seen `seq`.
+
+`ChatRetentionService` (`chat-retention.service.ts`) runs `pruneOlderThan` once at startup and then daily on a plain `setInterval` (no `@nestjs/schedule` dependency). Its timer is `unref()`ed so it never holds the process open.
+
+## Socket message types
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Direction</th><th style={{ textAlign: 'left' }}>Message</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>client → server</td><td><code>chatMessage</code></td><td>Send a message (persist + relay)</td></tr>
+    <tr><td>server → sender</td><td><code>chatAccepted</code></td><td>Ack with authoritative <code>seq</code> + timestamp (reconciles optimistic UI)</td></tr>
+    <tr><td>server → sender</td><td><code>chatRejected</code></td><td>Persist failed; carries <code>clientMsgId</code> + error</td></tr>
+    <tr><td>server → room</td><td><code>chatMessage</code></td><td>Relayed message to other room members</td></tr>
+    <tr><td>server → joining socket</td><td><code>chatHistory</code></td><td>Backfill on join (24h) or gap-fill (<code>gap: true</code>) batch</td></tr>
+    <tr><td>client → server</td><td><code>chatSince</code></td><td>Gap-fill request with <code>afterSeq</code></td></tr>
+  </tbody>
+</table>
+
+Backfill on join is emitted from `handleJoinTournament` via `chatStorage.recentMessages`. Both `chatHistory` payloads use `toWireMessage` (timestamp in epoch ms).
+
+## Admin chat monitor (SUPER_ADMIN)
+
+A super-admin can watch chat across every tournament by joining a single global room, `admin:chatMonitor`.
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Message</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>joinChatMonitor</code> →</td><td>Join monitor room; server replies <code>adminChatHistory</code> (most-recent cross-tournament page)</td></tr>
+    <tr><td><code>adminChatLoadOlder</code> →</td><td>Page further back via <code>beforeSeq</code>; reply <code>adminChatHistory</code> (<code>older: true</code>)</td></tr>
+    <tr><td><code>leaveChatMonitor</code> →</td><td>Leave the monitor room</td></tr>
+    <tr><td><code>adminChatReply</code> →</td><td>Admin posts into a tournament room; appears as a normal <code>chatMessage</code> with <code>isAdmin: true</code></td></tr>
+    <tr><td>→ <code>adminChatFeed</code></td><td>Live per-message push to the monitor room</td></tr>
+  </tbody>
+</table>
+
+Admin-feed payloads (`toAdminFeed`) add `tournamentId`, `providerId`, `providerAbbr`, and `tournamentName` so the monitor can render provider/tournament grouping pills without a join. Paging older has no time window — the retention prune is the natural floor; an empty result means the retention edge was reached.
+
+A companion read-only endpoint, `GET /admin/presence` (`AdminPresenceController`, SUPER_ADMIN), returns a snapshot of the live `tournament:` rooms — who is currently looking at which tournament — enriched with provider name/abbreviation.
+
+## Storage schema
+
+`chat_messages` (migration `038`):
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Column</th><th style={{ textAlign: 'left' }}>Type</th><th style={{ textAlign: 'left' }}>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>seq</code></td><td>BIGSERIAL PK</td><td>Authoritative ordering + gap-detection key</td></tr>
+    <tr><td><code>tournament_id</code></td><td>TEXT NOT NULL</td><td>Room key</td></tr>
+    <tr><td><code>provider_id</code> / <code>provider_abbr</code> / <code>tournament_name</code></td><td>TEXT</td><td>Denormalised for the admin monitor pills</td></tr>
+    <tr><td><code>user_name</code> / <code>message</code></td><td>TEXT NOT NULL</td><td>Sender + body</td></tr>
+    <tr><td><code>client_msg_id</code></td><td>UUID</td><td>Reconciles the sender's optimistic message</td></tr>
+    <tr><td><code>is_admin</code></td><td>BOOLEAN</td><td>Admin-monitor reply flag</td></tr>
+    <tr><td><code>created_at</code></td><td>TIMESTAMPTZ</td><td>Insert time</td></tr>
+  </tbody>
+</table>
+
+Indexes: `(tournament_id, seq)` for backfill/gap-fill, `(created_at)` for the admin backfill and retention prune.
+
+## Source files
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>src/modules/messaging/tmx/tmx.gateway.ts</code></td><td>Chat relay, backfill, gap-fill, admin monitor handlers</td></tr>
+    <tr><td><code>src/modules/messaging/tmx/chat-retention.service.ts</code></td><td>Daily retention prune</td></tr>
+    <tr><td><code>src/modules/messaging/tmx/admin-presence.controller.ts</code></td><td>Live room presence snapshot</td></tr>
+    <tr><td><code>src/storage/interfaces/chat-storage.interface.ts</code></td><td><code>IChatStorage</code> + <code>ChatMessageRecord</code></td></tr>
+    <tr><td><code>src/storage/postgres/postgres-chat.storage.ts</code></td><td>Postgres implementation</td></tr>
+    <tr><td><code>src/storage/postgres/migrations/038-add-chat-messages.sql</code></td><td>Schema</td></tr>
+  </tbody>
+</table>

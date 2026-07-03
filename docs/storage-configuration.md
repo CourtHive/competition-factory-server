@@ -1,15 +1,16 @@
 # Storage Configuration
 
-The server supports multiple storage backends, selected at startup via the `STORAGE_PROVIDER` environment variable. The default is `leveldb` — the same backend the server has always used — so existing deployments continue to work without any changes.
+The server stores all data in **PostgreSQL**. It is the only supported backend
+(the former LevelDB backend and the `net-level` client were removed on
+2026-05-30). Records are stored as JSONB documents with a handful of
+denormalized columns for the fields the server queries directly.
 
-## Supported Backends
+> The canonical, published version of this page lives in the Storybook docs
+> under **Storage → Overview** and **Storage → PostgreSQL Setup**
+> (<https://courthive.github.io/competition-factory-server/>). This file is the
+> local dev/ops runbook; keep the two in sync when the storage layer changes.
 
-| Backend    | `STORAGE_PROVIDER` | Description                                       |
-| ---------- | ------------------ | ------------------------------------------------- |
-| LevelDB    | `leveldb`          | Default. Uses `@gridspace/net-level-client`.      |
-| PostgreSQL | `postgres`         | JSONB document storage with `pg` (node-postgres). |
-
-## Quick Start: Switching to PostgreSQL
+## Local Setup
 
 ### 1. Install and create the database
 
@@ -18,15 +19,15 @@ The server supports multiple storage backends, selected at startup via the `STOR
 brew install postgresql@17
 brew services start postgresql@17
 
-# Create the database and (optionally) a dedicated role
+# Create the database
 createdb courthive
 ```
 
-> **Note:** By default the migration script and server connect as `PG_USER`
-> (defaults to `courthive`). On a local dev machine you can skip creating a
-> separate role and just set `PG_USER` to your system user (run `whoami` to
-> check). The value must match an existing PostgreSQL role — run
-> `psql -d postgres -c "\du"` to see what roles exist.
+> **Note:** By default the server connects as `PG_USER` (defaults to
+> `courthive`). On a local dev machine you can skip creating a separate role and
+> just set `PG_USER` to your system user (run `whoami` to check). The value must
+> match an existing PostgreSQL role — run `psql -d postgres -c "\du"` to see what
+> roles exist.
 >
 > If you prefer a dedicated role:
 >
@@ -42,89 +43,47 @@ already set in the shell. If `PG_USER` (or any `PG_*` variable) is exported in
 your shell profile, that value takes precedence over `.env`. Run `echo $PG_USER`
 to verify, and `unset PG_USER` or correct your profile if needed.
 
-### 2. Apply the schema
-
-```bash
-psql -d courthive -f src/storage/postgres/migrations/001-initial-schema.sql
-```
-
-### 3. Migrate existing data from LevelDB
-
-Make sure the LevelDB server (`net-level-server`) is running, then:
-
-```bash
-# Preview what will be migrated (no writes)
-node src/scripts/migrate-to-postgres.mjs --dry-run --verbose
-
-# Perform the migration
-node src/scripts/migrate-to-postgres.mjs --verbose
-```
-
-The migration tool:
-
-- Reads **all** data from LevelDB (tournaments, users, providers, calendars, auth codes)
-- Writes it into PostgreSQL using `INSERT ... ON CONFLICT DO UPDATE`
-- Is safe to run multiple times — it will update existing records rather than duplicate them
-- Does **not** modify or delete anything in LevelDB
-
-### 4. Update `.env` and restart
-
-Add these variables to your `.env` file (set `PG_USER` to an existing PostgreSQL role — see step 1):
+### 2. Configure `.env`
 
 ```env
-STORAGE_PROVIDER=postgres
-
-PG_HOST=localhost
-PG_PORT=5432
+PG_HOST=localhost        # PostgreSQL host
+PG_PORT=5432             # PostgreSQL port (default: 5432)
 PG_USER=courthive        # must match an existing PostgreSQL role
-PG_PASSWORD=
-PG_DATABASE=courthive
+PG_PASSWORD=             # empty for local trust auth
+PG_DATABASE=courthive    # database name
 ```
 
-Then restart the server:
+### 3. Start the server
 
 ```bash
 pnpm watch    # development
 pnpm start    # production
 ```
 
-Clients will see the same tournaments and data — they are unaware of the storage backend.
+The schema is applied **automatically on startup** — there is no manual
+`psql -f` step. See [Schema Migrations](#schema-migrations) below.
 
-## Configuration Reference
+## Schema Migrations
 
-### LevelDB (default)
+Migrations are applied automatically by `MigrationRunnerService`
+(`src/storage/postgres/migration-runner.service.ts`) on module init:
 
-No additional configuration needed beyond the existing `DB_*` variables:
+- It reads every `.sql` file in `src/storage/postgres/migrations/` and compares
+  them against a `schema_migrations` tracking table.
+- Pending migrations are applied in filename order, each inside its own
+  transaction.
+- If any migration fails, **the server does not start** — failing loudly is
+  preferred over running against a half-migrated schema.
+- Application is serialised across concurrent runners (parallel Jest workers,
+  multiple booting instances) via a session-level advisory lock, so a
+  new-table migration cannot race itself.
 
-```env
-STORAGE_PROVIDER=leveldb   # or simply omit this line
+Migration files are idempotent (`CREATE TABLE IF NOT EXISTS`,
+`ALTER TABLE ... ADD COLUMN IF NOT EXISTS`), so migrations applied by hand
+before the runner existed are recorded as already-applied without harm.
 
-DB_HOST=localhost
-DB_PORT=3838
-DB_USER=admin
-DB_PASS=adminpass
-```
-
-### PostgreSQL
-
-```env
-STORAGE_PROVIDER=postgres
-
-PG_HOST=localhost        # PostgreSQL host
-PG_PORT=5432             # PostgreSQL port (default: 5432)
-PG_USER=courthive        # Database user
-PG_PASSWORD=             # Database password (empty for local trust auth)
-PG_DATABASE=courthive    # Database name
-```
-
-## Rolling Back to LevelDB
-
-If you need to switch back:
-
-1. Set `STORAGE_PROVIDER=leveldb` in `.env` (or remove the line entirely)
-2. Restart the server
-
-Your LevelDB data is untouched — the migration script never modifies it. Any data written while running PostgreSQL will **not** be in LevelDB, so you may want to migrate in the opposite direction first if needed.
+To add a new migration, drop a new numbered `.sql` file into the migrations
+directory; it will apply on the next boot.
 
 ## Architecture Overview
 
@@ -137,23 +96,34 @@ Controllers / Gateways
         |
     Storage Interfaces         <-- ITournamentStorage, IUserStorage, etc.
         |
-    +---------------+---------------+
-    |   LevelDB     |  PostgreSQL   |
-    |   (default)   |  (new)        |
-    +---------------+---------------+
+    +-------------------+
+    |    PostgreSQL     |
+    |  JSONB documents  |
+    +-------------------+
 ```
 
-The `StorageModule` is a global NestJS module that provides 5 storage interfaces via dependency injection. The backend implementation is selected once at startup based on `STORAGE_PROVIDER` — no runtime switching.
+The `StorageModule` is a `@Global()` NestJS module that provides 5 storage
+interfaces via dependency injection:
+
+- `TOURNAMENT_STORAGE` → `ITournamentStorage`
+- `USER_STORAGE` → `IUserStorage`
+- `PROVIDER_STORAGE` → `IProviderStorage`
+- `CALENDAR_STORAGE` → `ICalendarStorage`
+- `AUTH_CODE_STORAGE` → `IAuthCodeStorage`
 
 ### Domain Side-Effects
 
-Write operations that involve domain logic (calendar updates, permission checks) go through `TournamentStorageService`, which wraps the raw `ITournamentStorage` interface. Read-only public queries use `ITournamentStorage` directly.
-
-This separation means that adding a new storage backend only requires implementing the 5 raw interfaces — no domain logic needs to be duplicated.
+Write operations that involve domain logic (calendar updates, permission
+checks) go through `TournamentStorageService`, which wraps the raw
+`ITournamentStorage` interface. Read-only public queries use `ITournamentStorage`
+directly. This separation keeps domain logic in one place regardless of how the
+raw records are persisted.
 
 ## PostgreSQL Schema
 
-The schema uses JSONB columns to store the full tournament/user/provider objects, with denormalized columns for commonly queried fields:
+The schema uses JSONB columns to store the full tournament/user/provider
+objects, with denormalized columns for commonly queried fields. The initial
+tables are:
 
 ```text
 tournaments   — tournament_id (PK), provider_id, tournament_name, start_date, end_date, data (JSONB)
@@ -164,16 +134,7 @@ reset_codes   — code (PK), email
 access_codes  — code (PK), email
 ```
 
-The full schema SQL is at `src/storage/postgres/migrations/001-initial-schema.sql`.
-
-## Migration Script Reference
-
-```text
-node src/scripts/migrate-to-postgres.mjs [options]
-
-Options:
-  --dry-run, -d    Read from LevelDB and report counts without writing
-  --verbose, -v    Print each record as it's migrated
-```
-
-The script requires both LevelDB (`DB_*` vars) and PostgreSQL (`PG_*` vars) to be configured in `.env`. The LevelDB server must be running.
+Later migrations add user UUIDs, user↔provider associations, tournament
+assignments, an audit log, provisioner tables, and bolt-history event storage.
+The authoritative source is the ordered SQL in
+`src/storage/postgres/migrations/`.

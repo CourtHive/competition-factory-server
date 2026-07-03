@@ -1,0 +1,110 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Relay/Score Relay" />
+
+# Score Relay
+
+Score relay covers two related concerns for live scoring (Epixodic / INTENNSE and provider client apps):
+
+1. **JWT minting** — short-lived, tournament-scoped tokens that let an external score publisher submit scores and be classified as a scorer.
+2. **The `RelayModule`** — a local↔cloud forwarding layer that ships live-score updates from a venue-local instance up to a cloud instance.
+
+## Score submission and the audience model
+
+Scores are submitted via `POST /factory/score` (`factory.controller.ts`). The route accepts **two audiences**:
+
+```ts
+@Post('score')
+@Audience(['admin', 'score'])
+@Roles([SCORE, SUPER_ADMIN])
+```
+
+- `admin` — the legacy TMX-user path.
+- `score` — a service token minted for the score-relay persistence forwarder (`RELAY_SERVICE_JWT`).
+
+Without the explicit `@Audience`, the `AuthGuard` defaults to `['admin']` and rejects a `score`-aud token with a generic 401. On success the controller broadcasts the mutation + public notices and invalidates the tournament cache.
+
+The declared JWT audiences (`audience.decorator.ts`) are `'admin' | 'hiveid' | 'score'`; the token minters below also issue a `'provider'` audience consumed by the relay directly.
+
+## `POST /auth/tracker-token` — `score`-aud tokens
+
+`TrackerTokenService.mintTrackerToken` mints a short-lived HS256 JWT for external score publishers (notably IONSport). Flow:
+
+1. `RolesGuard` admits `SCORE` / `SUPER_ADMIN` callers (the provider API-key middleware synthesizes `[CLIENT, GENERATE, SCORE]`).
+2. The tournament is loaded and `canMutateTournament` runs against the caller's `userContext` — **only the owning provider can mint a token for its tournament** (same predicate that protects `/factory/score`).
+3. An `aud: 'score'` JWT is signed with `tournamentId`, `iat`, and a caller-controlled TTL clamped to 60–28800s (default 3600s).
+4. A `TRACKER_TOKEN_ISSUED` audit row is appended (fail-soft).
+
+Because the AuthModule registers a global `signOptions.expiresIn` (`JWT_VALIDITY`), the service passes the variable TTL via `expiresIn` at the call site rather than putting `exp` in the payload (jsonwebtoken refuses both). The `expiresAt` in the response is derived from the same computed `exp`.
+
+## `POST /auth/provider-scoring-token` — `provider`-aud tokens
+
+`mintProviderScoringToken` mints a `provider`-audience relay token so a provider's own client app (e.g. IONSport) can be a first-class score-relay client. Same provider API-key + ownership gate as `/auth/tracker-token`, scoped to a single tournament. It additionally requires a `personId` and carries the provider-attested scorer identity so TMX classifies and nominates it like any HiveID scorer:
+
+```json
+{
+  "sub": "provider:<uuid>",
+  "aud": "provider",
+  "tournamentId": "...",
+  "providerId": "...",
+  "personId": "...",
+  "displayName": "...",
+  "email_verified": true
+}
+```
+
+`email_verified` is set from the provider's `verified` attestation (gates TMX scorer nomination). The relay enforces the token's `tournamentId` scope directly from the claim with no DB lookup.
+
+### Token summary
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Endpoint</th><th style={{ textAlign: 'left' }}><code>aud</code></th><th style={{ textAlign: 'left' }}>Gate</th><th style={{ textAlign: 'left' }}>Scope / TTL</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>POST /auth/tracker-token</code></td><td><code>score</code></td><td>SCORE/SUPER_ADMIN + tournament ownership</td><td>single tournament; 60–28800s (default 3600)</td></tr>
+    <tr><td><code>POST /auth/provider-scoring-token</code></td><td><code>provider</code></td><td>SCORE/SUPER_ADMIN + tournament ownership + personId</td><td>single tournament; 60–28800s (default 3600)</td></tr>
+  </tbody>
+</table>
+
+Both mints are audited via `AuditService.recordTrackerTokenIssued`. For provisioner-keyed requests the JWT `sub` still names the tenant provider (relay-side audience scope), but the audit row attributes the mint to the authorizing `provisionerId` so a provisioner's reach can be bounded.
+
+## RelayModule — local ↔ cloud forwarding
+
+`RelayModule.forRoot()` wires different providers depending on `INSTANCE_ROLE` (`relay.config.ts`, default `local`):
+
+- **local** — registers `OutboundQueueService` + `SenderService`. Score updates are enqueued into the Postgres `outbound_relay_queue` table and drained in batches to the cloud instance's `POST /api/cloud-ingest`. The sender uses backoff (drain interval → doubling → 60s cap) and only runs when `CLOUD_RELAY_URL` is set.
+- **cloud** — registers `CloudIngestController` (`POST /api/cloud-ingest`), authenticated by a per-venue API key parsed from `VENUE_API_KEYS` (`venueId:key,...`) matched against the request's `venueId` + `Bearer` token.
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Env var</th><th style={{ textAlign: 'left' }}>Role</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>INSTANCE_ROLE</code></td><td>both</td><td><code>local</code> (default) or <code>cloud</code></td></tr>
+    <tr><td><code>LOCAL_VENUE_ID</code></td><td>local</td><td>Venue identifier stamped on outbound batches</td></tr>
+    <tr><td><code>CLOUD_RELAY_URL</code> / <code>CLOUD_RELAY_API_KEY</code></td><td>local</td><td>Target cloud instance + bearer key</td></tr>
+    <tr><td><code>CLOUD_RELAY_MAX_BATCH</code> / <code>CLOUD_RELAY_DRAIN_INTERVAL_MS</code></td><td>local</td><td>Batch size (default 50) / drain cadence (default 5000ms)</td></tr>
+    <tr><td><code>VENUE_API_KEYS</code></td><td>cloud</td><td><code>venueId:key,...</code> map authorizing inbound venues</td></tr>
+  </tbody>
+</table>
+
+The outbound queue is durable (Postgres, migration `012-add-outbound-relay-queue.sql`): entries are peeked, POSTed, and ack'd by `sequence`; a failed batch is nack'd with the error and retried under backoff. When no Postgres pool is present the queue no-ops.
+
+## Source files
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>src/modules/account/auth/tracker-token.service.ts</code></td><td>score + provider token minting</td></tr>
+    <tr><td><code>src/modules/account/auth/auth.controller.ts</code></td><td><code>/auth/tracker-token</code>, <code>/auth/provider-scoring-token</code></td></tr>
+    <tr><td><code>src/modules/factory/factory.controller.ts</code></td><td><code>/factory/score</code> (<code>@Audience(['admin','score'])</code>)</td></tr>
+    <tr><td><code>src/modules/relay/relay.module.ts</code></td><td>role-based provider wiring</td></tr>
+    <tr><td><code>src/modules/relay/relay.config.ts</code></td><td>relay env config</td></tr>
+    <tr><td><code>src/modules/relay/sender.service.ts</code></td><td>local → cloud batch drainer</td></tr>
+    <tr><td><code>src/modules/relay/outbound-queue.service.ts</code></td><td>durable Postgres outbound queue</td></tr>
+    <tr><td><code>src/modules/relay/cloud-ingest.controller.ts</code></td><td>cloud-side <code>/api/cloud-ingest</code></td></tr>
+  </tbody>
+</table>

@@ -1,0 +1,88 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Accounts/HiveID" />
+
+# HiveID
+
+HiveID is the **public-facing federated identity** layer, sibling to the admin-side `AuthController`/`AuthService`. It lets a person (player, parent, fan) create or link a CourtHive identity, verify their email, and claim the tournament Participant records that represent them — without holding an admin/provider role.
+
+HiveID tokens carry an `aud: 'hiveid'` claim (or `aud: ['admin', 'hiveid']` for an admin who has also verified a HiveID). Admin and public audiences stay isolated at the guard layer, so a HiveID token can never reach an admin route.
+
+## Endpoints (`/auth/hiveid/*`)
+
+Routes split by audience mode. `@Public()` routes are unauthenticated (the body or single-use code is the credential); `@Audience(['hiveid'])` routes require a verified HiveID token.
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Method + Route</th><th style={{ textAlign: 'left' }}>Auth</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>POST /auth/hiveid/signup</code></td><td>Public</td><td>Create a new HiveID; resolves a canonical Person, mints a session</td></tr>
+    <tr><td><code>POST /auth/hiveid/verify-existing</code></td><td>Public</td><td>Link a HiveID to an existing admin account by proving its password; upgrades audience to <code>['admin','hiveid']</code></td></tr>
+    <tr><td><code>POST /auth/hiveid/magic-link</code></td><td>Public</td><td>Request a passwordless login link (enumeration-defensive; always <code>{'{ ok: true }'}</code>)</td></tr>
+    <tr><td><code>POST /auth/hiveid/magic-link/consume</code></td><td>Public</td><td>Exchange a single-use <code>hmlk_</code> code for a <code>hiveid</code> session; stamps email verification</td></tr>
+    <tr><td><code>GET /auth/hiveid/me</code></td><td>hiveid</td><td>Public-side identity projection (Person link, cached fields, consent)</td></tr>
+    <tr><td><code>POST /auth/hiveid/resend-verification</code></td><td>hiveid</td><td>Re-send the verification email (public landing)</td></tr>
+    <tr><td><code>GET /auth/hiveid/me/participations</code></td><td>hiveid</td><td>Every tournament where the caller is claimed via <code>CANONICAL_PERSON</code></td></tr>
+    <tr><td><code>GET /auth/hiveid/me/claimable/:tournamentId</code></td><td>hiveid</td><td>Participants whose name overlaps the caller's cached fields</td></tr>
+    <tr><td><code>POST /auth/hiveid/me/claim</code></td><td>hiveid</td><td>Link a Participant to the caller's Person via <code>addPersonOtherId</code></td></tr>
+  </tbody>
+</table>
+
+## Canonical identity and claiming
+
+When a Participant is linked to a person, an entry is stamped onto `Participant.person.personOtherIds[]` under the organisation key `CANONICAL_PERSON` (`hiveid.constants.ts`). The literal is intentionally **not** `courthive-persons` so TODS records stay neutral to which registry produced the identifier (USTA, ITA, HTS, CTS, any federation).
+
+Claiming (`POST /me/claim`) runs the `addPersonOtherId` factory mutation through the normal `executionQueue` path. It re-verifies server-side that the participant exists, is `INDIVIDUAL`, and that the caller's cached name overlaps before stamping — defense-in-depth over the read-only `claimable` list.
+
+## Email verification and the `email_verified` claim
+
+Every minted session payload carries an `email_verified` boolean:
+
+- **signup** — `false` (verification mail just sent, not yet confirmed).
+- **magic-link consume** — `true` (a successful consume is proof of mailbox control; `markEmailVerified` is stamped if not already set).
+- **verify-existing** — reflects `!!user.emailVerifiedAt`.
+
+The claim is threaded through the relay to `crowdScoredBy`, so TMX can gate official scorer nomination on verified status without an extra lookup. Verification is best-effort — a mail failure never blocks signup. Magic-link codes carry the `hmlk_` prefix and a 15-minute TTL; magic-link URLs land on the courthive-public app (`PUBLIC_URL`, default `/public/`) under `APP_BASE_URL`.
+
+## PersonsClient (courthive-persons)
+
+`PersonsClient` (`persons/persons-client.service.ts`) is the CFS-side client for the `courthive-persons` registry. Two responsibilities:
+
+1. **HTTP wrapper** — `POST /persons/resolve` and `GET /persons/:id`, used by the signup/verify flows to resolve or mint a canonical Person and pull standardised name/dob/sex/nationality.
+2. **SSE consumer** — subscribes to `/persons/events`; on each `personMerged` event it rewrites local `users.person_id` rows from the deprecated id to the survivor id (with refreshed cached fields) and fans out a `personUpdate` to the affected per-person HiveID rooms.
+
+Hardening (mirrored by other SSE consumers):
+
+- **Exponential backoff** — 5s → 10s → 20s → 40s → capped at 60s, reset on a successful (re-)connect.
+- **Milestone-only WARN logging** — first failure loud, then only at counts 1/10/100/1000 and every 50th; noise between goes to DEBUG. Connect + recovery are also promoted to WARN so they survive `main.ts`'s logger filter (which strips `log`).
+- **`PERSONS_DISABLED` opt-out** — `PERSONS_DISABLED=true` (or `PERSONS_BASE_URL=disabled`) skips the always-on reconnect loop while keeping `resolve`/`getById` callable, so deployments without persons stop hammering the network and logs. Base URL defaults to `http://localhost:3100`.
+
+## Audience-aware AuthGuard
+
+`AuthGuard` (`auth/guards/auth.guard.ts`) verifies the JWT and then checks the route's declared audience against the token's `aud` claim:
+
+- Routes declare accepted audiences via `@Audience([...])` (`audience.decorator.ts`); valid claims are `'admin' | 'hiveid' | 'score'`.
+- **Absent decorator → `['admin']`** (legacy default), so admin routes that pre-date HiveID stay admin-only.
+- **Legacy tokens with no `aud` claim are treated as `'admin'`**, so existing sessions keep working without a forced re-login.
+- `audienceMatches` admits a token when its `aud` (string or array) overlaps the required set; mismatches log a WARN with email, token `aud`, required `aud`, and route.
+- Requests already authenticated by `ProvisionerMiddleware` (`prov_*`) or `ProviderApiKeyMiddleware` (`pkey_*`) skip JWT verification entirely.
+
+The `/hiveid` Socket.IO namespace (`HiveIDGateway`) is the authenticated public-side socket, guarded by `@Audience(['hiveid'])`; on connect it auto-joins a per-person room (`hiveid:person:<personId>`).
+
+## Source files
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>src/modules/account/auth/hiveid.controller.ts</code></td><td><code>/auth/hiveid/*</code> routes</td></tr>
+    <tr><td><code>src/modules/account/auth/hiveid.service.ts</code></td><td>Signup / verify / magic-link / me / claim logic</td></tr>
+    <tr><td><code>src/modules/account/auth/hiveid.constants.ts</code></td><td><code>CANONICAL_PERSON</code>, <code>hmlk_</code> prefix</td></tr>
+    <tr><td><code>src/modules/account/auth/guards/auth.guard.ts</code></td><td>Audience-aware JWT guard</td></tr>
+    <tr><td><code>src/modules/account/auth/decorators/audience.decorator.ts</code></td><td><code>@Audience(...)</code> + claim type</td></tr>
+    <tr><td><code>src/modules/account/persons/persons-client.service.ts</code></td><td>courthive-persons HTTP + SSE client</td></tr>
+    <tr><td><code>src/modules/messaging/hiveid/hiveid.gateway.ts</code></td><td>Authenticated <code>/hiveid</code> socket namespace</td></tr>
+  </tbody>
+</table>

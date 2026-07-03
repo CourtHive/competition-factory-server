@@ -1,0 +1,94 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Audit/Audit Log" />
+
+# Audit Log
+
+`AuditService` maintains an **append-only** audit trail of significant server-side events in the `audit_log` table. Rows have no foreign key to tournaments — they intentionally **survive tournament deletion** so a deletion is traceable after the record is gone. Every recorder is **fail-soft**: a write failure is logged but never rolls back or blocks the operation being audited.
+
+## Recorded events
+
+Each recorder writes an `AuditRow` with a distinct `action_type`:
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}><code>action_type</code></th><th style={{ textAlign: 'left' }}>Recorder</th><th style={{ textAlign: 'left' }}>When</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>MUTATION</code></td><td><code>recordMutation</code></td><td>After a factory mutation via executionQueue (status: applied/rejected/partial)</td></tr>
+    <tr><td><code>SAVE</code></td><td><code>recordSave</code></td><td>REST tournament save (not executionQueue)</td></tr>
+    <tr><td><code>DELETE_TOURNAMENT</code></td><td><code>recordDeletion</code></td><td>Before a tournament record is removed</td></tr>
+    <tr><td><code>DELETE_DRAW</code></td><td><code>recordDrawDeletion</code></td><td>Per deleted drawDefinition; full snapshot in metadata (recoverable)</td></tr>
+    <tr><td><code>RESTORE_DRAW</code></td><td><code>restoreDraw</code></td><td>Restore a draw from its DELETE_DRAW snapshot (idempotent)</td></tr>
+    <tr><td><code>DELETE_PROVISIONER</code></td><td><code>recordProvisionerDeletion</code></td><td>Provisioner teardown; cascade counts in metadata</td></tr>
+    <tr><td><code>CONTACT_EMAIL_CHANGED</code></td><td><code>recordContactEmailChanged</code></td><td>Admin edit or self-service contact-email set</td></tr>
+    <tr><td><code>CONTACT_EMAIL_VERIFIED</code></td><td><code>recordContactEmailVerified</code></td><td>User clicked the verification link</td></tr>
+    <tr><td><code>PASSWORD_RESET</code></td><td><code>recordPasswordReset</code></td><td>Any password write; <code>metadata.flow</code> = token-reset / first-login / admin-reset / self-change</td></tr>
+    <tr><td><code>TRACKER_TOKEN_ISSUED</code></td><td><code>recordTrackerTokenIssued</code></td><td>Score/provider relay token mint</td></tr>
+  </tbody>
+</table>
+
+For events filed against a principal rather than a tournament (`DELETE_PROVISIONER`, `CONTACT_EMAIL_*`, `PASSWORD_RESET`), the affected id is placed in the `tournament_id` slot — it is a denormalised, indexed string with no FK, so audit queries by that id pick up all related events.
+
+## Polymorphic actor
+
+The original `user_id UUID` column broke for provisioner/provider-key callers, whose middleware synthesises a prefixed string like `provisioner:<uuid>` into `req.user.userId` — the INSERT threw `invalid input syntax for type uuid` on every mint/save (silent because callers fail-soft, but heavy log churn). Migration `036-add-audit-actor.sql` generalised "who did this" to a polymorphic pair:
+
+- `actor_type` ∈ `{ 'user', 'provisioner', 'provider', 'service' }`
+- `actor_id` — uuid for user/provisioner/provider, free-form for service (e.g. `score-relay`)
+
+`toActor()` (`audit-actor.ts`) resolves the pair from `provider:<uuid>`, `provisioner:<uuid>`, `service:<name>`, or a bare uuid. Anything else returns `undefined` (fail-open): the row still lands without an actor, and the `source` column carries the fallback. The legacy `user_id` column stays nullable; new writes leave it null.
+
+## Failure-counter persistence
+
+`recordFailure` increments a **per-actionType counter** and emits at throttled levels: first failure → ERROR, then DEBUG except at milestones (10, 100, 1000, every 50th) which re-emit at ERROR. `recordRecovery` fires on the first success after a failure run, logs a WARN, and resets the counter.
+
+Migration `037-add-audit-failure-counts.sql` persists this counter to `audit_failure_counts` so a chronic failure doesn't re-emit a loud "(1x)" ERROR on every deploy. On boot the service hydrates the in-memory map from the table (bounded by a 5s timeout so a hung Postgres can't block bootstrap). Per-actionType DB writes are serialized through a promise chain (`chainCounterWrite`) so concurrent inc/clear ops can't race into an INSERT → DELETE reordering that would defeat restart survival. Steady-state table size is bounded by the count of actionTypes currently broken (typically zero).
+
+## REST vs socket identity stamping
+
+Both mutation paths must stamp the authenticated identity or audit rows land with null `user_id`/`user_email`:
+
+- **Socket path** (`TmxGateway`) stamps identity from the verified socket session; log lines carry the `[TmxGateway]` tag.
+- **REST path** (`factory.controller.ts` executionQueue) stamps `req.user` onto the payload (`userEmail`, and `userId` only when present — `user_id` is UUID-typed, so an email fallback would crash the INSERT). Untagged log lines with the `<stack>: msg | context:` shape come from this path.
+
+## Query and triage
+
+`AuditController` exposes SUPER_ADMIN-only endpoints:
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Route</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>POST /audit/tournament</code></td><td>Audit trail for one tournament (from/to/limit)</td></tr>
+    <tr><td><code>POST /audit/deleted</code></td><td>DELETE_TOURNAMENT rows</td></tr>
+    <tr><td><code>POST /audit/actor</code></td><td>All rows by one actor — bounds a principal's blast radius (uses the migration-036 partial index)</td></tr>
+    <tr><td><code>POST /audit/deleted-draws</code></td><td>DELETE_DRAW rows with recoverable snapshots</td></tr>
+    <tr><td><code>POST /audit/restore-draw</code></td><td>Restore a draw from its snapshot (idempotent)</td></tr>
+  </tbody>
+</table>
+
+Triage tip: correlate a prod error-log line to a tournament via `audit_log`. A `[TmxGateway]`-tagged line is the socket mutation path; an untagged `<stack>: msg | context:` line is the REST path. `getByActor` answers "what did `provisioner:<id>` do this week".
+
+## Storage schema
+
+`audit_log` (migration `008`, extended by `036`): `audit_id` (PK), `tournament_id`, `user_id UUID` (legacy, nullable), `user_email`, `actor_type`, `actor_id`, `source`, `occurred_at`, `action_type`, `methods JSONB`, `status`, `metadata JSONB`, `error_code`. Indexes on `(tournament_id, occurred_at DESC)`, `(user_id)`, `(occurred_at DESC)`, `(action_type)`, and a partial `(actor_type, actor_id, occurred_at DESC)`.
+
+Retention: `AUDIT_RETENTION_DAYS` (default 90). A deferred startup prune + daily interval removes expired rows.
+
+## Source files
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>src/modules/audit/audit.service.ts</code></td><td>Recorders, throttled failure counter, prune, query</td></tr>
+    <tr><td><code>src/modules/audit/audit-actor.ts</code></td><td>Polymorphic actor resolution</td></tr>
+    <tr><td><code>src/modules/audit/audit.controller.ts</code></td><td>SUPER_ADMIN query + restore endpoints</td></tr>
+    <tr><td><code>src/storage/postgres/migrations/008-add-audit-log.sql</code></td><td>Base schema</td></tr>
+    <tr><td><code>src/storage/postgres/migrations/036-add-audit-actor.sql</code></td><td>Polymorphic actor columns</td></tr>
+    <tr><td><code>src/storage/postgres/migrations/037-add-audit-failure-counts.sql</code></td><td>Persisted failure counters</td></tr>
+  </tbody>
+</table>

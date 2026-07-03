@@ -15,23 +15,19 @@ pnpm admin:reset-password -e admin@example.com -p newpassword
 
 ## Prerequisites
 
-The LevelDB server must be running:
-
-```bash
-pnpm hive-db
-```
-
-If you're using PostgreSQL, add `--storage postgres` (or set `STORAGE_PROVIDER=postgres` in `.env`).
+PostgreSQL must be running and reachable via the `PG_*` variables in `.env`
+(see [Storage Configuration](./storage-configuration.md)). PostgreSQL is the
+only supported storage backend.
 
 ---
 
 ## First-Time Setup
 
-### 1. Start the database
+### 1. Start PostgreSQL
 
-```bash
-pnpm hive-db
-```
+Make sure your PostgreSQL server is running and the `courthive` database exists.
+The schema is applied automatically the first time the server boots — there is
+no manual migration step. See [Storage Configuration](./storage-configuration.md).
 
 ### 2. Create your admin account
 
@@ -130,7 +126,6 @@ Commands:
   set-roles  -e <email> -r <roles>        Set roles (comma-separated)
 
 Options:
-  --storage <leveldb|postgres>     Override STORAGE_PROVIDER
   -e, --email                      User email address
   -p, --password                   Password (plain text, will be hashed)
   -r, --roles                      Comma-separated role list
@@ -140,8 +135,8 @@ Options:
 ### Examples
 
 ```bash
-# List users in PostgreSQL
-node src/scripts/admin-user.mjs list --storage postgres
+# List users
+node src/scripts/admin-user.mjs list
 
 # Create admin with specific roles
 node src/scripts/admin-user.mjs create -e ops@courthive.com -p secret123
@@ -156,11 +151,6 @@ node src/scripts/admin-user.mjs set-roles -e ops@courthive.com -r client,score
 ---
 
 ## Troubleshooting
-
-**"Failed to connect to leveldb"**
-
-- Make sure `pnpm hive-db` is running in another terminal
-- Check `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS` in `.env`
 
 **"Failed to connect to postgres"**
 

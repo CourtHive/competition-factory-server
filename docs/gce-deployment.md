@@ -22,7 +22,7 @@ The data disk is separate so it can be detached and reattached to a new instance
 
 ```
 /mnt/data/competition-factory-server/
-├── data/           # LevelDB data (tournaments, users, providers, calendars)
+├── data/           # legacy LevelDB data dir (unused; storage is external PostgreSQL)
 └── cache/
     └── tracker/    # Tracker cache
 ```
@@ -139,13 +139,14 @@ MAILGUN_HOST='api.eu.mailgun.net'
 ```bash
 cd /home/tennis_aip/competition-factory-server
 
-# Start LevelDB server
-pm2 start 'npx net-level-server' --name 'hive-db' \
-  --cwd /home/tennis_aip/competition-factory-server
-
-# Start NestJS application
+# Start NestJS application (PostgreSQL is an external service — no DB process is
+# started here; the schema is applied automatically on boot)
 NODE_ENV=production pm2 start build/src/main.js --name Factory-Server
 ```
+
+> **Storage note**: As of 2026-05-30 the server is PostgreSQL-only. The former
+> LevelDB `net-level-server` PM2 process (`hive-db`) has been removed — do not
+> start it. Configure the database via the `PG_*` variables in `.env`.
 
 > **Note**: The `ecosystem.config.js` references `dist/src/main.js` but `pnpm build` outputs to `build/src/main.js`. Use the manual PM2 commands above instead.
 

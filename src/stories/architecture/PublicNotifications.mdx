@@ -88,6 +88,10 @@ Emitted when an event, order of play, or participant list is published or unpubl
 }
 ```
 
+### liveScore (companion event)
+
+In addition to `publicUpdate`, each changed matchUp also emits a compact `liveScore` event to the same room (`PublicGateway.broadcastLiveScore`). This mirrors the score into the shape courthive-public's live-score handler consumes for non-INTENNSE formats; INTENNSE matchUps get `liveScore` from the bolt-history projector pipeline. Consumers that only care about `publicUpdate` can ignore it.
+
 Possible `action` values:
 
 <table>
@@ -103,6 +107,10 @@ Possible `action` values:
     <tr><td><code>UNPUBLISH_PARTICIPANTS</code></td><td>Participant list removed from public view</td></tr>
   </tbody>
 </table>
+
+## How Notices Are Collected
+
+During a mutation, the factory engine dispatches topic notices (`MODIFY_MATCHUP`, `MODIFY_POSITION_ASSIGNMENTS`, `PUBLISH_EVENT`, etc.). The subscriptions registered in `getMutationEngine` push a sanitized copy of each into a per-request `publicNotices` array. Because each request runs against its own `async_hooks`-isolated engine state (`asyncGlobalState`), concurrent mutations never mix notices. After the mutation succeeds, `TournamentBroadcastService.broadcastPublicNotices` groups those notices by tournament and emits the `publicUpdate` / `liveScore` events described above.
 
 ## Client Examples
 

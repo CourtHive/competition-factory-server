@@ -4,76 +4,95 @@ import { Meta } from '@storybook/addon-docs/blocks';
 
 # Roles & Permissions
 
-The server uses a role-based access control (RBAC) model. Users are assigned roles and fine-grained permissions at the user level, with provider-scoped authorization on top.
+The server uses a two-tier authorization model:
 
-## Roles
+- **Global capability roles** live in the `users.roles` JSONB array, travel in the JWT, and gate *whether a user may call an endpoint at all* via the `@Roles([...])` decorator (enforced by `RolesGuard` for HTTP and `SocketGuard` for WebSocket handlers).
+- **Provider-scoped roles** live in `user_providers.provider_role`, are **not** in the JWT, and answer *what a user may do within a specific provider's scope*. They are resolved per request from the user's provider associations (the `UserContext`).
+
+The canonical definitions are in `src/common/constants/roles.ts`.
+
+## Global Capability Roles
+
+These are valid in the JWT and via `@Roles(...)`. `VALID_GLOBAL_ROLES` = `[superadmin, developer, generate, client, score, provisioner]`.
 
 <table>
   <thead>
     <tr><th style={{ textAlign: 'left' }}>Role</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>superadmin</code></td><td>Full system access — manage all users, providers, and tournaments</td></tr>
-    <tr><td><code>admin</code></td><td>Provider-level administration — manage users and tournaments within a provider</td></tr>
-    <tr><td><code>client</code></td><td>Tournament management — create, modify, fetch, and save tournaments</td></tr>
-    <tr><td><code>director</code></td><td>Tournament director — run tournaments assigned by a provider</td></tr>
-    <tr><td><code>developer</code></td><td>Development features and dev console access</td></tr>
-    <tr><td><code>score</code></td><td>Score entry only (<code>setMatchUpStatus</code>)</td></tr>
-    <tr><td><code>official</code></td><td>Match official functionality</td></tr>
+    <tr><td><code>superadmin</code></td><td>Full system access — manage all users, providers, and tournaments; bypasses per-tournament and provider-permission gates</td></tr>
+    <tr><td><code>client</code></td><td>Tournament management — the standard mutation role (<code>executionQueue</code> requires <code>client</code> or <code>superadmin</code>)</td></tr>
+    <tr><td><code>score</code></td><td>Score entry — <code>POST /factory/score</code> accepts <code>score</code> or <code>superadmin</code></td></tr>
+    <tr><td><code>developer</code></td><td>Development features / dev console access</td></tr>
     <tr><td><code>generate</code></td><td>Generate tournament records (mock/test data)</td></tr>
+    <tr><td><code>provisioner</code></td><td>User represents a provisioner (API-key / prov-token integration path)</td></tr>
+    <tr><td><code>admin</code></td><td><strong>Deprecated</strong> — treated as <code>PROVIDER_ADMIN</code> for back-compat and slated for removal. Still accepted by <code>admin-user.mjs set-roles</code>.</td></tr>
+  </tbody>
+</table>
+
+## Provider-Scoped Roles
+
+Stored in `user_providers.provider_role` (`VALID_PROVIDER_ROLES` = `[PROVIDER_ADMIN, DIRECTOR]`), resolved into the `UserContext` at request time — never present in the JWT.
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Role</th><th style={{ textAlign: 'left' }}>Scope within the provider</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>PROVIDER_ADMIN</code></td><td>Sees and manages <strong>all</strong> tournaments in the provider</td></tr>
+    <tr><td><code>DIRECTOR</code></td><td>Sees only tournaments they <strong>own or were assigned</strong></td></tr>
   </tbody>
 </table>
 
 ## Permissions
 
-Fine-grained permissions complement roles:
+Fine-grained, capability-style flags stored on the user (separate from roles):
 
 <table>
   <thead>
     <tr><th style={{ textAlign: 'left' }}>Permission</th><th style={{ textAlign: 'left' }}>Description</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>deleteTournament</code></td><td>Can delete tournament records from storage</td></tr>
-    <tr><td><code>editTennisId</code></td><td>Can modify participant tennis IDs</td></tr>
-    <tr><td><code>devMode</code></td><td>Enables development-mode features in the client</td></tr>
+    <tr><td><code>deleteTournament</code></td><td>Grants the <em>capability</em> to delete tournament records. Scope is still bound to the owning provider — see <code>canDeleteTournament</code> in <code>checkTournamentAccess.ts</code> (only <code>superadmin</code> may delete a tournament with no owning provider).</td></tr>
+    <tr><td><code>devMode</code></td><td>Enables development-mode features (constant <code>DEV_MODE</code> in <code>src/common/constants/permissions.ts</code>)</td></tr>
   </tbody>
 </table>
 
-## Services
+## Endpoint / Message Gating (server)
 
-Service flags control optional features:
+Representative `@Roles(...)` gates seen in the codebase:
 
 <table>
   <thead>
-    <tr><th style={{ textAlign: 'left' }}>Service</th><th style={{ textAlign: 'left' }}>Description</th></tr>
+    <tr><th style={{ textAlign: 'left' }}>Surface</th><th style={{ textAlign: 'left' }}>Required Role</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>tournamentProfile</code></td><td>Access to tournament profile/template features</td></tr>
+    <tr><td><code>executionQueue</code> (WebSocket + <code>POST /factory</code>)</td><td><code>client</code> or <code>superadmin</code></td></tr>
+    <tr><td><code>POST /factory/score</code></td><td><code>score</code> or <code>superadmin</code></td></tr>
+    <tr><td><code>joinTournament</code> / <code>chatMessage</code></td><td><code>client</code> or <code>superadmin</code></td></tr>
+    <tr><td>Super-admin chat monitor (<code>joinChatMonitor</code>, <code>adminChatReply</code>)</td><td><code>superadmin</code></td></tr>
   </tbody>
 </table>
 
-## Access Control in TMX
-
-<table>
-  <thead>
-    <tr><th style={{ textAlign: 'left' }}>Feature</th><th style={{ textAlign: 'left' }}>Required Role</th><th style={{ textAlign: 'left' }}>Notes</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>System page (providers/users)</td><td><code>superadmin</code></td><td>Full system management</td></tr>
-    <tr><td>Admin page (policies/settings)</td><td><code>admin</code> or <code>superadmin</code></td><td>Provider-scoped</td></tr>
-    <tr><td>Tournament management</td><td><code>client</code></td><td>Standard operations</td></tr>
-    <tr><td>Score entry</td><td><code>score</code> or <code>client</code></td><td>Scoring mutations only</td></tr>
-    <tr><td>Impersonation</td><td><code>superadmin</code></td><td>Assume another provider's identity</td></tr>
-    <tr><td>Dev console</td><td><code>developer</code></td><td><code>window.dev</code> utilities</td></tr>
-  </tbody>
-</table>
+Beyond the role gate, `executionQueue` applies a per-tournament authorization gate (`canMutateTournament` plus the owning provider's mutation-permission map); `superadmin` bypasses both.
 
 ## Provider Scoping
 
-Users are associated with a provider (organisation). When logged in:
-- An `admin` can manage users and tournaments **within their provider only**
-- A `superadmin` can manage **all providers and users**
-- A `client` can access tournaments **published by their provider** or tournaments they own
+Users are associated with one or more providers (organisations) via `user_providers`. When logged in:
+
+- A `superadmin` can manage **all providers and users** and is exempt from scoping.
+- A `PROVIDER_ADMIN` (provider-scoped role) sees and manages **all tournaments in that provider**.
+- A `DIRECTOR` (provider-scoped role) sees only tournaments they **own or were assigned**.
+
+View/mutate scoping is gated by the `ENABLE_TOURNAMENT_ACCESS_SCOPING` flag (`isTournamentAccessScopingEnabled`); delete authorization is always provider-bound regardless of the flag.
+
+## Audience-Aware Authentication
+
+JWTs also carry an `aud` (audience) claim. `AuthGuard` (HTTP) and `SocketGuard` (WebSocket) admit a token only when its `aud` overlaps the route/gateway's required audiences, declared via the `@Audience([...])` decorator.
+
+- Audience claims: `admin` | `hiveid` | `score` (defined in `audience.decorator.ts`; the tracker-token service also mints a `provider` audience).
+- Absent `@Audience(...)` defaults to `['admin']`; legacy tokens with no `aud` claim are treated as `admin`, so existing sessions keep working.
+- Example: `POST /factory/score` declares `@Audience(['admin', 'score'])` so both TMX-user tokens and score-relay service tokens are accepted.
 
 ## Managing Roles
 
@@ -81,7 +100,7 @@ Users are associated with a provider (organisation). When logged in:
 # Set roles for a user
 node src/scripts/admin-user.mjs set-roles \
   --email user@example.com \
-  --roles admin,client,score
+  --roles developer,client,score
 
 # Demote to client-only
 node src/scripts/admin-user.mjs set-roles \
@@ -89,18 +108,25 @@ node src/scripts/admin-user.mjs set-roles \
   --roles client
 ```
 
+`admin-user.mjs` validates against `[superadmin, admin, developer, client, score, generate]` (note `admin` is still accepted for back-compat), and its `create` command provisions a superadmin (`roles: [superadmin, admin, client]`).
+
 ## JWT Token Structure
 
-On login, the server issues a JWT containing:
+On login the server signs a short-lived access token (`buildSessionPayload` + `signAccessToken`) roughly shaped as:
 
 ```json
 {
   "email": "user@example.com",
-  "roles": ["admin", "client"],
-  "permissions": { "deleteTournament": true },
-  "services": { "tournamentProfile": true },
-  "providerId": "uuid-of-provider"
+  "roles": ["client"],
+  "permissions": [],
+  "providerId": "uuid-of-home-provider",
+  "providerIds": ["uuid-a", "uuid-b"],
+  "providerAssociations": [
+    { "providerId": "uuid-a", "providerRole": "PROVIDER_ADMIN" }
+  ],
+  "lastSelectedProviderId": "uuid-a",
+  "aud": "admin"
 }
 ```
 
-The token is valid for `JWT_VALIDITY` (default: 2 hours).
+The access token TTL is `ACCESS_TOKEN_TTL` (currently `4h`). A separate rotating **refresh token** is issued alongside it and can be exchanged for a fresh access token via the refresh flow. Provider-scoped roles (`PROVIDER_ADMIN` / `DIRECTOR`) are **not** in the token — they are resolved per request from `providerAssociations`.
