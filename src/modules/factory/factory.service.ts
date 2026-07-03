@@ -14,10 +14,11 @@ import { checkEngineError } from '../../common/errors/engineError';
 import { AssignmentsService } from './assignments.service';
 import { AuditService } from '../audit/audit.service';
 import { checkProvider } from './helpers/checkProvider';
-import { askEngine } from 'tods-competition-factory';
+import { attachProviderPrivacyOnCreate } from './helpers/attachProviderPrivacyOnCreate';
 import { BadRequestException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
 import { checkUser } from './helpers/checkUser';
 import publicQueries from './functions/public';
+import { askEngine } from 'tods-competition-factory';
 
 // types and interfaces
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
@@ -42,7 +43,14 @@ export class FactoryService {
   }
 
   async executionQueue(params, services) {
-    const result = await eq(params, services, this.tournamentStorageService, this.auditService, this.tournamentProvisionerStorage);
+    const result = await eq(
+      params,
+      services,
+      this.tournamentStorageService,
+      this.auditService,
+      this.tournamentProvisionerStorage,
+      this.providerStorage,
+    );
     checkEngineError(result);
 
     // Fire-and-forget: mirror successful mutations to upstream
@@ -209,6 +217,19 @@ export class FactoryService {
           return { error: `User not allowed to modify tournament ${tid}` };
         }
       }
+    }
+
+    // PRIVACY ATTACH (creation only): on the first save of a provider-owned
+    // tournament (the TMX UI create path — sendTournament → /factory/save),
+    // attach the provider's selected participant-privacy policy so public
+    // reads (getParticipants) honor it. Mirrors the executionQueue create
+    // hook for the API/provisioner path. Runs before validation so the
+    // attached extension is validated too. Fail-soft.
+    for (const record of Object.values(tournamentRecords)) {
+      await attachProviderPrivacyOnCreate(record, {
+        tournamentStorageService: this.tournamentStorageService,
+        providerStorage: this.providerStorage,
+      }).catch((err) => Logger.error(`Privacy attach on save failed: ${err.message}`, 'FactoryService'));
     }
 
     // L2 validation gate. Records under the byte threshold are validated

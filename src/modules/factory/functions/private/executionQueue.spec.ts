@@ -5,8 +5,10 @@ import fileStorage from '../../../../services/fileSystem';
 import { testTournamentId } from '../../../../common/constants/test';
 
 const tournamentId = testTournamentId(__filename);
-import { executionQueue } from './executionQueue';
+import { executionQueue, attachProviderPolicies } from './executionQueue';
 import 'dotenv/config';
+
+const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PARTICIPANT;
 
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
 
@@ -99,5 +101,118 @@ describe('executionQueue', () => {
     expect(typeof recorded.errorCode).toBe('string');
     expect(recorded.errorCode).not.toBe('[object Object]');
     expect(recorded.errorCode.startsWith('ERR_')).toBe(true);
+  });
+});
+
+describe('attachProviderPolicies (privacy attach hook)', () => {
+  const PROVIDER_ID = 'priv-provider-1';
+  const privacyPolicy = { policyName: 'Test Privacy', participant: { person: { addresses: false } } };
+
+  // A provider whose effective config exposes the selected privacy policy.
+  const providerStorage: any = {
+    getProvider: jest.fn().mockResolvedValue({
+      caps: {},
+      settings: { participantPrivacyPolicy: privacyPolicy },
+    }),
+  };
+
+  // Minimal mutationEngine stub: state carries one provider-owned record;
+  // executionQueue records the methods it is asked to apply.
+  function makeEngine(record: any) {
+    const applied: any[] = [];
+    return {
+      applied,
+      getState: () => ({ tournamentRecords: { [tournamentId]: record } }),
+      executionQueue: jest.fn(async (methods: any[]) => {
+        applied.push(...methods);
+        return { success: true };
+      }),
+    };
+  }
+
+  const newTournamentMethods = [{ method: 'newTournamentRecord', params: {} }];
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('attaches the provider privacy policy on new-tournament creation and returns the method for client replay', async () => {
+    const engine = makeEngine({ tournamentId, parentOrganisation: { organisationId: PROVIDER_ID } });
+    const applied = await attachProviderPolicies({
+      methods: newTournamentMethods,
+      tournamentIds: [tournamentId],
+      mutationEngine: engine,
+      providerStorage,
+    });
+
+    expect(providerStorage.getProvider).toHaveBeenCalledWith(PROVIDER_ID);
+    expect(applied).toHaveLength(1);
+    expect(applied[0].method).toBe('attachPolicies');
+    expect(applied[0].params.tournamentId).toBe(tournamentId);
+    expect(applied[0].params.policyDefinitions[POLICY_TYPE_PARTICIPANT]).toEqual(privacyPolicy);
+    // The engine was actually asked to apply the attach (persisted before save).
+    expect(engine.executionQueue).toHaveBeenCalledTimes(1);
+  });
+
+  it('is a no-op when the batch contains no newTournamentRecord', async () => {
+    const engine = makeEngine({ tournamentId, parentOrganisation: { organisationId: PROVIDER_ID } });
+    const applied = await attachProviderPolicies({
+      methods: [{ method: 'setTournamentDates', params: {} }],
+      tournamentIds: [tournamentId],
+      mutationEngine: engine,
+      providerStorage,
+    });
+    expect(applied).toEqual([]);
+    expect(providerStorage.getProvider).not.toHaveBeenCalled();
+    expect(engine.executionQueue).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op when the provider has no privacy policy configured', async () => {
+    const bareProviderStorage: any = {
+      getProvider: jest.fn().mockResolvedValue({ caps: {}, settings: {} }),
+    };
+    const engine = makeEngine({ tournamentId, parentOrganisation: { organisationId: PROVIDER_ID } });
+    const applied = await attachProviderPolicies({
+      methods: newTournamentMethods,
+      tournamentIds: [tournamentId],
+      mutationEngine: engine,
+      providerStorage: bareProviderStorage,
+    });
+    expect(applied).toEqual([]);
+    expect(engine.executionQueue).not.toHaveBeenCalled();
+  });
+
+  it('skips records with no owning provider (no parentOrganisation)', async () => {
+    const engine = makeEngine({ tournamentId });
+    const applied = await attachProviderPolicies({
+      methods: newTournamentMethods,
+      tournamentIds: [tournamentId],
+      mutationEngine: engine,
+      providerStorage,
+    });
+    expect(applied).toEqual([]);
+    expect(providerStorage.getProvider).not.toHaveBeenCalled();
+  });
+
+  it('fail-soft: a provider-lookup error never throws and yields no applied methods', async () => {
+    const throwingStorage: any = { getProvider: jest.fn().mockRejectedValue(new Error('db down')) };
+    const engine = makeEngine({ tournamentId, parentOrganisation: { organisationId: PROVIDER_ID } });
+    const applied = await attachProviderPolicies({
+      methods: newTournamentMethods,
+      tournamentIds: [tournamentId],
+      mutationEngine: engine,
+      providerStorage: throwingStorage,
+    });
+    expect(applied).toEqual([]);
+    expect(engine.executionQueue).not.toHaveBeenCalled();
+  });
+
+  it('returns nothing when providerStorage is not injected', async () => {
+    const engine = makeEngine({ tournamentId, parentOrganisation: { organisationId: PROVIDER_ID } });
+    const applied = await attachProviderPolicies({
+      methods: newTournamentMethods,
+      tournamentIds: [tournamentId],
+      mutationEngine: engine,
+      providerStorage: undefined,
+    });
+    expect(applied).toEqual([]);
   });
 });
