@@ -14,9 +14,11 @@
 // can call this endpoint to backfill specific tournaments; deeper
 // auto-publish integration is a follow-up.
 
-import { Controller, HttpCode, HttpStatus, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, HttpCode, HttpStatus, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
 
-import { ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
+import { ADMIN, CLIENT, PROVIDER_ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
+import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
+import { ProviderRankingsService } from './provider-rankings.service';
 import { RankingsWebhookService } from './rankings-webhook.service';
 import { Roles } from '../account/auth/decorators/roles.decorator';
 import { RolesGuard } from '../account/auth/guards/role.guard';
@@ -27,8 +29,29 @@ import { TournamentStorageService } from 'src/storage/tournament-storage.service
 export class RankingsWebhookController {
   constructor(
     private readonly webhook: RankingsWebhookService,
+    private readonly providerRankings: ProviderRankingsService,
     private readonly tournamentStorage: TournamentStorageService,
   ) {}
+
+  // Provider-scoped recompute: republish all of a provider's tournaments to the
+  // rankings pipeline (refreshing the live rankings page) + regenerate formal
+  // snapshots per age-category × gender. Only a PROVIDER_ADMIN of the target
+  // provider (or a super-admin) may run it.
+  @Post('republish-provider/:providerId')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  async republishProvider(
+    @Param('providerId') providerId: string,
+    @Body() body: { ageCategoryCodes?: string[] },
+    @UserCtx() ctx?: UserContext,
+  ) {
+    if (!providerId) return { error: 'providerId required' };
+    const isProviderAdmin = ctx?.providerRoles?.[providerId] === PROVIDER_ADMIN;
+    if (!ctx?.isSuperAdmin && !isProviderAdmin) {
+      throw new ForbiddenException('PROVIDER_ADMIN role required');
+    }
+    return this.providerRankings.recompute({ providerId, ageCategoryCodes: body?.ageCategoryCodes });
+  }
 
   @Post('republish/:tournamentId')
   @Roles([ADMIN, SUPER_ADMIN])

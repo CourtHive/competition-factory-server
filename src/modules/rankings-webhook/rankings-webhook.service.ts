@@ -85,6 +85,54 @@ export class RankingsWebhookService {
     return { ok: false, error: lastError, attempts: this.maxRetries };
   }
 
+  /**
+   * Generate a ranking snapshot in the pipeline (POST /rankings/snapshots).
+   * The pipeline resolves the provider's ranking policy from the passed
+   * tournamentRecord's organisation abbreviation, so we send a minimal stub
+   * carrying only `unifiedTournamentId.organisation.organisationId`. Single
+   * attempt (snapshots are idempotent-ish and cheap to re-request).
+   */
+  async generateSnapshot(args: {
+    asOfDate: string;
+    ageCategoryCode?: string;
+    gender?: string;
+    providerAbbr?: string;
+  }): Promise<WebhookResult> {
+    if (!this.isEnabled()) return { skipped: true };
+
+    const body = JSON.stringify({
+      asOfDate: args.asOfDate,
+      ageCategoryCode: args.ageCategoryCode,
+      gender: args.gender,
+      tournamentRecord: args.providerAbbr
+        ? { unifiedTournamentId: { organisation: { organisationId: args.providerAbbr } } }
+        : undefined,
+    });
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await fetch(`${this.rankingsUrl}/rankings/snapshots`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        signal: controller.signal,
+      });
+      const text = await response.text().catch(() => '');
+      let parsed: unknown = text;
+      try {
+        parsed = text ? JSON.parse(text) : undefined;
+      } catch {
+        // non-JSON body — keep raw text
+      }
+      return { ok: response.ok, status: response.status, responseBody: parsed };
+    } catch (err: any) {
+      return { ok: false, error: err?.message ?? String(err) };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   private async attemptPost(body: string): Promise<{ ok: boolean; status?: number; responseBody?: unknown }> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
