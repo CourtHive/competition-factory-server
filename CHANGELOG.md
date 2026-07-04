@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.17.0](https://github.com/CourtHive/competition-factory-server/compare/v2.16.0...v2.17.0) (2026-07-04)
+
+
+### Features
+
+* **factory:** attach participant-privacy policy on create + apply-to-existing ([#801](https://github.com/CourtHive/competition-factory-server/issues/801)) ([d0969d3](https://github.com/CourtHive/competition-factory-server/commit/d0969d3517adc034f9fff164b1b4b44927c361a1))
+* **rankings:** provider-scoped recompute (republish + snapshots) ([#803](https://github.com/CourtHive/competition-factory-server/issues/803)) ([3903fb1](https://github.com/CourtHive/competition-factory-server/commit/3903fb15f65b9332645c0a09f62dab5fbf151f51))
+
+
+### Bug Fixes
+
+* **auth:** allow super-admins to persist last-selected provider ([6d1e9a4](https://github.com/CourtHive/competition-factory-server/commit/6d1e9a4d78fc13aaa5eca0bf1e49202bdaf35e76))
+
+
+### Documentation
+
+* refresh storage/admin/architecture docs and add module docs ([11ce2fd](https://github.com/CourtHive/competition-factory-server/commit/11ce2fd12bb6b4d2c26eb70457cc495db8131605))
+
 ## [2.16.0](https://github.com/CourtHive/competition-factory-server/compare/v2.15.0...v2.16.0) (2026-07-03)
 
 
