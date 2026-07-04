@@ -405,6 +405,15 @@ describe('AuthService', () => {
       const result: any = await authService.updateLastSelectedProvider('', 'prov-ION');
       expect(result.error).toBe('Authentication required');
     });
+
+    it('persists for super admin without an association (impersonation)', async () => {
+      const result: any = await authService.updateLastSelectedProvider('super@test.com', 'prov-OTHER', {
+        isSuperAdmin: true,
+      });
+      expect(result.success).toBe(true);
+      expect(mockUserStorage.updateLastSelectedProviderId).toHaveBeenCalledWith('super@test.com', 'prov-OTHER');
+      expect(mockUserProviderStorage.findByUserId).not.toHaveBeenCalled();
+    });
   });
 
   describe('adminCreateUser', () => {

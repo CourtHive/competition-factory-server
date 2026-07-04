@@ -479,11 +479,16 @@ export class AuthService {
    * provider context across devices. Caller's userId comes from the
    * authenticated JWT. Validates `providerId` against `user_providers`;
    * rejects with `{ error: ... }` if the caller is not associated.
-   * Pass `null` to clear.
+   * Super admins bypass the association check — impersonation is by
+   * design out-of-band of their own associations. Pass `null` to clear.
    */
-  async updateLastSelectedProvider(email: string, providerId: string | null) {
+  async updateLastSelectedProvider(
+    email: string,
+    providerId: string | null,
+    options?: { isSuperAdmin?: boolean },
+  ) {
     if (!email) return { error: 'Authentication required' };
-    if (providerId !== null) {
+    if (providerId !== null && !options?.isSuperAdmin) {
       const user = await this.usersService.findOne(email);
       if (!user?.userId) return { error: 'User not found' };
       const associations = await this.userProviderStorage.findByUserId(user.userId);
