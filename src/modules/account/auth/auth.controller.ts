@@ -286,7 +286,9 @@ export class AuthController {
     @UserCtx() userContext?: UserContext,
   ) {
     if (!userContext?.email) return { error: 'Authentication required' };
-    return this.authService.updateLastSelectedProvider(userContext.email, body?.providerId ?? null);
+    return this.authService.updateLastSelectedProvider(userContext.email, body?.providerId ?? null, {
+      isSuperAdmin: !!userContext.isSuperAdmin,
+    });
   }
 
   /**
