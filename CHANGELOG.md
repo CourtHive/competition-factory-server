@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.17.1](https://github.com/CourtHive/competition-factory-server/compare/v2.17.0...v2.17.1) (2026-07-06)
+
+
+### Bug Fixes
+
+* **deps:** keep audit-worker on tods-competition-factory 5.9.0 (defer 6.x migration) ([5cf25e9](https://github.com/CourtHive/competition-factory-server/commit/5cf25e99720a7b7f2bbcc6bbe7c5f239746ac860))
+* **deps:** migrate audit-worker to tods-competition-factory 6.1.1 ([1625d86](https://github.com/CourtHive/competition-factory-server/commit/1625d86abe4d20c0a4a09faaddacc5df89236c58))
+* **deps:** update tods-competition-factory to 6.2.0 ([4dbcbf4](https://github.com/CourtHive/competition-factory-server/commit/4dbcbf48519e7db7438425e91d9bdee9de9b1143))
+* **deps:** update tods-competition-factory to 6.3.0 ([698850d](https://github.com/CourtHive/competition-factory-server/commit/698850d91ef3cbb3b51d93e67893ca1984fc8875))
+
 ## [2.17.0](https://github.com/CourtHive/competition-factory-server/compare/v2.16.0...v2.17.0) (2026-07-04)
 
 
