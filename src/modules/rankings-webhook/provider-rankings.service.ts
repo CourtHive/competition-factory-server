@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { RankingsWebhookService } from './rankings-webhook.service';
+import { stampRecordProvider } from './stampRecordProvider';
 
 // Standard men's / women's ranking lists. A person's points from MIXED events
 // still flow into the live /bundle (which buckets by person sex); these gendered
@@ -71,17 +72,10 @@ export class ProviderRankingsService {
           republished.push({ tournamentId, ok: false, error: 'record not found' });
           continue;
         }
-        // The rankings ingest derives the owning provider from the record's
-        // unifiedTournamentId.organisation (organisationId = the abbreviation).
-        // Provisioner-created records (e.g. BOBOCA) don't carry it, which left
-        // ingestion_runs.provider_id blank and broke the provider-scoped bundle.
-        // Stamp it from the resolved provider so ingest scopes correctly.
-        if (providerAbbr) {
-          record.unifiedTournamentId = {
-            ...record.unifiedTournamentId,
-            organisation: { organisationId: providerAbbr, organisationName: provider?.organisationName ?? providerAbbr },
-          };
-        }
+        // Stamp the owning provider so the rankings ingest can scope it (the
+        // record's unifiedTournamentId.organisation is otherwise blank for
+        // provisioner-created records). See stampRecordProvider.
+        stampRecordProvider(record, provider);
         const res = await this.webhook.publish(record, { source: 'cfs-event', sourceRef: `provider-recompute:${providerId}` });
         republished.push({
           tournamentId,

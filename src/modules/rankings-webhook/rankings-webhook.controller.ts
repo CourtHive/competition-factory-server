@@ -14,12 +14,14 @@
 // can call this endpoint to backfill specific tournaments; deeper
 // auto-publish integration is a follow-up.
 
-import { Body, Controller, ForbiddenException, HttpCode, HttpStatus, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, HttpCode, HttpStatus, Inject, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
 
+import { PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
 import { ADMIN, CLIENT, PROVIDER_ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { ProviderRankingsService } from './provider-rankings.service';
 import { RankingsWebhookService } from './rankings-webhook.service';
+import { stampRecordProvider } from './stampRecordProvider';
 import { Roles } from '../account/auth/decorators/roles.decorator';
 import { RolesGuard } from '../account/auth/guards/role.guard';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
@@ -31,6 +33,7 @@ export class RankingsWebhookController {
     private readonly webhook: RankingsWebhookService,
     private readonly providerRankings: ProviderRankingsService,
     private readonly tournamentStorage: TournamentStorageService,
+    @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
   ) {}
 
   // Provider-scoped recompute: republish all of a provider's tournaments to the
@@ -61,6 +64,15 @@ export class RankingsWebhookController {
     const tournamentRecord = (result as any)?.tournamentRecords?.[tournamentId];
     if (!tournamentRecord) {
       throw new NotFoundException(`tournament ${tournamentId} not found`);
+    }
+
+    // Stamp the owning provider so the rankings ingest scopes provider_id
+    // correctly (the record's organisation is otherwise blank for
+    // provisioner-created tournaments). Mirrors the provider-recompute path.
+    const providerId = tournamentRecord.parentOrganisation?.organisationId;
+    if (providerId) {
+      const provider: any = await this.providerStorage.getProvider(providerId);
+      stampRecordProvider(tournamentRecord, provider);
     }
 
     return this.webhook.publish(tournamentRecord, {
