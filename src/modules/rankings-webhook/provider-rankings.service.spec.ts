@@ -61,6 +61,17 @@ describe('ProviderRankingsService.recompute', () => {
     expect(res.snapshots.map((s) => s.ageCategoryCode).sort()).toEqual(['OPEN', 'OPEN', 'U18', 'U18']);
   });
 
+  it('stamps the resolved provider onto each record so the rankings ingest can scope it', async () => {
+    // Regression: provisioner-created records (e.g. BOBOCA) lack
+    // unifiedTournamentId.organisation, which left ingestion_runs.provider_id
+    // blank and broke the provider-scoped bundle. The recompute must stamp it.
+    const { service, webhook, providerStorage } = build();
+    providerStorage.getProvider.mockResolvedValue({ organisationAbbreviation: ABBR, organisationName: 'Prov Org' });
+    await service.recompute({ providerId: PROVIDER_ID });
+    const [record] = webhook.publish.mock.calls[0];
+    expect(record.unifiedTournamentId.organisation).toEqual({ organisationId: ABBR, organisationName: 'Prov Org' });
+  });
+
   it('records a per-tournament error when the record cannot be fetched', async () => {
     const { service, tournamentStorage } = build();
     tournamentStorage.fetchTournamentRecords.mockResolvedValueOnce({ tournamentRecords: {} });
