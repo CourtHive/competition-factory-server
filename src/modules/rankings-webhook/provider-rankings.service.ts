@@ -37,11 +37,75 @@ export class ProviderRankingsService {
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
   ) {}
 
+  /**
+   * Republish ALL of a provider's tournaments + regenerate snapshots. The
+   * default bulk action behind the console "Recompute rankings" button.
+   */
   async recompute(args: {
     providerId: string;
     ageCategoryCodes?: string[];
     asOfDate?: string;
   }): Promise<RecomputeResult> {
+    return this.runRecompute(args, { mode: 'recompute' });
+  }
+
+  /**
+   * Republish only the provider's tournaments that have NO current ingestion
+   * run in the rankings pipeline (never ingested). Diffs the provider calendar
+   * against the pipeline's ingested-tournamentIds set — so it fills gaps
+   * (tournaments that finished after the last republish) without reprocessing
+   * everything. Snapshots still regenerate so the formal lists reflect the fills.
+   */
+  async runUnprocessed(args: {
+    providerId: string;
+    ageCategoryCodes?: string[];
+    asOfDate?: string;
+  }): Promise<RecomputeResult> {
+    return this.runRecompute(args, {
+      mode: 'run-unprocessed',
+      selectTournaments: async (tournaments, { providerAbbr }) => {
+        // A blank abbreviation can't scope the ingested-set lookup; treat as
+        // "nothing determinable" and throw rather than republish everything.
+        if (!providerAbbr) throw new Error('provider has no organisationAbbreviation');
+        const ingested = new Set(await this.webhook.fetchIngestedTournamentIds(providerAbbr));
+        return tournaments.filter((entry) => entry?.tournamentId && !ingested.has(entry.tournamentId));
+      },
+    });
+  }
+
+  /**
+   * Republish the provider's tournaments with `tournament.endDate >= fromDate`.
+   * A date floor so a "re-run recent rankings" never reprocesses thousands of
+   * historical events. Tournaments with no endDate (live / not-yet-ended) are
+   * always included so an in-progress event is never skipped.
+   */
+  async rerunFromDate(args: {
+    providerId: string;
+    fromDate: string;
+    ageCategoryCodes?: string[];
+    asOfDate?: string;
+  }): Promise<RecomputeResult> {
+    const { fromDate } = args;
+    return this.runRecompute(args, {
+      mode: 'rerun-from-date',
+      selectTournaments: (tournaments) =>
+        tournaments.filter((entry) => {
+          const endDate = entry?.tournament?.endDate;
+          return !endDate || endDate >= fromDate;
+        }),
+    });
+  }
+
+  private async runRecompute(
+    args: { providerId: string; ageCategoryCodes?: string[]; asOfDate?: string },
+    opts: {
+      mode: string;
+      selectTournaments?: (
+        tournaments: any[],
+        ctx: { providerAbbr?: string },
+      ) => any[] | Promise<any[]>;
+    },
+  ): Promise<RecomputeResult> {
     const { providerId } = args;
     const republished: RecomputeResult['republished'] = [];
     const snapshots: RecomputeResult['snapshots'] = [];
@@ -60,8 +124,13 @@ export class ProviderRankingsService {
     const provider: any = await this.providerStorage.getProvider(providerId);
     const providerAbbr = provider?.organisationAbbreviation;
 
-    // 1. Republish every provider tournament (refreshes point_awards → live bundle).
-    const tournaments = await this.tournamentStorage.listProviderTournaments({ providerId });
+    // 1. Republish the selected provider tournaments (refreshes point_awards →
+    //    live bundle). The selector narrows the full calendar for the
+    //    unprocessed / from-date variants; default republishes every tournament.
+    const allTournaments = await this.tournamentStorage.listProviderTournaments({ providerId });
+    const tournaments = opts.selectTournaments
+      ? await opts.selectTournaments(allTournaments, { providerAbbr })
+      : allTournaments;
     for (const entry of tournaments) {
       const tournamentId = entry?.tournamentId;
       if (!tournamentId) continue;
@@ -116,7 +185,7 @@ export class ProviderRankingsService {
       snapshotsOk: snapshots.filter((s) => s.ok).length,
     };
     this.logger.log(
-      `provider-recompute provider=${providerId} tournaments=${counts.tournaments} ok=${counts.republishedOk} snapshots=${counts.snapshotsOk}`,
+      `provider-recompute mode=${opts.mode} provider=${providerId} tournaments=${counts.tournaments} ok=${counts.republishedOk} snapshots=${counts.snapshotsOk}`,
     );
 
     return { providerId, republished, snapshots, counts };

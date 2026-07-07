@@ -49,11 +49,54 @@ export class RankingsWebhookController {
     @UserCtx() ctx?: UserContext,
   ) {
     if (!providerId) return { error: 'providerId required' };
+    this.assertProviderAdmin(providerId, ctx);
+    return this.providerRankings.recompute({ providerId, ageCategoryCodes: body?.ageCategoryCodes });
+  }
+
+  // Republish ONLY the provider's tournaments with no current ingestion run
+  // (never ingested — e.g. tournaments that finished after the last republish).
+  // Same provider-scoped authorization as republishProvider.
+  @Post('run-unprocessed/:providerId')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  async runUnprocessed(
+    @Param('providerId') providerId: string,
+    @Body() body: { ageCategoryCodes?: string[] },
+    @UserCtx() ctx?: UserContext,
+  ) {
+    if (!providerId) return { error: 'providerId required' };
+    this.assertProviderAdmin(providerId, ctx);
+    return this.providerRankings.runUnprocessed({ providerId, ageCategoryCodes: body?.ageCategoryCodes });
+  }
+
+  // Republish the provider's tournaments with endDate >= fromDate (a date floor
+  // so a "re-run recent rankings" never reprocesses thousands of historical
+  // events). Same provider-scoped authorization as republishProvider.
+  @Post('rerun-from-date/:providerId')
+  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  async rerunFromDate(
+    @Param('providerId') providerId: string,
+    @Body() body: { fromDate?: string; ageCategoryCodes?: string[] },
+    @UserCtx() ctx?: UserContext,
+  ) {
+    if (!providerId) return { error: 'providerId required' };
+    if (!body?.fromDate) return { error: 'fromDate required' };
+    this.assertProviderAdmin(providerId, ctx);
+    return this.providerRankings.rerunFromDate({
+      providerId,
+      fromDate: body.fromDate,
+      ageCategoryCodes: body?.ageCategoryCodes,
+    });
+  }
+
+  // A super-admin OR the target provider's PROVIDER_ADMIN may run provider-scoped
+  // rankings actions. Shared by all three bulk-republish endpoints.
+  private assertProviderAdmin(providerId: string, ctx?: UserContext): void {
     const isProviderAdmin = ctx?.providerRoles?.[providerId] === PROVIDER_ADMIN;
     if (!ctx?.isSuperAdmin && !isProviderAdmin) {
       throw new ForbiddenException('PROVIDER_ADMIN role required');
     }
-    return this.providerRankings.recompute({ providerId, ageCategoryCodes: body?.ageCategoryCodes });
   }
 
   @Post('republish/:tournamentId')

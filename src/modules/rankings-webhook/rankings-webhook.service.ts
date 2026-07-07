@@ -133,6 +133,34 @@ export class RankingsWebhookService {
     }
   }
 
+  /**
+   * Fetch the tournamentIds the rankings pipeline currently has an active
+   * ingestion run for, scoped to a provider abbreviation. Used by the
+   * run-unprocessed action to find a provider's never-ingested tournaments.
+   * Throws on failure (rather than returning []): a transient rankings-service
+   * error must NOT be read as "nothing ingested yet", which would republish the
+   * provider's entire history. Single attempt — the caller surfaces the error.
+   */
+  async fetchIngestedTournamentIds(providerAbbr: string): Promise<string[]> {
+    if (!this.isEnabled()) throw new Error('RANKINGS_PIPELINE_URL not set');
+    if (!providerAbbr) throw new Error('providerAbbr required to scope ingested tournaments');
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const url = `${this.rankingsUrl}/rankings/ingested?provider=${encodeURIComponent(providerAbbr)}`;
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) {
+        throw new Error(`rankings ingested-fetch HTTP ${response.status}`);
+      }
+      const parsed: any = await response.json().catch(() => undefined);
+      const ids = parsed?.tournamentIds;
+      return Array.isArray(ids) ? ids : [];
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   private async attemptPost(body: string): Promise<{ ok: boolean; status?: number; responseBody?: unknown }> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);

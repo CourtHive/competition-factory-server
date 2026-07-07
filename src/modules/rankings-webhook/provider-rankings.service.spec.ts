@@ -8,6 +8,7 @@ function build(overrides: { enabled?: boolean } = {}) {
     isEnabled: jest.fn().mockReturnValue(overrides.enabled ?? true),
     publish: jest.fn().mockResolvedValue({ ok: true, responseBody: { awardCount: 12 } }),
     generateSnapshot: jest.fn().mockResolvedValue({ ok: true, responseBody: { snapshotId: 'snap-x' } }),
+    fetchIngestedTournamentIds: jest.fn().mockResolvedValue([]),
   };
   const tournamentStorage: any = {
     listProviderTournaments: jest.fn().mockResolvedValue([{ tournamentId: 't1' }, { tournamentId: 't2' }]),
@@ -78,5 +79,79 @@ describe('ProviderRankingsService.recompute', () => {
     const res = await service.recompute({ providerId: PROVIDER_ID });
     expect(res.republished[0]).toMatchObject({ tournamentId: 't1', ok: false, error: 'record not found' });
     expect(res.counts.republishedOk).toBe(1); // t2 still succeeds
+  });
+});
+
+describe('ProviderRankingsService.runUnprocessed', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('republishes only the tournaments with no current ingestion run', async () => {
+    const { service, webhook, tournamentStorage } = build();
+    tournamentStorage.listProviderTournaments.mockResolvedValue([
+      { tournamentId: 't1' },
+      { tournamentId: 't2' },
+      { tournamentId: 't3' },
+    ]);
+    webhook.fetchIngestedTournamentIds.mockResolvedValue(['t1', 't3']); // t2 is unprocessed
+
+    const res = await service.runUnprocessed({ providerId: PROVIDER_ID });
+
+    expect(webhook.fetchIngestedTournamentIds).toHaveBeenCalledWith(ABBR);
+    expect(webhook.publish).toHaveBeenCalledTimes(1);
+    expect(res.counts.tournaments).toBe(1);
+    expect(res.republished[0]).toMatchObject({ tournamentId: 't2', ok: true });
+    // Snapshots still regenerate so the formal lists reflect the fills.
+    expect(res.counts.snapshotsOk).toBe(2);
+  });
+
+  it('is a no-op when the rankings pipeline is not configured', async () => {
+    const { service, webhook } = build({ enabled: false });
+    const res = await service.runUnprocessed({ providerId: PROVIDER_ID });
+    expect(res.skipped).toBe(true);
+    expect(webhook.fetchIngestedTournamentIds).not.toHaveBeenCalled();
+    expect(webhook.publish).not.toHaveBeenCalled();
+  });
+
+  it('propagates the error and republishes nothing when the ingested-set lookup fails', async () => {
+    // A transient rankings-service error must NOT be read as "nothing ingested"
+    // (which would republish the provider's entire history).
+    const { service, webhook } = build();
+    webhook.fetchIngestedTournamentIds.mockRejectedValue(new Error('rankings down'));
+    await expect(service.runUnprocessed({ providerId: PROVIDER_ID })).rejects.toThrow('rankings down');
+    expect(webhook.publish).not.toHaveBeenCalled();
+  });
+
+  it('throws (never republishes all) when the provider has no abbreviation to scope by', async () => {
+    const { service, webhook, providerStorage } = build();
+    providerStorage.getProvider.mockResolvedValue({});
+    await expect(service.runUnprocessed({ providerId: PROVIDER_ID })).rejects.toThrow('organisationAbbreviation');
+    expect(webhook.publish).not.toHaveBeenCalled();
+  });
+});
+
+describe('ProviderRankingsService.rerunFromDate', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('republishes only tournaments ending on/after fromDate (endDate-less always included)', async () => {
+    const { service, webhook, tournamentStorage } = build();
+    tournamentStorage.listProviderTournaments.mockResolvedValue([
+      { tournamentId: 'old', tournament: { endDate: '2020-01-01' } },
+      { tournamentId: 'recent', tournament: { endDate: '2026-07-01' } },
+      { tournamentId: 'live', tournament: {} }, // no endDate → treated as live, included
+    ]);
+
+    const res = await service.rerunFromDate({ providerId: PROVIDER_ID, fromDate: '2026-06-01' });
+
+    expect(webhook.publish).toHaveBeenCalledTimes(2);
+    expect(res.republished.map((r) => r.tournamentId).sort()).toEqual(['live', 'recent']);
+    // The ingested-set lookup is only for run-unprocessed, never from-date.
+    expect(webhook.fetchIngestedTournamentIds).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op when the rankings pipeline is not configured', async () => {
+    const { service, webhook } = build({ enabled: false });
+    const res = await service.rerunFromDate({ providerId: PROVIDER_ID, fromDate: '2026-06-01' });
+    expect(res.skipped).toBe(true);
+    expect(webhook.publish).not.toHaveBeenCalled();
   });
 });
