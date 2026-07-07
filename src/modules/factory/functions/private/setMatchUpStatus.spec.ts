@@ -8,7 +8,7 @@ import 'dotenv/config';
 // types
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
 
-const { COMPLETED } = factoryConstants.matchUpStatusConstants;
+const { COMPLETED, IN_PROGRESS } = factoryConstants.matchUpStatusConstants;
 const { MISSING_TOURNAMENT_RECORD } = factoryConstants.errorConditionConstants;
 
 const mockStorage = {
@@ -182,5 +182,87 @@ describe('setMatchUpStatus', () => {
       mockStorage,
     );
     expect(result.success).toEqual(true);
+  });
+
+  // Regression: the score path must audit like the socket + /factory paths.
+  // Previously auditService was never forwarded, so API-submitted scores were
+  // absent from audit_log (187 missing rows found in prod tournament 510be2a8).
+  it('writes an audit record via the score path when auditService is provided', async () => {
+    const recordMutation = jest.fn().mockResolvedValue(undefined);
+    const result: any = await setMatchUpStatus(
+      {
+        tournamentId: TOURNAMENT_ID,
+        matchUpId,
+        outcome: {
+          score: {
+            sets: [
+              { side1Score: 6, side2Score: 1, winningSide: 1, setNumber: 1 },
+              { side1Score: 6, side2Score: 2, winningSide: 1, setNumber: 2 },
+            ],
+          },
+          matchUpFormat: 'SET3-S:6/TB7',
+          matchUpStatus: COMPLETED,
+          winningSide: 1,
+        },
+        userEmail: 'scorer@ionsport.com',
+        source: 'api',
+      },
+      undefined,
+      mockStorage,
+      { recordMutation } as any,
+    );
+    expect(result.success).toEqual(true);
+    expect(recordMutation).toHaveBeenCalledTimes(1);
+    const auditArg = recordMutation.mock.calls[0][0];
+    expect(auditArg.source).toEqual('api');
+    expect(auditArg.userEmail).toEqual('scorer@ionsport.com');
+    expect(auditArg.status).toEqual('applied');
+    expect(auditArg.methods[0].method).toEqual('setMatchUpStatus');
+  });
+
+  // End-to-end guard (#3) + audit (#1): a COMPLETED matchUp with a validated
+  // score cannot be reverted to IN_PROGRESS, and the rejected mutation is still
+  // written to the audit trail. Exercises the real factory guard via the linked
+  // local build.
+  it('rejects reverting a COMPLETED matchUp to IN_PROGRESS and audits the rejection', async () => {
+    const complete: any = await setMatchUpStatus(
+      {
+        tournamentId: TOURNAMENT_ID,
+        matchUpId,
+        outcome: {
+          score: {
+            sets: [
+              { side1Score: 6, side2Score: 1, winningSide: 1, setNumber: 1 },
+              { side1Score: 6, side2Score: 2, winningSide: 1, setNumber: 2 },
+            ],
+          },
+          matchUpFormat: 'SET3-S:6/TB7',
+          matchUpStatus: COMPLETED,
+          winningSide: 1,
+        },
+      },
+      undefined,
+      mockStorage,
+    );
+    expect(complete.success).toEqual(true);
+
+    const recordMutation = jest.fn().mockResolvedValue(undefined);
+    const result: any = await setMatchUpStatus(
+      {
+        tournamentId: TOURNAMENT_ID,
+        matchUpId,
+        outcome: { matchUpStatus: IN_PROGRESS },
+        userEmail: 'scorer@ionsport.com',
+        source: 'api',
+      },
+      undefined,
+      mockStorage,
+      { recordMutation } as any,
+    );
+
+    expect(result.success).not.toEqual(true);
+    expect(recordMutation).toHaveBeenCalledTimes(1);
+    expect(recordMutation.mock.calls[0][0].status).toEqual('rejected');
+    expect(recordMutation.mock.calls[0][0].source).toEqual('api');
   });
 });

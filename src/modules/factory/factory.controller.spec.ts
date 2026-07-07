@@ -238,7 +238,7 @@ describe('FactoryController', () => {
       mockController = new FactoryController(mockService, mockBroadcast, mockCache);
 
       const sms = { tournamentId: 't1', matchUpId: 'm1', drawId: 'd1' };
-      await mockController.scoreMatchUp(sms as any);
+      await mockController.scoreMatchUp(sms as any, {} as any);
 
       expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(
         expect.objectContaining({ tournamentIds: ['t1'] }),
@@ -253,7 +253,7 @@ describe('FactoryController', () => {
       mockController = new FactoryController(mockService, mockBroadcast, mockCache);
 
       const sms = { tournamentId: 't1', matchUpId: 'm1', drawId: 'd1' };
-      await mockController.scoreMatchUp(sms as any);
+      await mockController.scoreMatchUp(sms as any, {} as any);
 
       expect(mockBroadcast.broadcastMutation).not.toHaveBeenCalled();
     });
@@ -370,7 +370,7 @@ describe('FactoryController', () => {
       await populateCacheForTid(mockController, 't1');
 
       const sms = { tournamentId: 't1', matchUpId: 'm1', drawId: 'd1' };
-      await mockController.scoreMatchUp(sms as any);
+      await mockController.scoreMatchUp(sms as any, {} as any);
 
       const deletedKeys = mockCache.del.mock.calls.map((c: any[]) => c[0]).sort();
       expect(deletedKeys).toEqual(

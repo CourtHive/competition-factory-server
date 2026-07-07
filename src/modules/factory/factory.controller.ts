@@ -204,14 +204,28 @@ export class FactoryController {
   @Audience(['admin', 'score'])
   @Roles([SCORE, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  async scoreMatchUp(@Body() sms: SetMatchUpStatusDto) {
-    const result = await this.factoryService.score(sms, this.cacheManager);
+  async scoreMatchUp(@Body() sms: SetMatchUpStatusDto, @Req() req: any) {
+    // Stamp the authenticated identity + source onto the payload so this score
+    // submission is audited and broadcast exactly like the socket and /factory
+    // paths. Provisioner context is threaded when API-key / X-Provider-Id auth
+    // was used. Mirrors the executionQueue() controller below — without this the
+    // audit hook records a null actor (and previously never fired at all).
+    const provisioner = req.provisioner
+      ? { provisionerId: req.provisioner.provisionerId, providerId: req.headers?.['x-provider-id'] }
+      : undefined;
+    const verifiedUser = req.user;
+    const enriched: any = { ...sms, provisioner, auditSource: req.auditSource, source: 'api' };
+    if (verifiedUser?.email) enriched.userEmail = verifiedUser.email;
+    if (verifiedUser?.userId || verifiedUser?.sub) enriched.userId = verifiedUser.userId ?? verifiedUser.sub;
+
+    const result = await this.factoryService.score(enriched, this.cacheManager);
     if (result?.success) {
       const { publicNotices } = result;
-      const tournamentId = sms.tournamentId || sms.params?.tournamentId;
+      const tournamentId = enriched.tournamentId || enriched.params?.tournamentId;
       const payload = {
         tournamentIds: tournamentId ? [tournamentId] : [],
-        methods: [{ method: 'setMatchUpStatus', params: sms.params || sms }],
+        methods: [{ method: 'setMatchUpStatus', params: enriched.params || sms.params || sms }],
+        userId: enriched.userId,
       };
       this.broadcastService.broadcastMutation(payload);
       this.broadcastService.broadcastPublicNotices(payload, publicNotices);

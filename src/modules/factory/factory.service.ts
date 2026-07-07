@@ -145,7 +145,14 @@ export class FactoryService {
   }
 
   async score(params, cacheManager) {
-    return await setMatchUpStatus(params, { cacheManager }, this.tournamentStorageService);
+    return await setMatchUpStatus(
+      params,
+      { cacheManager },
+      this.tournamentStorageService,
+      this.auditService,
+      this.tournamentProvisionerStorage,
+      this.providerStorage,
+    );
   }
 
   async getMatchUps(params) {
