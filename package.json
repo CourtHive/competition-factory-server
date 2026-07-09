@@ -74,7 +74,7 @@
     "fs-extra": "11.3.6",
     "keyv": "^5.5.3",
     "minimist": "1.2.8",
-    "node-html-parser": "^8.0.0",
+    "node-html-parser": "^9.0.0",
     "pg": "^8.18.0",
     "redis": "6.1.0",
     "resend": "^6.0.0",
