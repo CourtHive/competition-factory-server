@@ -60,8 +60,13 @@ describe('participant-privacy attachment (e2e)', () => {
   };
 
   // Dates relative to "today" so classification is stable regardless of run date.
+  // Must anchor on the real current date: the endpoint classifies upcoming vs
+  // in-progress vs completed against today, so a hardcoded base becomes a time
+  // bomb — once wall-clock passes base+10, the "upcoming" tournament starts on
+  // or before today and reclassifies as in-progress (excluded when
+  // includeInProgress is false), emptying `attached`.
   const iso = (offsetDays: number) => {
-    const base = Date.parse('2026-07-03T00:00:00Z') + offsetDays * 86400000;
+    const base = Date.now() + offsetDays * 86400000;
     return new Date(base).toISOString().split('T')[0];
   };
 
