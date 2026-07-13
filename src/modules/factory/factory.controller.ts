@@ -4,6 +4,7 @@ import { RemoveTournamentRecordsDto } from './dto/removeTournamentRecords.dto';
 import { FetchTournamentRecordsDto } from './dto/fetchTournamentRecords.dto';
 import { QueryTournamentRecordsDto } from './dto/queryTournamentRecords.dto';
 import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
+import { GetScheduleProjectionDto } from './dto/getScheduleProjection.dto';
 import { GetTournamentInfoDto } from './dto/getTournamentInfo.dto';
 import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
 import { GetParticipantsDto } from './dto/getParticipants.dto';
@@ -192,6 +193,20 @@ export class FactoryController {
   async getMatchUps(@Body() gmr: GetMatchUpsDto) {
     const key = `gmr|${gmr.tournamentId}`;
     return await this.cacheFx(key, (params) => this.factoryService.getMatchUps(params), gmr);
+  }
+
+  // Operational shared-facility schedule projection: slim, UNPUBLISHED ScheduleCell[] for the
+  // requested tournaments the caller is authorized to view (per-tournament canViewTournament gate
+  // inside the service). Not cached — the result is access-gated per user.
+  @Post('schedule-projection')
+  @Roles([CLIENT, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  getScheduleProjection(
+    @Body() dto: GetScheduleProjectionDto,
+    @User() user?: any,
+    @UserCtx() userContext?: UserContext,
+  ) {
+    return this.factoryService.getScheduleProjection(dto, user, userContext);
   }
 
   @Post('score')

@@ -20,7 +20,7 @@ import { BadRequestException, Inject, Injectable, Optional, Logger } from '@nest
 import { computeEffectiveConfig } from '@courthive/provider-config';
 import { checkUser } from './helpers/checkUser';
 import publicQueries from './functions/public';
-import { askEngine, factoryConstants } from 'tods-competition-factory';
+import { askEngine, factoryConstants, queryGovernor } from 'tods-competition-factory';
 
 const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PARTICIPANT;
 const EXISTING_POLICY_TYPE = factoryConstants.errorConditionConstants.EXISTING_POLICY_TYPE;
@@ -157,6 +157,39 @@ export class FactoryService {
 
   async getMatchUps(params) {
     return await allTournamentMatchUps(params, this.tournamentStorage);
+  }
+
+  /**
+   * Operational shared-facility schedule projection. Returns slim `ScheduleCell[]` (unpublished —
+   * the factory transform applies no publish-state gating, per INV-6) for the requested tournaments
+   * the caller is authorized to view, optionally filtered to `venueIds`.
+   *
+   * Reuses `fetchTournamentRecords` for the per-tournament `canViewTournament` gate; if any
+   * requested id is filtered out (not viewable) the request is rejected rather than silently
+   * returning a partial view. Not cached — the result is access-gated per user.
+   */
+  async getScheduleProjection(dto: { tournamentIds?: string[]; venueIds?: string[] }, user, userContext?: UserContext) {
+    const tournamentIds = dto?.tournamentIds;
+    const venueIds = dto?.venueIds;
+    if (!Array.isArray(tournamentIds) || !tournamentIds.length) return { error: 'Missing tournamentIds' };
+
+    const fetchResult: any = await this.fetchTournamentRecords({ tournamentIds }, user, userContext);
+    if (fetchResult.error) return fetchResult;
+
+    const tournamentRecords = fetchResult.tournamentRecords ?? {};
+    const viewableIds = Object.keys(tournamentRecords);
+    const forbidden = tournamentIds.filter((tournamentId) => !viewableIds.includes(tournamentId));
+    if (forbidden.length) return { error: 'User not allowed', forbiddenTournamentIds: forbidden };
+
+    const scheduleCells: any[] = [];
+    for (const tournamentId of viewableIds) {
+      const projection: any = queryGovernor.getScheduleProjection({
+        tournamentRecord: tournamentRecords[tournamentId],
+        venueIds,
+      });
+      if (projection?.scheduleCells) scheduleCells.push(...projection.scheduleCells);
+    }
+    return { scheduleCells };
   }
 
   async fetchTournamentRecords(params, user, userContext?: UserContext) {
