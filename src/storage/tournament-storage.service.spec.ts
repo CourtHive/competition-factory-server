@@ -2,16 +2,10 @@ import { TournamentStorageService } from './tournament-storage.service';
 import { canDeleteTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { PROVIDER_ADMIN, DIRECTOR } from 'src/common/constants/roles';
 
-// getCalendarEntry calls the factory's getTournamentInfo; stub it so these unit
-// tests exercise the facade's calendar logic, not the factory.
-jest.mock('src/helpers/getCalendarEntry', () => ({
-  getCalendarEntry: ({ tournamentRecord }: any) => ({
-    tournamentId: tournamentRecord.tournamentId,
-    providerId: tournamentRecord.parentOrganisation?.organisationId,
-    searchText: (tournamentRecord.tournamentName || '').toLowerCase(),
-    tournament: { tournamentName: tournamentRecord.tournamentName },
-  }),
-}));
+// getCalendarEntry is pure (a thin wrapper over the factory's pure calendar-entry
+// deriver + a createdByUserId read) — no infra — so these facade tests use the
+// real function, exercising the real entry shape rather than a stub that could
+// drift from it.
 
 const BOBOCA = 'prov-boboca';
 const ION = 'prov-ion';
