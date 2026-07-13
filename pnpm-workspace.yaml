@@ -41,6 +41,13 @@ allowBuilds:
   unrs-resolver: true
 
 overrides:
+  # Pin TypeScript to the 6.x line across the whole tree. TS7 ships the native
+  # (Go) compiler, which does not expose the classic JS API (e.g. ts.SyntaxKind),
+  # so classic-API tooling crashes on it — nest CLI (getParsedCommandLineOfConfigFile)
+  # and eslint-plugin-sonarjs (ts.SyntaxKind.FunctionType) both did. This forces
+  # transitive resolvers (e.g. sonarjs) onto 6.x too; pairs with the renovate rule
+  # blocking TypeScript major bumps. Remove when the toolchain supports TS7.
+  typescript: 6.0.3
   'serve-static@<2': '>=2.2.0'
   tods-competition-factory: link:../factory
   '@courthive/provider-config': link:../provider-config
