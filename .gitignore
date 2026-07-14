@@ -70,3 +70,8 @@ score-relay
 # Runtime locale cache lives at the project-root i18n/ — anchor with the
 # leading slash so it doesn't also swallow src/modules/i18n/.
 /i18n/
+
+# Local fallback for provider archives (provider-archive.service.ts) when
+# ARCHIVES_PATH is unset — dev/CI dumps deleted-provider data here (e.g.
+# throwaway E2E providers). Never commit these local dumps.
+.archives-local/
