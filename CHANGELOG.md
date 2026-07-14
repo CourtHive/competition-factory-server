@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.19.0](https://github.com/CourtHive/competition-factory-server/compare/v2.18.0...v2.19.0) (2026-07-14)
+
+
+### Features
+
+* **security:** add cors allowlist, rate limiting, and nosniff header ([965f60c](https://github.com/CourtHive/competition-factory-server/commit/965f60cecfe3f715459ff5f26840132b7d79e001))
+* **security:** tighten rate limits on public auth endpoints ([f9ed3c7](https://github.com/CourtHive/competition-factory-server/commit/f9ed3c7255727e6d59aeea03cd265690f1f1bdf4))
+
 ## [2.18.0](https://github.com/CourtHive/competition-factory-server/compare/v2.17.1...v2.18.0) (2026-07-14)
 
 
