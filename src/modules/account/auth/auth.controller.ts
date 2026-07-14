@@ -1,4 +1,17 @@
-import { Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Inject, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { REFRESH_TOKEN_STORAGE, type IRefreshTokenStorage } from 'src/storage/interfaces';
 import { UserCtx, type UserContext } from './decorators/user-context.decorator';
 import { AdminCreateUserDto } from './dto/adminCreateUser.dto';
@@ -13,8 +26,18 @@ import { User } from './decorators/user.decorator';
 import { ModifyUserDto } from './dto/modifyUser.dto';
 import { AuthService } from './auth.service';
 import { TrackerTokenService } from './tracker-token.service';
+import { Throttle } from '@nestjs/throttler';
 import { SignInDto } from './dto/signIn.dto';
 import { RemoveDto } from './dto/remove.dto';
+
+// Per-IP rate limits for the public auth surface, layered on top of the global
+// 300/60s default (app.module.ts). Tight windows blunt credential stuffing,
+// single-use-code guessing, and email abuse without impeding legitimate use.
+// HttpThrottlerGuard already exempts provider/provisioner API-key traffic.
+const LOGIN_THROTTLE = { default: { limit: 10, ttl: 60_000 } }; // password guessing
+const TOKEN_THROTTLE = { default: { limit: 10, ttl: 60_000 } }; // single-use code / token guessing
+const EMAIL_THROTTLE = { default: { limit: 5, ttl: 60_000 } }; // endpoints that send an email
+const REFRESH_THROTTLE = { default: { limit: 30, ttl: 60_000 } }; // legitimately frequent (multi-tab)
 
 @Controller('auth')
 export class AuthController {
@@ -110,11 +133,7 @@ export class AuthController {
   @Get('refresh-health/:email')
   @Roles([SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  async refreshHealth(
-    @Param('email') email: string,
-    @Query('days') days?: string,
-    @UserCtx() ctx?: UserContext,
-  ) {
+  async refreshHealth(@Param('email') email: string, @Query('days') days?: string, @UserCtx() ctx?: UserContext) {
     if (!ctx?.isSuperAdmin) throw new ForbiddenException();
     const parsed = Number.parseInt(days ?? '7', 10);
     const sinceDays = Number.isFinite(parsed) ? Math.max(1, Math.min(30, parsed)) : 7;
@@ -122,6 +141,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle(LOGIN_THROTTLE)
   @Post('login')
   @HttpCode(HttpStatus.OK)
   signIn(@Body() signIn: SignInDto, @Req() req?: any) {
@@ -134,6 +154,7 @@ export class AuthController {
    * expiry or a request 401s. Public: the refresh token is the credential.
    */
   @Public()
+  @Throttle(REFRESH_THROTTLE)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   refresh(@Body() body: { refreshToken: string }, @Req() req?: any) {
@@ -157,6 +178,7 @@ export class AuthController {
    * Public: the caller is by definition not authenticated.
    */
   @Public()
+  @Throttle(EMAIL_THROTTLE)
   @Post('magic/request')
   @HttpCode(HttpStatus.OK)
   requestMagicLink(@Body() body: { email: string }) {
@@ -168,6 +190,7 @@ export class AuthController {
    * the single-use code is the credential.
    */
   @Public()
+  @Throttle(TOKEN_THROTTLE)
   @Post('magic/consume')
   @HttpCode(HttpStatus.OK)
   consumeMagicLink(@Body() body: { code: string }, @Req() req?: any) {
@@ -193,6 +216,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle(TOKEN_THROTTLE)
   @Post('complete-first-login')
   @HttpCode(HttpStatus.OK)
   completeFirstLogin(@Body() body: { limitedToken: string; newPassword: string }) {
@@ -205,12 +229,7 @@ export class AuthController {
   // provider associations (same pattern as admin-reset-password).
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  modify(
-    @Body() params: ModifyUserDto,
-    @User() user?: any,
-    @UserCtx() userContext?: UserContext,
-    @Req() req?: any,
-  ) {
+  modify(@Body() params: ModifyUserDto, @User() user?: any, @UserCtx() userContext?: UserContext, @Req() req?: any) {
     return this.authService.modifyUser(params, {
       userContext,
       provisionerIds: user?.provisionerIds,
@@ -251,16 +270,9 @@ export class AuthController {
   @Post('change-password')
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  changePassword(
-    @Body() body: { currentPassword: string; newPassword: string },
-    @UserCtx() userContext?: UserContext,
-  ) {
+  changePassword(@Body() body: { currentPassword: string; newPassword: string }, @UserCtx() userContext?: UserContext) {
     if (!userContext?.email) return { error: 'Authentication required' };
-    return this.authService.changePassword(
-      userContext.email,
-      body.currentPassword,
-      body.newPassword,
-    );
+    return this.authService.changePassword(userContext.email, body.currentPassword, body.newPassword);
   }
 
   @Post('allusers')
@@ -281,10 +293,7 @@ export class AuthController {
   @Patch('me/last-selected-provider')
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  updateLastSelectedProvider(
-    @Body() body: { providerId: string | null },
-    @UserCtx() userContext?: UserContext,
-  ) {
+  updateLastSelectedProvider(@Body() body: { providerId: string | null }, @UserCtx() userContext?: UserContext) {
     if (!userContext?.email) return { error: 'Authentication required' };
     return this.authService.updateLastSelectedProvider(userContext.email, body?.providerId ?? null, {
       isSuperAdmin: !!userContext.isSuperAdmin,
@@ -297,6 +306,7 @@ export class AuthController {
    * AND verified. Public: callers are by definition not authenticated.
    */
   @Public()
+  @Throttle(EMAIL_THROTTLE)
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   forgotPassword(@Body() body: ForgotPasswordDto) {
@@ -308,6 +318,7 @@ export class AuthController {
    * reset email. Public: the token IS the auth.
    */
   @Public()
+  @Throttle(TOKEN_THROTTLE)
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   resetPassword(@Body() body: ResetPasswordDto) {
