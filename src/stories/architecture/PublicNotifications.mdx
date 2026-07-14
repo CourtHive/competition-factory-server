@@ -192,7 +192,7 @@ A successful response begins with `0{...}` containing the Socket.IO handshake.
     <tr><td>Reconnection</td><td>Re-emit <code>joinTournament</code> on reconnect to rejoin the room</td></tr>
     <tr><td>Data sanitization</td><td>Only publicly-visible fields are broadcast (scores, status, positions, publish state)</td></tr>
     <tr><td>Multiple tournaments</td><td>A single client can join multiple tournament rooms simultaneously</td></tr>
-    <tr><td>CORS</td><td>All origins accepted (<code>cors: &#123; origin: '*' &#125;</code>)</td></tr>
+    <tr><td>CORS</td><td>Allowlist-driven via <code>CFS_PUBLIC_CORS_ORIGINS</code>; defaults to all origins (fan embeds live on arbitrary provider domains)</td></tr>
   </tbody>
 </table>
 

@@ -25,12 +25,13 @@ import {
 
 import { Audience } from '../../account/auth/decorators/audience.decorator';
 import { SocketGuard } from '../../account/auth/guards/socket.guard';
+import { resolveCorsOrigins } from 'src/common/cors';
 
 const PERSON_ROOM_PREFIX = 'hiveid:person:';
 
 @Injectable()
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: { origin: resolveCorsOrigins(process.env.CFS_CORS_ORIGINS) },
   namespace: 'hiveid',
 })
 @UseGuards(SocketGuard)

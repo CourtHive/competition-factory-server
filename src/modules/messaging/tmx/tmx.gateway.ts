@@ -27,6 +27,7 @@ import {
   type ChatMessageRecord,
 } from 'src/storage/interfaces';
 import { UsersService } from 'src/modules/users/users.service';
+import { resolveCorsOrigins } from 'src/common/cors';
 import { tools } from 'tods-competition-factory';
 import { tmxMessages } from './tmxMessages';
 import { Namespace, Server, Socket } from 'socket.io';
@@ -94,7 +95,7 @@ export interface RoomPresence {
 @Injectable()
 @UseGuards(SocketGuard) // SocketGuard handles authentication as well as roles
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: { origin: resolveCorsOrigins(process.env.CFS_CORS_ORIGINS) },
   namespace: 'tmx',
 })
 export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
@@ -263,7 +264,13 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       // string if any gate rejects, or null when all tournaments pass.
       const userContext = await this.resolveUserContext(client);
       const requestedMethods: string[] = (payload?.methods ?? []).map((m: any) => m?.method).filter(Boolean);
-      const denial = await this.gatePerTournament(userContext, payload.tournamentIds ?? [], requestedMethods, userId, methods);
+      const denial = await this.gatePerTournament(
+        userContext,
+        payload.tournamentIds ?? [],
+        requestedMethods,
+        userId,
+        methods,
+      );
       if (denial) {
         client.emit('ack', { ackId, error: denial });
         return;
@@ -456,9 +463,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       message,
       isAdmin: true,
     });
-    const wire = record
-      ? toWireMessage(record)
-      : { userName, message, timestamp: Date.now(), isAdmin: true };
+    const wire = record ? toWireMessage(record) : { userName, message, timestamp: Date.now(), isAdmin: true };
 
     // Send to the tournament room (all clients including the admin if they're in that room)
     this.server?.to(room).emit('chatMessage', wire);

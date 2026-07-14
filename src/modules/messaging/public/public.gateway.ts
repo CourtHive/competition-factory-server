@@ -1,4 +1,5 @@
 import { Logger, Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { resolveCorsOrigins } from 'src/common/cors';
 import { Server, Socket } from 'socket.io';
 import {
   MessageBody,
@@ -14,7 +15,10 @@ const PUBLIC_ROOM_PREFIX = 'public:tournament:';
 
 @Injectable()
 @WebSocketGateway({
-  cors: { origin: '*' },
+  // Public fan-facing broadcast (already-published, non-sensitive data). Kept
+  // open by default because fan embeds live on arbitrary provider domains;
+  // lock it separately via CFS_PUBLIC_CORS_ORIGINS only when that's known.
+  cors: { origin: resolveCorsOrigins(process.env.CFS_PUBLIC_CORS_ORIGINS) },
   namespace: 'public',
 })
 export class PublicGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy {
@@ -141,9 +145,7 @@ export class PublicGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     }
 
     const roomEntries = Object.entries(roomCounts);
-    const roomSummary = roomEntries.length
-      ? roomEntries.map(([tid, count]) => `${tid}=${count}`).join(' ')
-      : '(none)';
+    const roomSummary = roomEntries.length ? roomEntries.map(([tid, count]) => `${tid}=${count}`).join(' ') : '(none)';
 
     this.logger.log(
       `[metrics:summary] totalClients=${totalClients} activeRooms=${roomEntries.length} rooms: ${roomSummary}`,

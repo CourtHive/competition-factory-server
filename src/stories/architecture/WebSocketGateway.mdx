@@ -8,7 +8,7 @@ The server uses Socket.IO for real-time bidirectional communication with TMX cli
 
 ## Namespace
 
-All TMX communication uses the `/tmx` Socket.IO namespace, declared on `TmxGateway` via `@WebSocketGateway({ cors: { origin: '*' }, namespace: 'tmx' })`.
+All TMX communication uses the `/tmx` Socket.IO namespace, declared on `TmxGateway` via `@WebSocketGateway({ cors: { origin: resolveCorsOrigins(process.env.CFS_CORS_ORIGINS) }, namespace: 'tmx' })`. The origin is allowlist-driven: unset or `*` accepts all origins (default), while `CFS_CORS_ORIGINS` (comma-separated) locks it to known origins in production. See `src/common/cors.ts`.
 
 ```typescript
 // Client connection — the JWT is supplied via the auth callback so it

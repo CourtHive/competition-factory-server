@@ -3,6 +3,7 @@ import 'core-js/actual/array/to-sorted';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { version as serverVersion } from '../package.json';
 import { AppModule } from './modules/app/app.module';
+import { resolveCorsOrigins } from './common/cors';
 import { version } from 'tods-competition-factory';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
@@ -27,7 +28,21 @@ async function bootstrap() {
     // is `undefined` in the browser, the cache is never written, and
     // language switching silently falls back to English on reload.
     exposedHeaders: ['ETag'],
-    origin: '*',
+    // Allowlist-driven: set CFS_CORS_ORIGINS (comma-separated) in prod to lock
+    // this to known first-party + provider white-label origins. Unset → '*'
+    // (unchanged behavior). Same var gates the /tmx and /hiveid socket gateways.
+    origin: resolveCorsOrigins(process.env.CFS_CORS_ORIGINS),
+  });
+
+  // Prevent browsers from MIME-sniffing a response away from its declared
+  // Content-Type — a cheap defense against content-sniffing XSS on the JSON
+  // this API returns. Set as a standalone header on purpose: we deliberately do
+  // NOT pull in helmet, whose other defaults are either the edge's job here
+  // (HSTS, behind Cloudflare/NGINX) or actively conflict with CFS's cross-origin
+  // API role (Cross-Origin-Resource-Policy) and the Swagger UI (CSP).
+  app.use((_req: any, res: any, next: () => void) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    next();
   });
 
   /**

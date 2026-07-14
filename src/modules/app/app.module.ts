@@ -2,6 +2,7 @@ import { TournamentSyncModule } from '../tournament-sync/tournament-sync.module'
 import { FederationDataModule } from '../federation-data/federation-data.module';
 import { RankingsProxyModule } from '../rankings-proxy/rankings-proxy.module';
 import { RankingsWebhookModule } from '../rankings-webhook/rankings-webhook.module';
+import { HttpThrottlerGuard } from '../../common/throttling/http-throttler.guard';
 import { ProvisionerModule } from '../provisioner/provisioner.module';
 import { BoltHistoryModule } from '../bolt-history/bolt-history.module';
 // OfficiatingModule + SanctioningModule retired 2026-05-27 (un-registered) and
@@ -26,7 +27,9 @@ import { AppController } from './app.controller';
 import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
 import { AccountModule } from '../account/account.module';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppService } from './app.service';
+import { APP_GUARD } from '@nestjs/core';
 import { Module } from '@nestjs/common';
 
 // Core modules — always loaded regardless of profile.
@@ -64,15 +67,30 @@ const coreModules = [
 
 // Tournament modules — loaded for 'tournament' and 'full' profiles
 const tournamentModules = isModuleEnabled('tournament')
-  ? [FactoryModule, MessagingModule, ProvidersModule, CacheModule, BoltHistoryModule, AuditModule, ProvisionerModule, TournamentSyncModule.forRoot()]
+  ? [
+      FactoryModule,
+      MessagingModule,
+      ProvidersModule,
+      CacheModule,
+      BoltHistoryModule,
+      AuditModule,
+      ProvisionerModule,
+      TournamentSyncModule.forRoot(),
+    ]
   : [];
 
 // Provider modules — loaded for 'provider' and 'full' profiles
 const providerModules = isModuleEnabled('provider') ? [PoliciesModule] : [];
 
+// Global HTTP rate limiting: 300 requests / 60s per IP by default. HttpThrottlerGuard
+// skips the Socket.IO gateways (live-scoring must not be throttled) and provider/
+// provisioner API-key traffic. Tighter per-route limits on auth endpoints
+// (login/refresh) via @Throttle are a recommended follow-up.
+const throttlerModule = ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]);
+
 @Module({
-  imports: [...coreModules, ...tournamentModules, ...providerModules],
+  imports: [throttlerModule, ...coreModules, ...tournamentModules, ...providerModules],
   controllers: [AppController, RuntimeConfigController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_GUARD, useClass: HttpThrottlerGuard }],
 })
 export class AppModule {}
