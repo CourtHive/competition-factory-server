@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.1.4](https://github.com/CourtHive/competition-factory-server/compare/audit-worker-v1.1.3...audit-worker-v1.1.4) (2026-07-14)
+
+
+### Bug Fixes
+
+* **deps:** revert typescript to 6.0.3 (TS7 breaks nest CLI) ([#821](https://github.com/CourtHive/competition-factory-server/issues/821)) ([2f5f9c4](https://github.com/CourtHive/competition-factory-server/commit/2f5f9c4ba42b133ae0a1f3616fec674fbb6da61b))
+* **deps:** update tods-competition-factory to 6.4.0 ([19ba04c](https://github.com/CourtHive/competition-factory-server/commit/19ba04cc5d64a7b7da312f06f44f9be9a27845d3))
+* **deps:** update tods-competition-factory to 6.5.0 ([1e85a4b](https://github.com/CourtHive/competition-factory-server/commit/1e85a4be6ca7d6fd0ed81c4ea2aceb01a53aec85))
+* **deps:** update tods-competition-factory to 6.6.0 ([7570327](https://github.com/CourtHive/competition-factory-server/commit/7570327102fbaf0f1c0e111b07fdd2a80ead42f5))
+* **deps:** update tods-competition-factory to 6.7.0 ([4014c25](https://github.com/CourtHive/competition-factory-server/commit/4014c25e515b5059ebed7e6977492ba83f3303cc))
+
 ## [1.1.3](https://github.com/CourtHive/competition-factory-server/compare/audit-worker-v1.1.2...audit-worker-v1.1.3) (2026-07-06)
 
 

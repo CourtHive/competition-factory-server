@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.18.0](https://github.com/CourtHive/competition-factory-server/compare/v2.17.1...v2.18.0) (2026-07-14)
+
+
+### Features
+
+* add run-unprocessed and rerun-from-date rankings republish endpoints ([043616a](https://github.com/CourtHive/competition-factory-server/commit/043616a34ae6ac94948e7cefc77ec500dc7c76e8))
+* **factory:** authenticated schedule-projection endpoint for shared-facility view ([d0c07ec](https://github.com/CourtHive/competition-factory-server/commit/d0c07ec991621d16f9e3696deb117279ea3a4606))
+* **factory:** authenticated schedule-projection endpoint for shared-facility view ([#818](https://github.com/CourtHive/competition-factory-server/issues/818)) ([1b1a6a2](https://github.com/CourtHive/competition-factory-server/commit/1b1a6a2c68de66af67d1cae1309b4d827f212315))
+
+
+### Bug Fixes
+
+* audit and identity-stamp score submissions on the score path ([a2badf2](https://github.com/CourtHive/competition-factory-server/commit/a2badf2f0398ace2bcc8e54deba7067c751edb20))
+* **deps:** pin typescript to 6.0.3 to block native ts7 (unbreaks nest cli + eslint sonarjs) ([b4d1d28](https://github.com/CourtHive/competition-factory-server/commit/b4d1d28155c83a1f2ba8da8f14a2df46a781b705))
+* **deps:** revert typescript to 6.0.3 (TS7 breaks nest CLI) ([#821](https://github.com/CourtHive/competition-factory-server/issues/821)) ([2f5f9c4](https://github.com/CourtHive/competition-factory-server/commit/2f5f9c4ba42b133ae0a1f3616fec674fbb6da61b))
+* **deps:** update tods-competition-factory to 6.4.0 ([19ba04c](https://github.com/CourtHive/competition-factory-server/commit/19ba04cc5d64a7b7da312f06f44f9be9a27845d3))
+* **deps:** update tods-competition-factory to 6.5.0 ([1e85a4b](https://github.com/CourtHive/competition-factory-server/commit/1e85a4be6ca7d6fd0ed81c4ea2aceb01a53aec85))
+* **deps:** update tods-competition-factory to 6.6.0 ([7570327](https://github.com/CourtHive/competition-factory-server/commit/7570327102fbaf0f1c0e111b07fdd2a80ead42f5))
+* **deps:** update tods-competition-factory to 6.7.0 ([4014c25](https://github.com/CourtHive/competition-factory-server/commit/4014c25e515b5059ebed7e6977492ba83f3303cc))
+* stamp owning provider onto records during rankings recompute ([c6e1a89](https://github.com/CourtHive/competition-factory-server/commit/c6e1a8968e262812a21eae356e57ce0c46eae758))
+* stamp provider on single-tournament rankings republish too ([36a79e2](https://github.com/CourtHive/competition-factory-server/commit/36a79e2f5eea18c60b10cdd934c182f098590d69))
+
 ## [2.17.1](https://github.com/CourtHive/competition-factory-server/compare/v2.17.0...v2.17.1) (2026-07-06)
 
 
