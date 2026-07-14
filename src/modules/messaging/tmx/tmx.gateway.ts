@@ -623,10 +623,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     if (data?.payload?.cache && typeof data.payload.cache === 'string') {
       const cachedData = await this.cacheManager.get(data.payload.cache);
       if (!cachedData) {
-        console.log({ cachedData: 'not found' });
         await this.cacheManager.set(data.payload.cache, data.payload, data.payload.ttl);
-      } else {
-        console.log({ cachedData });
       }
     }
 

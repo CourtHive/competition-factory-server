@@ -1,4 +1,5 @@
 import { MigrationRunnerService } from './migration-runner.service';
+import { Logger } from '@nestjs/common';
 import { readdirSync } from 'fs';
 import { join } from 'path';
 
@@ -13,6 +14,21 @@ describe('MigrationRunnerService', () => {
   let service: MigrationRunnerService;
   let mockPool: any;
   let queryResults: any[];
+  let logSpies: jest.SpyInstance[];
+
+  beforeAll(() => {
+    // The runner reports progress and failures through a Nest Logger. These tests
+    // assert on behavior (mock pool/client calls), not log output, so silence the
+    // logger to keep the suite clean — in particular the intentional "Migration
+    // failed: … syntax error" the rollback test provokes on purpose.
+    logSpies = (['log', 'warn', 'error'] as const).map((method) =>
+      jest.spyOn(Logger.prototype, method).mockImplementation(() => undefined),
+    );
+  });
+
+  afterAll(() => {
+    for (const spy of logSpies) spy.mockRestore();
+  });
 
   beforeEach(() => {
     queryResults = [];

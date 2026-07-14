@@ -51,8 +51,7 @@ export class UsersService {
 
   async remove(email: string) {
     const normalizedEmail = email?.toLowerCase().trim();
-    const result = await this.userStorage.remove(normalizedEmail);
-    console.log('remove result', { key: normalizedEmail }, result);
+    await this.userStorage.remove(normalizedEmail);
     return { ...SUCCESS };
   }
 
