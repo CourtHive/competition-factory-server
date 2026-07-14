@@ -149,7 +149,11 @@
     ],
     "rootDir": "./",
     "setupFiles": [
-      "dotenv/config"
+      "dotenv/config",
+      "./src/tests/config/silence-logger.ts"
+    ],
+    "setupFilesAfterEnv": [
+      "./src/tests/config/silence-logger-after-env.ts"
     ],
     "testPathIgnorePatterns": [
       "/node_modules/",
