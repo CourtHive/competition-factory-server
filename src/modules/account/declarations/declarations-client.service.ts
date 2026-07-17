@@ -11,7 +11,7 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import { AvailabilitySnapshot } from './availability-pull.helpers';
 
-const DEFAULT_DECLARATIONS_BASE_URL = 'http://localhost:3110';
+const DEFAULT_DECLARATIONS_BASE_URL = 'http://localhost:3120';
 
 /**
  * Disable the client (deployments without the declarations service). Mirrors
