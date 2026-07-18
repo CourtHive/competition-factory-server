@@ -24,4 +24,21 @@ export class HiveIDSignupDto {
     type: [HiveIDFederationIdDto],
   })
   federationIds?: HiveIDFederationIdDto[];
+
+  @ApiPropertyOptional({
+    description:
+      "Date of birth (YYYY-MM-DD), collected behind a consent gate. Enables courthive-persons to dedupe on name+DOB+sex, or MINT a canonical person when no match exists.",
+  })
+  birthDate?: string;
+
+  @ApiPropertyOptional({
+    description: "Sex ('M' | 'F'), collected behind a consent gate. Required (with birthDate) for dedupe/mint.",
+  })
+  sex?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Provider context (the registering tournament's provider, e.g. 'BOBOCA'). A fresh mint is anchored to it via a synthesized provider-scoped id so the person is owned by that tenant.",
+  })
+  provider?: string;
 }

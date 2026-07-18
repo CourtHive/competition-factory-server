@@ -229,6 +229,70 @@ describe('HiveIDService', () => {
         service.signup({ email: 'x@y.z', firstName: 'Jane', lastName: '' }),
       ).rejects.toThrow();
     });
+
+    it('forwards birthDate + sex and a synthesized provider-scoped otherId so persons can MINT', async () => {
+      mockUsersService.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ userId: 'u-new', email: 'new@test.com' });
+      mockPersonsClient.resolve.mockResolvedValue({ status: 'minted', personId: 'p-mint', personRevision: 1 });
+      mockPersonsClient.getById.mockResolvedValue({ person: { standardGivenName: 'Jane', standardFamilyName: 'Doe' } });
+
+      const result: any = await service.signup({
+        email: 'new@test.com',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        birthDate: '1990-04-12',
+        sex: 'F',
+        provider: 'BOBOCA',
+      });
+
+      expect(result.status).toBe('created');
+      expect(result.personId).toBe('p-mint');
+      const fragment = mockPersonsClient.resolve.mock.calls[0][0];
+      expect(fragment.birthDate).toBe('1990-04-12');
+      expect(fragment.sex).toBe('F');
+      // A single synthesized {provider, externalId} anchors the fresh mint to the tenant.
+      expect(fragment.personOtherIds).toHaveLength(1);
+      expect(fragment.personOtherIds[0].provider).toBe('BOBOCA');
+      expect(typeof fragment.personOtherIds[0].externalId).toBe('string');
+      expect(fragment.personOtherIds[0].externalId.length).toBeGreaterThan(0);
+    });
+
+    it('combines quoted federationIds with the synthesized provider id', async () => {
+      mockUsersService.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ userId: 'u-new', email: 'new@test.com' });
+      mockPersonsClient.resolve.mockResolvedValue({ status: 'resolved', personId: 'p-alias', personRevision: 3 });
+      mockPersonsClient.getById.mockResolvedValue({ person: { standardGivenName: 'Jane', standardFamilyName: 'Doe' } });
+
+      await service.signup({
+        email: 'new@test.com',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        birthDate: '1990-04-12',
+        sex: 'F',
+        provider: 'BOBOCA',
+        federationIds: [{ provider: 'HTS', externalId: 'hts-42' }],
+      });
+
+      const fragment = mockPersonsClient.resolve.mock.calls[0][0];
+      expect(fragment.personOtherIds).toEqual([
+        { provider: 'HTS', externalId: 'hts-42' },
+        expect.objectContaining({ provider: 'BOBOCA' }),
+      ]);
+    });
+
+    it('stays name-only (no synthesized id, no DOB/sex) when no provider context is supplied', async () => {
+      mockUsersService.findOne.mockResolvedValueOnce(null);
+      mockPersonsClient.resolve.mockResolvedValue({ status: 'incomplete', missingFields: ['birthDate', 'sex'] });
+      await expect(
+        service.signup({ email: 'new@test.com', firstName: 'J', lastName: 'D' }),
+      ).rejects.toBeInstanceOf(HttpException);
+      const fragment = mockPersonsClient.resolve.mock.calls[0][0];
+      expect(fragment.personOtherIds).toEqual([]);
+      expect(fragment.birthDate).toBeUndefined();
+      expect(fragment.sex).toBeUndefined();
+    });
   });
 
   describe('verifyExisting', () => {

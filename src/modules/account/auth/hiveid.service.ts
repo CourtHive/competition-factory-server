@@ -21,7 +21,7 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 
 import {
@@ -142,12 +142,25 @@ export class HiveIDService {
       });
     }
 
+    const federationOtherIds = (body.federationIds ?? [])
+      .filter((f) => f?.provider && f?.externalId)
+      .map((f) => ({ provider: f.provider, externalId: f.externalId }));
+
+    // A provider context (the registering tournament's provider, carried from the
+    // public registration page) anchors a brand-new person to that tenant via a
+    // synthesized provider-scoped id — the only otherId a fresh public person can
+    // supply, and the ≥1-personOtherIds anchor courthive-persons requires to MINT.
+    // `resolve` still dedupes on name+DOB+sex FIRST, so a returning person is
+    // matched (and this alias backfilled) rather than duplicated. (Decision #5.)
+    const provider = body.provider?.trim();
+    const syntheticOtherId = provider ? [{ provider, externalId: randomUUID() }] : [];
+
     const fragment: PersonFragmentInput = {
       standardGivenName: body.firstName.trim(),
       standardFamilyName: body.lastName.trim(),
-      personOtherIds: (body.federationIds ?? [])
-        .filter((f) => f?.provider && f?.externalId)
-        .map((f) => ({ provider: f.provider, externalId: f.externalId })),
+      birthDate: body.birthDate?.trim() || undefined,
+      sex: body.sex?.trim() || undefined,
+      personOtherIds: [...federationOtherIds, ...syntheticOtherId],
       source: 'cfs-hiveid-signup',
     };
 
