@@ -86,6 +86,22 @@ export class DeclarationsClient {
   }
 
   /**
+   * A single registration by its declaration id — CFS reads this authoritatively to
+   * drive the accept (personId + eventIds + applicant name). Null when disabled/absent.
+   */
+  async getRegistration(declarationId: string): Promise<RegistrationSnapshot | null> {
+    if (this.isDisabled()) return null;
+    const res = await fetch(`${this.baseUrl}/registrations/${encodeURIComponent(declarationId)}`, {
+      headers: { 'x-service-token': this.serviceToken },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      throw new Error(`declarations getRegistration failed: HTTP ${res.status}`);
+    }
+    return (await res.json()) as RegistrationSnapshot | null;
+  }
+
+  /**
    * Stamp the TD decision (ACCEPTED / WAITLISTED / REJECTED) on a registration by
    * its declaration id. `transitionedBy` is the acting director. Returns null when
    * disabled or the registration is absent.

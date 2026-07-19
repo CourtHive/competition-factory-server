@@ -46,6 +46,17 @@ describe('DeclarationsClient registrations', () => {
     expect(JSON.parse(init.body)).toEqual({ toStatus: 'ACCEPTED', transitionedBy: 'td-1', reason: 'ok' });
   });
 
+  it('gets a single registration by id (200) and returns null on 404', async () => {
+    const row = { personId: 'p1', providerId: 'BOBOCA', tournamentId: 't1', status: 'SUBMITTED', payload: { eventIds: ['e1'], applicant: { givenName: 'Jane', familyName: 'Doe' } }, updatedAt: 't' };
+    fetchMock.mockResolvedValueOnce(jsonResponse(row));
+    const client = new DeclarationsClient();
+    expect(await client.getRegistration('d1')).toEqual(row);
+    expect(fetchMock.mock.calls[0][0]).toBe('http://declarations.test/registrations/d1');
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(null, false, 404));
+    expect(await client.getRegistration('missing')).toBeNull();
+  });
+
   it('throws on a non-ok list response', async () => {
     fetchMock.mockResolvedValue(jsonResponse(null, false, 500));
     const client = new DeclarationsClient();
