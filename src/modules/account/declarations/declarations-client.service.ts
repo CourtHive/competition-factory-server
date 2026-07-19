@@ -13,6 +13,16 @@ import { AvailabilitySnapshot } from './availability-pull.helpers';
 
 const DEFAULT_DECLARATIONS_BASE_URL = 'http://localhost:3120';
 
+/** A pending/decided REGISTRATION declaration, as the declarations service returns it. */
+export interface RegistrationSnapshot {
+  personId: string;
+  providerId: string;
+  tournamentId: string | null;
+  status: string;
+  payload: { eventIds?: string[]; partner?: any; notes?: string; answers?: Record<string, unknown> };
+  updatedAt: string;
+}
+
 /**
  * Disable the client (deployments without the declarations service). Mirrors
  * PersonsClient: explicit flag, or the convenience `=disabled` URL. Disabled →
@@ -53,5 +63,51 @@ export class DeclarationsClient {
       throw new Error(`declarations getAvailability failed: HTTP ${res.status}`);
     }
     return (await res.json()) as AvailabilitySnapshot[];
+  }
+
+  /**
+   * Pending/decided registrations for a tournament (scoped to its provider) — the
+   * source for the TD acceptance list, now that pending registrations live off CFS.
+   * Disabled → empty list.
+   */
+  async listRegistrations(tournamentId: string, provider: string): Promise<RegistrationSnapshot[]> {
+    if (this.isDisabled()) {
+      this.logger.log('declarations client disabled — skipping registrations fetch');
+      return [];
+    }
+    const query = `provider=${encodeURIComponent(provider)}&tournamentId=${encodeURIComponent(tournamentId)}`;
+    const res = await fetch(`${this.baseUrl}/registrations?${query}`, {
+      headers: { 'x-service-token': this.serviceToken },
+    });
+    if (!res.ok) {
+      throw new Error(`declarations listRegistrations failed: HTTP ${res.status}`);
+    }
+    return (await res.json()) as RegistrationSnapshot[];
+  }
+
+  /**
+   * Stamp the TD decision (ACCEPTED / WAITLISTED / REJECTED) on a registration by
+   * its declaration id. `transitionedBy` is the acting director. Returns null when
+   * disabled or the registration is absent.
+   */
+  async transitionRegistration(args: {
+    declarationId: string;
+    toStatus: string;
+    transitionedBy: string;
+    reason?: string;
+  }): Promise<RegistrationSnapshot | null> {
+    if (this.isDisabled()) {
+      this.logger.log('declarations client disabled — skipping registration transition');
+      return null;
+    }
+    const res = await fetch(`${this.baseUrl}/registrations/${encodeURIComponent(args.declarationId)}/transition`, {
+      method: 'POST',
+      headers: { 'x-service-token': this.serviceToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ toStatus: args.toStatus, transitionedBy: args.transitionedBy, reason: args.reason }),
+    });
+    if (!res.ok) {
+      throw new Error(`declarations transitionRegistration failed: HTTP ${res.status}`);
+    }
+    return (await res.json()) as RegistrationSnapshot | null;
   }
 }
