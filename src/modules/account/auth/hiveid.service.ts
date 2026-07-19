@@ -462,6 +462,21 @@ export class HiveIDService {
   }
 
   /**
+   * POST /auth/hiveid/me/contact-email — set or change the caller's verification
+   * (contact) email. Delegates to the shared IdentityService flow, which clears
+   * `email_verified_at` and fires a fresh verification mail. Lets a public user
+   * fix a mistyped / never-verified email themselves. `email_verified_at` gates
+   * scorer nomination, not basic access, so an unverified edit is safe.
+   */
+  async setContactEmail(args: { userId: string; email?: string; firstName?: string; contactEmail: string }) {
+    if (!args?.userId) throw new UnauthorizedException();
+    return this.identityService.setContactEmail(
+      { userId: args.userId, email: args.email, firstName: args.firstName },
+      args.contactEmail,
+    );
+  }
+
+  /**
    * GET /auth/hiveid/me — the public-side identity projection. Returns the
    * authenticated user's canonical Person link, cached canonical fields,
    * and consent preferences. Distinct from `/auth/me` (admin context).
@@ -478,6 +493,10 @@ export class HiveIDService {
     return {
       userId,
       email: user.email,
+      // The verification (contact) email — where the verify mail is sent. Distinct
+      // from the login `email`; equals it at signup, diverges once edited. The /me
+      // UI shows + edits this while it is unverified.
+      contactEmail: user.contactEmail ?? user.email ?? null,
       emailVerifiedAt: user.emailVerifiedAt ?? null,
       personId: link?.personId ?? null,
       personRevision: link?.personRevision ?? null,

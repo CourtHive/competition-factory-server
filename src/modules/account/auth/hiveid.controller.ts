@@ -18,6 +18,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req } from '@
 import { Audience } from './decorators/audience.decorator';
 import { HiveIDMagicLinkConsumeDto, HiveIDMagicLinkRequestDto } from './dto/hiveidMagicLink.dto';
 import { HiveIDVerifyExistingDto } from './dto/hiveidVerifyExisting.dto';
+import { SetContactEmailDto } from '../identity/dto/setContactEmail.dto';
 import { HiveIDClaimDto } from './dto/hiveidClaim.dto';
 import { HiveIDSignupDto } from './dto/hiveidSignup.dto';
 import { HiveIDService } from './hiveid.service';
@@ -75,6 +76,22 @@ export class HiveIDController {
       userId: req?.user?.userId,
       email: req?.user?.email,
       firstName: req?.user?.firstName,
+    });
+  }
+
+  /**
+   * POST /auth/hiveid/me/contact-email — set/change the caller's verification
+   * email (public-side). Clears verified status + sends a fresh verification mail.
+   */
+  @Audience(['hiveid'])
+  @Post('me/contact-email')
+  @HttpCode(HttpStatus.OK)
+  setContactEmail(@Body() body: SetContactEmailDto, @Req() req: any) {
+    return this.hiveidService.setContactEmail({
+      userId: req?.user?.userId,
+      email: req?.user?.email,
+      firstName: req?.user?.firstName,
+      contactEmail: body?.contactEmail ?? '',
     });
   }
 

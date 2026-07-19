@@ -75,6 +75,7 @@ describe('HiveIDService', () => {
     };
     mockIdentityService = {
       resendVerification: jest.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
+      setContactEmail: jest.fn().mockResolvedValue({ success: true, status: 'pending_verification', contactEmail: 'new@test.com' }),
     };
     mockAuditService = {};
     mockPersonsClient = {
@@ -505,6 +506,7 @@ describe('HiveIDService', () => {
       expect(result).toEqual({
         userId: 'u-1',
         email: 'jane@test.com',
+        contactEmail: 'jane@test.com',
         emailVerifiedAt: '2026-05-30T00:00:00Z',
         personId: 'p-1',
         personRevision: 2,
@@ -537,8 +539,41 @@ describe('HiveIDService', () => {
       expect(result.personId).toBeNull();
     });
 
+    it('surfaces the contact email (falling back to the login email)', async () => {
+      mockUserStorage.findByUserId.mockResolvedValue({ userId: 'u-2', email: 'login@test.com', contactEmail: 'contact@test.com' });
+      mockUserStorage.getPersonLink.mockResolvedValue(null);
+      const withContact: any = await service.getMe('u-2');
+      expect(withContact.contactEmail).toBe('contact@test.com');
+
+      mockUserStorage.findByUserId.mockResolvedValue({ userId: 'u-3', email: 'login@test.com' });
+      const noContact: any = await service.getMe('u-3');
+      expect(noContact.contactEmail).toBe('login@test.com');
+    });
+
     it('throws when no userId is provided', async () => {
       await expect(service.getMe('')).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+  });
+
+  describe('setContactEmail', () => {
+    it('delegates to IdentityService with the caller identity', async () => {
+      const result: any = await service.setContactEmail({
+        userId: 'u-1',
+        email: 'login@test.com',
+        firstName: 'Jane',
+        contactEmail: 'new@test.com',
+      });
+      expect(mockIdentityService.setContactEmail).toHaveBeenCalledWith(
+        { userId: 'u-1', email: 'login@test.com', firstName: 'Jane' },
+        'new@test.com',
+      );
+      expect(result.status).toBe('pending_verification');
+    });
+
+    it('rejects when there is no userId', async () => {
+      await expect(service.setContactEmail({ userId: '', contactEmail: 'x@y.z' })).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
     });
   });
 
