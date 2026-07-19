@@ -468,7 +468,11 @@ export class HiveIDService {
    */
   async getMe(userId: string) {
     if (!userId) throw new UnauthorizedException();
-    const user = await this.userStorage.findByUserId(userId);
+    // Real users resolve from storage. The dev-mode test super-admin (TEST_EMAIL)
+    // has no `users` row, so fall back to the in-memory dev user — otherwise the
+    // whole HiveID /me surface 401s for it in development. Unknown ids still miss
+    // both and 401 (the getDevUserById guard returns null for non-test ids).
+    const user = (await this.userStorage.findByUserId(userId)) ?? this.usersService.getDevUserById(userId);
     if (!user) throw new UnauthorizedException();
     const link = await this.userStorage.getPersonLink(userId);
     return {

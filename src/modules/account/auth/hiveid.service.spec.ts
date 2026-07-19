@@ -34,6 +34,7 @@ describe('HiveIDService', () => {
       create: jest.fn().mockResolvedValue({ email: 'new@test.com' }),
       findAll: jest.fn(),
       remove: jest.fn(),
+      getDevUserById: jest.fn().mockReturnValue(null),
     };
 
     mockEmailService = { sendTemplated: jest.fn().mockResolvedValue({ id: 'msg-1' }) };
@@ -521,6 +522,19 @@ describe('HiveIDService', () => {
     it('throws when the user does not exist', async () => {
       mockUserStorage.findByUserId.mockResolvedValue(null);
       await expect(service.getMe('ghost')).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('falls back to the dev-mode test super-admin when there is no storage row', async () => {
+      // The dev test user (TEST_EMAIL) has no `users` row — resolved from the
+      // in-memory dev list so /me works in development instead of 401ing.
+      mockUserStorage.findByUserId.mockResolvedValue(null);
+      mockUserStorage.getPersonLink.mockResolvedValue(null);
+      mockUsersService.getDevUserById.mockReturnValue({ userId: 'dev-id', email: 'axel@castle.com' });
+
+      const result: any = await service.getMe('dev-id');
+      expect(result.userId).toBe('dev-id');
+      expect(result.email).toBe('axel@castle.com');
+      expect(result.personId).toBeNull();
     });
 
     it('throws when no userId is provided', async () => {

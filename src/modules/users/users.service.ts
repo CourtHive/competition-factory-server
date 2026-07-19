@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 
 import { USER_STORAGE, type IUserStorage } from 'src/storage/interfaces';
 import { ADMIN, CLIENT, DEVELOPER, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
-import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
+import { TEST_EMAIL, TEST_PASSWORD, TEST_USER_ID } from 'src/common/constants/test';
 import { DEV_MODE } from 'src/common/constants/permissions';
 import { SUCCESS } from 'src/common/constants/app';
 
@@ -26,6 +26,7 @@ export class UsersService {
 
   private readonly testUsers: any[] = [
     {
+      userId: TEST_USER_ID,
       roles: [SUPER_ADMIN, ADMIN, DEVELOPER, CLIENT, SCORE],
       permissions: [DEV_MODE],
       password: TEST_PASSWORD,
@@ -40,6 +41,17 @@ export class UsersService {
       mode === 'development' && (await this.testUsers.find((user) => user.email === normalizedEmail));
     if (devModeTestUser) return devModeTestUser;
     return await this.userStorage.findOne(normalizedEmail);
+  }
+
+  /**
+   * Resolve a dev-mode test super-admin by its (synthetic) userId. Returns null
+   * outside development or for any id that isn't a test user — so callers can use
+   * it as a fallback after a real `userStorage.findByUserId` miss without opening
+   * a hole for unknown ids (an unknown userId still resolves to null → 401).
+   */
+  getDevUserById(userId: string): any | null {
+    if (this.configService.get('APP')?.mode !== 'development' || !userId) return null;
+    return this.testUsers.find((user) => user.userId === userId) ?? null;
   }
 
   async create(user: User) {
