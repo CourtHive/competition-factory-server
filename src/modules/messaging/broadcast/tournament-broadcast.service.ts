@@ -1,4 +1,6 @@
+import { computeFanOutTargets, isLinkGraphMutation, isScheduleAffecting, venueIdsFromMethods, venueIdsFromRecord } from './facility-schedule-broadcast.helpers';
 import { buildPublicLivePayloadFromMatchUp } from 'src/modules/projectors/transforms/public-live-from-matchup.transform';
+import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { ProjectorService } from 'src/modules/projectors/projector.service';
 import { PublicGateway } from '../public/public.gateway';
 import { Injectable, Logger, Optional } from '@nestjs/common';
@@ -7,14 +9,30 @@ import type { Server, Socket } from 'socket.io';
 
 const TOURNAMENT_ROOM_PREFIX = 'tournament:';
 
+// Collapse a burst (e.g. a bulk schedule = N addMatchUpScheduleItems) into one event per source.
+const FACILITY_FANOUT_DEBOUNCE_MS = 500;
+
+interface PendingFacilityFanOut {
+  timer: ReturnType<typeof setTimeout> | null;
+  venueIds: Set<string>;
+  linkGraph: boolean;
+  groupIds: Set<string>;
+}
+
 @Injectable()
 export class TournamentBroadcastService {
   private readonly logger = new Logger(TournamentBroadcastService.name);
   private tmxServer?: Server;
+  // Debounce state keyed by source tournamentId. In-memory: a pending fan-out lost on restart is
+  // negligible — the coordinating client's focus/reconnect re-fetch + long safety poll backstop it.
+  private readonly pendingFacilityFanOut = new Map<string, PendingFacilityFanOut>();
+  // Feature-flagged, default OFF. Read once at construction so tests can toggle it deterministically.
+  private readonly facilityBroadcastEnabled = process.env.ENABLE_FACILITY_SCHEDULE_BROADCAST === 'true';
 
   constructor(
     private readonly publicGateway: PublicGateway,
     @Optional() private readonly projectorService?: ProjectorService,
+    @Optional() private readonly tournamentStorageService?: TournamentStorageService,
   ) {}
 
   /**
@@ -72,6 +90,78 @@ export class TournamentBroadcastService {
     const exclusionNote = sender ? ` (excluding sender ${sender.id})` : ' (all clients)';
     this.logger.log(
       `[broadcast] sent ${methods.length} mutation(s) [${methodNames}] to rooms: ${tournamentIds.join(', ')}${exclusionNote}`,
+    );
+
+    // Fire-and-forget: when the mutation moved courts (or changed the link graph), notify the source
+    // tournaments' linked peers so their coordinating clients re-fetch reserved cells. Never awaited —
+    // must not affect the mutation path. No-op unless ENABLE_FACILITY_SCHEDULE_BROADCAST is on.
+    this.scheduleFacilityScheduleFanOut(payload);
+  }
+
+  /**
+   * Debounce a facility-schedule-changed fan-out per source tournament. Accumulates the burst's touched
+   * venues (and, for a link-graph mutation, the batch's other tournamentIds) then arms a single flush.
+   * Cheap + synchronous — the storage read + emit happen later, off the mutation path.
+   */
+  private scheduleFacilityScheduleFanOut(payload: any): void {
+    if (!this.facilityBroadcastEnabled || !this.tmxServer) return;
+
+    const methods = payload?.methods ?? [];
+    const methodNames = methods.map((m: any) => m?.method).filter(Boolean);
+    if (!isScheduleAffecting(methodNames)) return;
+
+    const sourceIds: string[] = payload?.tournamentIds || (payload?.tournamentId ? [payload.tournamentId] : []);
+    if (!sourceIds.length) return;
+
+    const linkGraph = isLinkGraphMutation(methodNames);
+    const venueIds = venueIdsFromMethods(methods);
+
+    for (const sourceId of sourceIds) {
+      if (!sourceId) continue;
+      let pending = this.pendingFacilityFanOut.get(sourceId);
+      if (!pending) {
+        pending = { timer: null, venueIds: new Set(), linkGraph: false, groupIds: new Set() };
+        this.pendingFacilityFanOut.set(sourceId, pending);
+      }
+      for (const venueId of venueIds) pending.venueIds.add(venueId);
+      if (linkGraph) {
+        pending.linkGraph = true;
+        for (const id of sourceIds) if (id && id !== sourceId) pending.groupIds.add(id);
+      }
+      if (pending.timer) clearTimeout(pending.timer);
+      pending.timer = setTimeout(() => this.flushFacilityScheduleFanOut(sourceId), FACILITY_FANOUT_DEBOUNCE_MS);
+    }
+  }
+
+  /**
+   * Emit the opaque `facilityScheduleChanged` to each linked peer's room. Reads the source's stored
+   * links (the coordination grant is server-authoritative), computes venue scope, and emits a re-fetch
+   * trigger carrying NO participant/matchUp detail. Self-contained error handling — never throws.
+   */
+  private flushFacilityScheduleFanOut(sourceId: string): void {
+    const pending = this.pendingFacilityFanOut.get(sourceId);
+    this.pendingFacilityFanOut.delete(sourceId);
+    if (!pending || !this.tmxServer) return;
+
+    Promise.resolve(this.tournamentStorageService?.fetchTournamentRecords({ tournamentId: sourceId }))
+      .then((result: any) => this.emitFacilityScheduleChanged(sourceId, pending, result?.tournamentRecords?.[sourceId]))
+      .catch((err) =>
+        this.logger.warn(`[facility-broadcast] fan-out failed for ${sourceId}: ${(err as Error)?.message ?? err}`),
+      );
+  }
+
+  private emitFacilityScheduleChanged(sourceId: string, pending: PendingFacilityFanOut, record: any): void {
+    if (!this.tmxServer) return;
+    const targets = computeFanOutTargets(record, pending, sourceId);
+    if (!targets.length) return;
+
+    const venueIds = pending.venueIds.size ? [...pending.venueIds] : venueIdsFromRecord(record);
+    const event = { venueIds, changedAt: Date.now() };
+    for (const target of targets) {
+      this.tmxServer.to(TOURNAMENT_ROOM_PREFIX + target).emit('facilityScheduleChanged', event);
+    }
+    this.logger.debug(
+      `[facility-broadcast] facilityScheduleChanged from ${sourceId} → ${targets.length} room(s) [${targets.join(', ')}], venues [${venueIds.join(', ')}]`,
     );
   }
 
