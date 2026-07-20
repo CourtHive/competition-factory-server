@@ -15,6 +15,7 @@ const DEFAULT_DECLARATIONS_BASE_URL = 'http://localhost:3120';
 
 /** A pending/decided REGISTRATION declaration, as the declarations service returns it. */
 export interface RegistrationSnapshot {
+  declarationId: string;
   personId: string;
   providerId: string;
   tournamentId: string | null;
