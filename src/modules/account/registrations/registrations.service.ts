@@ -44,7 +44,13 @@ import { AuditService } from '../../audit/audit.service';
 import { CANONICAL_PERSON } from '../auth/hiveid.constants';
 import { canMutateTournament } from '../../factory/helpers/checkTournamentAccess';
 import { executionQueue as runExecutionQueue } from '../../factory/functions/private/executionQueue';
+import { DeclarationsClient } from '../declarations/declarations-client.service';
+import { PersonsClient } from '../persons/persons-client.service';
 import type { UserContext } from '../auth/decorators/user-context.decorator';
+
+// Declaration statuses (courthive-declarations) a registration may be accepted
+// from. Kept as literals CFS-side; the declarations service owns the vocabulary.
+const ACCEPTABLE_ACCEPT_STATUSES = new Set(['SUBMITTED', 'WAITLISTED']);
 
 export interface ApplyForTournamentInput {
   userId: string;
@@ -90,6 +96,8 @@ export class RegistrationsService {
     private readonly tournamentStorageService: TournamentStorageService,
     private readonly assignmentsService: AssignmentsService,
     private readonly auditService: AuditService,
+    private readonly declarationsClient: DeclarationsClient,
+    private readonly personsClient: PersonsClient,
   ) {}
 
   // -------------------------------------------------------------------
@@ -214,24 +222,34 @@ export class RegistrationsService {
 
   async acceptRegistration(ctx: AdminActionContext): Promise<{ registration: RegistrationEntry; participantId: string }> {
     const { tournamentRecord } = await this.assertAdminAccess(ctx.userContext, ctx.tournamentId);
-    const entry = await this.loadActionableEntry(ctx.tournamentId, ctx.registrationId, ['applied', 'waitlisted']);
-    const applicantLink = await this.userStorage.getPersonLink(entry.userId);
-    const applicantUser = await this.userStorage.findByUserId(entry.userId);
-    if (!applicantUser) throw new BadRequestException('Applicant user not found');
+    if (!ctx.registrationId) throw new BadRequestException('registrationId is required');
 
-    const givenName = applicantLink?.cached.standardGivenName ?? applicantUser.firstName ?? '';
-    const familyName = applicantLink?.cached.standardFamilyName ?? applicantUser.lastName ?? '';
+    // Pending registrations live OFF CFS — read the applicant authoritatively from
+    // the declarations service. Accept is the ONLY CFS touch: addParticipants on the
+    // (already-activated) tournamentRecord, then stamp ACCEPTED back in declarations.
+    const reg = await this.declarationsClient.getRegistration(ctx.registrationId);
+    if (!reg) throw new BadRequestException('Registration not found');
+    if (reg.tournamentId && reg.tournamentId !== ctx.tournamentId) {
+      throw new BadRequestException('Registration does not belong to this tournament');
+    }
+    if (!ACCEPTABLE_ACCEPT_STATUSES.has(reg.status)) {
+      throw new BadRequestException(`Registration is not acceptable in state: ${reg.status}`);
+    }
+
+    // Canonical fields from persons (dob/sex/nationality); name falls back to the
+    // denormalized applicant name carried on the registration.
+    const canonical = await this.personsClient.getById(reg.personId).catch(() => null);
+    const applicant: any = (reg.payload as any)?.applicant ?? {};
+    const givenName = canonical?.person?.standardGivenName ?? applicant.givenName ?? '';
+    const familyName = canonical?.person?.standardFamilyName ?? applicant.familyName ?? '';
     if (!givenName || !familyName) {
       throw new BadRequestException('Applicant has no canonical name — ask them to complete their HiveID profile');
     }
 
     const participantId = randomUUID();
-    const validEvents = filterValidEventIds(tournamentRecord, entry.eventIds);
-
-    const personOtherIds = applicantLink?.personId
-      ? [{ organisationId: CANONICAL_PERSON, personId: applicantLink.personId, createdAt: new Date().toISOString() }]
+    const personOtherIds = reg.personId
+      ? [{ organisationId: CANONICAL_PERSON, personId: reg.personId, createdAt: new Date().toISOString() }]
       : [];
-
     const participant: any = {
       participantId,
       participantType: 'INDIVIDUAL',
@@ -239,24 +257,23 @@ export class RegistrationsService {
       person: {
         standardGivenName: givenName,
         standardFamilyName: familyName,
-        birthDate: applicantLink?.cached.birthDate ?? null,
-        sex: applicantLink?.cached.sex ?? null,
-        nationalityCode: applicantLink?.cached.nationalityCode ?? null,
+        birthDate: canonical?.person?.birthDate ?? null,
+        sex: canonical?.person?.sex ?? null,
+        nationalityCode: canonical?.person?.nationalityCode ?? null,
         personOtherIds,
       },
     };
 
+    // Pre-activation the registration stored event NAMES (events had no stable ids
+    // yet); map them onto the activated tournamentRecord's eventIds (id also accepted).
+    const eventIds = resolveAcceptedEventIds(tournamentRecord, (reg.payload as any)?.eventIds);
     const methods: any[] = [
       { method: 'addParticipants', params: { tournamentId: ctx.tournamentId, participants: [participant] } },
     ];
-    for (const eventId of validEvents) {
+    for (const eventId of eventIds) {
       methods.push({
         method: 'addEventEntries',
-        params: {
-          eventId,
-          participantIds: [participantId],
-          entryStatus: 'DIRECT_ACCEPTANCE',
-        },
+        params: { eventId, participantIds: [participantId], entryStatus: 'DIRECT_ACCEPTANCE' },
       });
     }
 
@@ -277,20 +294,21 @@ export class RegistrationsService {
       throw new BadRequestException(typeof err === 'string' ? err : JSON.stringify(err));
     }
 
-    const eventEntries = validEvents.map((eventId) => ({
-      eventId,
-      entryStatus: 'DIRECT_ACCEPTANCE',
-    }));
-
-    const updated = await this.storage.linkParticipant({
-      registrationId: ctx.registrationId,
-      participantId,
-      eventEntries,
-      decidedByUserId: ctx.userContext.userId,
-      statusReason: ctx.statusReason ?? null,
+    const stamped = await this.declarationsClient.transitionRegistration({
+      declarationId: ctx.registrationId,
+      toStatus: 'ACCEPTED',
+      transitionedBy: ctx.userContext.userId ?? 'admin',
+      reason: ctx.statusReason,
     });
-    if (!updated) throw new BadRequestException('Could not record acceptance — tournament mutation succeeded but status update failed');
-    return { registration: updated, participantId };
+    if (!stamped) {
+      throw new BadRequestException(
+        'Could not record acceptance — the tournament mutation succeeded but the declarations stamp failed',
+      );
+    }
+
+    const eventEntries = eventIds.map((eventId) => ({ eventId, entryStatus: 'DIRECT_ACCEPTANCE' }));
+    const registration = mapAcceptedRegistration(ctx, reg, { participantId, eventIds, eventEntries });
+    return { registration, participantId };
   }
 
   async waitlistRegistration(ctx: AdminActionContext): Promise<RegistrationEntry> {
@@ -401,4 +419,53 @@ function filterValidEventIds(tournamentRecord: any, requested?: string[]): strin
     if (event?.eventId) validIds.add(event.eventId);
   }
   return requested.filter((id) => typeof id === 'string' && validIds.has(id));
+}
+
+// Map a declarations registration's `eventIds` — which pre-activation are event
+// NAMES — onto the activated tournamentRecord's eventIds. Accepts either an
+// eventId or an eventName; unknown entries are dropped; result is de-duped.
+function resolveAcceptedEventIds(tournamentRecord: any, requested?: string[]): string[] {
+  if (!requested?.length) return [];
+  const byId = new Set<string>();
+  const nameToId = new Map<string, string>();
+  for (const event of tournamentRecord?.events ?? []) {
+    if (!event?.eventId) continue;
+    byId.add(event.eventId);
+    if (event?.eventName) nameToId.set(event.eventName, event.eventId);
+  }
+  const out: string[] = [];
+  for (const r of requested) {
+    if (typeof r !== 'string') continue;
+    if (byId.has(r)) out.push(r);
+    else if (nameToId.has(r)) out.push(nameToId.get(r) as string);
+  }
+  return [...new Set(out)];
+}
+
+// Shape a director-facing RegistrationEntry from a declarations snapshot after an
+// accept. Off-CFS registrations are person-keyed, so there is no CFS `userId`.
+function mapAcceptedRegistration(
+  ctx: AdminActionContext,
+  reg: { personId: string; payload: any; updatedAt: string },
+  extra: { participantId: string; eventIds: string[]; eventEntries: Array<{ eventId: string; entryStatus?: string }> },
+): RegistrationEntry {
+  const now = new Date().toISOString();
+  return {
+    registrationId: ctx.registrationId,
+    tournamentId: ctx.tournamentId,
+    userId: '',
+    personId: reg.personId ?? null,
+    eventIds: extra.eventIds,
+    partnerUserId: null,
+    answers: (reg.payload as any)?.answers ?? {},
+    status: 'accepted',
+    statusReason: ctx.statusReason ?? null,
+    appliedAt: reg.updatedAt ?? now,
+    statusAt: now,
+    decidedByUserId: ctx.userContext.userId ?? null,
+    participantId: extra.participantId,
+    eventEntries: extra.eventEntries,
+    createdAt: reg.updatedAt ?? now,
+    updatedAt: now,
+  };
 }
