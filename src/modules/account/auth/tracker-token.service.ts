@@ -27,6 +27,9 @@ import { canMutateTournament } from '../../factory/helpers/checkTournamentAccess
 const DEFAULT_TTL_SECONDS = 3600;
 const MIN_TTL_SECONDS = 60;
 const MAX_TTL_SECONDS = 28800; // 8 hours
+// Scorer tokens (HiveID end-user, single crowd-scoring session) get a tighter
+// ceiling than provider tokens: a leaked score token should not outlive a match.
+const SCORER_MAX_TTL_SECONDS = 14400; // 4 hours
 
 export interface MintTrackerTokenParams {
   tournamentId: string;
@@ -46,6 +49,27 @@ export interface MintProviderScoringTokenParams {
   /** Provider attests the scorer is verified (gates TMX nomination). */
   verified?: boolean;
   ttlSeconds?: number;
+}
+
+export interface MintScorerTokenParams {
+  tournamentId: string;
+  /** When set, the relay binds the token to this single matchUp. */
+  matchUpId?: string;
+  /** Cosmetic attribution only — never a trust gate. */
+  displayName?: string;
+  ttlSeconds?: number;
+}
+
+/**
+ * The caller's own HiveID session identity, read from the verified session JWT
+ * (`req.user`) — NEVER from the request body. A HiveID user may only assert
+ * themselves; unlike the provider mint, no one attests on another's behalf.
+ */
+export interface ScorerIdentity {
+  userId?: string;
+  personId?: string;
+  /** The session's `email_verified` claim — carried onto the score token. */
+  verified: boolean;
 }
 
 @Injectable()
@@ -182,7 +206,62 @@ export class TrackerTokenService {
     return { token, expiresAt };
   }
 
-  private clampTtl(raw: number | undefined): number {
+  /**
+   * Mint a `score`-audience relay token for an authenticated HiveID end-user so
+   * that a launched external scorer (epixodic) can relay crowd scores AS that
+   * person — replacing the full session JWT that used to travel in the launch
+   * URL. Unlike the provider mints this does NOT check tournament ownership and
+   * reads NO tournament record: a HiveID participant is not a provider and may
+   * only assert their own identity. The token grants nothing against CFS (no
+   * route accepts `aud: 'score'`); its only power is crowd-score attribution at
+   * the relay `/crowd` namespace, where the TD still gates acceptance in TMX.
+   *
+   * `personId` + `verified` come from the caller's verified session (never the
+   * body). A session with no linked Person cannot be attributed and is rejected.
+   */
+  async mintScorerToken(params: MintScorerTokenParams, identity: ScorerIdentity): Promise<MintTrackerTokenResult> {
+    const tournamentId = params.tournamentId?.trim();
+    if (!tournamentId) throw new BadRequestException('tournamentId is required');
+    const personId = identity.personId?.trim();
+    if (!personId) throw new BadRequestException('HiveID session has no linked Person to attribute scores to');
+
+    const matchUpId = params.matchUpId?.trim() || undefined;
+    const ttlSeconds = this.clampTtl(params.ttlSeconds, SCORER_MAX_TTL_SECONDS);
+
+    const sub = identity.userId ?? 'unknown';
+    const now = Math.floor(Date.now() / 1000);
+    const exp = now + ttlSeconds;
+    const token = await this.jwtService.signAsync(
+      {
+        sub,
+        aud: 'score',
+        tournamentId,
+        matchUpId,
+        personId,
+        displayName: params.displayName,
+        email_verified: identity.verified === true,
+        iat: now,
+      },
+      { expiresIn: ttlSeconds },
+    );
+    const expiresAt = new Date(exp * 1000).toISOString();
+
+    try {
+      await this.auditService.recordTrackerTokenIssued({
+        tournamentId,
+        audience: 'score',
+        ttlSeconds,
+        expiresAt,
+        userId: identity.userId,
+      });
+    } catch (err) {
+      this.logger.warn(`scorerTokenIssued audit failed: ${(err as Error).message}`);
+    }
+
+    return { token, expiresAt };
+  }
+
+  private clampTtl(raw: number | undefined, maxSeconds: number = MAX_TTL_SECONDS): number {
     // Omitted (undefined) means "use the default". Explicit null is a
     // caller-side bug — most likely a DTO field that wasn't supposed to
     // be sent — so we reject loudly rather than silently substituting
@@ -198,8 +277,8 @@ export class TrackerTokenService {
     if (raw < MIN_TTL_SECONDS) {
       throw new BadRequestException(`ttlSeconds below the floor of ${MIN_TTL_SECONDS}s`);
     }
-    if (raw > MAX_TTL_SECONDS) {
-      throw new BadRequestException(`ttlSeconds above the ceiling of ${MAX_TTL_SECONDS}s (8h)`);
+    if (raw > maxSeconds) {
+      throw new BadRequestException(`ttlSeconds above the ceiling of ${maxSeconds}s`);
     }
     return Math.floor(raw);
   }

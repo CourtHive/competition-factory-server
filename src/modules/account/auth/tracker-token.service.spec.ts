@@ -123,7 +123,7 @@ describe('TrackerTokenService', () => {
         { providerId: PROVIDER_ID },
         makeContext(),
       ),
-    ).rejects.toThrow(/ceiling.*8h/);
+    ).rejects.toThrow(/ceiling of 28800s/);
   });
 
   it('rejects when tournamentId is missing', async () => {
@@ -302,6 +302,101 @@ describe('TrackerTokenService', () => {
       );
       expect(mockAuditService.recordTrackerTokenIssued).toHaveBeenCalledWith(
         expect.objectContaining({ tournamentId: TOURNAMENT_ID, providerId: PROVIDER_ID, audience: 'provider' }),
+      );
+    });
+  });
+
+  // mintScorerToken — HiveID end-user path. Unlike the provider mints it does
+  // NOT check tournament ownership and reads NO tournament record; identity
+  // (personId + verified) is the caller's own, from the verified session.
+  describe('mintScorerToken', () => {
+    const PERSON_ID = 'person-42';
+    const USER_ID = 'u-hiveid';
+
+    it('mints a score-audience token with the session identity and match scope', async () => {
+      const result = await service.mintScorerToken(
+        { tournamentId: TOURNAMENT_ID, matchUpId: 'm-1', displayName: 'Jane Q', ttlSeconds: 1800 },
+        { userId: USER_ID, personId: PERSON_ID, verified: true },
+      );
+      const decoded: any = await mockJwtService.verifyAsync(result.token);
+      expect(decoded.aud).toBe('score');
+      expect(decoded.tournamentId).toBe(TOURNAMENT_ID);
+      expect(decoded.matchUpId).toBe('m-1');
+      expect(decoded.personId).toBe(PERSON_ID);
+      expect(decoded.displayName).toBe('Jane Q');
+      expect(decoded.email_verified).toBe(true);
+      expect(decoded.sub).toBe(USER_ID);
+      expect(decoded.exp - decoded.iat).toBe(1800);
+    });
+
+    it('carries email_verified=false through so the relay never over-trusts', async () => {
+      const result = await service.mintScorerToken(
+        { tournamentId: TOURNAMENT_ID },
+        { userId: USER_ID, personId: PERSON_ID, verified: false },
+      );
+      const decoded: any = await mockJwtService.verifyAsync(result.token);
+      expect(decoded.email_verified).toBe(false);
+    });
+
+    it('does NOT read a tournament record (no ownership gate for a HiveID participant)', async () => {
+      await service.mintScorerToken(
+        { tournamentId: TOURNAMENT_ID },
+        { userId: USER_ID, personId: PERSON_ID, verified: true },
+      );
+      expect(mockTournamentStorage.fetchTournamentRecords).not.toHaveBeenCalled();
+    });
+
+    it('defaults ttlSeconds to 3600 when omitted', async () => {
+      const result = await service.mintScorerToken(
+        { tournamentId: TOURNAMENT_ID },
+        { userId: USER_ID, personId: PERSON_ID, verified: true },
+      );
+      const decoded: any = await mockJwtService.verifyAsync(result.token);
+      expect(decoded.exp - decoded.iat).toBe(3600);
+    });
+
+    it('rejects ttlSeconds above the tighter 4h scorer ceiling', async () => {
+      await expect(
+        service.mintScorerToken(
+          { tournamentId: TOURNAMENT_ID, ttlSeconds: 14401 },
+          { userId: USER_ID, personId: PERSON_ID, verified: true },
+        ),
+      ).rejects.toThrow(/ceiling of 14400s/);
+    });
+
+    it('rejects when the session has no linked Person', async () => {
+      await expect(
+        service.mintScorerToken({ tournamentId: TOURNAMENT_ID }, { userId: USER_ID, verified: true }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects when tournamentId is missing', async () => {
+      await expect(
+        service.mintScorerToken({ tournamentId: '' }, { userId: USER_ID, personId: PERSON_ID, verified: true }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('omits matchUpId from the token when not scoped to a match', async () => {
+      const result = await service.mintScorerToken(
+        { tournamentId: TOURNAMENT_ID },
+        { userId: USER_ID, personId: PERSON_ID, verified: true },
+      );
+      const decoded: any = await mockJwtService.verifyAsync(result.token);
+      expect(decoded.matchUpId).toBeUndefined();
+    });
+
+    it('writes a score-audience audit row attributed to the user', async () => {
+      await service.mintScorerToken(
+        { tournamentId: TOURNAMENT_ID, ttlSeconds: 1800 },
+        { userId: USER_ID, personId: PERSON_ID, verified: true },
+      );
+      expect(mockAuditService.recordTrackerTokenIssued).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tournamentId: TOURNAMENT_ID,
+          audience: 'score',
+          ttlSeconds: 1800,
+          userId: USER_ID,
+        }),
       );
     });
   });

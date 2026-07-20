@@ -19,7 +19,9 @@ import { ForgotPasswordDto } from './dto/forgotPassword.dto';
 import { ResetPasswordDto } from './dto/resetPassword.dto';
 import { ProviderScoringTokenDto } from './dto/providerScoringToken.dto';
 import { TrackerTokenDto } from './dto/trackerToken.dto';
+import { ScorerTokenDto } from './dto/scorerToken.dto';
 import { SUPER_ADMIN, CLIENT, SCORE } from 'src/common/constants/roles';
+import { Audience } from './decorators/audience.decorator';
 import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { User } from './decorators/user.decorator';
@@ -106,6 +108,36 @@ export class AuthController {
         provisionerId: req?.provisioner?.provisionerId,
       },
       userContext,
+    );
+  }
+
+  /**
+   * POST /auth/scorer-token — mint a short-lived `score`-audience relay token
+   * for the authenticated HiveID user so a launched external scorer (epixodic)
+   * relays crowd scores AS this person, instead of the full session JWT that
+   * used to travel in the launch URL. Gated on the caller's HiveID session
+   * (@Audience(['hiveid'])); the identity claims (personId, email_verified) are
+   * read from that session, never the body. No tournament-ownership check and
+   * no tournament-record read — a HiveID participant is not a provider and only
+   * asserts their own identity. The token grants nothing against CFS.
+   */
+  @Post('scorer-token')
+  @Audience(['hiveid'])
+  @Throttle(TOKEN_THROTTLE)
+  @HttpCode(HttpStatus.OK)
+  async mintScorerToken(@Body() body: ScorerTokenDto, @User() user: any) {
+    return this.trackerTokenService.mintScorerToken(
+      {
+        tournamentId: body.tournamentId,
+        matchUpId: body.matchUpId,
+        displayName: body.displayName,
+        ttlSeconds: body.ttlSeconds,
+      },
+      {
+        userId: user?.userId,
+        personId: user?.personId,
+        verified: user?.email_verified === true,
+      },
     );
   }
 
