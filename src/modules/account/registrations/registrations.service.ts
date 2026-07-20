@@ -1,38 +1,22 @@
 /**
- * RegistrationsService — both halves of the HiveID registration loop.
+ * RegistrationsService — the director-side accept surface of the HiveID
+ * registration loop (audience: admin, gated by canMutateTournament):
  *
- *   Applicant surface (audience: hiveid) — legacy, retired as courthive-public
- *   migrates to the declarations submit:
- *     - apply         — POST  /me/registrations
- *     - listForUser   — GET   /me/registrations
- *     - withdraw      — DELETE /me/registrations/:registrationId
- *
- *   Director surface (audience: admin, gated by canMutateTournament):
  *     - acceptRegistration — POST /admin/tournaments/:tid/registrations/:rid/accept
  *
- * Pending registrations live off the mutation server (courthive-declarations).
- * ACCEPT is the only director action here — it reads the applicant from
+ * Pending registrations live off the mutation server (courthive-declarations) —
+ * the public applicant surface (apply / list / withdraw) was retired once
+ * courthive-public moved its submit + existing-check onto the declarations
+ * client. ACCEPT is the only action here: it reads the applicant from
  * declarations, runs `addParticipants` (+ per-event `addEventEntries`) through the
  * existing `executionQueue`, stamps the HiveID canonical `personId` on
  * `Person.personOtherIds[]`, then marks the declaration ACCEPTED. The pending list
  * + reject/waitlist go TMX ↔ declarations directly.
  */
-import {
-  BadRequestException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 
-import {
-  REGISTRATION_ENTRY_STORAGE,
-  type IRegistrationEntryStorage,
-  type RegistrationEntry,
-  USER_STORAGE,
-  type IUserStorage,
-} from 'src/storage/interfaces';
+import { type RegistrationEntry } from 'src/storage/interfaces';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { AssignmentsService } from '../../factory/assignments.service';
 import { AuditService } from '../../audit/audit.service';
@@ -47,14 +31,6 @@ import type { UserContext } from '../auth/decorators/user-context.decorator';
 // from. Kept as literals CFS-side; the declarations service owns the vocabulary.
 const ACCEPTABLE_ACCEPT_STATUSES = new Set(['SUBMITTED', 'WAITLISTED']);
 
-export interface ApplyForTournamentInput {
-  userId: string;
-  tournamentId: string;
-  eventIds?: string[];
-  partnerUserId?: string | null;
-  answers?: Record<string, unknown>;
-}
-
 export interface AdminActionContext {
   userContext: UserContext;
   tournamentId: string;
@@ -65,80 +41,12 @@ export interface AdminActionContext {
 @Injectable()
 export class RegistrationsService {
   constructor(
-    @Inject(REGISTRATION_ENTRY_STORAGE)
-    private readonly storage: IRegistrationEntryStorage,
-    @Inject(USER_STORAGE)
-    private readonly userStorage: IUserStorage,
     private readonly tournamentStorageService: TournamentStorageService,
     private readonly assignmentsService: AssignmentsService,
     private readonly auditService: AuditService,
     private readonly declarationsClient: DeclarationsClient,
     private readonly personsClient: PersonsClient,
   ) {}
-
-  // -------------------------------------------------------------------
-  //  Applicant surface (Phase 2-A) — see file header for HTTP routes.
-  // -------------------------------------------------------------------
-
-  async apply(input: ApplyForTournamentInput): Promise<RegistrationEntry> {
-    if (!input.userId) throw new UnauthorizedException();
-    if (!input.tournamentId) throw new BadRequestException('tournamentId is required');
-
-    const { tournamentRecord } = await this.tournamentStorageService.findTournamentRecord({
-      tournamentId: input.tournamentId,
-    });
-    if (!tournamentRecord) throw new BadRequestException('Tournament not found');
-    const profile: any = (tournamentRecord as any).registrationProfile;
-    if (!profile || !profile.entriesOpen) {
-      throw new BadRequestException('This tournament does not have a published registration window');
-    }
-    const now = new Date();
-    if (profile.entriesClose && new Date(profile.entriesClose) < now) {
-      throw new BadRequestException('Entries for this tournament are closed');
-    }
-    if (profile.entriesOpen && new Date(profile.entriesOpen) > now) {
-      throw new BadRequestException('Entries for this tournament have not opened yet');
-    }
-
-    const link = await this.userStorage.getPersonLink(input.userId);
-
-    const validatedEventIds = filterValidEventIds(tournamentRecord, input.eventIds);
-
-    return this.storage.applyForTournament({
-      tournamentId: input.tournamentId,
-      userId: input.userId,
-      personId: link?.personId ?? null,
-      eventIds: validatedEventIds,
-      partnerUserId: input.partnerUserId ?? null,
-      answers: input.answers ?? {},
-    });
-  }
-
-  async listForUser(userId: string): Promise<RegistrationEntry[]> {
-    if (!userId) throw new UnauthorizedException();
-    return this.storage.listByUser(userId);
-  }
-
-  async withdraw(userId: string, registrationId: string): Promise<RegistrationEntry> {
-    if (!userId) throw new UnauthorizedException();
-    if (!registrationId) throw new BadRequestException('registrationId is required');
-    const existing = await this.storage.findById(registrationId);
-    if (!existing) throw new BadRequestException('Registration not found');
-    if (existing.userId !== userId) {
-      throw new ForbiddenException('You can only withdraw your own registrations');
-    }
-    if (existing.status === 'withdrawn' || existing.status === 'rejected') {
-      return existing;
-    }
-    const updated = await this.storage.updateStatus({
-      registrationId,
-      status: 'withdrawn',
-      decidedByUserId: userId,
-      statusReason: 'applicant-initiated',
-    });
-    if (!updated) throw new BadRequestException('Withdraw failed');
-    return updated;
-  }
 
   // -------------------------------------------------------------------
   //  Director surface (Phase 2-B). CFS owns ONLY accept — it runs
@@ -256,15 +164,6 @@ export class RegistrationsService {
     }
     return { tournamentRecord };
   }
-}
-
-function filterValidEventIds(tournamentRecord: any, requested?: string[]): string[] {
-  if (!requested?.length) return [];
-  const validIds = new Set<string>();
-  for (const event of tournamentRecord?.events ?? []) {
-    if (event?.eventId) validIds.add(event.eventId);
-  }
-  return requested.filter((id) => typeof id === 'string' && validIds.has(id));
 }
 
 // Map a declarations registration's `eventIds` — which pre-activation are event
