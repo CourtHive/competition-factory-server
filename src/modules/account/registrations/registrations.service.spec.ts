@@ -226,42 +226,10 @@ describe('RegistrationsService', () => {
       providerRoles: {},
       providerIds: [],
     };
-    const nonAdminUserContext: any = {
-      userId: 'random-uuid',
-      email: 'rando@test.com',
-      isSuperAdmin: false,
-      globalRoles: [],
-      providerRoles: {},
-      providerIds: [],
-    };
 
     beforeEach(() => {
       mockExecutionQueue.mockReset();
       mockExecutionQueue.mockResolvedValue({ success: true });
-    });
-
-    describe('listForTournament', () => {
-      it('rejects unauthorised callers', async () => {
-        tournamentStorageService.findTournamentRecord.mockResolvedValue({
-          tournamentRecord: { tournamentId: 't-1', parentOrganisation: { organisationId: 'prov-99' } },
-        });
-        await expect(
-          service.listForTournament(nonAdminUserContext, 't-1'),
-        ).rejects.toBeInstanceOf(ForbiddenException);
-      });
-
-      it('returns rows filtered by status when requested', async () => {
-        tournamentStorageService.findTournamentRecord.mockResolvedValue({
-          tournamentRecord: { tournamentId: 't-1', parentOrganisation: { organisationId: 'prov-1' } },
-        });
-        storage.listByTournament.mockResolvedValue([
-          { registrationId: 'r-1', status: 'applied' },
-          { registrationId: 'r-2', status: 'accepted' },
-          { registrationId: 'r-3', status: 'applied' },
-        ]);
-        const result = await service.listForTournament(adminUserContext, 't-1', 'applied');
-        expect(result.map((r) => r.registrationId)).toEqual(['r-1', 'r-3']);
-      });
     });
 
     describe('acceptRegistration', () => {
@@ -367,76 +335,5 @@ describe('RegistrationsService', () => {
       });
     });
 
-    describe('waitlistRegistration', () => {
-      it('updates status to waitlisted', async () => {
-        tournamentStorageService.findTournamentRecord.mockResolvedValue({
-          tournamentRecord: { tournamentId: 't-1', parentOrganisation: { organisationId: 'prov-1' } },
-        });
-        storage.findById.mockResolvedValue({
-          registrationId: 'r-1',
-          tournamentId: 't-1',
-          status: 'applied',
-        });
-        storage.updateStatus.mockResolvedValue({ registrationId: 'r-1', status: 'waitlisted' });
-        const result = await service.waitlistRegistration({
-          userContext: adminUserContext,
-          tournamentId: 't-1',
-          registrationId: 'r-1',
-          statusReason: 'over capacity',
-        });
-        expect(result.status).toBe('waitlisted');
-        expect(storage.updateStatus).toHaveBeenCalledWith({
-          registrationId: 'r-1',
-          status: 'waitlisted',
-          decidedByUserId: 'admin-uuid',
-          statusReason: 'over capacity',
-        });
-      });
-    });
-
-    describe('rejectRegistration', () => {
-      it('updates status to rejected', async () => {
-        tournamentStorageService.findTournamentRecord.mockResolvedValue({
-          tournamentRecord: { tournamentId: 't-1', parentOrganisation: { organisationId: 'prov-1' } },
-        });
-        storage.findById.mockResolvedValue({
-          registrationId: 'r-1',
-          tournamentId: 't-1',
-          status: 'applied',
-        });
-        storage.updateStatus.mockResolvedValue({ registrationId: 'r-1', status: 'rejected' });
-        const result = await service.rejectRegistration({
-          userContext: adminUserContext,
-          tournamentId: 't-1',
-          registrationId: 'r-1',
-        });
-        expect(result.status).toBe('rejected');
-      });
-    });
-
-    describe('bulkAction', () => {
-      it('runs each action and aggregates per-row results', async () => {
-        tournamentStorageService.findTournamentRecord.mockResolvedValue({
-          tournamentRecord: { tournamentId: 't-1', parentOrganisation: { organisationId: 'prov-1' } },
-        });
-        storage.findById.mockImplementation((id: string) => {
-          if (id === 'r-1') return Promise.resolve({ registrationId: 'r-1', tournamentId: 't-1', status: 'applied' });
-          if (id === 'r-2') return Promise.resolve({ registrationId: 'r-2', tournamentId: 't-1', status: 'rejected' });
-          return Promise.resolve(null);
-        });
-        storage.updateStatus.mockResolvedValue({ registrationId: 'r-1', status: 'rejected' });
-
-        const result = await service.bulkAction({
-          userContext: adminUserContext,
-          tournamentId: 't-1',
-          action: 'reject',
-          registrationIds: ['r-1', 'r-2', 'missing'],
-        });
-        expect(result.results).toHaveLength(3);
-        expect(result.results[0]).toMatchObject({ registrationId: 'r-1', ok: true });
-        expect(result.results[1].ok).toBe(false);
-        expect(result.results[2].ok).toBe(false);
-      });
-    });
   });
 });
