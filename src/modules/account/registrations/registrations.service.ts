@@ -14,7 +14,7 @@
  * + reject/waitlist go TMX ↔ declarations directly.
  */
 import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { tools } from 'tods-competition-factory';
 
 import { type RegistrationEntry } from 'src/storage/interfaces';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
@@ -81,7 +81,7 @@ export class RegistrationsService {
       throw new BadRequestException('Applicant has no canonical name — ask them to complete their HiveID profile');
     }
 
-    const participantId = randomUUID();
+    const participantId = tools.UUID();
     const personOtherIds = reg.personId
       ? [{ organisationId: CANONICAL_PERSON, personId: reg.personId, createdAt: new Date().toISOString() }]
       : [];
