@@ -29,6 +29,23 @@ const EXISTING_POLICY_TYPE = factoryConstants.errorConditionConstants.EXISTING_P
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { TOURNAMENT_STORAGE, type ITournamentStorage, TOURNAMENT_PROVISIONER_STORAGE, type ITournamentProvisionerStorage, PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
 
+/**
+ * Reduce a ScheduleCell to court occupancy only — no participant labels, round, event or matchUp
+ * detail — for a coordination 'view' peer the caller can't author. Keeps the shared-facility view
+ * opaque (INV: reserved cells reveal that a court/time is taken, never by whom).
+ */
+function opaqueReservedCell(cell: any) {
+  return {
+    tournamentId: cell?.tournamentId,
+    venueId: cell?.venueId,
+    courtId: cell?.courtId,
+    courtOrder: cell?.courtOrder,
+    scheduledDate: cell?.scheduledDate,
+    scheduledTime: cell?.scheduledTime,
+    access: 'view',
+  };
+}
+
 @Injectable()
 export class FactoryService {
   constructor(
@@ -168,7 +185,19 @@ export class FactoryService {
    * requested id is filtered out (not viewable) the request is rejected rather than silently
    * returning a partial view. Not cached — the result is access-gated per user.
    */
-  async getScheduleProjection(dto: { tournamentIds?: string[]; venueIds?: string[] }, user, userContext?: UserContext) {
+  async getScheduleProjection(
+    dto: { tournamentId?: string; tournamentIds?: string[]; venueIds?: string[] },
+    user,
+    userContext?: UserContext,
+  ) {
+    // Coordination view: given a context tournament the caller AUTHORS, return slim projections of
+    // its server-verified linked peers — including peers the caller can't otherwise view (a
+    // different director/provider sharing the facility). Peers the caller can also author come back
+    // `access:'author'`; peers they can only coordinate around come back `access:'view'` and OPAQUE
+    // (no participant/round detail — court occupancy only).
+    if (dto?.tournamentId) return this.getCoordinationProjection(dto.tournamentId, dto.venueIds, user, userContext);
+
+    // Legacy view-gated aggregation: slim cells for the requested tournaments the caller can view.
     const tournamentIds = dto?.tournamentIds;
     const venueIds = dto?.venueIds;
     if (!Array.isArray(tournamentIds) || !tournamentIds.length) return { error: 'Missing tournamentIds' };
@@ -188,6 +217,39 @@ export class FactoryService {
         venueIds,
       });
       if (projection?.scheduleCells) scheduleCells.push(...projection.scheduleCells);
+    }
+    return { scheduleCells };
+  }
+
+  private async getCoordinationProjection(contextId: string, venueIds, user, userContext?: UserContext) {
+    // The context tournament must be view-gated (caller sees it) AND authorable (caller runs it).
+    const ctxFetch: any = await this.fetchTournamentRecords({ tournamentIds: [contextId] }, user, userContext);
+    if (ctxFetch.error) return ctxFetch;
+    const context = ctxFetch.tournamentRecords?.[contextId];
+    if (!context) return { error: 'User not allowed' };
+
+    const assignedIds = userContext
+      ? await this.assignmentsService.getAssignedTournamentIds(userContext.userId)
+      : new Set<string>();
+    if (!canMutateTournament(context, userContext, assignedIds)) return { error: 'User not allowed' };
+
+    // Peers come from the context's SERVER-STORED links (set via the access-controlled linkTournaments
+    // mutation) — the caller can't inject arbitrary ids to widen what they see.
+    const peerIds = (context.linkedTournamentIds ?? []).filter((id: string) => id && id !== contextId);
+    if (!peerIds.length) return { scheduleCells: [] };
+
+    // Fetch peers WITHOUT the view gate — that is the coordination grant. Bounded by the authored
+    // context's links, and view peers are returned opaque.
+    const peerFetch: any = await this.tournamentStorageService.fetchTournamentRecords({ tournamentIds: peerIds });
+    const peerRecords = peerFetch?.tournamentRecords ?? {};
+
+    const scheduleCells: any[] = [];
+    for (const peerId of Object.keys(peerRecords)) {
+      const access = canMutateTournament(peerRecords[peerId], userContext, assignedIds) ? 'author' : 'view';
+      const projection: any = queryGovernor.getScheduleProjection({ tournamentRecord: peerRecords[peerId], venueIds });
+      for (const cell of projection?.scheduleCells ?? []) {
+        scheduleCells.push(access === 'view' ? opaqueReservedCell(cell) : { ...cell, access });
+      }
     }
     return { scheduleCells };
   }
