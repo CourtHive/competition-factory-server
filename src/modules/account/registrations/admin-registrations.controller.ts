@@ -38,4 +38,23 @@ export class AdminRegistrationsController {
       statusReason: body?.statusReason,
     });
   }
+
+  // Bulk accept in a SINGLE executionQueue (one lock, one save) — pass explicit
+  // registrationIds, or omit them to accept all pending for the tournament. Returns a
+  // per-registration result array (partial success); pairs are folded in idempotently.
+  @Post('accept-bulk')
+  @HttpCode(HttpStatus.OK)
+  async acceptBulk(
+    @Param('tournamentId') tournamentId: string,
+    @Body() body: { registrationIds?: string[]; statusReason?: string },
+    @UserCtx() userContext: UserContext,
+  ) {
+    const { results } = await this.registrationsService.acceptMany({
+      userContext,
+      tournamentId,
+      registrationIds: body?.registrationIds,
+      statusReason: body?.statusReason,
+    });
+    return { results };
+  }
 }

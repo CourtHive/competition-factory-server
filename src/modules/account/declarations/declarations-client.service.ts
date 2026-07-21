@@ -13,6 +13,16 @@ import { AvailabilitySnapshot } from './availability-pull.helpers';
 
 const DEFAULT_DECLARATIONS_BASE_URL = 'http://localhost:3120';
 
+/** Pair-status for a PARTNER_INVITE (the accept-PAIR read). */
+export interface PairStatus {
+  complete: boolean;
+  tournamentId: string | null;
+  event: string | null;
+  eventId: string | null;
+  nominatorPersonId: string | null;
+  inviteePersonId: string | null;
+}
+
 /** A pending/decided REGISTRATION declaration, as the declarations service returns it. */
 export interface RegistrationSnapshot {
   declarationId: string;
@@ -20,7 +30,13 @@ export interface RegistrationSnapshot {
   providerId: string;
   tournamentId: string | null;
   status: string;
-  payload: { eventIds?: string[]; partner?: any; notes?: string; answers?: Record<string, unknown> };
+  payload: {
+    eventIds?: string[];
+    partner?: any;
+    partnerInviteId?: string;
+    notes?: string;
+    answers?: Record<string, unknown>;
+  };
   updatedAt: string;
 }
 
@@ -126,5 +142,21 @@ export class DeclarationsClient {
       throw new Error(`declarations transitionRegistration failed: HTTP ${res.status}`);
     }
     return (await res.json()) as RegistrationSnapshot | null;
+  }
+
+  /**
+   * Pair-status for a PARTNER_INVITE — the accept-PAIR read: whether the pair is
+   * acceptable + the event and both personIds needed to build the PAIR participant.
+   * Null when disabled or the invite is absent.
+   */
+  async getPairStatus(inviteDeclarationId: string): Promise<PairStatus | null> {
+    if (this.isDisabled()) return null;
+    const res = await fetch(
+      `${this.baseUrl}/partner-invites/${encodeURIComponent(inviteDeclarationId)}/pair-status`,
+      { headers: { 'x-service-token': this.serviceToken } },
+    );
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`declarations getPairStatus failed: HTTP ${res.status}`);
+    return (await res.json()) as PairStatus | null;
   }
 }

@@ -34,6 +34,8 @@ describe('RegistrationsService', () => {
     };
     declarationsClient = {
       getRegistration: jest.fn(),
+      listRegistrations: jest.fn().mockResolvedValue([]),
+      getPairStatus: jest.fn().mockResolvedValue(null),
       transitionRegistration: jest.fn().mockResolvedValue({ status: 'ACCEPTED' }),
     };
     personsClient = {
@@ -83,6 +85,7 @@ describe('RegistrationsService', () => {
 
       function declarationsReg(overrides: any = {}) {
         return {
+          declarationId: 'r-1',
           personId: 'p-canon',
           providerId: 'prov-1',
           tournamentId: 't-1',
@@ -202,6 +205,7 @@ describe('RegistrationsService', () => {
 
       beforeEach(() => {
         declarationsClient.getRegistration.mockResolvedValue({
+          declarationId: 'r-1',
           personId: 'p-canon',
           providerId: 'prov-1',
           tournamentId: 't-1',
@@ -265,6 +269,85 @@ describe('RegistrationsService', () => {
         ).rejects.toThrow(/Not authorised to activate/);
         expect(activateSpy).not.toHaveBeenCalled();
         expect(tournamentStorageService.saveTournamentRecord).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('bulk + pair accept', () => {
+      const tournament = {
+        tournamentId: 't-1',
+        parentOrganisation: { organisationId: 'prov-1' },
+        events: [
+          { eventId: 'e-ms', eventName: "Men's Singles" },
+          { eventId: 'e-md', eventName: "Men's Doubles" },
+        ],
+        participants: [],
+      };
+      const reg = (id: string, personId: string, overrides: any = {}) => ({
+        declarationId: id,
+        personId,
+        providerId: 'prov-1',
+        tournamentId: 't-1',
+        status: 'SUBMITTED',
+        payload: { eventIds: ['e-ms'], applicant: { givenName: personId, familyName: 'X' } },
+        updatedAt: 't',
+        ...overrides,
+      });
+      const pairStatus = {
+        complete: true,
+        tournamentId: 't-1',
+        event: "Men's Doubles",
+        eventId: 'e-md',
+        nominatorPersonId: 'p-a',
+        inviteePersonId: 'p-b',
+      };
+
+      beforeEach(() => {
+        tournamentStorageService.findTournamentRecord.mockResolvedValue({ tournamentRecord: tournament });
+      });
+
+      it('bulk accepts multiple individuals in a SINGLE executionQueue', async () => {
+        declarationsClient.getRegistration.mockImplementation((id: string) => Promise.resolve(reg(id, `person-${id}`)));
+        const { results } = await service.acceptMany({ userContext: adminUserContext, tournamentId: 't-1', registrationIds: ['r-1', 'r-2'] });
+        expect(mockExecutionQueue).toHaveBeenCalledTimes(1);
+        const methods = mockExecutionQueue.mock.calls[0][0].methods;
+        expect(methods[0].method).toBe('addParticipants');
+        expect(methods[0].params.participants).toHaveLength(2);
+        expect(results.every((r: any) => r.ok)).toBe(true);
+        expect(declarationsClient.transitionRegistration).toHaveBeenCalledTimes(2);
+      });
+
+      it('accepts a complete pair as a PAIR participant, stamping both registrations', async () => {
+        const regA = reg('r-1', 'p-a', { payload: { eventIds: ['e-md'], partnerInviteId: 'inv-1', applicant: { givenName: 'A', familyName: 'X' } } });
+        const regB = reg('r-2', 'p-b', { payload: { eventIds: ['e-md'], partnerInviteId: 'inv-1', applicant: { givenName: 'B', familyName: 'Y' } } });
+        declarationsClient.getRegistration.mockImplementation((id: string) => Promise.resolve(id === 'r-1' ? regA : regB));
+        declarationsClient.listRegistrations.mockResolvedValue([regA, regB]);
+        declarationsClient.getPairStatus.mockResolvedValue(pairStatus);
+
+        await service.acceptMany({ userContext: adminUserContext, tournamentId: 't-1', registrationIds: ['r-1'] });
+        const methods = mockExecutionQueue.mock.calls[0][0].methods;
+        const participants = methods[0].params.participants;
+        const pair = participants.find((p: any) => p.participantType === 'PAIR');
+        expect(pair).toBeDefined();
+        expect(pair.individualParticipantIds).toHaveLength(2);
+        const doublesEntry = methods.slice(1).find((m: any) => m.params.eventId === 'e-md');
+        expect(doublesEntry.params.participantIds).toContain(pair.participantId);
+        // Accepting the pair accepts both people — both registrations stamped.
+        expect(declarationsClient.transitionRegistration).toHaveBeenCalledTimes(2);
+      });
+
+      it('bulk-selecting both halves of a pair creates ONE pair (idempotent) and stamps both', async () => {
+        const regA = reg('r-1', 'p-a', { payload: { eventIds: ['e-md'], partnerInviteId: 'inv-1', applicant: { givenName: 'A', familyName: 'X' } } });
+        const regB = reg('r-2', 'p-b', { payload: { eventIds: ['e-md'], partnerInviteId: 'inv-1', applicant: { givenName: 'B', familyName: 'Y' } } });
+        declarationsClient.getRegistration.mockImplementation((id: string) => Promise.resolve(id === 'r-1' ? regA : regB));
+        declarationsClient.listRegistrations.mockResolvedValue([regA, regB]);
+        declarationsClient.getPairStatus.mockResolvedValue(pairStatus);
+
+        await service.acceptMany({ userContext: adminUserContext, tournamentId: 't-1', registrationIds: ['r-1', 'r-2'] });
+        expect(mockExecutionQueue).toHaveBeenCalledTimes(1);
+        const participants = mockExecutionQueue.mock.calls[0][0].methods[0].params.participants;
+        expect(participants.filter((p: any) => p.participantType === 'PAIR')).toHaveLength(1);
+        expect(participants.filter((p: any) => p.participantType === 'INDIVIDUAL')).toHaveLength(2);
+        expect(declarationsClient.transitionRegistration).toHaveBeenCalledTimes(2);
       });
     });
   });

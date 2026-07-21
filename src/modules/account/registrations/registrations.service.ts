@@ -24,7 +24,7 @@ import { CANONICAL_PERSON } from '../auth/hiveid.constants';
 import { canMutateTournament } from '../../factory/helpers/checkTournamentAccess';
 import { executionQueue as runExecutionQueue } from '../../factory/functions/private/executionQueue';
 import { SanctioningClient, SanctioningRecordSnapshot } from '../sanctioning/sanctioning-client.service';
-import { DeclarationsClient } from '../declarations/declarations-client.service';
+import { DeclarationsClient, RegistrationSnapshot } from '../declarations/declarations-client.service';
 import { PersonsClient } from '../persons/persons-client.service';
 import type { UserContext } from '../auth/decorators/user-context.decorator';
 
@@ -37,6 +37,82 @@ export interface AdminActionContext {
   tournamentId: string;
   registrationId: string;
   statusReason?: string;
+}
+
+export interface BulkAcceptContext {
+  userContext: UserContext;
+  tournamentId: string;
+  // Explicit ids to accept; absent → all pending (SUBMITTED/WAITLISTED) for the tournament.
+  registrationIds?: string[];
+  statusReason?: string;
+}
+
+export interface AcceptResult {
+  registrationId: string;
+  ok: boolean;
+  participantId?: string;
+  eventIds?: string[];
+  reason?: string;
+}
+
+/**
+ * Accumulates a batch of acceptances into a single mutation. Dedupes INDIVIDUALs by
+ * person and PAIRs by member-set (reusing participants already in the tournamentRecord),
+ * and dedupes event entries — so one `executionQueue` commits the whole batch and a
+ * re-accept / both-halves-of-a-pair-selected case never duplicates.
+ */
+class AcceptancePlan {
+  readonly individualByPerson = new Map<string, string>();
+  readonly pairByInvite = new Map<string, string>();
+  readonly newParticipants: any[] = [];
+  readonly stampRegistrations = new Set<string>();
+  readonly handled = new Set<string>();
+  private readonly pairByMembers = new Map<string, string>();
+  private readonly existingEntries = new Set<string>();
+  private readonly entryMap = new Map<string, Set<string>>();
+
+  constructor(
+    readonly tournamentRecord: any,
+    readonly byPersonAndInvite: Map<string, RegistrationSnapshot>,
+  ) {
+    for (const p of tournamentRecord?.participants ?? []) {
+      if (p?.participantType === 'INDIVIDUAL') {
+        const canonicalId = (p.person?.personOtherIds ?? []).find((o: any) => o?.organisationId === CANONICAL_PERSON)?.personId;
+        if (canonicalId) this.individualByPerson.set(canonicalId, p.participantId);
+      } else if (p?.participantType === 'PAIR' && Array.isArray(p.individualParticipantIds)) {
+        this.pairByMembers.set([...p.individualParticipantIds].sort().join('|'), p.participantId);
+      }
+    }
+    for (const event of tournamentRecord?.events ?? []) {
+      for (const entry of event?.entries ?? []) {
+        if (entry?.participantId && event?.eventId) this.existingEntries.add(`${entry.participantId}|${event.eventId}`);
+      }
+    }
+  }
+
+  addEntry(eventId: string, participantId: string): void {
+    if (this.existingEntries.has(`${participantId}|${eventId}`)) return; // already entered — idempotent
+    if (!this.entryMap.has(eventId)) this.entryMap.set(eventId, new Set());
+    this.entryMap.get(eventId)!.add(participantId);
+  }
+
+  entriesByEvent(): Array<{ eventId: string; participantIds: string[] }> {
+    return [...this.entryMap.entries()].map(([eventId, ids]) => ({ eventId, participantIds: [...ids] }));
+  }
+
+  ensurePair(inviteId: string, a: string, b: string): string {
+    const byInvite = this.pairByInvite.get(inviteId);
+    if (byInvite) return byInvite;
+    const key = [a, b].sort().join('|');
+    const existing = this.pairByMembers.get(key);
+    const participantId = existing ?? tools.UUID();
+    if (!existing) {
+      this.newParticipants.push({ participantId, participantType: 'PAIR', individualParticipantIds: [a, b] });
+      this.pairByMembers.set(key, participantId);
+    }
+    this.pairByInvite.set(inviteId, participantId);
+    return participantId;
+  }
 }
 
 @Injectable()
@@ -59,41 +135,175 @@ export class RegistrationsService {
   //  off CFS (TMX ↔ courthive-declarations directly).
   // -------------------------------------------------------------------
 
+  /** Accept a single registration (thin wrapper over the bulk core — a one-item batch). */
   async acceptRegistration(ctx: AdminActionContext): Promise<{ registration: RegistrationEntry; participantId: string }> {
-    // Lazy-activate (CA-locked trigger): the first accept for a sanctioning-originated
-    // tournament materializes + persists its tournamentRecord from the approved proposal
-    // before addParticipants. No-op once the record exists.
-    await this.ensureActivated(ctx);
-    const { tournamentRecord } = await this.assertAdminAccess(ctx.userContext, ctx.tournamentId);
     if (!ctx.registrationId) throw new BadRequestException('registrationId is required');
+    const { results, loaded } = await this.acceptMany({
+      userContext: ctx.userContext,
+      tournamentId: ctx.tournamentId,
+      registrationIds: [ctx.registrationId],
+      statusReason: ctx.statusReason,
+    });
+    const result = results.find((r) => r.registrationId === ctx.registrationId);
+    if (!result) throw new BadRequestException('Registration not found');
+    if (!result.ok) throw new BadRequestException(result.reason ?? 'Registration could not be accepted');
+    if (!result.participantId) throw new BadRequestException('Registration is already accepted');
+    const reg = loaded.get(ctx.registrationId);
+    const eventIds = result.eventIds ?? [];
+    const eventEntries = eventIds.map((eventId) => ({ eventId, entryStatus: 'DIRECT_ACCEPTANCE' }));
+    const registration = mapAcceptedRegistration(ctx, reg as any, { participantId: result.participantId, eventIds, eventEntries });
+    return { registration, participantId: result.participantId };
+  }
 
-    // Pending registrations live OFF CFS — read the applicant authoritatively from
-    // the declarations service. Accept is the ONLY CFS touch: addParticipants on the
-    // (already-activated) tournamentRecord, then stamp ACCEPTED back in declarations.
-    const reg = await this.declarationsClient.getRegistration(ctx.registrationId);
-    if (!reg) throw new BadRequestException('Registration not found');
+  /**
+   * Bulk accept — the core accept path. Resolves every target registration into
+   * participants (INDIVIDUAL + PAIR) and event entries, then commits them in ONE
+   * `executionQueue` (one tournament lock, one save) instead of N. Invalid registrations
+   * are pre-filtered and reported as per-item failures so partial success works without
+   * losing the single-mutation win. Idempotent: an already-accepted registration, a
+   * participant already present, and both halves of a pair selected together all resolve
+   * to the existing participant rather than duplicating.
+   */
+  async acceptMany(
+    ctx: BulkAcceptContext,
+  ): Promise<{ results: AcceptResult[]; loaded: Map<string, RegistrationSnapshot> }> {
+    await this.ensureActivated({ userContext: ctx.userContext, tournamentId: ctx.tournamentId, registrationId: '' });
+    const { tournamentRecord } = await this.assertAdminAccess(ctx.userContext, ctx.tournamentId);
+    const provider: string = tournamentRecord?.parentOrganisation?.organisationId ?? '';
+
+    // Explicit ids → authoritative per-id read; no ids → all pending for the tournament.
+    let targets: RegistrationSnapshot[];
+    if (ctx.registrationIds?.length) {
+      const fetched = await Promise.all(ctx.registrationIds.map((id) => this.declarationsClient.getRegistration(id)));
+      targets = fetched.filter((r): r is RegistrationSnapshot => !!r);
+    } else {
+      const pending = await this.declarationsClient.listRegistrations(ctx.tournamentId, provider);
+      targets = pending.filter((r) => ACCEPTABLE_ACCEPT_STATUSES.has(r.status));
+    }
+
+    // Partner lookup index — only load the full list when a target actually references a pair.
+    const needsPartners = targets.some((r) => !!r.payload?.partnerInviteId);
+    const all = needsPartners ? await this.declarationsClient.listRegistrations(ctx.tournamentId, provider) : targets;
+    const byPersonAndInvite = new Map<string, RegistrationSnapshot>(
+      all.filter((r) => r.payload?.partnerInviteId).map((r) => [`${r.personId}:${r.payload.partnerInviteId}`, r]),
+    );
+
+    const plan = new AcceptancePlan(tournamentRecord, byPersonAndInvite);
+    const results: AcceptResult[] = [];
+    const loaded = new Map<string, RegistrationSnapshot>();
+
+    for (const reg of targets) {
+      loaded.set(reg.declarationId, reg);
+      if (plan.handled.has(reg.declarationId)) continue; // already folded in as a partner
+      results.push(await this.planOne(reg, ctx, plan));
+    }
+    // Partners folded into a pair (and thus skipped above) still landed — report them ok.
+    for (const id of plan.handled) {
+      if (!results.some((r) => r.registrationId === id)) results.push({ registrationId: id, ok: true });
+    }
+
+    // Nothing to commit (all failed / all no-ops) → skip the mutation entirely.
+    if (plan.newParticipants.length || plan.entriesByEvent().length) {
+      const ok = await this.commitPlan(ctx, plan);
+      if (!ok.success) {
+        const reason = typeof ok.error === 'string' ? ok.error : JSON.stringify(ok.error);
+        return { results: results.map((r) => (r.ok ? { ...r, ok: false, reason } : r)), loaded };
+      }
+    }
+
+    // Stamp every registration that landed. The PARTNER_INVITE is already ACCEPTED (from
+    // the invitee's confirm), so only the REGISTRATIONs transition here.
+    await Promise.all(
+      [...plan.stampRegistrations].map((declarationId) =>
+        this.declarationsClient
+          .transitionRegistration({
+            declarationId,
+            toStatus: 'ACCEPTED',
+            transitionedBy: ctx.userContext.userId ?? 'admin',
+            reason: ctx.statusReason,
+          })
+          .catch((err) => this.logger.warn(`accept: stamp ACCEPTED failed for ${declarationId}: ${err?.message ?? err}`)),
+      ),
+    );
+
+    return { results, loaded };
+  }
+
+  /** Resolve one registration into the shared plan (participants + entries + stamps). */
+  private async planOne(reg: RegistrationSnapshot, ctx: BulkAcceptContext, plan: AcceptancePlan): Promise<AcceptResult> {
+    const registrationId = reg.declarationId;
     if (reg.tournamentId && reg.tournamentId !== ctx.tournamentId) {
-      throw new BadRequestException('Registration does not belong to this tournament');
+      return { registrationId, ok: false, reason: 'Registration does not belong to this tournament' };
     }
+    if (reg.status === 'ACCEPTED') return { registrationId, ok: true }; // idempotent no-op
     if (!ACCEPTABLE_ACCEPT_STATUSES.has(reg.status)) {
-      throw new BadRequestException(`Registration is not acceptable in state: ${reg.status}`);
+      return { registrationId, ok: false, reason: `Registration is not acceptable in state: ${reg.status}` };
     }
 
-    // Canonical fields from persons (dob/sex/nationality); name falls back to the
-    // denormalized applicant name carried on the registration.
-    const canonical = await this.personsClient.getById(reg.personId).catch(() => null);
-    const applicant: any = (reg.payload as any)?.applicant ?? {};
-    const givenName = canonical?.person?.standardGivenName ?? applicant.givenName ?? '';
-    const familyName = canonical?.person?.standardFamilyName ?? applicant.familyName ?? '';
-    if (!givenName || !familyName) {
-      throw new BadRequestException('Applicant has no canonical name — ask them to complete their HiveID profile');
+    const participantId = await this.ensureIndividual(reg.personId, (reg.payload as any)?.applicant, plan);
+    if (!participantId) {
+      return { registrationId, ok: false, reason: 'Applicant has no canonical name — ask them to complete their HiveID profile' };
     }
+
+    const resolved = resolveAcceptedEventIds(plan.tournamentRecord, reg.payload?.eventIds);
+    if (resolved.dropped.length) {
+      this.logger.warn(
+        `accept: dropped ${resolved.dropped.length} unresolved event(s) [${resolved.dropped.join(', ')}] for registration ${registrationId} on tournament ${ctx.tournamentId}`,
+      );
+    }
+
+    const pairEventId = await this.planPair(reg, participantId, plan);
+
+    // The individual enters every resolved event EXCEPT the one accepted as a pair.
+    const eventIds = resolved.eventIds.filter((id) => id !== pairEventId);
+    for (const eventId of eventIds) plan.addEntry(eventId, participantId);
+    plan.stampRegistrations.add(registrationId);
+
+    const enteredEvents = pairEventId ? [...eventIds, pairEventId] : eventIds;
+    return { registrationId, ok: true, participantId, eventIds: enteredEvents };
+  }
+
+  /**
+   * If the registration references a complete PARTNER_INVITE, build the PAIR (both
+   * INDIVIDUALs, reused where present) + enter it into the pair event, and mark the
+   * partner's registration for stamping. Returns the pair's activated eventId (so the
+   * individual doesn't also enter it), or null when there is no complete pair.
+   */
+  private async planPair(reg: RegistrationSnapshot, participantId: string, plan: AcceptancePlan): Promise<string | null> {
+    const inviteId = reg.payload?.partnerInviteId;
+    if (!inviteId) return null;
+    const status = await this.declarationsClient.getPairStatus(inviteId);
+    if (!status?.complete || !status.nominatorPersonId || !status.inviteePersonId) return null;
+
+    const partnerPersonId = status.nominatorPersonId === reg.personId ? status.inviteePersonId : status.nominatorPersonId;
+    const partnerReg = plan.byPersonAndInvite.get(`${partnerPersonId}:${inviteId}`);
+    const partnerParticipantId = await this.ensureIndividual(partnerPersonId, (partnerReg?.payload as any)?.applicant, plan);
+    if (!partnerParticipantId) return null; // partner has no canonical name → can't form the pair
+
+    const pairParticipantId = plan.ensurePair(inviteId, participantId, partnerParticipantId);
+    const pairEventId = resolveAcceptedEventIds(plan.tournamentRecord, [status.eventId, status.event].filter(Boolean) as string[]).eventIds[0] ?? null;
+    if (pairEventId) plan.addEntry(pairEventId, pairParticipantId);
+
+    // Accepting a complete pair accepts BOTH people; stamp the partner's registration too.
+    if (partnerReg) {
+      plan.stampRegistrations.add(partnerReg.declarationId);
+      plan.handled.add(partnerReg.declarationId);
+    }
+    return pairEventId;
+  }
+
+  /** Resolve (or reuse) a person's INDIVIDUAL participant; null when they have no canonical name. */
+  private async ensureIndividual(personId: string, applicant: any, plan: AcceptancePlan): Promise<string | null> {
+    const cached = plan.individualByPerson.get(personId);
+    if (cached) return cached;
+
+    const canonical = await this.personsClient.getById(personId).catch(() => null);
+    const givenName = canonical?.person?.standardGivenName ?? applicant?.givenName ?? '';
+    const familyName = canonical?.person?.standardFamilyName ?? applicant?.familyName ?? '';
+    if (!givenName || !familyName) return null;
 
     const participantId = tools.UUID();
-    const personOtherIds = reg.personId
-      ? [{ organisationId: CANONICAL_PERSON, personId: reg.personId, createdAt: new Date().toISOString() }]
-      : [];
-    const participant: any = {
+    plan.newParticipants.push({
       participantId,
       participantType: 'INDIVIDUAL',
       participantName: `${givenName} ${familyName}`,
@@ -103,30 +313,25 @@ export class RegistrationsService {
         birthDate: canonical?.person?.birthDate ?? null,
         sex: canonical?.person?.sex ?? null,
         nationalityCode: canonical?.person?.nationalityCode ?? null,
-        personOtherIds,
+        personOtherIds: personId
+          ? [{ organisationId: CANONICAL_PERSON, personId, createdAt: new Date().toISOString() }]
+          : [],
       },
-    };
+    });
+    plan.individualByPerson.set(personId, participantId);
+    return participantId;
+  }
 
-    // Registrations reference events by stable eventId (id-join); legacy rows may carry
-    // event NAMES — both resolve. Anything matching neither is dropped and warned (never
-    // silently swallowed) so a proposal/registration event mismatch is observable.
-    const { eventIds, dropped } = resolveAcceptedEventIds(tournamentRecord, (reg.payload as any)?.eventIds);
-    if (dropped.length) {
-      this.logger.warn(
-        `acceptRegistration: dropped ${dropped.length} unresolved event(s) [${dropped.join(', ')}] for registration ${ctx.registrationId} on tournament ${ctx.tournamentId}`,
-      );
+  /** Run the batched addParticipants + addEventEntries in a single executionQueue. */
+  private async commitPlan(ctx: BulkAcceptContext, plan: AcceptancePlan): Promise<{ success: boolean; error?: any }> {
+    const methods: any[] = [];
+    if (plan.newParticipants.length) {
+      methods.push({ method: 'addParticipants', params: { tournamentId: ctx.tournamentId, participants: plan.newParticipants } });
     }
-    const methods: any[] = [
-      { method: 'addParticipants', params: { tournamentId: ctx.tournamentId, participants: [participant] } },
-    ];
-    for (const eventId of eventIds) {
-      methods.push({
-        method: 'addEventEntries',
-        params: { eventId, participantIds: [participantId], entryStatus: 'DIRECT_ACCEPTANCE' },
-      });
+    for (const { eventId, participantIds } of plan.entriesByEvent()) {
+      methods.push({ method: 'addEventEntries', params: { eventId, participantIds, entryStatus: 'DIRECT_ACCEPTANCE' } });
     }
-
-    const result = await runExecutionQueue(
+    const result: any = await runExecutionQueue(
       {
         tournamentIds: [ctx.tournamentId],
         methods,
@@ -138,26 +343,7 @@ export class RegistrationsService {
       this.tournamentStorageService,
       this.auditService,
     );
-    if (!(result as any)?.success) {
-      const err = (result as any)?.error ?? 'addParticipants failed';
-      throw new BadRequestException(typeof err === 'string' ? err : JSON.stringify(err));
-    }
-
-    const stamped = await this.declarationsClient.transitionRegistration({
-      declarationId: ctx.registrationId,
-      toStatus: 'ACCEPTED',
-      transitionedBy: ctx.userContext.userId ?? 'admin',
-      reason: ctx.statusReason,
-    });
-    if (!stamped) {
-      throw new BadRequestException(
-        'Could not record acceptance — the tournament mutation succeeded but the declarations stamp failed',
-      );
-    }
-
-    const eventEntries = eventIds.map((eventId) => ({ eventId, entryStatus: 'DIRECT_ACCEPTANCE' }));
-    const registration = mapAcceptedRegistration(ctx, reg, { participantId, eventIds, eventEntries });
-    return { registration, participantId };
+    return result?.success ? { success: true } : { success: false, error: result?.error ?? 'addParticipants failed' };
   }
 
   // -------------------------------------------------------------------
