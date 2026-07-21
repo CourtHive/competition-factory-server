@@ -1,4 +1,4 @@
-import { hashPassword } from '../account/auth/helpers/hashPassword';
+import { hashPassword } from 'src/common/helpers/hashPassword';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 

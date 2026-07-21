@@ -34,7 +34,7 @@ import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
 import { CLIENT, SUPER_ADMIN, PROVIDER_ADMIN } from 'src/common/constants/roles';
 import { User } from '../account/auth/decorators/user.decorator';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
-import { assertProviderEditor } from '../account/auth/helpers/assertProviderEditor';
+import { assertProviderEditor } from 'src/common/helpers/assertProviderEditor';
 
 import {
   USER_PROVIDER_STORAGE,

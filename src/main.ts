@@ -8,9 +8,20 @@ import { version } from 'tods-competition-factory';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
-import { AuthService } from './modules/account/auth/auth.service';
+import { canAccessApiDocs } from './common/auth/canAccessApiDocs';
+import { UsersService } from './modules/users/users.service';
 import compression from 'compression';
 import { json } from 'body-parser';
+
+// constants and interfaces
+import {
+  USER_PROVIDER_STORAGE,
+  type IUserProviderStorage,
+  USER_PROVISIONER_STORAGE,
+  type IUserProvisionerStorage,
+  PROVISIONER_PROVIDER_STORAGE,
+  type IProvisionerProviderStorage,
+} from './storage/interfaces';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: ['fatal', 'verbose', 'debug', 'error', 'warn'] });
@@ -103,7 +114,16 @@ async function bootstrap() {
     process.env.NODE_ENV === 'production' ||
     process.env.APP_MODE === 'production';
   if (swaggerLocked) {
-    const authService = app.get(AuthService);
+    // Verify-only credential check against the shared users table. Uses neutral
+    // shared infra (not an account service) so gating Swagger survives the
+    // account tree lift-out (see ACCOUNT_SERVICE_BOUNDARY.md).
+    const usersService = app.get(UsersService);
+    const apiDocsAuthDeps = {
+      findUser: (email: string) => usersService.findOne(email),
+      userProviderStorage: app.get<IUserProviderStorage>(USER_PROVIDER_STORAGE),
+      userProvisionerStorage: app.get<IUserProvisionerStorage>(USER_PROVISIONER_STORAGE),
+      provisionerProviderStorage: app.get<IProvisionerProviderStorage>(PROVISIONER_PROVIDER_STORAGE),
+    };
     const isSwaggerPath = (p: string): boolean =>
       p === '/api' ||
       p === '/api/' ||
@@ -120,7 +140,7 @@ async function bootstrap() {
         const idx = decoded.indexOf(':');
         if (idx >= 0) {
           try {
-            if (await authService.canAccessApiDocs(decoded.slice(0, idx), decoded.slice(idx + 1))) {
+            if (await canAccessApiDocs(apiDocsAuthDeps, decoded.slice(0, idx), decoded.slice(idx + 1))) {
               return next();
             }
           } catch {

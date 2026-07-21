@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Logger, Post, Req, UseGuards } from '@nestjs/common';
 import { Public } from '../account/auth/decorators/public.decorator';
-import { RefreshTokenService } from '../account/auth/refresh-token.service';
+import { RefreshTokenService } from 'src/services/refresh-token.service';
 import { ProvisionerGuard } from './provisioner.guard';
 import { SsoTokenService } from './sso-token.service';
 import { JwtService } from '@nestjs/jwt';

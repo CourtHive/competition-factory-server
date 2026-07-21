@@ -12,7 +12,7 @@ import { TrackerTokenService } from './tracker-token.service';
 import { AuthMiddleware } from './auth.middleware';
 import { AuthGuard } from './guards/auth.guard';
 import { AuthService } from './auth.service';
-import { RefreshTokenService } from './refresh-token.service';
+import { RefreshTokenService } from 'src/services/refresh-token.service';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';

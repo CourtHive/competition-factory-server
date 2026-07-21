@@ -1,8 +1,8 @@
 import { ForbiddenException } from '@nestjs/common';
 
 import { assertProviderEditor } from './assertProviderEditor';
-import type { UserContext } from '../decorators/user-context.decorator';
 import type { IProvisionerProviderStorage } from 'src/storage/interfaces';
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
 const PROVIDER_P = 'provider-p';
 const PROVIDER_OTHER = 'provider-other';

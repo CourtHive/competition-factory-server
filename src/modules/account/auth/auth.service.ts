@@ -7,14 +7,14 @@ import { createUniqueKey } from './helpers/createUniqueKey';
 import { EmailService } from '../email/email.service';
 import { UsersService } from '../../users/users.service';
 import { ConfigService } from '@nestjs/config';
-import { hashPassword } from './helpers/hashPassword';
+import { hashPassword } from 'src/common/helpers/hashPassword';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 
 // constants and interfaces
 import { SUCCESS } from 'src/common/constants/app';
-import { PROVISIONER as PROVISIONER_ROLE, SUPER_ADMIN, PROVIDER_ADMIN } from 'src/common/constants/roles';
+import { PROVISIONER as PROVISIONER_ROLE, SUPER_ADMIN } from 'src/common/constants/roles';
 import {
   PROVIDER_STORAGE,
   type IProviderStorage,
@@ -29,9 +29,9 @@ import {
   AUTH_CODE_STORAGE,
   type IAuthCodeStorage,
 } from 'src/storage/interfaces';
-import { assertProviderEditor } from './helpers/assertProviderEditor';
-import { buildUserContext } from './helpers/buildUserContext';
-import { RefreshTokenService } from './refresh-token.service';
+import { canAccessApiDocs } from 'src/common/auth/canAccessApiDocs';
+import { assertProviderEditor } from 'src/common/helpers/assertProviderEditor';
+import { RefreshTokenService } from 'src/services/refresh-token.service';
 import type { UserContext } from './decorators/user-context.decorator';
 
 const PASSWORD_RESET_TOKEN_TTL = '1h';
@@ -125,25 +125,19 @@ export class AuthService {
    * `admin` → PROVIDER_ADMIN shim via buildUserContext).
    */
   async canAccessApiDocs(email: string, clearTextPassword: string): Promise<boolean> {
-    if (!email || !clearTextPassword) return false;
-    let user: any;
-    try {
-      user = await this.usersService.findOne(email);
-    } catch {
-      return false;
-    }
-    if (!user?.password) return false;
-    if (!(await bcrypt.compare(clearTextPassword, user.password))) return false;
-
-    const roles: string[] = user.roles ?? [];
-    if (roles.includes(SUPER_ADMIN) || roles.includes(PROVISIONER_ROLE)) return true;
-
-    const ctx = await buildUserContext(user, {
-      userProviderStorage: this.userProviderStorage,
-      userProvisionerStorage: this.userProvisionerStorage,
-      provisionerProviderStorage: this.provisionerProviderStorage,
-    });
-    return Object.values(ctx.providerRoles).includes(PROVIDER_ADMIN);
+    // Delegates to the neutral shared-infra implementation so the api-docs
+    // credential check has a single home that main.ts can reach without
+    // importing an account service (see canAccessApiDocs.ts).
+    return canAccessApiDocs(
+      {
+        findUser: (e: string) => this.usersService.findOne(e),
+        userProviderStorage: this.userProviderStorage,
+        userProvisionerStorage: this.userProvisionerStorage,
+        provisionerProviderStorage: this.provisionerProviderStorage,
+      },
+      email,
+      clearTextPassword,
+    );
   }
 
   /**

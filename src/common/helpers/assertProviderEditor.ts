@@ -29,8 +29,8 @@
  */
 import { ForbiddenException } from '@nestjs/common';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
-import type { UserContext } from '../decorators/user-context.decorator';
 import type { IProvisionerProviderStorage } from 'src/storage/interfaces';
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
 export interface AssertProviderEditorArgs {
   userContext: UserContext | undefined;

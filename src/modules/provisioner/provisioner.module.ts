@@ -7,7 +7,7 @@ import { ProvisionerService } from './provisioner.service';
 import { SsoTokenService } from './sso-token.service';
 import { SsoController } from './sso.controller';
 import { AuditModule } from '../audit/audit.module';
-import { RefreshTokenService } from '../account/auth/refresh-token.service';
+import { RefreshTokenService } from 'src/services/refresh-token.service';
 
 @Module({
   imports: [AuditModule],
