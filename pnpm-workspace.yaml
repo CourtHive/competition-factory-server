@@ -53,3 +53,7 @@ overrides:
   '@courthive/provider-config': link:../provider-config
   '@courthive/i18n': link:../courthive-i18n
   courthive-ingest: link:../courthive-ingest
+  # Security override — brace-expansion ReDoS (GHSA-3jxr-9vmj-r5cp); dev-only,
+  # via @nestjs/cli / @swc/cli / jest tooling. Patched 1.1.16 / 2.1.2; patch each major separately.
+  brace-expansion@1: '>=1.1.16'
+  brace-expansion@2: '>=2.1.2'
