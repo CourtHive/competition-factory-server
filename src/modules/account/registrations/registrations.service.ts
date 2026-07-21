@@ -107,7 +107,7 @@ class AcceptancePlan {
     const existing = this.pairByMembers.get(key);
     const participantId = existing ?? tools.UUID();
     if (!existing) {
-      this.newParticipants.push({ participantId, participantType: 'PAIR', individualParticipantIds: [a, b] });
+      this.newParticipants.push({ participantId, participantType: 'PAIR', participantRole: 'COMPETITOR', individualParticipantIds: [a, b] });
       this.pairByMembers.set(key, participantId);
     }
     this.pairByInvite.set(inviteId, participantId);
@@ -306,6 +306,7 @@ export class RegistrationsService {
     plan.newParticipants.push({
       participantId,
       participantType: 'INDIVIDUAL',
+      participantRole: 'COMPETITOR',
       participantName: `${givenName} ${familyName}`,
       person: {
         standardGivenName: givenName,

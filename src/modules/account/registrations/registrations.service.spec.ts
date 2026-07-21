@@ -143,6 +143,7 @@ describe('RegistrationsService', () => {
         expect(methods[0].method).toBe('addParticipants');
         const participant = methods[0].params.participants[0];
         expect(participant.person.standardGivenName).toBe('Jane');
+        expect(participant.participantRole).toBe('COMPETITOR'); // required by addParticipants
         expect(participant.person.personOtherIds).toEqual([
           expect.objectContaining({ organisationId: 'CANONICAL_PERSON', personId: 'p-canon' }),
         ]);
@@ -328,7 +329,9 @@ describe('RegistrationsService', () => {
         const participants = methods[0].params.participants;
         const pair = participants.find((p: any) => p.participantType === 'PAIR');
         expect(pair).toBeDefined();
+        expect(pair.participantRole).toBe('COMPETITOR');
         expect(pair.individualParticipantIds).toHaveLength(2);
+        expect(participants.every((p: any) => p.participantRole === 'COMPETITOR')).toBe(true);
         const doublesEntry = methods.slice(1).find((m: any) => m.params.eventId === 'e-md');
         expect(doublesEntry.params.participantIds).toContain(pair.participantId);
         // Accepting the pair accepts both people — both registrations stamped.
