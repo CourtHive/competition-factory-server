@@ -1,5 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Logger, Post, Req, UseGuards } from '@nestjs/common';
 import { Public } from '../account/auth/decorators/public.decorator';
+import { signJwt } from 'src/common/auth/signJwt';
 import { RefreshTokenService } from 'src/services/refresh-token.service';
 import { ProvisionerGuard } from './provisioner.guard';
 import { SsoTokenService } from './sso-token.service';
@@ -112,7 +113,7 @@ export class SsoController {
     // Without this override the SSO session would inherit the JwtModule default
     // (JWT_VALIDITY, '2h' in prod). The short lifetime is fine because the
     // refresh token below keeps the session alive silently.
-    const accessToken = await this.jwtService.signAsync(jwtPayload, { expiresIn: '4h' });
+    const accessToken = await signJwt(this.jwtService, jwtPayload, { expiresIn: '4h' });
 
     // Mint a rotating refresh token so SSO-handoff sessions refresh silently
     // just like password logins (POST /auth/refresh) instead of forcing a new

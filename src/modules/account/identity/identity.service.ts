@@ -23,6 +23,7 @@
  */
 import { ForbiddenException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { verifyJwt } from 'src/common/auth/verifyJwt';
+import { signJwt } from 'src/common/auth/signJwt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
@@ -101,7 +102,7 @@ export class IdentityService {
       source: 'self-service',
     });
 
-    const token = await this.jwtService.signAsync(
+    const token = await signJwt(this.jwtService, 
       { userId: user.userId, contactEmail: trimmed, purpose: EMAIL_VERIFICATION_PURPOSE },
       { expiresIn: VERIFICATION_TOKEN_TTL },
     );
@@ -132,7 +133,7 @@ export class IdentityService {
     if (!record?.contactEmail) return { success: true, status: 'no_contact_email' };
     if (record.emailVerifiedAt) return { success: true, status: 'already_verified' };
 
-    const token = await this.jwtService.signAsync(
+    const token = await signJwt(this.jwtService, 
       { userId: user.userId, contactEmail: record.contactEmail, purpose: EMAIL_VERIFICATION_PURPOSE },
       { expiresIn: VERIFICATION_TOKEN_TTL },
     );

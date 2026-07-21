@@ -81,4 +81,17 @@ describe('verifyJwt (dual-accept ES256 + legacy HS256)', () => {
     const tampered = `${h}.${b64({ email: 'real@test.com', roles: ['admin'] })}.${s}`;
     await expect(verifyJwt(hsService, tampered)).rejects.toThrow();
   });
+
+  it('rejects HS256 (but still accepts ES256) once JWT_ACCEPT_HS256=false (step 4 drain toggle)', async () => {
+    process.env.JWT_ACCEPT_HS256 = 'false';
+    try {
+      const hs = await hsService.signAsync({ email: 'legacy@test.com' });
+      await expect(verifyJwt(hsService, hs)).rejects.toThrow(/no longer accepted/);
+      const es = await signEs({ email: 'asym@test.com', aud: 'admin' });
+      const payload: any = await verifyJwt(hsService, es);
+      expect(payload.email).toBe('asym@test.com');
+    } finally {
+      delete process.env.JWT_ACCEPT_HS256;
+    }
+  });
 });

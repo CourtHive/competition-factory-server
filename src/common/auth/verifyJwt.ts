@@ -67,6 +67,12 @@ export async function verifyJwt<T extends object = any>(
   }
 
   if (alg === 'HS256') {
+    // Step 4 of the migration: once ES256 tokens have drained in, set
+    // JWT_ACCEPT_HS256=false to reject the legacy algorithm entirely (a
+    // reversible config toggle rather than a code deploy). Default: accept.
+    if (process.env.JWT_ACCEPT_HS256 === 'false') {
+      throw new UnauthorizedException('HS256 tokens are no longer accepted');
+    }
     // No explicit secret: fall through to the JwtService instance's configured
     // secret (the global JwtModule's `JWT_SECRET` in prod). This matches every
     // pre-migration verify site — the guards passed `process.env.JWT_SECRET`

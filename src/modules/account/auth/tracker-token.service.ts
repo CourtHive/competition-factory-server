@@ -17,6 +17,7 @@
  * mint here AND has a non-expired signature there will be accepted.
  */
 import { ForbiddenException, Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { signJwt } from 'src/common/auth/signJwt';
 import { JwtService } from '@nestjs/jwt';
 
 import { AuditService } from '../../audit/audit.service';
@@ -112,7 +113,7 @@ export class TrackerTokenService {
     // payload — instead override expiresIn at the call site with our
     // variable TTL. `expiresAt` in the response is derived from our
     // own `exp` value, which matches what jsonwebtoken will stamp.
-    const token = await this.jwtService.signAsync(
+    const token = await signJwt(this.jwtService, 
       { sub, aud: 'score', tournamentId, iat: now },
       { expiresIn: ttlSeconds },
     );
@@ -174,7 +175,7 @@ export class TrackerTokenService {
     const sub = user.providerId ? `provider:${user.providerId}` : user.userId ?? 'unknown';
     const now = Math.floor(Date.now() / 1000);
     const exp = now + ttlSeconds;
-    const token = await this.jwtService.signAsync(
+    const token = await signJwt(this.jwtService, 
       {
         sub,
         aud: 'provider',
@@ -231,7 +232,7 @@ export class TrackerTokenService {
     const sub = identity.userId ?? 'unknown';
     const now = Math.floor(Date.now() / 1000);
     const exp = now + ttlSeconds;
-    const token = await this.jwtService.signAsync(
+    const token = await signJwt(this.jwtService, 
       {
         sub,
         aud: 'score',

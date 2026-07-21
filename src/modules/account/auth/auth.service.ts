@@ -32,6 +32,7 @@ import {
 import { canAccessApiDocs } from 'src/common/auth/canAccessApiDocs';
 import { assertProviderEditor } from 'src/common/helpers/assertProviderEditor';
 import { verifyJwt } from 'src/common/auth/verifyJwt';
+import { signJwt } from 'src/common/auth/signJwt';
 import { RefreshTokenService } from 'src/services/refresh-token.service';
 import type { UserContext } from './decorators/user-context.decorator';
 
@@ -174,7 +175,7 @@ export class AuthService {
     // full session is issued. Return a short-lived limited token whose
     // sole purpose is to authenticate the /auth/complete-first-login call.
     if (user.mustChangePassword) {
-      const limitedToken = await this.jwtService.signAsync(
+      const limitedToken = await signJwt(this.jwtService, 
         { email: user.email, purpose: 'first-login-password-change' },
         { expiresIn: '5m' },
       );
@@ -326,7 +327,7 @@ export class AuthService {
     payload: any,
     aud: AudienceClaimValue | AudienceClaimValue[] = 'admin',
   ): Promise<string> {
-    return this.jwtService.signAsync({ ...payload, aud }, { expiresIn: ACCESS_TOKEN_TTL });
+    return signJwt(this.jwtService, { ...payload, aud }, { expiresIn: ACCESS_TOKEN_TTL });
   }
 
   /**
@@ -508,7 +509,7 @@ export class AuthService {
     user: { userId: string; contactEmail: string; firstName?: string },
     opts: { expiresIn: string; template: 'password-reset-request' | 'admin-created-account'; subject: string; tag: string },
   ): Promise<void> {
-    const token = await this.jwtService.signAsync(
+    const token = await signJwt(this.jwtService, 
       { userId: user.userId, contactEmail: user.contactEmail, purpose: PASSWORD_RESET_PURPOSE },
       { expiresIn: opts.expiresIn as any },
     );
