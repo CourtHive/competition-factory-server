@@ -163,6 +163,18 @@ describe('RegistrationsService', () => {
         ).rejects.toThrow(/duplicate participant/);
         expect(declarationsClient.transitionRegistration).not.toHaveBeenCalled();
       });
+
+      it('drops + warns on a registered event that resolves to neither eventId nor name', async () => {
+        const warnSpy = jest.spyOn((service as any).logger, 'warn').mockImplementation(() => undefined);
+        declarationsClient.getRegistration.mockResolvedValue(
+          declarationsReg({ payload: { eventIds: ['e-1', 'ghost-event'], applicant: { givenName: 'Jane', familyName: 'Doe' } } }),
+        );
+        await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
+        // 'e-1' resolves by id; 'ghost-event' matches neither id nor name → dropped (only e-1 entered).
+        const methods = mockExecutionQueue.mock.calls[0][0].methods;
+        expect(methods.slice(1).map((m: any) => m.params.eventId)).toEqual(['e-1']);
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('ghost-event'));
+      });
     });
   });
 });

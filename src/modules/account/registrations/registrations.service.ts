@@ -13,7 +13,7 @@
  * `Person.personOtherIds[]`, then marks the declaration ACCEPTED. The pending list
  * + reject/waitlist go TMX ↔ declarations directly.
  */
-import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 
 import { type RegistrationEntry } from 'src/storage/interfaces';
@@ -40,6 +40,8 @@ export interface AdminActionContext {
 
 @Injectable()
 export class RegistrationsService {
+  private readonly logger = new Logger(RegistrationsService.name);
+
   constructor(
     private readonly tournamentStorageService: TournamentStorageService,
     private readonly assignmentsService: AssignmentsService,
@@ -99,9 +101,15 @@ export class RegistrationsService {
       },
     };
 
-    // Pre-activation the registration stored event NAMES (events had no stable ids
-    // yet); map them onto the activated tournamentRecord's eventIds (id also accepted).
-    const eventIds = resolveAcceptedEventIds(tournamentRecord, (reg.payload as any)?.eventIds);
+    // Registrations reference events by stable eventId (id-join); legacy rows may carry
+    // event NAMES — both resolve. Anything matching neither is dropped and warned (never
+    // silently swallowed) so a proposal/registration event mismatch is observable.
+    const { eventIds, dropped } = resolveAcceptedEventIds(tournamentRecord, (reg.payload as any)?.eventIds);
+    if (dropped.length) {
+      this.logger.warn(
+        `acceptRegistration: dropped ${dropped.length} unresolved event(s) [${dropped.join(', ')}] for registration ${ctx.registrationId} on tournament ${ctx.tournamentId}`,
+      );
+    }
     const methods: any[] = [
       { method: 'addParticipants', params: { tournamentId: ctx.tournamentId, participants: [participant] } },
     ];
@@ -166,11 +174,15 @@ export class RegistrationsService {
   }
 }
 
-// Map a declarations registration's `eventIds` — which pre-activation are event
-// NAMES — onto the activated tournamentRecord's eventIds. Accepts either an
-// eventId or an eventName; unknown entries are dropped; result is de-duped.
-function resolveAcceptedEventIds(tournamentRecord: any, requested?: string[]): string[] {
-  if (!requested?.length) return [];
+// Map a declarations registration's `eventIds` onto the activated tournamentRecord's
+// eventIds. Registrations now carry the stable eventId (id-join); legacy rows may carry
+// event NAMES — both resolve. Entries matching neither are returned in `dropped` (the
+// caller warns) rather than silently swallowed; resolved result is de-duped.
+function resolveAcceptedEventIds(
+  tournamentRecord: any,
+  requested?: string[],
+): { eventIds: string[]; dropped: string[] } {
+  if (!requested?.length) return { eventIds: [], dropped: [] };
   const byId = new Set<string>();
   const nameToId = new Map<string, string>();
   for (const event of tournamentRecord?.events ?? []) {
@@ -179,12 +191,14 @@ function resolveAcceptedEventIds(tournamentRecord: any, requested?: string[]): s
     if (event?.eventName) nameToId.set(event.eventName, event.eventId);
   }
   const out: string[] = [];
+  const dropped: string[] = [];
   for (const r of requested) {
     if (typeof r !== 'string') continue;
     if (byId.has(r)) out.push(r);
     else if (nameToId.has(r)) out.push(nameToId.get(r) as string);
+    else dropped.push(r);
   }
-  return [...new Set(out)];
+  return { eventIds: [...new Set(out)], dropped };
 }
 
 // Shape a director-facing RegistrationEntry from a declarations snapshot after an
