@@ -31,6 +31,7 @@ import {
 } from 'src/storage/interfaces';
 import { canAccessApiDocs } from 'src/common/auth/canAccessApiDocs';
 import { assertProviderEditor } from 'src/common/helpers/assertProviderEditor';
+import { verifyJwt } from 'src/common/auth/verifyJwt';
 import { RefreshTokenService } from 'src/services/refresh-token.service';
 import type { UserContext } from './decorators/user-context.decorator';
 
@@ -591,7 +592,7 @@ export class AuthService {
     if (!token || !newPassword) return { error: 'token and newPassword are required' };
     let claims: any;
     try {
-      claims = await this.jwtService.verifyAsync(token);
+      claims = await verifyJwt(this.jwtService, token);
     } catch {
       throw new UnauthorizedException('Invalid or expired reset link');
     }
@@ -825,7 +826,7 @@ export class AuthService {
     }
     let claims: any;
     try {
-      claims = await this.jwtService.verifyAsync(limitedToken);
+      claims = await verifyJwt(this.jwtService, limitedToken);
     } catch {
       throw new UnauthorizedException('Invalid or expired first-login token');
     }
@@ -1115,7 +1116,7 @@ export class AuthService {
 
   async decode(token: string) {
     try {
-      return await this.jwtService.verifyAsync(token);
+      return await verifyJwt(this.jwtService, token);
     } catch {
       throw new UnauthorizedException('Incorrect auth token.');
     }

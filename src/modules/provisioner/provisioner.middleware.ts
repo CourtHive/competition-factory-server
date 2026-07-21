@@ -1,4 +1,5 @@
 import { Inject, Injectable, NestMiddleware } from '@nestjs/common';
+import { verifyJwt } from 'src/common/auth/verifyJwt';
 import { createHash } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 
@@ -52,7 +53,7 @@ export class ProvisionerMiddleware implements NestMiddleware {
     // ── JWT path (Phase 2A) — PROVISIONER-role users represent a provisioner
     if (token && !token.startsWith(PROV_PREFIX)) {
       try {
-        const decoded: any = await this.jwtService.verifyAsync(token);
+        const decoded: any = await verifyJwt(this.jwtService, token);
         if (decoded?.roles?.includes(PROVISIONER_ROLE) && Array.isArray(decoded.provisionerIds)) {
           await this.attachProvisionerFromJwt(req, decoded);
         }

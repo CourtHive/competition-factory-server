@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AUDIENCE_KEY, AudienceClaim } from '../decorators/audience.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { audienceMatches } from './auth.guard';
+import { verifyJwt } from 'src/common/auth/verifyJwt';
 import { Roles } from '../decorators/roles.decorator';
 import { Reflector } from '@nestjs/core';
 import { Socket } from 'socket.io';
@@ -33,9 +34,7 @@ export class SocketGuard implements CanActivate {
     }
 
     try {
-      const user = await this.jwtService.verifyAsync(token, {
-        secret: process.env.JWT_SECRET,
-      });
+      const user = await verifyJwt(this.jwtService, token);
 
       // Audience check. Gateways declare the audience they accept via
       // @Audience([...]) at class or method level. Absent decorator =

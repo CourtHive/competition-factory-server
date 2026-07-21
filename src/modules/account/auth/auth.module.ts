@@ -13,6 +13,7 @@ import { AuthMiddleware } from './auth.middleware';
 import { AuthGuard } from './guards/auth.guard';
 import { AuthService } from './auth.service';
 import { RefreshTokenService } from 'src/services/refresh-token.service';
+import { JwksController } from './crypto/jwks.controller';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
@@ -50,7 +51,7 @@ const expiresIn: any = rawValidity && isValidJwtExpiresIn(rawValidity) ? rawVali
     },
     ConfigService,
   ],
-  controllers: [AuthController, HiveIDController],
+  controllers: [AuthController, HiveIDController, JwksController],
   exports: [AuthService, HiveIDService, TrackerTokenService, RefreshTokenService],
 })
 export class AuthModule implements NestModule {

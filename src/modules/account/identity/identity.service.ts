@@ -22,6 +22,7 @@
  * authenticate anything else.
  */
 import { ForbiddenException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { verifyJwt } from 'src/common/auth/verifyJwt';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
@@ -194,7 +195,7 @@ export class IdentityService {
     if (!token) throw new UnauthorizedException('Missing token');
     let claims: any;
     try {
-      claims = await this.jwtService.verifyAsync(token);
+      claims = await verifyJwt(this.jwtService, token);
     } catch {
       throw new UnauthorizedException('Invalid or expired verification token');
     }

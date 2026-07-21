@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { AUDIENCE_KEY, AudienceClaim } from '../decorators/audience.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { verifyJwt } from 'src/common/auth/verifyJwt';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 
@@ -38,9 +39,7 @@ export class AuthGuard implements CanActivate {
 
     let payload: any;
     try {
-      payload = await this.jwtService.verifyAsync(token, {
-        secret: process.env.JWT_SECRET,
-      });
+      payload = await verifyJwt(this.jwtService, token);
     } catch (err: any) {
       const tokenPreview = token ? `"${token.substring(0, 20)}..."` : String(token);
       Logger.warn(`JWT rejected: ${err?.name || 'unknown'} — token: ${tokenPreview}`, 'AuthGuard');
