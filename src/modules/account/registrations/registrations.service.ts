@@ -14,7 +14,7 @@
  * + reject/waitlist go TMX ↔ declarations directly.
  */
 import { BadRequestException, ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { tools } from 'tods-competition-factory';
+import { sanctioningEngine, tools } from 'tods-competition-factory';
 
 import { type RegistrationEntry } from 'src/storage/interfaces';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
@@ -23,6 +23,7 @@ import { AuditService } from '../../audit/audit.service';
 import { CANONICAL_PERSON } from '../auth/hiveid.constants';
 import { canMutateTournament } from '../../factory/helpers/checkTournamentAccess';
 import { executionQueue as runExecutionQueue } from '../../factory/functions/private/executionQueue';
+import { SanctioningClient, SanctioningRecordSnapshot } from '../sanctioning/sanctioning-client.service';
 import { DeclarationsClient } from '../declarations/declarations-client.service';
 import { PersonsClient } from '../persons/persons-client.service';
 import type { UserContext } from '../auth/decorators/user-context.decorator';
@@ -48,6 +49,7 @@ export class RegistrationsService {
     private readonly auditService: AuditService,
     private readonly declarationsClient: DeclarationsClient,
     private readonly personsClient: PersonsClient,
+    private readonly sanctioningClient: SanctioningClient,
   ) {}
 
   // -------------------------------------------------------------------
@@ -58,6 +60,10 @@ export class RegistrationsService {
   // -------------------------------------------------------------------
 
   async acceptRegistration(ctx: AdminActionContext): Promise<{ registration: RegistrationEntry; participantId: string }> {
+    // Lazy-activate (CA-locked trigger): the first accept for a sanctioning-originated
+    // tournament materializes + persists its tournamentRecord from the approved proposal
+    // before addParticipants. No-op once the record exists.
+    await this.ensureActivated(ctx);
     const { tournamentRecord } = await this.assertAdminAccess(ctx.userContext, ctx.tournamentId);
     if (!ctx.registrationId) throw new BadRequestException('registrationId is required');
 
@@ -158,6 +164,50 @@ export class RegistrationsService {
   //  Helpers
   // -------------------------------------------------------------------
 
+  /**
+   * Lazy-activate a sanctioning-originated tournament on first accept: if the
+   * tournamentRecord does not exist yet, pull the approved proposal from AMS
+   * (service token), run the factory `activateFromSanctioning` (reusing the
+   * pre-assigned tournamentId + stable eventIds), and persist it. Idempotent —
+   * an existing record short-circuits. Absent proposal → no-op (assertAdminAccess
+   * then surfaces the "Tournament not found" 404).
+   */
+  private async ensureActivated(ctx: AdminActionContext): Promise<void> {
+    if (!ctx.userContext) throw new UnauthorizedException();
+    if (!ctx.tournamentId) throw new BadRequestException('tournamentId is required');
+
+    const existing = await this.tournamentStorageService.findTournamentRecord({ tournamentId: ctx.tournamentId });
+    if (existing?.tournamentRecord) return;
+
+    const sanctioningRecord = await this.sanctioningClient.getRecordByTournamentId(ctx.tournamentId);
+    if (!sanctioningRecord) return; // nothing to activate from — let assertAdminAccess 404
+
+    // Activation is authorized against the proposal's provider (the tournamentRecord
+    // doesn't exist yet, so canMutateTournament can't gate it).
+    const provider = sanctioningRecord.governingBody?.organisationId ?? sanctioningRecord.governingBodyId ?? '';
+    if (!canActivateForProvider(ctx.userContext, provider)) {
+      throw new ForbiddenException('Not authorised to activate this tournament');
+    }
+
+    const activated = activateSanctioning(sanctioningRecord);
+    if (!activated?.tournamentRecord) {
+      throw new BadRequestException(
+        `Could not activate tournament from sanctioning record: ${activated?.error ?? 'unknown error'}`,
+      );
+    }
+
+    const saveResult: any = await this.tournamentStorageService.saveTournamentRecord({
+      tournamentRecord: activated.tournamentRecord,
+      userId: ctx.userContext.userId,
+    });
+    if (saveResult?.error) {
+      throw new BadRequestException(`Failed to persist activated tournament: ${saveResult.error}`);
+    }
+    this.logger.log(
+      `lazy-activated tournamentRecord ${ctx.tournamentId} from sanctioning ${sanctioningRecord.sanctioningId} on first accept`,
+    );
+  }
+
   private async assertAdminAccess(
     userContext: UserContext | undefined,
     tournamentId: string,
@@ -172,6 +222,30 @@ export class RegistrationsService {
     }
     return { tournamentRecord };
   }
+}
+
+// Authorize lazy-activation against the proposal's provider (super-admin, a direct
+// provider role, or a provisioner-managed provider). Mirrors the provider dimension
+// of canMutateTournament, since no tournamentRecord exists yet to gate against.
+function canActivateForProvider(userContext: UserContext, provider: string): boolean {
+  if (userContext.isSuperAdmin) return true;
+  if (!provider) return false;
+  if (userContext.providerIds?.includes(provider)) return true;
+  return !!userContext.provisionerProviderIds?.includes(provider);
+}
+
+// Run the factory `activateFromSanctioning` via the sanctioningEngine. The engine is a
+// module-level singleton (not per-request isolated like the tournament mutation engine),
+// so the reset→setState→activate→reset sequence is kept strictly SYNCHRONOUS — no awaits —
+// making it atomic under Node's single thread. Callers await the fetch/save AROUND it.
+function activateSanctioning(sanctioningRecord: SanctioningRecordSnapshot): { tournamentRecord?: any; error?: any } {
+  const engine = sanctioningEngine as any;
+  engine.reset();
+  engine.setState({ [sanctioningRecord.sanctioningId]: sanctioningRecord });
+  engine.setActiveSanctioningId(sanctioningRecord.sanctioningId);
+  const result = engine.activateFromSanctioning({});
+  engine.reset();
+  return result ?? {};
 }
 
 // Map a declarations registration's `eventIds` onto the activated tournamentRecord's

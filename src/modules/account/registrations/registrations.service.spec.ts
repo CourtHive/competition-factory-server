@@ -1,3 +1,5 @@
+import { sanctioningEngine } from 'tods-competition-factory';
+
 import { RegistrationsService } from './registrations.service';
 
 jest.mock('../../factory/functions/private/executionQueue', () => ({
@@ -14,6 +16,7 @@ describe('RegistrationsService', () => {
   let auditService: any;
   let declarationsClient: any;
   let personsClient: any;
+  let sanctioningClient: any;
 
   const NOW = new Date('2026-06-01T12:00:00Z');
 
@@ -21,6 +24,7 @@ describe('RegistrationsService', () => {
     jest.useFakeTimers().setSystemTime(NOW);
     tournamentStorageService = {
       findTournamentRecord: jest.fn(),
+      saveTournamentRecord: jest.fn().mockResolvedValue({ success: true }),
     };
     assignmentsService = {
       getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set<string>()),
@@ -35,12 +39,16 @@ describe('RegistrationsService', () => {
     personsClient = {
       getById: jest.fn().mockResolvedValue(null),
     };
+    sanctioningClient = {
+      getRecordByTournamentId: jest.fn().mockResolvedValue(null),
+    };
     service = new RegistrationsService(
       tournamentStorageService,
       assignmentsService,
       auditService,
       declarationsClient,
       personsClient,
+      sanctioningClient,
     );
   });
 
@@ -174,6 +182,89 @@ describe('RegistrationsService', () => {
         const methods = mockExecutionQueue.mock.calls[0][0].methods;
         expect(methods.slice(1).map((m: any) => m.params.eventId)).toEqual(['e-1']);
         expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('ghost-event'));
+      });
+    });
+
+    describe('lazy-activation on first accept', () => {
+      const baseTournament = {
+        tournamentId: 't-1',
+        parentOrganisation: { organisationId: 'prov-1' },
+        events: [{ eventId: 'e-1', eventName: "Men's Singles" }],
+      };
+      const sanctioningRecord = {
+        sanctioningId: 'sanc-1',
+        status: 'APPROVED',
+        governingBody: { organisationId: 'prov-1' },
+        governingBodyId: 'prov-1',
+        proposal: { tournamentId: 't-1', events: [{ eventId: 'e-1', eventName: "Men's Singles" }] },
+      };
+      let activateSpy: jest.SpyInstance;
+
+      beforeEach(() => {
+        declarationsClient.getRegistration.mockResolvedValue({
+          personId: 'p-canon',
+          providerId: 'prov-1',
+          tournamentId: 't-1',
+          status: 'SUBMITTED',
+          payload: { eventIds: ['e-1'], applicant: { givenName: 'Jane', familyName: 'Doe' } },
+          updatedAt: '2026-06-01T00:00:00Z',
+        });
+        // Keep the sanctioningEngine singleton untouched — only assert it's invoked.
+        activateSpy = jest
+          .spyOn(sanctioningEngine as any, 'activateFromSanctioning')
+          .mockReturnValue({ tournamentRecord: baseTournament });
+        jest.spyOn(sanctioningEngine as any, 'reset').mockImplementation(() => undefined);
+        jest.spyOn(sanctioningEngine as any, 'setState').mockImplementation(() => undefined);
+        jest.spyOn(sanctioningEngine as any, 'setActiveSanctioningId').mockImplementation(() => undefined);
+      });
+
+      afterEach(() => jest.restoreAllMocks());
+
+      it('skips activation when the tournamentRecord already exists', async () => {
+        tournamentStorageService.findTournamentRecord.mockResolvedValue({ tournamentRecord: baseTournament });
+        await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
+        expect(sanctioningClient.getRecordByTournamentId).not.toHaveBeenCalled();
+        expect(tournamentStorageService.saveTournamentRecord).not.toHaveBeenCalled();
+      });
+
+      it('does not activate (→ 404) when the record is absent and no proposal exists', async () => {
+        tournamentStorageService.findTournamentRecord.mockResolvedValue({ tournamentRecord: null });
+        sanctioningClient.getRecordByTournamentId.mockResolvedValue(null);
+        await expect(
+          service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' }),
+        ).rejects.toThrow(/Tournament not found/);
+        expect(activateSpy).not.toHaveBeenCalled();
+      });
+
+      it('activates + persists from the approved proposal on first accept (authorized), then proceeds', async () => {
+        tournamentStorageService.findTournamentRecord
+          .mockResolvedValueOnce({ tournamentRecord: null }) // ensureActivated: absent
+          .mockResolvedValue({ tournamentRecord: baseTournament }); // assertAdminAccess + rest
+        sanctioningClient.getRecordByTournamentId.mockResolvedValue(sanctioningRecord);
+        personsClient.getById.mockResolvedValue({ person: { standardGivenName: 'Jane', standardFamilyName: 'Doe' } });
+
+        await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
+
+        expect(activateSpy).toHaveBeenCalled();
+        expect(tournamentStorageService.saveTournamentRecord).toHaveBeenCalledWith(
+          expect.objectContaining({ tournamentRecord: baseTournament }),
+        );
+        expect(mockExecutionQueue).toHaveBeenCalled(); // accept proceeded on the activated record
+      });
+
+      it('rejects activation when the caller is not authorised for the proposal provider', async () => {
+        tournamentStorageService.findTournamentRecord.mockResolvedValue({ tournamentRecord: null });
+        sanctioningClient.getRecordByTournamentId.mockResolvedValue({
+          ...sanctioningRecord,
+          governingBody: { organisationId: 'other-prov' },
+          governingBodyId: 'other-prov',
+        });
+        const scopedUser = { ...adminUserContext, isSuperAdmin: false, providerIds: ['prov-1'], provisionerProviderIds: [] };
+        await expect(
+          service.acceptRegistration({ userContext: scopedUser, tournamentId: 't-1', registrationId: 'r-1' }),
+        ).rejects.toThrow(/Not authorised to activate/);
+        expect(activateSpy).not.toHaveBeenCalled();
+        expect(tournamentStorageService.saveTournamentRecord).not.toHaveBeenCalled();
       });
     });
   });
