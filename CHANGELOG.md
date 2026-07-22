@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.20.0](https://github.com/CourtHive/competition-factory-server/compare/v2.19.0...v2.20.0) (2026-07-22)
+
+
+### Features
+
+* **auth:** collect birth date + sex + provider on hiveid signup to mint or dedupe a person ([77fa09f](https://github.com/CourtHive/competition-factory-server/commit/77fa09f6f870b822cc2931c8c855563eef46e966))
+* **auth:** mint scoped score token for hiveid crowd scorers ([bdde5a7](https://github.com/CourtHive/competition-factory-server/commit/bdde5a787535638f09c753fd450e03ec4d4942b0))
+* **broadcast:** opaque facilityScheduleChanged fan-out to linked facility peers ([5b35987](https://github.com/CourtHive/competition-factory-server/commit/5b359870a1a57b82e262dcb6d42170d0b4d1612e))
+* **broadcast:** opaque facilityScheduleChanged fan-out to linked facility peers ([e8c5687](https://github.com/CourtHive/competition-factory-server/commit/e8c5687c24b0069033a0e862d72d8fa33ab4c8f4))
+* **declarations:** availability pull endpoint + declarations client ([d67edc3](https://github.com/CourtHive/competition-factory-server/commit/d67edc398364a0f15cbf91a4dc2c5553803efdb1))
+* **declarations:** client getRegistration(declarationId) for the accept read ([ca96a51](https://github.com/CourtHive/competition-factory-server/commit/ca96a51af855f55934e1225f176e0f0f165ac35d))
+* **declarations:** client methods to list + transition registrations ([ada108a](https://github.com/CourtHive/competition-factory-server/commit/ada108a6a9a09d07ef9fc20e76bb946104f5c852))
+* dual-accept es256 token verification + jwks endpoint ([a83d29f](https://github.com/CourtHive/competition-factory-server/commit/a83d29f9b37da104a53a34d04acdb1f49b48ec28))
+* **factory:** coordination-view schedule projection with access flag ([2930b25](https://github.com/CourtHive/competition-factory-server/commit/2930b25acf0aa492b317e7dfbd5df52f92ab7d00))
+* **factory:** coordination-view schedule projection with access flag ([d296668](https://github.com/CourtHive/competition-factory-server/commit/d296668b884ca899a755d978381459871b5247d6))
+* flag-gated es256 signer + hs256-drop toggle (jwt migration steps 3-4) ([b16cf62](https://github.com/CourtHive/competition-factory-server/commit/b16cf627fd5fd5d61f7fade00e19b1e99fcdc814))
+* **hiveid:** let a public user edit an unverified contact email ([10d4fb4](https://github.com/CourtHive/competition-factory-server/commit/10d4fb48e35a15169da39fa963c4259506694143))
+* **registrations:** accept reads from declarations, off-CFS status ([fbb4563](https://github.com/CourtHive/competition-factory-server/commit/fbb4563868bdd433bb506e90f564200c04ec8361))
+* **registrations:** bulk accept in one executionQueue + accept-pair path ([ba56eeb](https://github.com/CourtHive/competition-factory-server/commit/ba56eebd6c54bc667741abd1645bcdaf1f9d647e))
+* **registrations:** lazy-activate tournamentRecord from sanctioning on first accept ([2c9d390](https://github.com/CourtHive/competition-factory-server/commit/2c9d39053c85ade585d038b877ec83dbf67d7252))
+* **registrations:** resolve accepted events by stable id, warn on unresolved drop ([473b342](https://github.com/CourtHive/competition-factory-server/commit/473b3422b84545bca8f78d25a89b4ac398ca2984))
+
+
+### Bug Fixes
+
+* **declarations:** default declarations base url to port 3120 ([6ad6238](https://github.com/CourtHive/competition-factory-server/commit/6ad62381da857f83c74c85cec3b696c5b85ec454))
+* **deps:** override brace-expansion to patched versions to clear audit ([79a4814](https://github.com/CourtHive/competition-factory-server/commit/79a481449f68916f0bf00dcd9a3c0cb479a63efe))
+* **deps:** update tods-competition-factory to 6.10.0 ([e9bd6ee](https://github.com/CourtHive/competition-factory-server/commit/e9bd6eed1a955da94e558fb3b626d6f7a054a22e))
+* **deps:** update tods-competition-factory to 6.11.0 ([52898aa](https://github.com/CourtHive/competition-factory-server/commit/52898aafc0800458e869de180a43621c35361573))
+* **hiveid:** give the dev test super-admin a userId so its /me surface works ([7218af9](https://github.com/CourtHive/competition-factory-server/commit/7218af966301403a0937b7d4ccaa4b31c1f67514))
+* **registrations:** set participantRole competitor on accepted participants ([44cd840](https://github.com/CourtHive/competition-factory-server/commit/44cd8407eef6e1126a3e3923775225ffb8e2ce63))
+
 ## [2.19.0](https://github.com/CourtHive/competition-factory-server/compare/v2.18.0...v2.19.0) (2026-07-14)
 
 
