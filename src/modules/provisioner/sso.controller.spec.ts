@@ -1,3 +1,4 @@
+import { SplitTokenSigner } from 'src/services/split-token-signer.service';
 import { SsoController } from './sso.controller';
 
 function makeMockSsoTokenService() {
@@ -69,10 +70,13 @@ describe('SsoController', () => {
     const provisionerProviderStorage: any = { findByProvisioner: jest.fn().mockResolvedValue([]) };
     const refreshTokenService: any = { issue: jest.fn().mockResolvedValue('rtok_sso') };
 
+    // HIVEID_BASE_URL unset → SplitTokenSigner signs locally via the mock
+    // jwtService (returns 'mock-jwt-token'), so accessToken assertions are unchanged.
     controller = new SsoController(
       ssoTokenService as any,
       jwtService as any,
       refreshTokenService,
+      new SplitTokenSigner(),
       ssoIdentityStorage as any,
       userStorage as any,
       userProviderStorage as any,

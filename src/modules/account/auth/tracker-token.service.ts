@@ -17,7 +17,7 @@
  * mint here AND has a non-expired signature there will be accepted.
  */
 import { ForbiddenException, Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
-import { signJwt } from 'src/common/auth/signJwt';
+import { SplitTokenSigner } from 'src/services/split-token-signer.service';
 import { JwtService } from '@nestjs/jwt';
 
 import { AuditService } from '../../audit/audit.service';
@@ -81,6 +81,7 @@ export class TrackerTokenService {
     private readonly jwtService: JwtService,
     private readonly tournamentStorageService: TournamentStorageService,
     private readonly auditService: AuditService,
+    private readonly splitTokenSigner: SplitTokenSigner,
   ) {}
 
   async mintTrackerToken(
@@ -111,12 +112,14 @@ export class TrackerTokenService {
     // options. The AuthModule registers a global signOptions.expiresIn
     // ('2h' from JWT_VALIDITY env), so we MUST NOT put `exp` in the
     // payload — instead override expiresIn at the call site with our
-    // variable TTL. `expiresAt` in the response is derived from our
-    // own `exp` value, which matches what jsonwebtoken will stamp.
-    const token = await signJwt(this.jwtService, 
-      { sub, aud: 'score', tournamentId, iat: now },
-      { expiresIn: ttlSeconds },
-    );
+    // variable TTL. `expiresAt` in the response is derived from our own
+    // `exp` value. Signing is delegated to SplitTokenSigner: local (dev/
+    // pre-cutover) it signs in-process; post-cutover it calls the IdP mint.
+    const token = await this.splitTokenSigner.mint(this.jwtService, {
+      claims: { sub, tournamentId, iat: now },
+      audience: 'score',
+      expiresInSeconds: ttlSeconds,
+    });
 
     const expiresAt = new Date(exp * 1000).toISOString();
 
@@ -175,10 +178,9 @@ export class TrackerTokenService {
     const sub = user.providerId ? `provider:${user.providerId}` : user.userId ?? 'unknown';
     const now = Math.floor(Date.now() / 1000);
     const exp = now + ttlSeconds;
-    const token = await signJwt(this.jwtService, 
-      {
+    const token = await this.splitTokenSigner.mint(this.jwtService, {
+      claims: {
         sub,
-        aud: 'provider',
         tournamentId,
         providerId: user.providerId,
         personId,
@@ -186,8 +188,9 @@ export class TrackerTokenService {
         email_verified: params.verified === true,
         iat: now,
       },
-      { expiresIn: ttlSeconds },
-    );
+      audience: 'provider',
+      expiresInSeconds: ttlSeconds,
+    });
     const expiresAt = new Date(exp * 1000).toISOString();
 
     try {
@@ -232,10 +235,9 @@ export class TrackerTokenService {
     const sub = identity.userId ?? 'unknown';
     const now = Math.floor(Date.now() / 1000);
     const exp = now + ttlSeconds;
-    const token = await signJwt(this.jwtService, 
-      {
+    const token = await this.splitTokenSigner.mint(this.jwtService, {
+      claims: {
         sub,
-        aud: 'score',
         tournamentId,
         matchUpId,
         personId,
@@ -243,8 +245,9 @@ export class TrackerTokenService {
         email_verified: identity.verified === true,
         iat: now,
       },
-      { expiresIn: ttlSeconds },
-    );
+      audience: 'score',
+      expiresInSeconds: ttlSeconds,
+    });
     const expiresAt = new Date(exp * 1000).toISOString();
 
     try {
