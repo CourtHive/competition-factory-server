@@ -20,7 +20,7 @@ import { type RegistrationEntry } from 'src/storage/interfaces';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { AssignmentsService } from '../../factory/assignments.service';
 import { AuditService } from '../../audit/audit.service';
-import { CANONICAL_PERSON } from '../auth/hiveid.constants';
+import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
 import { canMutateTournament } from '../../factory/helpers/checkTournamentAccess';
 import { executionQueue as runExecutionQueue } from '../../factory/functions/private/executionQueue';
 import { SanctioningClient, SanctioningRecordSnapshot } from '../sanctioning/sanctioning-client.service';
