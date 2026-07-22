@@ -6,7 +6,7 @@
  */
 import { translateAvailabilityToPersonRequests } from 'tods-competition-factory';
 
-import { CANONICAL_PERSON } from '../auth/hiveid.constants';
+import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
 
 // A tournament realistically spans days, not years. Cap enumeration so a
 // malformed date range can never produce a runaway loop.
