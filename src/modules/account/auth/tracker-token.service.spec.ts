@@ -10,6 +10,7 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
+import { SplitTokenSigner } from 'src/services/split-token-signer.service';
 import { TrackerTokenService } from './tracker-token.service';
 
 jest.mock('src/common/constants/feature-flags', () => ({
@@ -63,7 +64,9 @@ describe('TrackerTokenService', () => {
     mockAuditService = {
       recordTrackerTokenIssued: jest.fn().mockResolvedValue(undefined),
     };
-    service = new TrackerTokenService(mockJwtService, mockTournamentStorage, mockAuditService);
+    // HIVEID_BASE_URL unset → SplitTokenSigner mints locally via mockJwtService,
+    // so the token shape + assertions below are identical to pre-Increment-4.
+    service = new TrackerTokenService(mockJwtService, mockTournamentStorage, mockAuditService, new SplitTokenSigner());
   });
 
   // Sentinel: if a future change puts `exp` directly into the JWT

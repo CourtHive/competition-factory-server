@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Inject, Logger, Post, Req, UseGuards } from '@nestjs/common';
+import { SplitTokenSigner } from 'src/services/split-token-signer.service';
 import { Public } from '../account/auth/decorators/public.decorator';
-import { signJwt } from 'src/common/auth/signJwt';
 import { RefreshTokenService } from 'src/services/refresh-token.service';
 import { ProvisionerGuard } from './provisioner.guard';
 import { SsoTokenService } from './sso-token.service';
@@ -28,6 +28,7 @@ export class SsoController {
     private readonly ssoTokenService: SsoTokenService,
     private readonly jwtService: JwtService,
     private readonly refreshTokenService: RefreshTokenService,
+    private readonly splitTokenSigner: SplitTokenSigner,
     @Inject(SSO_IDENTITY_STORAGE) private readonly ssoIdentityStorage: ISsoIdentityStorage,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
@@ -109,11 +110,18 @@ export class SsoController {
     const userDetails = { ...user };
     delete userDetails.password;
     const jwtPayload = { ...userDetails, providerIds: userContext.providerIds, providerRoles: userContext.providerRoles };
-    // Match the direct-login access-token lifetime (auth.service.ts ACCESS_TOKEN_TTL).
-    // Without this override the SSO session would inherit the JwtModule default
-    // (JWT_VALIDITY, '2h' in prod). The short lifetime is fine because the
-    // refresh token below keeps the session alive silently.
-    const accessToken = await signJwt(this.jwtService, jwtPayload, { expiresIn: '4h' });
+    // Match the direct-login access-token lifetime (auth.service.ts ACCESS_TOKEN_TTL
+    // = 4h) and its `aud: 'admin'` session audience — a bare session token is
+    // treated as 'admin' at every verifier, so this is behaviorally identical and
+    // more explicit. Signing is delegated to the IdP via SplitTokenSigner (local
+    // in-process pre-cutover): the SSO handoff is the second session-issuer flagged
+    // in ACCOUNT_SERVICE_BOUNDARY, now keyless like every other mint site. The
+    // refresh token below keeps the session alive silently past the 4h access TTL.
+    const accessToken = await this.splitTokenSigner.mint(this.jwtService, {
+      claims: jwtPayload,
+      audience: 'admin',
+      expiresInSeconds: 14400,
+    });
 
     // Mint a rotating refresh token so SSO-handoff sessions refresh silently
     // just like password logins (POST /auth/refresh) instead of forcing a new

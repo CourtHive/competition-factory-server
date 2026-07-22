@@ -13,6 +13,7 @@ import { AuthMiddleware } from './auth.middleware';
 import { AuthGuard } from './guards/auth.guard';
 import { AuthService } from './auth.service';
 import { RefreshTokenService } from 'src/services/refresh-token.service';
+import { SplitTokenSigner } from 'src/services/split-token-signer.service';
 import { JwksController } from './crypto/jwks.controller';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -45,6 +46,7 @@ const expiresIn: any = rawValidity && isValidJwtExpiresIn(rawValidity) ? rawVali
     HiveIDService,
     TrackerTokenService,
     RefreshTokenService,
+    SplitTokenSigner,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,

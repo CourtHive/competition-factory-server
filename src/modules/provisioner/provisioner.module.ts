@@ -8,6 +8,7 @@ import { SsoTokenService } from './sso-token.service';
 import { SsoController } from './sso.controller';
 import { AuditModule } from '../audit/audit.module';
 import { RefreshTokenService } from 'src/services/refresh-token.service';
+import { SplitTokenSigner } from 'src/services/split-token-signer.service';
 
 @Module({
   imports: [AuditModule],
@@ -20,7 +21,8 @@ import { RefreshTokenService } from 'src/services/refresh-token.service';
   // RefreshTokenService is a stateless helper over the global
   // REFRESH_TOKEN_STORAGE; providing it here (rather than importing AuthModule,
   // which configures middleware) avoids cross-module middleware coupling.
-  providers: [ProvisionerService, SsoTokenService, RefreshTokenService],
+  // SplitTokenSigner is the keyless IdP mint client the SSO handoff signs through.
+  providers: [ProvisionerService, SsoTokenService, RefreshTokenService, SplitTokenSigner],
 })
 export class ProvisionerModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
