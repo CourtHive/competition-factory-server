@@ -23,9 +23,6 @@
     ".": {
       "package-name": "competition-factory-server",
       "include-component-in-tag": false
-    },
-    "audit-worker": {
-      "package-name": "audit-worker"
     }
   }
 }
