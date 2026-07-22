@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { PersonsClientModule } from '../persons/persons-client.module';
 import { IdentityModule } from '../identity/identity.module';
 import { ConfigsModule } from 'src/config/config.module';
@@ -8,19 +8,27 @@ import { UsersModule } from '../../users/users.module';
 import { HiveIDController } from './hiveid.controller';
 import { AuthController } from './auth.controller';
 import { HiveIDService } from './hiveid.service';
-import { TrackerTokenService } from './tracker-token.service';
-import { AuthMiddleware } from './auth.middleware';
-import { AuthGuard } from './guards/auth.guard';
 import { AuthService } from './auth.service';
 import { RefreshTokenService } from 'src/services/refresh-token.service';
-import { SplitTokenSigner } from 'src/services/split-token-signer.service';
-import { JwksController } from './crypto/jwks.controller';
 import { ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 
+// AuthModule — the MOVE session + HiveID-signup surface that lifts out to the IdP.
+//
+// The verify-only infra (global AuthGuard, AuthMiddleware, JWKS) and the SPLIT
+// relay-token service (TrackerTokenService + SplitTokenSigner) moved to
+// TournamentAuthModule (the survivor) so this module can be dropped WHOLESALE at
+// the nginx cutover. The global AuthGuard + AuthMiddleware this module's own
+// routes rely on are provided app-wide by TournamentAuthModule.
+//
+// The global JwtModule stays registered HERE for now: dropping it broke specs
+// that import AccountModule standalone (IdentityService needs JwtService), and a
+// second global registration in TournamentAuthModule risks a duplicate-provider
+// clash. TournamentAuthModule relies on this global registration in coexistence.
+// ⚠ DROP-STEP: when AccountModule is removed at the nginx cutover, MOVE this
+// JwtModule.register block into TournamentAuthModule (ACCOUNT_MOVE_PHASE3_EXECUTION_PLAN.md §C/§D).
+
 function isValidJwtExpiresIn(val: string): boolean {
-  // Only allow numbers or numbers with single unit: s, m, h, d, w, M, y
   return /^(\d+|(\d+)([smhdwMy]))$/.test(val);
 }
 
@@ -35,29 +43,10 @@ const expiresIn: any = rawValidity && isValidJwtExpiresIn(rawValidity) ? rawVali
     IdentityModule,
     AuditModule,
     PersonsClientModule,
-    JwtModule.register({
-      signOptions: { expiresIn },
-      secret: process.env.JWT_SECRET,
-      global: true,
-    }),
+    JwtModule.register({ signOptions: { expiresIn }, secret: process.env.JWT_SECRET, global: true }),
   ],
-  providers: [
-    AuthService,
-    HiveIDService,
-    TrackerTokenService,
-    RefreshTokenService,
-    SplitTokenSigner,
-    {
-      provide: APP_GUARD,
-      useClass: AuthGuard,
-    },
-    ConfigService,
-  ],
-  controllers: [AuthController, HiveIDController, JwksController],
-  exports: [AuthService, HiveIDService, TrackerTokenService, RefreshTokenService],
+  providers: [AuthService, HiveIDService, RefreshTokenService, ConfigService],
+  controllers: [AuthController, HiveIDController],
+  exports: [AuthService, HiveIDService, RefreshTokenService],
 })
-export class AuthModule implements NestModule {
-  configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(AuthMiddleware).forRoutes('*');
-  }
-}
+export class AuthModule {}

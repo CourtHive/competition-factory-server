@@ -9,7 +9,8 @@ import {
   type IProvisionerProviderStorage,
 } from 'src/storage/interfaces';
 import { buildUserContext } from './helpers/buildUserContext';
-import { AuthService } from './auth.service';
+import { verifyJwt } from 'src/common/auth/verifyJwt';
+import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../../users/users.service';
 
 /**
@@ -27,7 +28,7 @@ function tokenHasAdminAudience(aud: unknown): boolean {
 @Injectable()
 export class AuthMiddleware implements NestMiddleware {
   constructor(
-    private readonly authService: AuthService,
+    private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
     @Inject(USER_PROVISIONER_STORAGE) private readonly userProvisionerStorage: IUserProvisionerStorage,
@@ -46,7 +47,7 @@ export class AuthMiddleware implements NestMiddleware {
       const parts = req.headers.authorization.split(' ');
       if (parts[1]) {
         try {
-          jwtPayload = await this.authService.decode(parts[1]);
+          jwtPayload = await verifyJwt(this.jwtService, parts[1]);
         } catch {
           // Invalid/expired token — AuthGuard will handle the 401 response.
           // No need to log here; this is expected for stale client tokens.

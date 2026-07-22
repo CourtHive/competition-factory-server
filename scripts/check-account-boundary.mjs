@@ -43,8 +43,18 @@ const ALLOWED = [
   // Verify-side enforcement guards (paired with the decorators above)
   /^auth\/guards\/role\.guard$/,
   /^auth\/guards\/socket\.guard$/,
+  // Global request AuthGuard — verify-only, now owned by TournamentAuthModule
+  // (the Phase-3 survivor). Same exception class as the role/socket guards.
+  /^auth\/guards\/auth\.guard$/,
+  // JWT-verifying request middleware — verify-only (uses the neutral verifyJwt,
+  // not the MOVE AuthService); owned by TournamentAuthModule post-Phase-3.
+  /^auth\/auth\.middleware$/,
   // Identity hydration shared by the HTTP middleware + the WS gateway
   /^auth\/helpers\/buildUserContext$/,
+  // STAY tournament-admin module entrypoints re-parented to TournamentAdminModule
+  // (Phase-3 §2c). Physically still under account/ pending Phase-4 relocation.
+  /^registrations\/registrations\.module$/,
+  /^declarations\/declarations\.module$/,
 ];
 
 // import ... from '...'  |  export ... from '...'  |  require('...')  |  import('...')

@@ -1,15 +1,19 @@
 import { AuthMiddleware } from './auth.middleware';
 
+// The middleware verifies tokens via the neutral verifyJwt (no longer the MOVE
+// AuthService.decode), so we mock the function. verifyJwtMock stands in for the
+// former AuthService.decode — same behavioral assertions.
+jest.mock('src/common/auth/verifyJwt', () => ({ verifyJwt: jest.fn() }));
+import { verifyJwt } from 'src/common/auth/verifyJwt';
+const verifyJwtMock = verifyJwt as jest.Mock;
+
 describe('AuthMiddleware', () => {
   let middleware: AuthMiddleware;
-  let mockAuthService: any;
   let mockUsersService: any;
   let mockUserProviderStorage: any;
 
   beforeEach(() => {
-    mockAuthService = {
-      decode: jest.fn(),
-    };
+    verifyJwtMock.mockReset();
     mockUsersService = {
       findOne: jest.fn(),
     };
@@ -19,7 +23,7 @@ describe('AuthMiddleware', () => {
     const mockUserProvisionerStorage: any = { findProvisionerIdsByUser: jest.fn().mockResolvedValue([]) };
     const mockProvisionerProviderStorage: any = { findByProvisioner: jest.fn().mockResolvedValue([]) };
     middleware = new AuthMiddleware(
-      mockAuthService,
+      {} as any, // JwtService — unused; verifyJwt is mocked
       mockUsersService,
       mockUserProviderStorage,
       mockUserProvisionerStorage,
@@ -32,7 +36,7 @@ describe('AuthMiddleware', () => {
     const next = jest.fn();
     await middleware.use(req, {}, next);
     expect(next).toHaveBeenCalled();
-    expect(mockAuthService.decode).not.toHaveBeenCalled();
+    expect(verifyJwtMock).not.toHaveBeenCalled();
   });
 
   it('calls next without setting user when no authorization header', async () => {
@@ -45,7 +49,7 @@ describe('AuthMiddleware', () => {
 
   it('decodes token and sets user and userContext on request', async () => {
     const user = { email: 'test@test.com', userId: 'uuid-1', roles: ['admin'], providerId: 'prov-1' };
-    mockAuthService.decode.mockResolvedValue({ email: 'test@test.com' });
+    verifyJwtMock.mockResolvedValue({ email: 'test@test.com' });
     mockUsersService.findOne.mockResolvedValue(user);
     mockUserProviderStorage.findByUserId.mockResolvedValue([
       { userId: 'uuid-1', providerId: 'prov-1', providerRole: 'PROVIDER_ADMIN' },
@@ -55,7 +59,7 @@ describe('AuthMiddleware', () => {
     const next = jest.fn();
     await middleware.use(req, {}, next);
 
-    expect(mockAuthService.decode).toHaveBeenCalledWith('valid.token');
+    expect(verifyJwtMock).toHaveBeenCalledWith(expect.anything(), 'valid.token');
     expect(mockUsersService.findOne).toHaveBeenCalledWith('test@test.com');
     expect(req.user).toBe(user);
     expect(req.userContext).toBeDefined();
@@ -68,7 +72,7 @@ describe('AuthMiddleware', () => {
 
   it('falls back to legacy providerId when user_providers throws', async () => {
     const user = { email: 'test@test.com', userId: 'uuid-2', roles: ['client'], providerId: 'prov-2' };
-    mockAuthService.decode.mockResolvedValue({ email: 'test@test.com' });
+    verifyJwtMock.mockResolvedValue({ email: 'test@test.com' });
     mockUsersService.findOne.mockResolvedValue(user);
     mockUserProviderStorage.findByUserId.mockRejectedValue(new Error('requires Postgres'));
 
@@ -83,7 +87,7 @@ describe('AuthMiddleware', () => {
 
   it('hydrates multi-provider context', async () => {
     const user = { email: 'multi@test.com', userId: 'uuid-3', roles: ['client'] };
-    mockAuthService.decode.mockResolvedValue({ email: 'multi@test.com' });
+    verifyJwtMock.mockResolvedValue({ email: 'multi@test.com' });
     mockUsersService.findOne.mockResolvedValue(user);
     mockUserProviderStorage.findByUserId.mockResolvedValue([
       { userId: 'uuid-3', providerId: 'prov-a', providerRole: 'PROVIDER_ADMIN' },
@@ -113,7 +117,7 @@ describe('AuthMiddleware', () => {
       roles: ['client', 'admin', 'score'],
       providerId: 'prov-home',
     };
-    mockAuthService.decode.mockResolvedValue({ email: 'admin@test.com' });
+    verifyJwtMock.mockResolvedValue({ email: 'admin@test.com' });
     mockUsersService.findOne.mockResolvedValue(user);
     mockUserProviderStorage.findByUserId.mockResolvedValue([
       { userId: 'uuid-4', providerId: 'prov-home', providerRole: 'DIRECTOR' },
@@ -127,7 +131,7 @@ describe('AuthMiddleware', () => {
   });
 
   it('calls next without setting user when token decode fails', async () => {
-    mockAuthService.decode.mockRejectedValue(new Error('Invalid token'));
+    verifyJwtMock.mockRejectedValue(new Error('Invalid token'));
 
     const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer bad.token' } };
     const next = jest.fn();
@@ -138,7 +142,7 @@ describe('AuthMiddleware', () => {
   });
 
   it('calls next without setting user when decoded email is null', async () => {
-    mockAuthService.decode.mockResolvedValue({ email: null });
+    verifyJwtMock.mockResolvedValue({ email: null });
 
     const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer token' } };
     const next = jest.fn();
@@ -155,12 +159,12 @@ describe('AuthMiddleware', () => {
 
     expect(next).toHaveBeenCalled();
     // parts[1] is undefined, so decode shouldn't be called
-    expect(mockAuthService.decode).not.toHaveBeenCalled();
+    expect(verifyJwtMock).not.toHaveBeenCalled();
   });
 
   it('attaches req.user but skips userContext for pure hiveid tokens', async () => {
     const user = { email: 'jane@test.com', userId: 'uuid-h', roles: [], providerId: null };
-    mockAuthService.decode.mockResolvedValue({ email: 'jane@test.com', aud: 'hiveid' });
+    verifyJwtMock.mockResolvedValue({ email: 'jane@test.com', aud: 'hiveid' });
     mockUsersService.findOne.mockResolvedValue(user);
 
     const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer hiveid.token' } };
@@ -175,7 +179,7 @@ describe('AuthMiddleware', () => {
 
   it('hydrates userContext for admin+hiveid array audience tokens', async () => {
     const user = { email: 'admin@test.com', userId: 'uuid-ah', roles: ['client'], providerId: 'prov-a' };
-    mockAuthService.decode.mockResolvedValue({ email: 'admin@test.com', aud: ['admin', 'hiveid'] });
+    verifyJwtMock.mockResolvedValue({ email: 'admin@test.com', aud: ['admin', 'hiveid'] });
     mockUsersService.findOne.mockResolvedValue(user);
     mockUserProviderStorage.findByUserId.mockResolvedValue([
       { userId: 'uuid-ah', providerId: 'prov-a', providerRole: 'DIRECTOR' },
