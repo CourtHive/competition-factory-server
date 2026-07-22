@@ -13,15 +13,19 @@
  * boundary planning doc.
  */
 import { PersonsClientModule } from './persons/persons-client.module';
-import { RegistrationsModule } from './registrations/registrations.module';
-import { DeclarationsModule } from './declarations/declarations.module';
 import { IdentityModule } from './identity/identity.module';
 import { EmailModule } from './email/email.module';
 import { AuthModule } from './auth/auth.module';
 import { Module } from '@nestjs/common';
 
+// AccountModule is the MOVE surface (session auth + HiveID signup + identity +
+// email) that lifts out to the HiveID IdP. RegistrationsModule + DeclarationsModule
+// (STAY, tournament mutation-path) were re-parented to TournamentAdminModule; the
+// SPLIT relay-token + hiveid-tournament routes + verify infra to TournamentAuthModule.
+// At the nginx cutover, AppModule drops this import and CFS stops serving the MOVE
+// routes (ACCOUNT_MOVE_PHASE3_EXECUTION_PLAN.md §D).
 @Module({
-  imports: [AuthModule, EmailModule, IdentityModule, PersonsClientModule, RegistrationsModule, DeclarationsModule],
-  exports: [AuthModule, EmailModule, IdentityModule, PersonsClientModule, RegistrationsModule, DeclarationsModule],
+  imports: [AuthModule, EmailModule, IdentityModule, PersonsClientModule],
+  exports: [AuthModule, EmailModule, IdentityModule, PersonsClientModule],
 })
 export class AccountModule {}

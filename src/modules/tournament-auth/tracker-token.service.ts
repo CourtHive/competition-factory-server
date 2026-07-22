@@ -20,10 +20,10 @@ import { ForbiddenException, Injectable, NotFoundException, BadRequestException,
 import { SplitTokenSigner } from 'src/services/split-token-signer.service';
 import { JwtService } from '@nestjs/jwt';
 
-import { AuditService } from '../../audit/audit.service';
-import type { UserContext } from './decorators/user-context.decorator';
+import { AuditService } from '../audit/audit.service';
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
-import { canMutateTournament } from '../../factory/helpers/checkTournamentAccess';
+import { canMutateTournament } from '../factory/helpers/checkTournamentAccess';
 
 const DEFAULT_TTL_SECONDS = 3600;
 const MIN_TTL_SECONDS = 60;

@@ -27,6 +27,8 @@ import { AppController } from './app.controller';
 import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
 import { AccountModule } from '../account/account.module';
+import { TournamentAuthModule } from '../tournament-auth/tournament-auth.module';
+import { TournamentAdminModule } from '../tournament-admin/tournament-admin.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AppService } from './app.service';
 import { APP_GUARD } from '@nestjs/core';
@@ -61,6 +63,13 @@ const coreModules = [
   RankingsWebhookModule,
   RankingsProxyModule,
   UsersModule,
+  // TournamentAuthModule (SPLIT relay-token + hiveid-tournament routes + the
+  // global AuthGuard/AuthMiddleware/JWKS verify infra) and TournamentAdminModule
+  // (STAY registrations/declarations) are the Phase-3 survivors — CFS keeps them
+  // when AccountModule (the MOVE surface) is dropped at the nginx cutover. Loaded
+  // BEFORE AccountModule so the global JwtModule + AuthGuard are registered first.
+  TournamentAuthModule,
+  TournamentAdminModule,
   AccountModule,
   ConfigReadinessModule,
 ];

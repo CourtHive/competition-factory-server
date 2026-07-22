@@ -17,17 +17,12 @@ import { UserCtx, type UserContext } from './decorators/user-context.decorator';
 import { AdminCreateUserDto } from './dto/adminCreateUser.dto';
 import { ForgotPasswordDto } from './dto/forgotPassword.dto';
 import { ResetPasswordDto } from './dto/resetPassword.dto';
-import { ProviderScoringTokenDto } from './dto/providerScoringToken.dto';
-import { TrackerTokenDto } from './dto/trackerToken.dto';
-import { ScorerTokenDto } from './dto/scorerToken.dto';
-import { SUPER_ADMIN, CLIENT, SCORE } from 'src/common/constants/roles';
-import { Audience } from './decorators/audience.decorator';
+import { SUPER_ADMIN, CLIENT } from 'src/common/constants/roles';
 import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { User } from './decorators/user.decorator';
 import { ModifyUserDto } from './dto/modifyUser.dto';
 import { AuthService } from './auth.service';
-import { TrackerTokenService } from './tracker-token.service';
 import { Throttle } from '@nestjs/throttler';
 import { SignInDto } from './dto/signIn.dto';
 import { RemoveDto } from './dto/remove.dto';
@@ -45,101 +40,13 @@ const REFRESH_THROTTLE = { default: { limit: 30, ttl: 60_000 } }; // legitimatel
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly trackerTokenService: TrackerTokenService,
     @Inject(REFRESH_TOKEN_STORAGE) private readonly refreshTokenStorage: IRefreshTokenStorage,
   ) {}
 
-  /**
-   * POST /auth/tracker-token — mint a short-lived JWT scoped to a single
-   * tournament for use by external score publishers (notably IONSport).
-   *
-   * Provider API-key middleware grants SCORE; RolesGuard admits. The
-   * service runs canMutateTournament against the tournament's parent
-   * provider so the caller can only mint for tournaments it owns.
-   *
-   * Returns { token, expiresAt }. TTL defaults to 1h; max 8h.
-   */
-  @Post('tracker-token')
-  @Roles([SCORE, SUPER_ADMIN])
-  @HttpCode(HttpStatus.OK)
-  async mintTrackerToken(
-    @Body() body: TrackerTokenDto,
-    @User() user: any,
-    @UserCtx() userContext: UserContext,
-    @Req() req?: any,
-  ) {
-    return this.trackerTokenService.mintTrackerToken(
-      { tournamentId: body.tournamentId, ttlSeconds: body.ttlSeconds },
-      {
-        userId: user?.userId,
-        providerId: user?.providerId,
-        provisionerId: req?.provisioner?.provisionerId,
-      },
-      userContext,
-    );
-  }
-
-  /**
-   * POST /auth/provider-scoring-token — mint a `provider`-audience relay token
-   * so a provider's own client app (e.g. IONSport) can be a score-relay client.
-   * Same provider API-key + ownership gate as /auth/tracker-token; scoped to one
-   * tournament and carrying the provider-attested scorer identity.
-   */
-  @Post('provider-scoring-token')
-  @Roles([SCORE, SUPER_ADMIN])
-  @HttpCode(HttpStatus.OK)
-  async mintProviderScoringToken(
-    @Body() body: ProviderScoringTokenDto,
-    @User() user: any,
-    @UserCtx() userContext: UserContext,
-    @Req() req?: any,
-  ) {
-    return this.trackerTokenService.mintProviderScoringToken(
-      {
-        tournamentId: body.tournamentId,
-        personId: body.personId,
-        displayName: body.displayName,
-        verified: body.verified,
-        ttlSeconds: body.ttlSeconds,
-      },
-      {
-        userId: user?.userId,
-        providerId: user?.providerId,
-        provisionerId: req?.provisioner?.provisionerId,
-      },
-      userContext,
-    );
-  }
-
-  /**
-   * POST /auth/scorer-token — mint a short-lived `score`-audience relay token
-   * for the authenticated HiveID user so a launched external scorer (epixodic)
-   * relays crowd scores AS this person, instead of the full session JWT that
-   * used to travel in the launch URL. Gated on the caller's HiveID session
-   * (@Audience(['hiveid'])); the identity claims (personId, email_verified) are
-   * read from that session, never the body. No tournament-ownership check and
-   * no tournament-record read — a HiveID participant is not a provider and only
-   * asserts their own identity. The token grants nothing against CFS.
-   */
-  @Post('scorer-token')
-  @Audience(['hiveid'])
-  @Throttle(TOKEN_THROTTLE)
-  @HttpCode(HttpStatus.OK)
-  async mintScorerToken(@Body() body: ScorerTokenDto, @User() user: any) {
-    return this.trackerTokenService.mintScorerToken(
-      {
-        tournamentId: body.tournamentId,
-        matchUpId: body.matchUpId,
-        displayName: body.displayName,
-        ttlSeconds: body.ttlSeconds,
-      },
-      {
-        userId: user?.userId,
-        personId: user?.personId,
-        verified: user?.email_verified === true,
-      },
-    );
-  }
+  // The SPLIT relay-token mints (POST /auth/tracker-token, /provider-scoring-token,
+  // /scorer-token) moved to TournamentTokenController (tournament-auth) so they
+  // survive the Phase-3 AccountModule drop — they stay on CFS while the rest of
+  // /auth/* flips to the IdP (ACCOUNT_MOVE_PHASE3_EXECUTION_PLAN.md §B).
 
   /**
    * Returns the authenticated user's multi-provider context.

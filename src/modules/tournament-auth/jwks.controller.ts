@@ -1,6 +1,6 @@
 import { Controller, Get, Header } from '@nestjs/common';
 
-import { Public } from '../decorators/public.decorator';
+import { Public } from 'src/modules/account/auth/decorators/public.decorator';
 import { getJwks } from 'src/common/auth/jwtKeys';
 
 /**
