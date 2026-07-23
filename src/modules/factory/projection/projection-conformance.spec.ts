@@ -1,4 +1,4 @@
-import { mocksEngine, tournamentEngineAsync, factoryConstants } from 'tods-competition-factory';
+import { mocksEngine, tournamentEngineAsync, factoryConstants, readModel } from 'tods-competition-factory';
 
 import { buildProjectionDeltas } from './buildProjectionDeltas';
 import { buildRebuildIntents } from './rebuild';
@@ -70,7 +70,11 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     const records = { [tournamentId]: tournamentRecord };
 
     // REBUILD path: full projection from the final record.
-    const rebuildDeltas = await buildProjectionDeltas({ intents: buildRebuildIntents(tournamentRecord), tournamentRecords: records, flattenDraw });
+    const rebuildDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw,
+    });
 
     // INCREMENTAL path: the intents the producers accumulate over the tournament
     // lifecycle — draw flatten + a slim result update per completed matchUp +
@@ -80,14 +84,20 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       { kind: 'touchTournament', tournamentId },
       { kind: 'participants', tournamentId },
       ...tournamentRecord.events.flatMap((e: any) =>
-        (e.drawDefinitions ?? []).map((d: any) => ({ kind: 'flattenDraw', tournamentId, drawId: d.drawId }) as ProjectionIntent),
+        (e.drawDefinitions ?? []).map(
+          (d: any) => ({ kind: 'flattenDraw', tournamentId, drawId: d.drawId }) as ProjectionIntent,
+        ),
       ),
       ...flatMatchUps
         .filter((m: any) => m.winningSide || m.matchUpStatus)
         .map((m: any) => ({ kind: 'matchUpResult', tournamentId, matchUp: m }) as ProjectionIntent),
       { kind: 'claimPerson', tournamentId, participantId: claimed.participantId, personId: 'canon-conf' },
     ];
-    const incrementalDeltas = await buildProjectionDeltas({ intents: incrementalIntents, tournamentRecords: records, flattenDraw });
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: incrementalIntents,
+      tournamentRecords: records,
+      flattenDraw,
+    });
 
     const rebuilt = applyDeltas(rebuildDeltas);
     const incremental = applyDeltas(incrementalDeltas);
@@ -107,7 +117,9 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
   // ingest harvest/feed is gated on CA decisions D2/D3/D4b.
   it('an ITA-shaped team-tennis dual match projects TIE/RUBBER/team_id/doubles rows — and incremental ≡ rebuild', async () => {
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
-      drawProfiles: [{ drawSize: 2, eventType: factoryConstants.eventConstants.TEAM, tieFormatName: 'COLLEGE_DEFAULT' }],
+      drawProfiles: [
+        { drawSize: 2, eventType: factoryConstants.eventConstants.TEAM, tieFormatName: 'COLLEGE_DEFAULT' },
+      ],
       completeAllMatchUps: true,
     });
     const tournamentId = tournamentRecord.tournamentId;
@@ -115,7 +127,11 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     const flattenDraw = await flattenDrawOf(tournamentRecord);
     const records = { [tournamentId]: tournamentRecord };
 
-    const rebuildDeltas = await buildProjectionDeltas({ intents: buildRebuildIntents(tournamentRecord), tournamentRecords: records, flattenDraw });
+    const rebuildDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw,
+    });
 
     // incremental: draw flatten + a slim result per matchUp (team ties + rubbers).
     const teamMatchUps = await flattenDraw(tournamentId, drawId);
@@ -128,7 +144,11 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
         .filter((m: any) => m.winningSide || m.matchUpStatus)
         .map((m: any) => ({ kind: 'matchUpResult', tournamentId, matchUp: m }) as ProjectionIntent),
     ];
-    const incrementalDeltas = await buildProjectionDeltas({ intents: incrementalIntents, tournamentRecords: records, flattenDraw });
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: incrementalIntents,
+      tournamentRecords: records,
+      flattenDraw,
+    });
 
     const rebuilt = applyDeltas(rebuildDeltas);
     const incremental = applyDeltas(incrementalDeltas);
@@ -157,5 +177,53 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       expect(side1.length).toBe(2);
       expect(side1.every((c) => c.participant_type === 'PAIR')).toBe(true);
     }
+  });
+
+  // The anti-divergence capstone: the CFS incremental/rebuild producer and the
+  // factory `cast()` (full-record projection) now share the SAME read-model
+  // builders, so a from-scratch rebuild must equal cast() byte-for-byte. Uses a
+  // record with NO canonical self-claims so the CFS-only `claimPerson`
+  // reconciliation (which cast() intentionally does not do) stays empty.
+  it('CFS rebuild ≡ factory cast() (single source of truth, no divergence)', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [
+        { drawSize: 8, eventName: 'Singles' },
+        {
+          drawSize: 2,
+          eventType: factoryConstants.eventConstants.TEAM,
+          tieFormatName: 'COLLEGE_DEFAULT',
+          eventName: 'Teams',
+        },
+      ],
+      venueProfiles: [{ venueId: 'v1', venueName: 'Club', courtsCount: 4, idPrefix: 'v1c' }],
+      completeAllMatchUps: true,
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const flattenDraw = await flattenDrawOf(tournamentRecord);
+    const records = { [tournamentId]: tournamentRecord };
+
+    const rebuiltDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw,
+    });
+    const rebuilt = applyDeltas(rebuiltDeltas);
+
+    const castRows: any = readModel.cast({ tournamentRecord }).rows;
+    const castSnapshot = (table: string) =>
+      [...(castRows[table] ?? [])].sort((a: any, b: any) => keyString(table, a).localeCompare(keyString(table, b)));
+
+    for (const table of [
+      'tournaments',
+      'match_ups',
+      'match_up_competitors',
+      'entries',
+      'venues',
+      'tournament_venues',
+    ]) {
+      expect(snapshot(rebuilt, table)).toEqual(castSnapshot(table));
+    }
+    expect(castSnapshot('match_ups').length).toBeGreaterThan(0);
+    expect(castSnapshot('tournament_venues')).toEqual([{ tournament_id: tournamentId, venue_id: 'v1' }]);
   });
 });

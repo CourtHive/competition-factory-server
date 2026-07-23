@@ -1,7 +1,8 @@
+import { readModel } from 'tods-competition-factory';
+
 import { ProjectionDelta } from 'src/storage/interfaces/projection-outbox-storage.interface';
 
 import { ProjectionIntent } from './projectionTypes';
-import { entryRows, matchUpResultRow, matchUpRowSet, tournamentRow, venueRow, MatchUpRowContext } from './projectionRows';
 import {
   TABLE_TOURNAMENTS,
   TABLE_MATCH_UPS,
@@ -11,6 +12,20 @@ import {
   TABLE_TOURNAMENT_VENUES,
   LINK_CANONICAL,
 } from './projectionConstants';
+
+// Row builders + person/publish resolution come from the factory read-model
+// toolkit — the SINGLE source shared with cast() (no CFS-local copy). The
+// incremental producer stays per-draw; it just reuses the same row logic.
+const {
+  entryRows,
+  matchUpResultRow,
+  matchUpRowSet,
+  tournamentRow,
+  venueRow,
+  resolveMatchUpPublishState,
+  getEventPublishStatus,
+} = readModel;
+type MatchUpRowContext = readModel.MatchUpRowContext;
 
 export interface BuildDeltasArgs {
   intents: ProjectionIntent[];
@@ -108,19 +123,25 @@ function providerIdOf(records: Record<string, any>, tournamentId: string): strin
   return records?.[tournamentId]?.parentOrganisation?.organisationId;
 }
 
-// published flag for a draw, read from the event's PUBLISH.STATUS timeItem
-// (latest wins). Best-effort: unknown → false (visibility stored, not omission).
-function deriveDrawPublished(records: Record<string, any>, tournamentId: string, drawId: string): boolean {
-  const events = records?.[tournamentId]?.events ?? [];
-  const event = events.find((e: any) => (e?.drawDefinitions ?? []).some((d: any) => d?.drawId === drawId));
-  const statusItems = (event?.timeItems ?? []).filter((t: any) => t?.itemType === 'PUBLISH.STATUS');
-  const itemValue = statusItems.at(-1)?.itemValue?.PUBLIC;
-  if (!itemValue) return false;
-  const detail = itemValue.drawDetails?.[drawId]?.publishingDetail?.published;
-  return detail ?? !!itemValue.published;
+// The event's PUBLIC publish status (the `PUBLISH.STATUS` timeItem value),
+// cached per event within a flatten. Same source cast() uses, so the per-matchUp
+// publish INTENT + embargo resolve identically across both projection paths.
+function eventPublishStatus(record: any, cache: Map<string, any>, eventId?: string): any {
+  if (!eventId) return undefined;
+  if (cache.has(eventId)) return cache.get(eventId);
+  const event = (record?.events ?? []).find((e: any) => e?.eventId === eventId);
+  const status = event ? getEventPublishStatus({ event }) : undefined;
+  cache.set(eventId, status);
+  return status;
 }
 
-function upsert(tournamentId: string, table: string, key: Record<string, any>, row: Record<string, any>, topic: string): ProjectionDelta {
+function upsert(
+  tournamentId: string,
+  table: string,
+  key: Record<string, any>,
+  row: Record<string, any>,
+  topic: string,
+): ProjectionDelta {
   return { tournamentId, op: 'upsert', table, key, row, topic };
 }
 
@@ -128,7 +149,12 @@ function del(tournamentId: string, table: string, key: Record<string, any>, topi
   return { tournamentId, op: 'delete', table, key, topic };
 }
 
-function update(tournamentId: string, table: string, key: Record<string, any>, row: Record<string, any>): ProjectionDelta {
+function update(
+  tournamentId: string,
+  table: string,
+  key: Record<string, any>,
+  row: Record<string, any>,
+): ProjectionDelta {
   return { tournamentId, op: 'update', table, key, row, topic: 'claimPerson' };
 }
 
@@ -140,10 +166,20 @@ function claimDeltas(g: Grouped): ProjectionDelta[] {
   const deltas: ProjectionDelta[] = [];
   for (const { tournamentId, participantId, personId } of g.claims.values()) {
     deltas.push(
-      update(tournamentId, TABLE_MATCH_UP_COMPETITORS, { individual_participant_id: participantId }, { person_id: personId, link_source: LINK_CANONICAL }),
+      update(
+        tournamentId,
+        TABLE_MATCH_UP_COMPETITORS,
+        { individual_participant_id: participantId },
+        { person_id: personId, link_source: LINK_CANONICAL },
+      ),
     );
     deltas.push(
-      update(tournamentId, TABLE_ENTRIES, { tournament_id: tournamentId, participant_id: participantId }, { person_id: personId }),
+      update(
+        tournamentId,
+        TABLE_ENTRIES,
+        { tournament_id: tournamentId, participant_id: participantId },
+        { person_id: personId },
+      ),
     );
   }
   return deltas;
@@ -157,11 +193,9 @@ async function flattenDrawDeltas(
   const deltas: ProjectionDelta[] = [];
   for (const { tournamentId, drawId } of g.flattenDraws.values()) {
     const matchUps = await args.flattenDraw(tournamentId, drawId);
-    const ctx: MatchUpRowContext = {
-      tournamentId,
-      providerId: providerIdOf(args.tournamentRecords, tournamentId),
-      published: deriveDrawPublished(args.tournamentRecords, tournamentId, drawId),
-    };
+    const record = args.tournamentRecords?.[tournamentId];
+    const providerId = providerIdOf(args.tournamentRecords, tournamentId);
+    const statusCache = new Map<string, any>();
     for (const matchUp of matchUps ?? []) {
       // A team draw's flatten returns each rubber BOTH nested under its TEAM
       // matchUp (as tieMatchUps) AND as a top-level sibling. Skip the top-level
@@ -169,6 +203,16 @@ async function flattenDrawDeltas(
       // its TEAM parent below, so processing it here too would double-project it
       // (once STANDARD, once RUBBER) onto the same match_up_id.
       if (matchUp?.collectionId) continue;
+      // publish INTENT + embargo resolve per-matchUp through the structure/stage/
+      // draw cascade (embargo is stored, never collapsed into a visible flag).
+      const status = eventPublishStatus(record, statusCache, matchUp?.eventId);
+      const { published, embargo } = resolveMatchUpPublishState(
+        status,
+        matchUp?.drawId,
+        matchUp?.structureId,
+        matchUp?.stage,
+      );
+      const ctx: MatchUpRowContext = { tournamentId, providerId, published, embargo };
       const { matchUpRows, competitorRows } = matchUpRowSet(matchUp, ctx);
       for (const row of matchUpRows) {
         coveredMatchUpIds.add(row.match_up_id);
@@ -250,7 +294,9 @@ function venueDeltas(g: Grouped): ProjectionDelta[] {
 function deleteDeltas(g: Grouped): ProjectionDelta[] {
   const deltas: ProjectionDelta[] = [];
   for (const { tournamentId, venueId } of g.deleteVenues) {
-    deltas.push(del(tournamentId, TABLE_TOURNAMENT_VENUES, { tournament_id: tournamentId, venue_id: venueId }, 'deleteVenue'));
+    deltas.push(
+      del(tournamentId, TABLE_TOURNAMENT_VENUES, { tournament_id: tournamentId, venue_id: venueId }, 'deleteVenue'),
+    );
   }
   for (const { tournamentId, drawId } of g.deleteDraws) {
     deltas.push(del(tournamentId, TABLE_MATCH_UPS, { draw_id: drawId }, 'deleteDraw')); // competitors cascade
@@ -261,7 +307,14 @@ function deleteDeltas(g: Grouped): ProjectionDelta[] {
   }
   for (const { tournamentId, participantIds } of g.deleteParticipants) {
     for (const participantId of participantIds) {
-      deltas.push(del(tournamentId, TABLE_ENTRIES, { tournament_id: tournamentId, participant_id: participantId }, 'deleteParticipants'));
+      deltas.push(
+        del(
+          tournamentId,
+          TABLE_ENTRIES,
+          { tournament_id: tournamentId, participant_id: participantId },
+          'deleteParticipants',
+        ),
+      );
     }
   }
   return deltas;
