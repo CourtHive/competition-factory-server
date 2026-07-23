@@ -5,6 +5,7 @@ import {
   recordDeleteDraw,
   recordMatchUpResult,
   recordParticipants,
+  recordPersonClaims,
   recordPositionAssignments,
 } from './deltaBuffer';
 
@@ -50,5 +51,24 @@ describe('deltaBuffer recorders', () => {
     const buffer = createDeltaBuffer(['t-1']);
     recordParticipants(buffer, [{ tournamentId: 't-1' }, { tournamentId: 't-1' }]);
     expect(buffer.intents.filter((i) => i.kind === 'participants')).toHaveLength(1);
+  });
+
+  it('recordPersonClaims records a claim only for a participant carrying the CANONICAL_PERSON stamp', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordPersonClaims(
+      buffer,
+      [
+        {
+          tournamentId: 't-1',
+          participants: [
+            { participantId: 'pa-1', person: { personOtherIds: [{ organisationId: 'USTA', personId: '5' }, { organisationId: 'CANONICAL_PERSON', personId: 'canon-9' }] } },
+            { participantId: 'pa-2', person: { personOtherIds: [{ organisationId: 'USTA', personId: '6' }] } },
+          ],
+        },
+      ],
+      'CANONICAL_PERSON',
+    );
+    const claims = buffer.intents.filter((i) => i.kind === 'claimPerson');
+    expect(claims).toEqual([{ kind: 'claimPerson', tournamentId: 't-1', participantId: 'pa-1', personId: 'canon-9' }]);
   });
 });

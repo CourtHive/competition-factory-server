@@ -9,6 +9,7 @@ import {
   TABLE_ENTRIES,
   TABLE_VENUES,
   TABLE_TOURNAMENT_VENUES,
+  LINK_CANONICAL,
 } from './projectionConstants';
 
 export interface BuildDeltasArgs {
@@ -31,6 +32,7 @@ interface Grouped {
   deleteDraws: { tournamentId: string; drawId: string }[];
   deleteEvents: { tournamentId: string; eventId: string }[];
   deleteParticipants: { tournamentId: string; participantIds: string[] }[];
+  claims: Map<string, { tournamentId: string; participantId: string; personId: string }>; // participantId → claim
 }
 
 function drawKey(tournamentId: string, drawId: string): string {
@@ -48,6 +50,7 @@ function group(intents: ProjectionIntent[], records: Record<string, any>): Group
     deleteDraws: [],
     deleteEvents: [],
     deleteParticipants: [],
+    claims: new Map(),
   };
 
   for (const intent of intents) {
@@ -88,6 +91,9 @@ function group(intents: ProjectionIntent[], records: Record<string, any>): Group
       case 'deleteParticipants':
         g.deleteParticipants.push(intent);
         break;
+      case 'claimPerson':
+        g.claims.set(intent.participantId, intent);
+        break;
     }
   }
   return g;
@@ -120,6 +126,27 @@ function upsert(tournamentId: string, table: string, key: Record<string, any>, r
 
 function del(tournamentId: string, table: string, key: Record<string, any>, topic: string): ProjectionDelta {
   return { tournamentId, op: 'delete', table, key, topic };
+}
+
+function update(tournamentId: string, table: string, key: Record<string, any>, row: Record<string, any>): ProjectionDelta {
+  return { tournamentId, op: 'update', table, key, row, topic: 'claimPerson' };
+}
+
+// A person self-claim stamps the canonical personId onto every competitor +
+// entry row for the claimed participant (targeted UPDATE — we don't know the
+// competitor PKs, so match by participant column). Makes the self-claimed rows
+// visible to the person-scoped query.
+function claimDeltas(g: Grouped): ProjectionDelta[] {
+  const deltas: ProjectionDelta[] = [];
+  for (const { tournamentId, participantId, personId } of g.claims.values()) {
+    deltas.push(
+      update(tournamentId, TABLE_MATCH_UP_COMPETITORS, { individual_participant_id: participantId }, { person_id: personId, link_source: LINK_CANONICAL }),
+    );
+    deltas.push(
+      update(tournamentId, TABLE_ENTRIES, { tournament_id: tournamentId, participant_id: participantId }, { person_id: personId }),
+    );
+  }
+  return deltas;
 }
 
 async function flattenDrawDeltas(
@@ -252,6 +279,7 @@ export async function buildProjectionDeltas(args: BuildDeltasArgs): Promise<Proj
     ...flatten,
     ...resultDeltas(g, args.tournamentRecords, coveredMatchUpIds),
     ...entryDeltas(g, args.tournamentRecords),
+    ...claimDeltas(g),
     ...deleteDeltas(g),
   ];
 }

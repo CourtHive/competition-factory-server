@@ -10,6 +10,7 @@ export const TABLE_TOURNAMENT_VENUES = 'tournament_venues';
 // match_up_competitors.link_source
 export const LINK_PROVIDER_ID = 'providerId';
 export const LINK_UNRESOLVED = 'unresolved';
+export const LINK_CANONICAL = 'canonical';
 
 // match_ups.match_up_level
 export const LEVEL_STANDARD = 'STANDARD';

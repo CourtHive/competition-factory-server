@@ -120,6 +120,29 @@ describe('buildProjectionDeltas', () => {
     expect(deltas.find((d) => d.table === 'entries')).toMatchObject({ op: 'upsert', row: { participant_id: 'p1', person_id: '1001' } });
   });
 
+  it('claimPerson → update deltas stamping person_id on competitors + entries', async () => {
+    const deltas = await build([{ kind: 'claimPerson', tournamentId: 't-1', participantId: 'pa-1', personId: 'canon-9' }]);
+    const updates = deltas.filter((d) => d.op === 'update');
+    expect(updates).toEqual([
+      {
+        tournamentId: 't-1',
+        op: 'update',
+        table: 'match_up_competitors',
+        key: { individual_participant_id: 'pa-1' },
+        row: { person_id: 'canon-9', link_source: 'canonical' },
+        topic: 'claimPerson',
+      },
+      {
+        tournamentId: 't-1',
+        op: 'update',
+        table: 'entries',
+        key: { tournament_id: 't-1', participant_id: 'pa-1' },
+        row: { person_id: 'canon-9' },
+        topic: 'claimPerson',
+      },
+    ]);
+  });
+
   it('returns nothing for an empty intent buffer', async () => {
     expect(await build([])).toEqual([]);
   });

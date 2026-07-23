@@ -8,6 +8,7 @@ export type ProjectionIntent =
   | { kind: 'flattenDraw'; tournamentId: string; drawId: string }
   | { kind: 'matchUpResult'; tournamentId: string; matchUp: any }
   | { kind: 'republishEvent'; tournamentId: string; eventId: string }
+  | { kind: 'claimPerson'; tournamentId: string; participantId: string; personId: string }
   | { kind: 'touchTournament'; tournamentId: string }
   | { kind: 'participants'; tournamentId: string }
   | { kind: 'venue'; tournamentId: string; venue: any }

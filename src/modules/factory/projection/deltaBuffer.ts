@@ -100,6 +100,29 @@ export function recordParticipants(buffer: DeltaBuffer | undefined, params: any[
   }
 }
 
+/** Person self-claim: `addPersonOtherId` stamps `CANONICAL_PERSON` on a
+ *  participant's `person.personOtherIds[]` and fires MODIFY_PARTICIPANTS. Detect
+ *  that stamp and record a claimPerson intent so the read model's `person_id`
+ *  (competitor + entry rows for that participantId) is updated to the canonical
+ *  id — otherwise the person-scoped query (getMyParticipations) can't see the
+ *  self-claimed rows (they carry only a provider personId, or NULL). Idempotent:
+ *  fires on every modification of a claimed participant, always the same value. */
+export function recordPersonClaims(buffer: DeltaBuffer | undefined, params: any[], canonicalOrg: string): void {
+  if (!buffer || !Array.isArray(params)) return;
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (!tournamentId) continue;
+    for (const participant of item?.participants ?? []) {
+      const participantId = participant?.participantId;
+      const otherIds = participant?.person?.personOtherIds ?? [];
+      const canonical = otherIds.find((o: any) => o?.organisationId === canonicalOrg);
+      if (participantId && canonical?.personId) {
+        push(buffer, { kind: 'claimPerson', tournamentId, participantId, personId: canonical.personId });
+      }
+    }
+  }
+}
+
 /** PUBLISH_EVENT `{ eventData, tournamentId }` / UNPUBLISH_EVENT `{ tournamentId,
  *  eventId }`. Re-flatten the event's draws to recompute the `published` flag. */
 export function recordRepublishEvent(

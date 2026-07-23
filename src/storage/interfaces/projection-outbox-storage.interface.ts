@@ -5,19 +5,23 @@ export const PROJECTION_OUTBOX_STORAGE = Symbol('PROJECTION_OUTBOX_STORAGE');
  * CFS is the single writer; the courthive-query consumer drains rows in `seq`
  * order and applies them idempotently to the read tables.
  *
- * - `op` — 'upsert' writes `row` into `table`; 'delete' removes rows matching `key`.
+ * - `op` — 'upsert' writes `row` into `table`; 'delete' removes rows matching
+ *          `key`; 'update' sets `row`'s columns on rows matching `key`
+ *          (`UPDATE … SET <row> WHERE <key>`) — used for targeted column writes
+ *          where the full PK isn't known (e.g. a person-claim stamping
+ *          `person_id` on every competitor/entry row for a participantId).
  * - `table` — target read table (snake_case, e.g. 'match_ups').
  * - `key`  — identifies the target row(s). For upsert it is the row's primary
- *            key; for delete it is an arbitrary equality filter the consumer
- *            turns into `DELETE … WHERE <key>` (so a whole draw/event can be
+ *            key; for delete/update it is an arbitrary equality filter the
+ *            consumer turns into `WHERE <key>` (so a whole draw/event can be
  *            removed by `{ draw_id }` / `{ event_id }`).
- * - `row`  — the full projected row for an upsert (snake_case columns matching
- *            the query-service schema); omitted for deletes.
+ * - `row`  — the projected row for an upsert, or the SET columns for an update
+ *            (snake_case columns matching the query-service schema); omitted for deletes.
  * - `topic`— originating factory notice topic, for provenance/debugging.
  */
 export interface ProjectionDelta {
   tournamentId: string;
-  op: 'upsert' | 'delete';
+  op: 'upsert' | 'delete' | 'update';
   table: string;
   key: Record<string, any>;
   row?: Record<string, any>;

@@ -9,11 +9,13 @@ import {
   recordDeleteVenue,
   recordMatchUpResult,
   recordParticipants,
+  recordPersonClaims,
   recordPositionAssignments,
   recordRepublishEvent,
   recordTouchTournament,
   recordVenue,
 } from '../projection/deltaBuffer';
+import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
 
 import type { DeltaBuffer } from '../projection/projectionTypes';
 
@@ -243,8 +245,14 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
       // when a subscription exists, so they must be registered to be observed.
       [topicConstants.ADD_MATCHUPS]: (params) => recordAddMatchUps(deltaBuffer, params),
       [topicConstants.ADD_DRAW_DEFINITION]: (params) => recordAddDraw(deltaBuffer, params),
-      [topicConstants.ADD_PARTICIPANTS]: (params) => recordParticipants(deltaBuffer, params),
-      [topicConstants.MODIFY_PARTICIPANTS]: (params) => recordParticipants(deltaBuffer, params),
+      [topicConstants.ADD_PARTICIPANTS]: (params) => {
+        recordParticipants(deltaBuffer, params);
+        recordPersonClaims(deltaBuffer, params, CANONICAL_PERSON);
+      },
+      [topicConstants.MODIFY_PARTICIPANTS]: (params) => {
+        recordParticipants(deltaBuffer, params);
+        recordPersonClaims(deltaBuffer, params, CANONICAL_PERSON);
+      },
       [topicConstants.ADD_VENUE]: (params) => recordVenue(deltaBuffer, params),
       [topicConstants.MODIFY_VENUE]: (params) => recordVenue(deltaBuffer, params),
       [topicConstants.DELETE_VENUE]: (params) => recordDeleteVenue(deltaBuffer, params),
