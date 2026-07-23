@@ -42,10 +42,11 @@ import { AuthService } from './auth.service';
 const HIVEID_MAGIC_LINK_TTL_MINUTES = 15;
 const HIVEID_MAGIC_LINK_TTL_MS = HIVEID_MAGIC_LINK_TTL_MINUTES * 60 * 1000;
 
-// The SPLIT tournament methods (getMyParticipations / getClaimableForTournament /
-// claimParticipant) plus their participant helpers + row/candidate types moved to
-// HiveIDTournamentService (tournament-auth) so they survive the Phase-3 drop of
-// this MOVE service — they read CFS tournament records and stay on CFS.
+// The SPLIT tournament methods (getClaimableForTournament / claimParticipant)
+// moved to HiveIDTournamentService (tournament-auth) so they survive the Phase-3
+// drop of this MOVE service — they read CFS tournament records and stay on CFS.
+// (getMyParticipations was removed entirely — it moved to the courthive-query
+// service as pure read-model SQL; see punch-list C1.)
 
 @Injectable()
 export class HiveIDService {

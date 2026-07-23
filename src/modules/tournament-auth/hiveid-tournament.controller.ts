@@ -3,8 +3,12 @@
  * routes, extracted from the account/auth HiveIDController so they survive the
  * Phase-3 drop of the MOVE account tree. The rest of `/auth/hiveid/*` (signup /
  * verify-existing / magic-link / me / resend / contact-email) is MOVE and lives
- * on the IdP after cutover; these three read CFS tournament records and stay on
- * CFS (nginx carve-outs pin `= me/participations`, `^~ me/claimable/`, `= me/claim`).
+ * on the IdP after cutover; these read CFS tournament records and stay on CFS
+ * (nginx carve-outs pin `^~ me/claimable/`, `= me/claim`).
+ *
+ * `me/participations` was REMOVED here — it no longer needs tournament records
+ * (pure read-model SQL) and moved to the dedicated courthive-query service to
+ * kill the all-records scan on the mutation event loop (punch-list C1 / A7).
  */
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req } from '@nestjs/common';
 
@@ -15,17 +19,6 @@ import { HiveIDClaimDto } from './dto/hiveidClaim.dto';
 @Controller('auth/hiveid')
 export class HiveIDTournamentController {
   constructor(private readonly hiveidTournamentService: HiveIDTournamentService) {}
-
-  /**
-   * GET /auth/hiveid/me/participations — every tournament where the caller has
-   * been claimed as a Participant via the CANONICAL_PERSON organisationId.
-   */
-  @Audience(['hiveid'])
-  @Get('me/participations')
-  @HttpCode(HttpStatus.OK)
-  getMyParticipations(@Req() req: any) {
-    return this.hiveidTournamentService.getMyParticipations(req?.user?.userId);
-  }
 
   /**
    * GET /auth/hiveid/me/claimable/:tournamentId — Participants in the given

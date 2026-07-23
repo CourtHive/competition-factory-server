@@ -1,8 +1,7 @@
 /**
- * HiveIDTournamentService — the SPLIT tournament methods, extracted from
- * HiveIDService in the Phase-3 account move. These tests moved here verbatim with
- * the code they exercise (getMyParticipations / getClaimableForTournament /
- * claimParticipant); behavior is unchanged.
+ * HiveIDTournamentService — the SPLIT tournament methods (getClaimableForTournament
+ * / claimParticipant). getMyParticipations was removed from CFS — it moved to the
+ * courthive-query service (pure read-model SQL, no record scan).
  */
 import { HiveIDTournamentService } from './hiveid-tournament.service';
 
@@ -17,94 +16,11 @@ describe('HiveIDTournamentService', () => {
       getPersonLink: jest.fn().mockResolvedValue(null),
     };
     mockTournamentStorageService = {
-      listTournamentIds: jest.fn().mockResolvedValue([]),
-      fetchTournamentRecords: jest.fn().mockResolvedValue({ tournamentRecords: {} }),
       findTournamentRecord: jest.fn().mockResolvedValue({ tournamentRecord: null }),
     };
     mockAuditService = {};
 
     service = new HiveIDTournamentService(mockTournamentStorageService, mockAuditService, mockUserStorage);
-  });
-
-  describe('getMyParticipations', () => {
-    it('returns an empty list when the user has no person link yet', async () => {
-      mockUserStorage.getPersonLink.mockResolvedValue(null);
-      const result = await service.getMyParticipations('u-1');
-      expect(result).toEqual({ personId: null, participations: [] });
-      expect(mockTournamentStorageService.listTournamentIds).not.toHaveBeenCalled();
-    });
-
-    it('scans tournaments and returns matched Participants for the linked personId', async () => {
-      mockUserStorage.getPersonLink.mockResolvedValue({
-        userId: 'u-1',
-        personId: 'p-canon',
-        personRevision: 1,
-        cached: {
-          standardFamilyName: 'Doe',
-          standardGivenName: 'Jane',
-          birthDate: null,
-          sex: null,
-          nationalityCode: null,
-        },
-        consentPreferences: {},
-      });
-      mockTournamentStorageService.listTournamentIds.mockResolvedValue(['t-1', 't-2']);
-      mockTournamentStorageService.fetchTournamentRecords.mockResolvedValue({
-        tournamentRecords: {
-          't-1': {
-            tournamentId: 't-1',
-            tournamentName: 'Spring Open',
-            startDate: '2026-04-01',
-            endDate: '2026-04-07',
-            participants: [
-              {
-                participantId: 'pa-1',
-                participantName: 'Jane Doe',
-                participantType: 'INDIVIDUAL',
-                person: {
-                  personOtherIds: [{ organisationId: 'CANONICAL_PERSON', personId: 'p-canon' }],
-                },
-              },
-              {
-                participantId: 'pa-2',
-                participantName: 'Other Player',
-                participantType: 'INDIVIDUAL',
-                person: { personOtherIds: [] },
-              },
-            ],
-            events: [{ entries: [{ participantId: 'pa-1' }] }],
-          },
-          't-2': {
-            tournamentId: 't-2',
-            tournamentName: 'Winter Cup',
-            startDate: '2026-01-15',
-            endDate: '2026-01-20',
-            participants: [
-              {
-                participantId: 'pa-9',
-                participantName: 'Jane Doe',
-                person: {
-                  personOtherIds: [
-                    { organisationId: 'USTA', personId: '12345' },
-                    { organisationId: 'CANONICAL_PERSON', personId: 'p-canon' },
-                  ],
-                },
-              },
-            ],
-            events: [{ entries: [{ participantId: 'pa-9' }] }, { entries: [{ participantId: 'pa-9' }] }],
-          },
-        },
-      });
-
-      const result = await service.getMyParticipations('u-1');
-      expect(result.personId).toBe('p-canon');
-      expect(result.participations).toHaveLength(2);
-      // Sorted descending by startDate.
-      expect(result.participations[0].tournamentId).toBe('t-1');
-      expect(result.participations[0].eventCount).toBe(1);
-      expect(result.participations[1].tournamentId).toBe('t-2');
-      expect(result.participations[1].eventCount).toBe(2);
-    });
   });
 
   describe('getClaimableForTournament', () => {

@@ -18,16 +18,6 @@ import { TournamentStorageService } from 'src/storage/tournament-storage.service
 import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
 import { AuditService } from 'src/modules/audit/audit.service';
 
-export interface ParticipationRow {
-  tournamentId: string;
-  tournamentName: string;
-  startDate: string | null;
-  endDate: string | null;
-  participantId: string;
-  participantName: string;
-  eventCount: number;
-}
-
 export interface ClaimableCandidate {
   participantId: string;
   participantName: string;
@@ -55,18 +45,6 @@ function participantMatchesPerson(participant: any, personId: string): boolean {
   return extractCanonicalPersonId(participant) === personId;
 }
 
-function countParticipantEvents(tournament: any, participantId: string): number {
-  const events: any[] = tournament?.events ?? [];
-  return events.filter((event) => (event?.entries ?? []).some((e: any) => e?.participantId === participantId)).length;
-}
-
-function byStartDateDesc(a: ParticipationRow, b: ParticipationRow): number {
-  const aDate = a.startDate ?? '';
-  const bDate = b.startDate ?? '';
-  if (aDate === bDate) return a.tournamentName.localeCompare(b.tournamentName);
-  return aDate < bDate ? 1 : -1;
-}
-
 @Injectable()
 export class HiveIDTournamentService {
   constructor(
@@ -74,52 +52,6 @@ export class HiveIDTournamentService {
     private readonly auditService: AuditService,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
   ) {}
-
-  /**
-   * GET /auth/hiveid/me/participations — surface all tournaments where
-   * the caller has been claimed as a Participant via the CANONICAL_PERSON
-   * organisationId. Scans every tournament record server-side; acceptable
-   * for early adoption (handful of HiveID users) and trivially cacheable
-   * later when volume grows.
-   */
-  async getMyParticipations(userId: string): Promise<{
-    personId: string | null;
-    participations: ParticipationRow[];
-  }> {
-    if (!userId) throw new UnauthorizedException();
-    const link = await this.userStorage.getPersonLink(userId);
-    const personId = link?.personId ?? null;
-    if (!personId) return { personId: null, participations: [] };
-
-    const tournamentIds = await this.tournamentStorageService.listTournamentIds();
-    if (!tournamentIds.length) return { personId, participations: [] };
-
-    const { tournamentRecords } = (await this.tournamentStorageService.fetchTournamentRecords({
-      tournamentIds,
-    })) as { tournamentRecords?: Record<string, any> };
-    if (!tournamentRecords) return { personId, participations: [] };
-
-    const out: ParticipationRow[] = [];
-    for (const tournament of Object.values(tournamentRecords)) {
-      const tid = tournament?.tournamentId;
-      if (!tid) continue;
-      const participants: any[] = tournament?.participants ?? [];
-      for (const participant of participants) {
-        if (!participantMatchesPerson(participant, personId)) continue;
-        out.push({
-          tournamentId: tid,
-          tournamentName: tournament.tournamentName ?? '',
-          startDate: tournament.startDate ?? null,
-          endDate: tournament.endDate ?? null,
-          participantId: participant.participantId,
-          participantName: participant.participantName ?? '',
-          eventCount: countParticipantEvents(tournament, participant.participantId),
-        });
-      }
-    }
-    out.sort(byStartDateDesc);
-    return { personId, participations: out };
-  }
 
   /**
    * GET /auth/hiveid/me/claimable/:tournamentId — returns the Participants
