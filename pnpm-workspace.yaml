@@ -57,3 +57,6 @@ overrides:
   # via @nestjs/cli / @swc/cli / jest tooling. Patched 1.1.16 / 2.1.2; patch each major separately.
   brace-expansion@1: '>=1.1.16'
   brace-expansion@2: '>=2.1.2'
+  # Security override — fast-uri host confusion (GHSA-v2hh-gcrm-f6hx, high);
+  # dev-only, transitive via ajv (^3.0.1). Patched 3.1.4.
+  fast-uri: '^3.1.4'
