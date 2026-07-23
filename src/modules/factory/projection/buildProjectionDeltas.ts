@@ -163,6 +163,12 @@ async function flattenDrawDeltas(
       published: deriveDrawPublished(args.tournamentRecords, tournamentId, drawId),
     };
     for (const matchUp of matchUps ?? []) {
+      // A team draw's flatten returns each rubber BOTH nested under its TEAM
+      // matchUp (as tieMatchUps) AND as a top-level sibling. Skip the top-level
+      // rubber (it carries a collectionId) — it is projected as a RUBBER row via
+      // its TEAM parent below, so processing it here too would double-project it
+      // (once STANDARD, once RUBBER) onto the same match_up_id.
+      if (matchUp?.collectionId) continue;
       const { matchUpRows, competitorRows } = matchUpRowSet(matchUp, ctx);
       for (const row of matchUpRows) {
         coveredMatchUpIds.add(row.match_up_id);

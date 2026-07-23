@@ -1,4 +1,4 @@
-import { mocksEngine, tournamentEngineAsync } from 'tods-competition-factory';
+import { mocksEngine, tournamentEngineAsync, factoryConstants } from 'tods-competition-factory';
 
 import { buildProjectionDeltas } from './buildProjectionDeltas';
 import { buildRebuildIntents } from './rebuild';
@@ -98,5 +98,64 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     // sanity: the tournament actually produced rows
     expect(snapshot(rebuilt, 'match_ups').length).toBeGreaterThan(0);
     expect(snapshot(rebuilt, 'match_up_competitors').some((r) => r.person_id === 'canon-conf')).toBe(true);
+  });
+
+  // Increment 6 (unblocked slice) — validate the read model's TEAMS / dual-match
+  // handling (the S3 re-grain the whole schema exists for) against an ITA-shaped
+  // college team-tennis tournament (TEAM event, COLLEGE tieFormat = singles +
+  // doubles rubbers). This is the "ITA validation corpus" essence; the real
+  // ingest harvest/feed is gated on CA decisions D2/D3/D4b.
+  it('an ITA-shaped team-tennis dual match projects TIE/RUBBER/team_id/doubles rows — and incremental ≡ rebuild', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 2, eventType: factoryConstants.eventConstants.TEAM, tieFormatName: 'COLLEGE_DEFAULT' }],
+      completeAllMatchUps: true,
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const drawId = tournamentRecord.events[0].drawDefinitions[0].drawId;
+    const flattenDraw = await flattenDrawOf(tournamentRecord);
+    const records = { [tournamentId]: tournamentRecord };
+
+    const rebuildDeltas = await buildProjectionDeltas({ intents: buildRebuildIntents(tournamentRecord), tournamentRecords: records, flattenDraw });
+
+    // incremental: draw flatten + a slim result per matchUp (team ties + rubbers).
+    const teamMatchUps = await flattenDraw(tournamentId, drawId);
+    const allMatchUps = [...teamMatchUps, ...teamMatchUps.flatMap((m: any) => m.tieMatchUps ?? [])];
+    const incrementalIntents: ProjectionIntent[] = [
+      { kind: 'touchTournament', tournamentId },
+      { kind: 'participants', tournamentId },
+      { kind: 'flattenDraw', tournamentId, drawId },
+      ...allMatchUps
+        .filter((m: any) => m.winningSide || m.matchUpStatus)
+        .map((m: any) => ({ kind: 'matchUpResult', tournamentId, matchUp: m }) as ProjectionIntent),
+    ];
+    const incrementalDeltas = await buildProjectionDeltas({ intents: incrementalIntents, tournamentRecords: records, flattenDraw });
+
+    const rebuilt = applyDeltas(rebuildDeltas);
+    const incremental = applyDeltas(incrementalDeltas);
+    for (const table of ['match_ups', 'match_up_competitors', 'entries']) {
+      expect(snapshot(incremental, table)).toEqual(snapshot(rebuilt, table));
+    }
+
+    // team-structure shape assertions on the rebuilt rows
+    const matchUps = snapshot(rebuilt, 'match_ups');
+    const tie = matchUps.find((r) => r.match_up_level === 'TIE');
+    const rubbers = matchUps.filter((r) => r.match_up_level === 'RUBBER');
+    expect(tie).toMatchObject({ event_type: 'TEAM', parent_match_up_id: null });
+    expect(rubbers.length).toBeGreaterThan(0);
+    expect(rubbers.every((r) => r.parent_match_up_id === tie!.match_up_id && r.collection_id)).toBe(true);
+
+    const competitors = snapshot(rebuilt, 'match_up_competitors');
+    // rubber competitor rows carry a team_id (the dual's team) — enables GROUP BY team_id
+    const rubberIds = new Set(rubbers.map((r) => r.match_up_id));
+    const rubberCompetitors = competitors.filter((c) => rubberIds.has(c.match_up_id));
+    expect(rubberCompetitors.length).toBeGreaterThan(0);
+    expect(rubberCompetitors.every((c) => c.team_id)).toBe(true);
+    // at least one DOUBLES rubber → two per-individual (PAIR) competitor rows on a side
+    const doublesRubber = rubbers.find((r) => r.event_type === 'DOUBLES');
+    if (doublesRubber) {
+      const side1 = competitors.filter((c) => c.match_up_id === doublesRubber.match_up_id && c.side_number === 1);
+      expect(side1.length).toBe(2);
+      expect(side1.every((c) => c.participant_type === 'PAIR')).toBe(true);
+    }
   });
 });
