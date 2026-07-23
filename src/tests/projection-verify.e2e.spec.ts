@@ -7,6 +7,7 @@ import { executionQueue } from 'src/modules/factory/functions/private/executionQ
 import { buildProjectionDeltas } from 'src/modules/factory/projection/buildProjectionDeltas';
 import { createDeltaBuffer } from 'src/modules/factory/projection/deltaBuffer';
 import { PostgresProjectionOutboxStorage } from 'src/storage/postgres/postgres-projection-outbox.storage';
+import { ProjectionRebuildService } from 'src/modules/factory/projection/projection-rebuild.service';
 import fileStorage from 'src/services/fileSystem';
 import { testTournamentId } from 'src/common/constants/test';
 
@@ -143,7 +144,34 @@ d('projection-verify (real DB)', () => {
     expect(afterRollback.rows[0].n).toBe(committedCount); // no new rows
 
     await removeTournamentRecords({ tournamentId });
-     
+
     console.log(`[verify] executionQueue committed → ${committedCount} outbox row(s); rolled-back → 0 new rows`);
+  });
+
+  it('rebuild pipeline: projects a whole tournament to the outbox (backfill)', async () => {
+    process.env.PROJECTION_OUTBOX_ENABLED = 'true';
+    const tournamentId = testTournamentId(__filename);
+    await removeTournamentRecords({ tournamentId });
+    await generateTournamentRecord(
+      { tournamentAttributes: { tournamentId }, drawProfiles: [{ drawSize: 8 }], completeAllMatchUps: true },
+      { providerId: 'test-provider', roles: ['superadmin'] },
+    );
+    await pool.query('DELETE FROM projection_queue WHERE tournament_id = $1', [tournamentId]);
+
+    const storage: any = { findTournamentRecord: (p: any) => fileStorage.findTournamentRecord(p) };
+    const rebuild = new ProjectionRebuildService(storage, new PostgresProjectionOutboxStorage(pool));
+    const deltaCount = await rebuild.rebuildTournament(tournamentId);
+    expect(deltaCount).toBeGreaterThan(0);
+
+    const rows = await pool.query('SELECT table_name FROM projection_queue WHERE tournament_id = $1', [tournamentId]);
+    const tables = new Set(rows.rows.map((r: any) => r.table_name));
+    expect(tables.has('tournaments')).toBe(true);
+    expect(tables.has('match_ups')).toBe(true);
+    expect(tables.has('match_up_competitors')).toBe(true);
+    expect(rows.rows.length).toBe(deltaCount);
+
+    await removeTournamentRecords({ tournamentId });
+
+    console.log(`[verify] rebuild pipeline: projected ${deltaCount} deltas for the whole tournament`);
   });
 });
