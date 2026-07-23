@@ -86,6 +86,7 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     userStorage,
     providerStorage,
     chatStorage,
+    { isEnabled: false, enqueue: jest.fn() } as any,
     tournamentStorageService,
     broadcastService,
     assignmentsService,

@@ -11,6 +11,7 @@ import { PROVIDER_ARCHIVE_STORAGE } from './interfaces/provider-archive-storage.
 import { REFRESH_TOKEN_STORAGE } from './interfaces/refresh-token-storage.interface';
 import { REGISTRATION_ENTRY_STORAGE } from './interfaces/registration-entry-storage.interface';
 import { BOLT_HISTORY_STORAGE } from './interfaces/bolt-history.interface';
+import { PROJECTION_OUTBOX_STORAGE } from './interfaces/projection-outbox-storage.interface';
 import { CHAT_STORAGE } from './interfaces/chat-storage.interface';
 import { TOURNAMENT_STORAGE } from './interfaces/tournament-storage.interface';
 import { ASSIGNMENT_STORAGE } from './interfaces/assignment-storage.interface';
@@ -37,6 +38,7 @@ import { PostgresRefreshTokenStorage } from './postgres/postgres-refresh-token.s
 import { PostgresRegistrationEntryStorage } from './postgres/postgres-registration-entry.storage';
 import { PostgresAuditStorage } from './postgres/postgres-audit.storage';
 import { PostgresBoltHistoryStorage } from './postgres/postgres-bolt-history.storage';
+import { PostgresProjectionOutboxStorage } from './postgres/postgres-projection-outbox.storage';
 import { PostgresChatStorage } from './postgres/postgres-chat.storage';
 import { PostgresTournamentStorage } from './postgres/postgres-tournament.storage';
 import { PostgresAssignmentStorage } from './postgres/postgres-assignment.storage';
@@ -105,6 +107,7 @@ const policyStorageProvider = makeStorageProvider(POLICY_STORAGE, PostgresPolicy
 const refreshTokenStorageProvider = makeStorageProvider(REFRESH_TOKEN_STORAGE, PostgresRefreshTokenStorage);
 const registrationEntryStorageProvider = makeStorageProvider(REGISTRATION_ENTRY_STORAGE, PostgresRegistrationEntryStorage);
 const chatStorageProvider = makeStorageProvider(CHAT_STORAGE, PostgresChatStorage);
+const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_STORAGE, PostgresProjectionOutboxStorage);
 
 @Global()
 @Module({
@@ -136,6 +139,7 @@ const chatStorageProvider = makeStorageProvider(CHAT_STORAGE, PostgresChatStorag
     refreshTokenStorageProvider,
     registrationEntryStorageProvider,
     chatStorageProvider,
+    projectionOutboxStorageProvider,
     TournamentStorageService,
   ],
   exports: [
@@ -164,6 +168,7 @@ const chatStorageProvider = makeStorageProvider(CHAT_STORAGE, PostgresChatStorag
     REFRESH_TOKEN_STORAGE,
     REGISTRATION_ENTRY_STORAGE,
     CHAT_STORAGE,
+    PROJECTION_OUTBOX_STORAGE,
     TournamentStorageService,
   ],
 })

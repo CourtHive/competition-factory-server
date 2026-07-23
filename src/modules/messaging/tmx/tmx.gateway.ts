@@ -25,6 +25,8 @@ import {
   CHAT_STORAGE,
   type IChatStorage,
   type ChatMessageRecord,
+  PROJECTION_OUTBOX_STORAGE,
+  type IProjectionOutboxStorage,
 } from 'src/storage/interfaces';
 import { UsersService } from 'src/modules/users/users.service';
 import { resolveCorsOrigins } from 'src/common/cors';
@@ -108,6 +110,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     @Inject(CHAT_STORAGE) private readonly chatStorage: IChatStorage,
+    @Inject(PROJECTION_OUTBOX_STORAGE) private readonly projectionOutbox: IProjectionOutboxStorage,
     private readonly tournamentStorageService: TournamentStorageService,
     private readonly broadcastService: TournamentBroadcastService,
     private readonly assignmentsService: AssignmentsService,
@@ -296,7 +299,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
         const result = await tmxMessages[type]({
           client,
           payload,
-          services: { cacheManager: this.cacheManager },
+          services: { cacheManager: this.cacheManager, projectionOutbox: this.projectionOutbox },
           storage: this.tournamentStorageService,
           auditService: this.auditService,
         });

@@ -2,6 +2,8 @@ import { tournamentEngineAsync, factoryConstants } from 'tods-competition-factor
 import { withTournamentLock } from 'src/services/tournamentMutex';
 import { getMutationEngine } from '../../engines/getMutationEngine';
 import { computeEffectiveConfig } from '@courthive/provider-config';
+import { buildProjectionDeltas } from '../../projection/buildProjectionDeltas';
+import { createDeltaBuffer } from '../../projection/deltaBuffer';
 import { Logger } from '@nestjs/common';
 
 import type { ITournamentProvisionerStorage, IProviderStorage } from 'src/storage/interfaces';
@@ -39,6 +41,14 @@ export async function executionQueue(
       set: services?.cacheManager?.set?.bind(services.cacheManager),
     };
 
+    // READ-MODEL PROJECTION: when the outbox feature is enabled, create a
+    // request-scoped delta buffer that the getMutationEngine subscription
+    // handlers fill with per-row dirty-intents. Flushed post-commit below.
+    // When disabled, the buffer is undefined and every recorder is a no-op —
+    // zero mutation-path behavior change.
+    const projectionOutbox = services?.projectionOutbox;
+    const deltaBuffer = projectionOutbox?.isEnabled ? createDeltaBuffer(tournamentIds) : undefined;
+
     const mutationResult = await withTournamentLock(tournamentIds, async () => {
       const result: any = await storage.fetchTournamentRecords({ tournamentIds });
       if (result.error) return result;
@@ -60,6 +70,7 @@ export async function executionQueue(
           auditSource: payload?.auditSource?.type === 'provisioner' ? 'provisioner' : payload?.source ?? 'tmx',
         },
         publicNotices,
+        deltaBuffer,
       );
       mutationEngine.setState(result.tournamentRecords);
       const innerResult = await mutationEngine.executionQueue(methods, rollbackOnError);
@@ -119,6 +130,37 @@ export async function executionQueue(
           errorCode: serializeErrorCode(innerResult.error),
           metadata: buildAuditMetadata(payload),
         }).catch((err) => Logger.error(`Audit hook failed: ${err.message}`, 'executionQueue'));
+      }
+
+      // READ-MODEL PROJECTION FLUSH: post-commit, inside the lock (the exact
+      // seam the audit hook + deferred cache-clear use). Build per-row deltas
+      // from the mutation's FINAL saved state and enqueue them to the outbox.
+      // Rolled-back / failed mutations skip this (innerResult.success false) so
+      // the read model can never get ahead of the record. Fail-soft: an outbox
+      // error is logged but never blocks the ack — reconciliation/rebuild backstops.
+      if (deltaBuffer && projectionOutbox && innerResult.success) {
+        try {
+          const finalRecords: any = mutationEngine.getState().tournamentRecords;
+          const deltas = await buildProjectionDeltas({
+            intents: deltaBuffer.intents,
+            tournamentRecords: finalRecords,
+            // Bounded per-draw flatten against the mutation's FINAL saved state.
+            // Uses tournamentEngineAsync (per-request async_hooks isolation — the
+            // same engine resolveMatchUpReferences uses) because the mutation
+            // engine instance does not expose query methods. Runs post-save, so
+            // re-setState on the isolated engine can't perturb the committed record.
+            flattenDraw: async (tournamentId: string, drawId: string) => {
+              const record = finalRecords?.[tournamentId];
+              if (!record) return [];
+              await tournamentEngineAsync.setState(record);
+              const res: any = await tournamentEngineAsync.allDrawMatchUps({ drawId, inContext: true });
+              return res?.matchUps ?? [];
+            },
+          });
+          await projectionOutbox.enqueue(deltas);
+        } catch (err: any) {
+          Logger.error(`Projection outbox flush failed: ${err?.message}`, 'executionQueue');
+        }
       }
 
       return appliedServerMethods.length ? { ...innerResult, appliedServerMethods } : innerResult;

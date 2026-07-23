@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { TOURNAMENT_STORAGE, type ITournamentStorage } from './interfaces/tournament-storage.interface';
 import { PROVIDER_STORAGE, type IProviderStorage } from './interfaces/provider-storage.interface';
 import { CALENDAR_STORAGE, type ICalendarStorage } from './interfaces/calendar-storage.interface';
+import { PROJECTION_OUTBOX_STORAGE, type IProjectionOutboxStorage } from './interfaces/projection-outbox-storage.interface';
 import { CREATED_BY_USER_ID, canDeleteTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
@@ -25,6 +26,7 @@ export class TournamentStorageService {
     @Inject(TOURNAMENT_STORAGE) private readonly tournamentStorage: ITournamentStorage,
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     @Inject(CALENDAR_STORAGE) private readonly calendarStorage: ICalendarStorage,
+    @Inject(PROJECTION_OUTBOX_STORAGE) private readonly projectionOutbox: IProjectionOutboxStorage,
   ) {}
 
   // --- Read-through (no side-effects) ---
@@ -156,6 +158,27 @@ export class TournamentStorageService {
     const tournamentProviderId = existingRecord?.parentOrganisation?.organisationId;
     if (tournamentProviderId) {
       await this.removeFromCalendar({ providerId: tournamentProviderId, tournamentId });
+    }
+
+    // READ-MODEL PROJECTION: tournament deletion bypasses executionQueue (no
+    // factory notice), so enqueue the delete-delta explicitly here — next to the
+    // calendar detach. All child read tables (match_ups → competitors, entries,
+    // tournament_venues) cascade from the tournaments row (FK ON DELETE CASCADE).
+    // Flag-gated + fail-soft: an outbox error must never block the delete.
+    if (this.projectionOutbox.isEnabled) {
+      try {
+        await this.projectionOutbox.enqueue([
+          {
+            tournamentId,
+            op: 'delete',
+            table: 'tournaments',
+            key: { tournament_id: tournamentId },
+            topic: 'deleteTournament',
+          },
+        ]);
+      } catch {
+        // Reconciliation/rebuild backstops a missed delete-delta.
+      }
     }
 
     return { removed: true };

@@ -91,3 +91,8 @@ export {
   type ChatMessageRecord,
   type AppendChatMessageInput,
 } from './chat-storage.interface';
+export {
+  PROJECTION_OUTBOX_STORAGE,
+  type IProjectionOutboxStorage,
+  type ProjectionDelta,
+} from './projection-outbox-storage.interface';

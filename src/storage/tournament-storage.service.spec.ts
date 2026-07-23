@@ -50,7 +50,10 @@ describe('TournamentStorageService — delete safeguards', () => {
       setCalendar: jest.fn().mockResolvedValue({ success: true }),
       listCalendars: jest.fn().mockResolvedValue([]),
     };
-    service = new TournamentStorageService(tournamentStorage, providerStorage, calendarStorage);
+    service = new TournamentStorageService(tournamentStorage, providerStorage, calendarStorage, {
+      isEnabled: false,
+      enqueue: jest.fn(),
+    } as any);
   });
 
   const adminAt = (providerId: string) => ctx({ userId: 'clubx', providerRoles: { [providerId]: PROVIDER_ADMIN } });
@@ -153,7 +156,10 @@ describe('TournamentStorageService — detach-on-move (save side-effect)', () =>
       setCalendar: jest.fn().mockResolvedValue({ success: true }),
       listCalendars: jest.fn().mockResolvedValue([]),
     };
-    service = new TournamentStorageService(tournamentStorage, providerStorage, calendarStorage);
+    service = new TournamentStorageService(tournamentStorage, providerStorage, calendarStorage, {
+      isEnabled: false,
+      enqueue: jest.fn(),
+    } as any);
   });
 
   it('detaches the tournament from another provider’s calendar when first added to its new provider', async () => {

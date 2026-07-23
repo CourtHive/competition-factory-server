@@ -1,5 +1,21 @@
 import { auditConstants, governors, asyncEngine, globalState, topicConstants } from 'tods-competition-factory';
 import asyncGlobalState from './asyncGlobalState';
+import {
+  recordAddDraw,
+  recordAddMatchUps,
+  recordDeleteDraw,
+  recordDeleteParticipants,
+  recordDeleteEventsFromAudit,
+  recordDeleteVenue,
+  recordMatchUpResult,
+  recordParticipants,
+  recordPositionAssignments,
+  recordRepublishEvent,
+  recordTouchTournament,
+  recordVenue,
+} from '../projection/deltaBuffer';
+
+import type { DeltaBuffer } from '../projection/projectionTypes';
 
 const traverse = true;
 const global = true;
@@ -19,7 +35,7 @@ globalState.setGlobalSubscriptions({
 globalState.setAuditAuthorityServer(true);
 asyncGlobalState.createInstanceState(); // is there only one instance of asyncGlobalState?
 
-export function getMutationEngine(services?, publicNotices?: any[]) {
+export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?: DeltaBuffer) {
   const engineAsync = asyncEngine();
   const clearCache = (tournamentId) => {
     if (!tournamentId || typeof tournamentId !== 'string') return;
@@ -46,6 +62,7 @@ export function getMutationEngine(services?, publicNotices?: any[]) {
       [topicConstants.MODIFY_MATCHUP]: (params) => {
         for (const item of params) {
           clearCache(item.tournamentId);
+          recordMatchUpResult(deltaBuffer, item);
           const matchUp = item?.matchUp;
           if (!matchUp || !publicNotices) continue;
           publicNotices.push({
@@ -62,6 +79,7 @@ export function getMutationEngine(services?, publicNotices?: any[]) {
         }
       },
       [topicConstants.MODIFY_POSITION_ASSIGNMENTS]: (params) => {
+        recordPositionAssignments(deltaBuffer, params);
         for (const item of params) {
           // Clear event data cache using the eventId from position assignment notices
           if (item.tournamentId && item.eventId) {
@@ -93,6 +111,7 @@ export function getMutationEngine(services?, publicNotices?: any[]) {
               services?.cacheManager?.del(eventDataKey);
             }
             clearCache(item.tournamentId);
+            recordRepublishEvent(deltaBuffer, item.tournamentId, eventId);
             publicNotices?.push({
               topic: topicConstants.PUBLISH_EVENT,
               tournamentId: item.tournamentId,
@@ -108,6 +127,7 @@ export function getMutationEngine(services?, publicNotices?: any[]) {
             services?.cacheManager?.del(eventDataKey);
           }
           clearCache(item.tournamentId);
+          recordRepublishEvent(deltaBuffer, item.tournamentId, item.eventId);
           publicNotices?.push({
             topic: topicConstants.UNPUBLISH_EVENT,
             tournamentId: item.tournamentId,
@@ -165,6 +185,10 @@ export function getMutationEngine(services?, publicNotices?: any[]) {
         // auditTrail is an array of audit entries; deleteDrawDefinitions emits
         // one entry per deleted draw with action=DELETE_DRAW_DEFINITIONS and
         // payload.drawDefinitions being a single-element array of the snapshot.
+        // Event deletion fires ONLY an AUDIT notice (no dedicated topic) —
+        // record the read-model delete before the auditService guard so it
+        // runs even when audit is unavailable.
+        recordDeleteEventsFromAudit(deltaBuffer, params, auditConstants.DELETE_EVENTS);
         const auditService = services?.auditService;
         if (!auditService) return;
         for (const item of params) {
@@ -204,6 +228,7 @@ export function getMutationEngine(services?, publicNotices?: any[]) {
         }, {});
 
         for (const [tournamentId, tournamentUpdate] of Object.entries(tournamentUpdates)) {
+          recordTouchTournament(deltaBuffer, tournamentId);
           const { parentOrganisation, ...updates } = tournamentUpdate as any;
           const providerId = parentOrganisation?.organisationId;
           if (providerId) {
@@ -211,6 +236,20 @@ export function getMutationEngine(services?, publicNotices?: any[]) {
           }
         }
       },
+      // ── Read-model projection producers (flag-gated via deltaBuffer) ─────────
+      // Each recorder is a no-op when deltaBuffer is undefined (feature off), so
+      // subscribing here is inert on the mutation path until switched on. These
+      // topics had no prior CFS subscription; the factory only retains a notice
+      // when a subscription exists, so they must be registered to be observed.
+      [topicConstants.ADD_MATCHUPS]: (params) => recordAddMatchUps(deltaBuffer, params),
+      [topicConstants.ADD_DRAW_DEFINITION]: (params) => recordAddDraw(deltaBuffer, params),
+      [topicConstants.ADD_PARTICIPANTS]: (params) => recordParticipants(deltaBuffer, params),
+      [topicConstants.MODIFY_PARTICIPANTS]: (params) => recordParticipants(deltaBuffer, params),
+      [topicConstants.ADD_VENUE]: (params) => recordVenue(deltaBuffer, params),
+      [topicConstants.MODIFY_VENUE]: (params) => recordVenue(deltaBuffer, params),
+      [topicConstants.DELETE_VENUE]: (params) => recordDeleteVenue(deltaBuffer, params),
+      [topicConstants.DELETED_DRAW_IDS]: (params) => recordDeleteDraw(deltaBuffer, params),
+      [topicConstants.DELETE_PARTICIPANTS]: (params) => recordDeleteParticipants(deltaBuffer, params),
     },
   });
 
