@@ -1,5 +1,4 @@
 import { TournamentSyncModule } from '../tournament-sync/tournament-sync.module';
-import { FederationDataModule } from '../federation-data/federation-data.module';
 import { RankingsProxyModule } from '../rankings-proxy/rankings-proxy.module';
 import { RankingsWebhookModule } from '../rankings-webhook/rankings-webhook.module';
 import { HttpThrottlerGuard } from '../../common/throttling/http-throttler.guard';
@@ -58,7 +57,6 @@ import { Module } from '@nestjs/common';
 const coreModules = [
   StorageModule,
   ConfigsModule,
-  FederationDataModule,
   I18nModule,
   RankingsWebhookModule,
   RankingsProxyModule,
