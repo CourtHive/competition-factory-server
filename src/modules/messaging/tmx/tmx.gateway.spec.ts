@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { TmxGateway, TOURNAMENT_ROOM_PREFIX } from './tmx.gateway';
+import { tmxMessages } from './tmxMessages';
 
 /**
  * Focused unit tests for TmxGateway.joinTournament and getActiveRoomPresence.
@@ -330,5 +331,40 @@ describe('TmxGateway.getActiveRoomPresence', () => {
     const t2 = presence.find((r) => r.tournamentId === 't2')!;
     expect(t2.count).toBe(1);
     expect(t2.members[0].email).toBeUndefined();
+  });
+});
+
+describe('TmxGateway executionQueue identity stamping', () => {
+  let spy: jest.SpyInstance;
+  afterEach(() => spy?.mockRestore());
+
+  // Empty tournamentIds makes gatePerTournament pass unconditionally, so these
+  // exercise the identity-stamping block in isolation. The captured payload is
+  // what messageHandler forwards to the downstream executionQueue handler.
+  async function capturePayload(user: any, payload: any) {
+    const { gateway } = buildGateway();
+    spy = jest.spyOn(tmxMessages, 'executionQueue').mockResolvedValue({} as any);
+    const socket = makeSocket({ user });
+    gateway.server = makeMockServer({});
+    await gateway.messageHandler({ type: 'executionQueue', payload }, socket as any);
+    return spy.mock.calls[0][0].payload;
+  }
+
+  it('overrides the client-supplied userId with the JWT-verified UUID', async () => {
+    const passed = await capturePayload(
+      { email: 'a@x.com', sub: 'verified-uuid' },
+      { userId: 'client-spoofed', userEmail: 'evil@x.com', methods: [], tournamentIds: [] },
+    );
+    expect(passed.userId).toBe('verified-uuid');
+    expect(passed.userEmail).toBe('a@x.com');
+  });
+
+  it('nulls userId when the verified token is email-only, never trusting the client value', async () => {
+    const passed = await capturePayload(
+      { email: 'a@x.com' }, // no userId/sub claim
+      { userId: 'client-spoofed', methods: [], tournamentIds: [] },
+    );
+    expect(passed.userId).toBeNull();
+    expect(passed.userEmail).toBe('a@x.com');
   });
 });

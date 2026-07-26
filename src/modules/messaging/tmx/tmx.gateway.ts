@@ -291,9 +291,12 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       if (verifiedUser?.email) {
         payload.userEmail = verifiedUser.email;
       }
-      if (verifiedUser?.userId || verifiedUser?.sub) {
-        payload.userId = verifiedUser.userId ?? verifiedUser.sub;
-      }
+      // Unconditionally replace `payload.userId` with the JWT-verified UUID —
+      // when the token carries no UUID-shaped identifier, null it out rather
+      // than leaving the client-supplied value in place. `audit_log.user_id`
+      // is nullable UUID, so a client-supplied string must never survive into
+      // attribution (it would either spoof `user_id` or crash the INSERT).
+      payload.userId = verifiedUser?.userId ?? verifiedUser?.sub ?? null;
 
       try {
         const result = await tmxMessages[type]({
