@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.21.0](https://github.com/CourtHive/competition-factory-server/compare/v2.20.0...v2.21.0) (2026-07-27)
+
+
+### Features
+
+* **projection:** person-claim → person_id producer handler + update delta op ([9637e2d](https://github.com/CourtHive/competition-factory-server/commit/9637e2d6b92f0ff34cb98fab4d24754fe1f12e1f))
+* **projection:** read-model projection outbox producers (increment 2) ([35e1f34](https://github.com/CourtHive/competition-factory-server/commit/35e1f3485eea62e79c403be6d2bb853fc29f273f))
+* **projection:** rebuild/backfill pipeline + byte-identical conformance test (increment 5) ([1c97292](https://github.com/CourtHive/competition-factory-server/commit/1c972929eae35379e329a66da78389f2c80e16b5))
+* sign SPLIT tournament tokens via the hiveid IdP mint ([#834](https://github.com/CourtHive/competition-factory-server/issues/834)) ([08dc136](https://github.com/CourtHive/competition-factory-server/commit/08dc136381988e3955a7dec00e02a48677b8925a))
+
+
+### Bug Fixes
+
+* **app:** drop FederationDataModule import/registration (retire follow-up) ([e10dec8](https://github.com/CourtHive/competition-factory-server/commit/e10dec8e9f601c1887bfd679b3b77724fc1c0d88))
+* **deps:** patch fast-uri to 3.1.4 (host confusion advisory) ([fd9b915](https://github.com/CourtHive/competition-factory-server/commit/fd9b9151820b46aff2815fddee975355404f6075))
+* **deps:** update tods-competition-factory to 6.12.0 ([f4dde2c](https://github.com/CourtHive/competition-factory-server/commit/f4dde2c7aab6250041f4c6718914fe624e1e6280))
+* **deps:** update tods-competition-factory to 6.13.0 ([f499dd7](https://github.com/CourtHive/competition-factory-server/commit/f499dd7ff668cff799295e0dca352871cf0bc8b8))
+* **messaging:** never trust client-supplied user id in tmx audit attribution ([7e56106](https://github.com/CourtHive/competition-factory-server/commit/7e5610628bb2e15619a1fa32fda32596dd76cd8c))
+* **projection:** don't double-project team-tie rubbers + ITA team validation ([f9cd7f5](https://github.com/CourtHive/competition-factory-server/commit/f9cd7f5bb2b504bcabed321b3360fc1f397cfca2))
+
 ## [2.20.0](https://github.com/CourtHive/competition-factory-server/compare/v2.19.0...v2.20.0) (2026-07-22)
 
 
