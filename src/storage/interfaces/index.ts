@@ -19,19 +19,6 @@ export {
   type AuditRow,
 } from './audit-storage.interface';
 export {
-  BOLT_HISTORY_STORAGE,
-  VERSION_CONFLICT,
-  type IBoltHistoryStorage,
-  type BoltHistoryDocument,
-  type TieMatchUpSide,
-} from './bolt-history.interface';
-export {
-  BOLT_HISTORY_REPORTING,
-  type IBoltHistoryReporting,
-  type PlayerPointStats,
-  type TournamentLeader,
-} from './bolt-history-reporting.interface';
-export {
   PROVISIONER_STORAGE,
   type IProvisionerStorage,
   type ProvisionerRow,

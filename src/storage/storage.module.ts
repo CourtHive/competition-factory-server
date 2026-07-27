@@ -2,7 +2,6 @@ import { PROVISIONER_PROVIDER_STORAGE } from './interfaces/provisioner-provider-
 import { TOURNAMENT_PROVISIONER_STORAGE } from './interfaces/tournament-provisioner-storage.interface';
 import { PROVISIONER_API_KEY_STORAGE } from './interfaces/provisioner-api-key-storage.interface';
 import { PROVIDER_API_KEY_STORAGE } from './interfaces/provider-api-key-storage.interface';
-import { BOLT_HISTORY_REPORTING } from './interfaces/bolt-history-reporting.interface';
 import { USER_PROVIDER_STORAGE } from './interfaces/user-provider-storage.interface';
 import { PROVISIONER_STORAGE } from './interfaces/provisioner-storage.interface';
 import { SSO_IDENTITY_STORAGE } from './interfaces/sso-identity-storage.interface';
@@ -10,7 +9,6 @@ import { USER_PROVISIONER_STORAGE } from './interfaces/user-provisioner-storage.
 import { PROVIDER_ARCHIVE_STORAGE } from './interfaces/provider-archive-storage.interface';
 import { REFRESH_TOKEN_STORAGE } from './interfaces/refresh-token-storage.interface';
 import { REGISTRATION_ENTRY_STORAGE } from './interfaces/registration-entry-storage.interface';
-import { BOLT_HISTORY_STORAGE } from './interfaces/bolt-history.interface';
 import { PROJECTION_OUTBOX_STORAGE } from './interfaces/projection-outbox-storage.interface';
 import { CHAT_STORAGE } from './interfaces/chat-storage.interface';
 import { TOURNAMENT_STORAGE } from './interfaces/tournament-storage.interface';
@@ -24,7 +22,6 @@ import { POLICY_STORAGE } from './interfaces/policy-storage.interface';
 import { AUDIT_STORAGE } from './interfaces/audit-storage.interface';
 import { USER_STORAGE } from './interfaces/user-storage.interface';
 
-import { PostgresBoltHistoryReportingStorage } from './postgres/postgres-bolt-history-reporting.storage';
 import { PostgresProvisionerProviderStorage } from './postgres/postgres-provisioner-provider.storage';
 import { PostgresTournamentProvisionerStorage } from './postgres/postgres-tournament-provisioner.storage';
 import { PostgresProvisionerApiKeyStorage } from './postgres/postgres-provisioner-api-key.storage';
@@ -37,7 +34,6 @@ import { PostgresProviderArchiveStorage } from './postgres/postgres-provider-arc
 import { PostgresRefreshTokenStorage } from './postgres/postgres-refresh-token.storage';
 import { PostgresRegistrationEntryStorage } from './postgres/postgres-registration-entry.storage';
 import { PostgresAuditStorage } from './postgres/postgres-audit.storage';
-import { PostgresBoltHistoryStorage } from './postgres/postgres-bolt-history.storage';
 import { PostgresProjectionOutboxStorage } from './postgres/postgres-projection-outbox.storage';
 import { PostgresChatStorage } from './postgres/postgres-chat.storage';
 import { PostgresTournamentStorage } from './postgres/postgres-tournament.storage';
@@ -90,8 +86,6 @@ const providerCatalogStorageProvider = makeStorageProvider(
 );
 const calendarStorageProvider = makeStorageProvider(CALENDAR_STORAGE, PostgresCalendarStorage);
 const authCodeStorageProvider = makeStorageProvider(AUTH_CODE_STORAGE, PostgresAuthCodeStorage);
-const boltHistoryStorageProvider = makeStorageProvider(BOLT_HISTORY_STORAGE, PostgresBoltHistoryStorage);
-const boltHistoryReportingProvider = makeStorageProvider(BOLT_HISTORY_REPORTING, PostgresBoltHistoryReportingStorage);
 const userProviderStorageProvider = makeStorageProvider(USER_PROVIDER_STORAGE, PostgresUserProviderStorage);
 const assignmentStorageProvider = makeStorageProvider(ASSIGNMENT_STORAGE, PostgresAssignmentStorage);
 const auditStorageProvider = makeStorageProvider(AUDIT_STORAGE, PostgresAuditStorage);
@@ -122,8 +116,6 @@ const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_ST
     providerCatalogStorageProvider,
     calendarStorageProvider,
     authCodeStorageProvider,
-    boltHistoryStorageProvider,
-    boltHistoryReportingProvider,
     userProviderStorageProvider,
     assignmentStorageProvider,
     auditStorageProvider,
@@ -151,8 +143,6 @@ const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_ST
     PROVIDER_CATALOG_STORAGE,
     CALENDAR_STORAGE,
     AUTH_CODE_STORAGE,
-    BOLT_HISTORY_STORAGE,
-    BOLT_HISTORY_REPORTING,
     USER_PROVIDER_STORAGE,
     ASSIGNMENT_STORAGE,
     AUDIT_STORAGE,

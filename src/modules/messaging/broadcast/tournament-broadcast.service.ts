@@ -166,23 +166,6 @@ export class TournamentBroadcastService {
   }
 
   /**
-   * Broadcast a bolt-history document update to TMX clients in the affected tournament room.
-   * Used by BoltHistoryService after a successful upsert so live scoreboards refresh.
-   */
-  broadcastBoltHistory(tournamentId: string, document: any): void {
-    if (!this.tmxServer) {
-      this.logger.warn('[broadcast] tmxServer not available — skipping boltHistoryUpdated broadcast');
-      return;
-    }
-    if (!tournamentId) {
-      this.logger.warn('[broadcast] boltHistoryUpdated skipped — missing tournamentId');
-      return;
-    }
-    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
-    this.tmxServer.to(room).emit('boltHistoryUpdated', { tournamentId, document });
-  }
-
-  /**
    * Sanitize factory notices and broadcast to public viewers via the /public namespace.
    */
   broadcastPublicNotices(payload: any, publicNotices?: any[]): void {

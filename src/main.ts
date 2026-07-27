@@ -102,8 +102,8 @@ async function bootstrap() {
   // that talks to the shared/production database. Credentials are real accounts
   // — SUPER_ADMIN, PROVISIONER, or PROVIDER_ADMIN users (the ones who actually
   // exercise the API) — validated by AuthService against the users table. Only
-  // Swagger-owned paths are gated; real `/api/*` controllers (e.g. /api/config,
-  // /api/bolt-history) are untouched.
+  // Swagger-owned paths are gated; real `/api/*` controllers (e.g. /api/config)
+  // are untouched.
   //
   // Gating triggers for production (nest) AND the shared-DB staging host
   // (courthive-mentat — runs APP_MODE=development but points at the same

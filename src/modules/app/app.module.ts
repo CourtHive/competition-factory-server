@@ -3,7 +3,6 @@ import { RankingsProxyModule } from '../rankings-proxy/rankings-proxy.module';
 import { RankingsWebhookModule } from '../rankings-webhook/rankings-webhook.module';
 import { HttpThrottlerGuard } from '../../common/throttling/http-throttler.guard';
 import { ProvisionerModule } from '../provisioner/provisioner.module';
-import { BoltHistoryModule } from '../bolt-history/bolt-history.module';
 // OfficiatingModule + SanctioningModule retired 2026-05-27 (un-registered) and
 // their module dirs + orphaned storage layer removed 2026-06-26: superseded by AMS
 // (AMS-WS-07, AMS-WS-08); no consumer in TMX/admin-client/AMS-console calls the
@@ -79,7 +78,6 @@ const tournamentModules = isModuleEnabled('tournament')
       MessagingModule,
       ProvidersModule,
       CacheModule,
-      BoltHistoryModule,
       AuditModule,
       ProvisionerModule,
       TournamentSyncModule.forRoot(),
