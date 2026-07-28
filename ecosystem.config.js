@@ -22,6 +22,10 @@ module.exports = {
         PERSIST_SCORES: process.env.PERSIST_SCORES || 'true',
         PROJECTION_API_KEY: process.env.PROJECTION_API_KEY || '',
         VIDEO_BOARD_UDP_TARGET: process.env.VIDEO_BOARD_UDP_TARGET || '',
+        // Durable point-by-point + runtime-envelope store (courthive-query). The
+        // relay persists per-point and materializes promoted crowd sessions here.
+        // Also present in shared/.env; explicit here so it survives promotes.
+        POINT_HISTORY_URL: process.env.POINT_HISTORY_URL || 'http://localhost:3150',
       },
     },
     {
