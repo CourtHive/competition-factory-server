@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.22.0](https://github.com/CourtHive/competition-factory-server/compare/v2.21.0...v2.22.0) (2026-07-29)
+
+
+### Features
+
+* **throttle:** add env flag to disable http rate limiting for local/ci e2e ([#844](https://github.com/CourtHive/competition-factory-server/issues/844)) ([38cfa0b](https://github.com/CourtHive/competition-factory-server/commit/38cfa0b98a867aabc616b7ce4df77e485d013da0))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 6.13.1 ([f59a90b](https://github.com/CourtHive/competition-factory-server/commit/f59a90bfa61f464b26af21e811beff67843891b5))
+* **deps:** update tods-competition-factory to 6.13.2 ([aa09c63](https://github.com/CourtHive/competition-factory-server/commit/aa09c635e66b524826d99865a3558890e2f28004))
+* **deps:** update tods-competition-factory to 6.13.2 ([bbc241f](https://github.com/CourtHive/competition-factory-server/commit/bbc241f110736a2f70ac721f2148704f3d5a0e9c))
+
 ## [2.21.0](https://github.com/CourtHive/competition-factory-server/compare/v2.20.0...v2.21.0) (2026-07-27)
 
 
