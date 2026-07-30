@@ -1,4 +1,5 @@
 import { ProjectionRebuildService } from './projection/projection-rebuild.service';
+import { AdminProjectionController } from './admin-projection.controller';
 import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
 import { AssignmentsController } from './assignments.controller';
 import { AssignmentsService } from './assignments.service';
@@ -11,7 +12,7 @@ import { Module } from '@nestjs/common';
 
 @Module({
   providers: [FactoryService, AssignmentsService, ConfigService, ProjectionRebuildService],
-  controllers: [FactoryController, AssignmentsController],
+  controllers: [FactoryController, AssignmentsController, AdminProjectionController],
   exports: [FactoryService, AssignmentsService, ProjectionRebuildService],
   imports: [ConfigsModule, BroadcastModule, AuditModule],
 })
