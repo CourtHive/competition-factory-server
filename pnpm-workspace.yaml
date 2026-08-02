@@ -51,3 +51,10 @@ overrides:
   # Security override — fast-uri host confusion (GHSA-v2hh-gcrm-f6hx, high);
   # dev-only, transitive via ajv (^3.0.1). Patched 3.1.4.
   fast-uri: '^4.0.0'
+  # Security override — js-yaml exponential parse-time DoS in flow collections
+  # (GHSA-mh29-5h37-fv8m, high); runtime, via @nestjs/swagger (OpenAPI YAML).
+  # Scoped to the 5.x line so 3.x/4.x consumers keep their API. Patched 5.2.2.
+  js-yaml@5: '>=5.2.2'
+  # Security override — postcss source-map path traversal (GHSA-7fh5-64p2-3v2j,
+  # high); dev-only, transitive via vite / webpack / storybook. Patched 8.5.18.
+  postcss: '>=8.5.18'
