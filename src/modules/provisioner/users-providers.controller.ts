@@ -29,6 +29,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+import { ProvisionerWritesMovedGuard } from './provisioner-writes-moved.guard';
 import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
 import { CLIENT, SUPER_ADMIN, PROVIDER_ADMIN } from 'src/common/constants/roles';
@@ -44,7 +45,7 @@ import {
 } from 'src/storage/interfaces';
 
 @Controller('provisioner/users')
-@UseGuards(RolesGuard)
+@UseGuards(ProvisionerWritesMovedGuard, RolesGuard)
 export class UsersProvidersController {
   constructor(
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,

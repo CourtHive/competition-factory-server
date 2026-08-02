@@ -1,11 +1,12 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
+import { ProvisionerWritesMovedGuard } from './provisioner-writes-moved.guard';
 import { RolesGuard } from '../account/auth/guards/role.guard';
 import { Roles } from '../account/auth/decorators/roles.decorator';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
 import { ProvisionerService } from './provisioner.service';
 
 @Controller('admin/provisioners')
-@UseGuards(RolesGuard)
+@UseGuards(ProvisionerWritesMovedGuard, RolesGuard)
 @Roles([SUPER_ADMIN])
 export class AdminProvisionerController {
   constructor(private readonly provisionerService: ProvisionerService) {}
