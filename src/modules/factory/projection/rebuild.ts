@@ -23,6 +23,7 @@ export function buildRebuildIntents(record: any): ProjectionIntent[] {
     { kind: 'participants', tournamentId },
     { kind: 'events', tournamentId },
     { kind: 'orderOfPlay', tournamentId },
+    { kind: 'participantPublish', tournamentId },
     // the stored scheduling plan (NATIVE `scheduling.profile`; LEGACY extension records
     // do not surface here, matching cast's NATIVE-first read on the same records)
     { kind: 'schedulingProfile', tournamentId, schedulingProfile: record?.scheduling?.profile ?? [] },

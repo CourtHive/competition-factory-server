@@ -9,6 +9,7 @@ import {
   recordEntries,
   recordEvents,
   recordOrderOfPlay,
+  recordParticipantPublish,
   recordSchedulingProfile,
   recordSeeds,
   recordMatchUpResult,
@@ -114,6 +115,15 @@ describe('deltaBuffer recorders', () => {
     recordOrderOfPlay(buffer, [{ tournamentId: 't-1', scheduledDates: ['2025-01-05'] }, { tournamentId: 't-1' }]);
     expect(buffer.intents.filter((i) => i.kind === 'orderOfPlay')).toEqual([{ kind: 'orderOfPlay', tournamentId: 't-1' }]);
     expect(() => recordOrderOfPlay(undefined, [{ tournamentId: 't-1' }])).not.toThrow();
+  });
+
+  it('recordParticipantPublish records one participantPublish intent per tournament (deduped)', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordParticipantPublish(buffer, [{ tournamentId: 't-1' }, { tournamentId: 't-1' }]);
+    expect(buffer.intents.filter((i) => i.kind === 'participantPublish')).toEqual([
+      { kind: 'participantPublish', tournamentId: 't-1' },
+    ]);
+    expect(() => recordParticipantPublish(undefined, [{ tournamentId: 't-1' }])).not.toThrow();
   });
 
   it('recordSchedulingProfile carries the profile in the intent', () => {

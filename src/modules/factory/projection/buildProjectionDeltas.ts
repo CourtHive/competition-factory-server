@@ -16,6 +16,7 @@ import {
   TABLE_COURTS,
   TABLE_ORDER_OF_PLAY,
   TABLE_SCHEDULING_PROFILE,
+  TABLE_PARTICIPANT_PUBLISH,
   TABLE_TOURNAMENT_VENUES,
   LINK_CANONICAL,
 } from './projectionConstants';
@@ -36,6 +37,7 @@ const {
   courtRow,
   orderOfPlayRow,
   schedulingProfileRows,
+  participantPublishRow,
   resolveMatchUpPublishState,
   getEventPublishStatus,
   getTournamentPublishStatus,
@@ -61,6 +63,7 @@ interface Grouped {
   seeds: Map<string, string>; // structureId → tournamentId (seeds re-project per structure)
   orderOfPlay: Set<string>; // tournamentIds needing an order-of-play publish-state refresh
   schedulingProfiles: Map<string, any[]>; // tournamentId → the scheduling plan to re-project
+  participantPublish: Set<string>; // tournamentIds needing a participant-list publish-state refresh
   matchUpResults: Map<string, { tournamentId: string; matchUp: any }>; // matchUpId → latest
   venues: Map<string, { tournamentId: string; venue: any }>; // venueId → venue
   deleteVenues: { tournamentId: string; venueId: string }[];
@@ -85,6 +88,7 @@ function group(intents: ProjectionIntent[], records: Record<string, any>): Group
     seeds: new Map(),
     orderOfPlay: new Set(),
     schedulingProfiles: new Map(),
+    participantPublish: new Set(),
     matchUpResults: new Map(),
     venues: new Map(),
     deleteVenues: [],
@@ -136,6 +140,9 @@ function group(intents: ProjectionIntent[], records: Record<string, any>): Group
         break;
       case 'schedulingProfile':
         g.schedulingProfiles.set(intent.tournamentId, intent.schedulingProfile);
+        break;
+      case 'participantPublish':
+        g.participantPublish.add(intent.tournamentId);
         break;
       case 'venue':
         g.venues.set(intent.venue.venueId, { tournamentId: intent.tournamentId, venue: intent.venue });
@@ -421,6 +428,24 @@ function orderOfPlayDeltas(g: Grouped, records: Record<string, any>): Projection
   return deltas;
 }
 
+// Participant-list PUBLICATION state: one row when published, resolved from the final
+// record; an unpublish deletes the row (mirrors orderOfPlayDeltas).
+function participantPublishDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[] {
+  const deltas: ProjectionDelta[] = [];
+  for (const tournamentId of g.participantPublish) {
+    const record = records?.[tournamentId];
+    if (!record) continue;
+    const participants = getTournamentPublishStatus({ tournamentRecord: record })?.participants;
+    if (participants?.published) {
+      const row = participantPublishRow(tournamentId, participants);
+      deltas.push(upsert(tournamentId, TABLE_PARTICIPANT_PUBLISH, { tournament_id: tournamentId }, row, 'participantPublish'));
+    } else {
+      deltas.push(del(tournamentId, TABLE_PARTICIPANT_PUBLISH, { tournament_id: tournamentId }, 'participantPublish'));
+    }
+  }
+  return deltas;
+}
+
 // The scheduling PLAN: delete-by-tournament + re-insert the flattened rows (the plan
 // can shrink). Projected from the intent's profile (byte-identical to cast, which reads
 // the same stored profile).
@@ -553,6 +578,7 @@ export async function buildProjectionDeltas(args: BuildDeltasArgs): Promise<Proj
     ...seedDeltas(g, args.tournamentRecords),
     ...orderOfPlayDeltas(g, args.tournamentRecords),
     ...schedulingProfileDeltas(g),
+    ...participantPublishDeltas(g, args.tournamentRecords),
     ...venueDeltas(g, args.tournamentRecords),
     ...flatten,
     ...resultDeltas(g, args.tournamentRecords, coveredMatchUpIds),

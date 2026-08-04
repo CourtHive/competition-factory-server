@@ -361,6 +361,28 @@ describe('buildProjectionDeltas', () => {
     expect(down.find((d) => d.table === 'order_of_play')).toMatchObject({ op: 'delete', key: { tournament_id: 't-1' } });
   });
 
+  it('participantPublish intent → upsert when published, delete when not', async () => {
+    const published = {
+      't-1': {
+        ...RECORD,
+        timeItems: [{ itemType: 'PUBLISH.STATUS', itemValue: { PUBLIC: { participants: { published: true, embargo: '2025-01-04' } } } }],
+      },
+    };
+    const up = await buildProjectionDeltas({
+      intents: [{ kind: 'participantPublish', tournamentId: 't-1' }],
+      tournamentRecords: published,
+      flattenDraw: jest.fn(),
+    });
+    expect(up.find((d) => d.table === 'participant_publish')).toMatchObject({
+      op: 'upsert',
+      key: { tournament_id: 't-1' },
+      row: { published: true, embargo: '2025-01-04' },
+    });
+
+    const down = await build([{ kind: 'participantPublish', tournamentId: 't-1' }]);
+    expect(down.find((d) => d.table === 'participant_publish')).toMatchObject({ op: 'delete', key: { tournament_id: 't-1' } });
+  });
+
   it('schedulingProfile intent → delete-by-tournament THEN one upsert per (date, venue, round)', async () => {
     const profile = [
       { scheduleDate: '2025-01-05', venues: [{ venueId: 'v1', rounds: [{ drawId: 'd1', roundNumber: 1 }, { drawId: 'd1', roundNumber: 2 }] }] },

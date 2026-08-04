@@ -13,6 +13,7 @@ import {
   recordEntries,
   recordEvents,
   recordOrderOfPlay,
+  recordParticipantPublish,
   recordSchedulingProfile,
   recordMatchUpResult,
   recordParticipants,
@@ -155,6 +156,7 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
             services?.cacheManager?.del(key);
           }
           clearCache(item.tournamentId);
+          recordTouchTournament(deltaBuffer, item.tournamentId); // refresh tournaments.published
           publicNotices?.push({
             topic: topicConstants.UNPUBLISH_ORDER_OF_PLAY,
             tournamentId: item.tournamentId,
@@ -165,6 +167,7 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         recordOrderOfPlay(deltaBuffer, params); // order-of-play publication state
         for (const item of params) {
           clearCache(item.tournamentId);
+          recordTouchTournament(deltaBuffer, item.tournamentId); // refresh tournaments.published
           publicNotices?.push({
             topic: topicConstants.PUBLISH_ORDER_OF_PLAY,
             tournamentId: item.tournamentId,
@@ -172,8 +175,10 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         }
       },
       [topicConstants.PUBLISH_PARTICIPANTS]: (params) => {
+        recordParticipantPublish(deltaBuffer, params); // participant-list publish state
         for (const item of params) {
           clearCache(item.tournamentId);
+          recordTouchTournament(deltaBuffer, item.tournamentId); // refresh tournaments.published
           publicNotices?.push({
             topic: topicConstants.PUBLISH_PARTICIPANTS,
             tournamentId: item.tournamentId,
@@ -181,17 +186,22 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         }
       },
       [topicConstants.UNPUBLISH_PARTICIPANTS]: (params) => {
+        recordParticipantPublish(deltaBuffer, params);
         for (const item of params) {
           clearCache(item.tournamentId);
+          recordTouchTournament(deltaBuffer, item.tournamentId);
           publicNotices?.push({
             topic: topicConstants.UNPUBLISH_PARTICIPANTS,
             tournamentId: item.tournamentId,
           });
         }
       },
+      // the tournament went dark (neither order-of-play nor participants published)
+      // → refresh the aggregate tournaments.published flag.
       [topicConstants.UNPUBLISH_TOURNAMENT]: (params) => {
         for (const item of params) {
           clearCache(item.tournamentId);
+          recordTouchTournament(deltaBuffer, item.tournamentId);
         }
       },
       [topicConstants.AUDIT]: (params) => {

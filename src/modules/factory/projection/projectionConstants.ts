@@ -7,6 +7,7 @@ export const TABLE_STRUCTURES = 'structures';
 export const TABLE_SEEDS = 'seeds';
 export const TABLE_ORDER_OF_PLAY = 'order_of_play';
 export const TABLE_SCHEDULING_PROFILE = 'scheduling_profile';
+export const TABLE_PARTICIPANT_PUBLISH = 'participant_publish';
 export const TABLE_MATCH_UPS = 'match_ups';
 export const TABLE_MATCH_UP_COMPETITORS = 'match_up_competitors';
 export const TABLE_ENTRIES = 'entries';

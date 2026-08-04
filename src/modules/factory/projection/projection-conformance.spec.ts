@@ -21,6 +21,7 @@ const PK: Record<string, string[]> = {
   courts: ['court_id'],
   order_of_play: ['tournament_id'],
   scheduling_profile: ['tournament_id', 'schedule_date', 'venue_id', 'round_order'],
+  participant_publish: ['tournament_id'],
   tournament_venues: ['tournament_id', 'venue_id'],
 };
 
@@ -209,7 +210,10 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     // publish the order of play + set a scheduling plan so both schedule tables are exercised
     const draw = tournamentRecord.events[0].drawDefinitions[0];
     tournamentRecord.timeItems = [
-      { itemType: 'PUBLISH.STATUS', itemValue: { PUBLIC: { orderOfPlay: { published: true, scheduledDates: ['2025-01-05'] } } } },
+      {
+        itemType: 'PUBLISH.STATUS',
+        itemValue: { PUBLIC: { orderOfPlay: { published: true, scheduledDates: ['2025-01-05'] }, participants: { published: true } } },
+      },
     ];
     tournamentRecord.scheduling = {
       profile: [
@@ -253,6 +257,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       'courts',
       'order_of_play',
       'scheduling_profile',
+      'participant_publish',
       'tournament_venues',
     ]) {
       expect(snapshot(rebuilt, table)).toEqual(castSnapshot(table));
@@ -261,6 +266,8 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     expect(castSnapshot('draws').length).toBeGreaterThan(0);
     expect(castSnapshot('structures').length).toBeGreaterThan(0);
     expect(castSnapshot('courts').length).toBeGreaterThan(0); // venueProfiles courtsCount:4 above
+    expect(castSnapshot('participant_publish')).toEqual([{ tournament_id: tournamentId, published: true, embargo: null }]);
+    expect(castSnapshot('tournaments')[0].published).toBe(true); // OoP + participants published above
     expect(castSnapshot('order_of_play')).toEqual([
       { tournament_id: tournamentId, published: true, scheduled_dates: ['2025-01-05'], event_ids: null, embargo: null },
     ]);

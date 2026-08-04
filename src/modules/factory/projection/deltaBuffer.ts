@@ -145,6 +145,20 @@ export function recordOrderOfPlay(buffer: DeltaBuffer | undefined, params: any[]
   }
 }
 
+/** PUBLISH_PARTICIPANTS / UNPUBLISH_PARTICIPANTS: `{ tournamentId }`. Re-project the
+ *  participant-list publication state (published → upsert; unpublished → delete). */
+export function recordParticipantPublish(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  const seen = new Set<string>();
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (tournamentId && !seen.has(tournamentId)) {
+      seen.add(tournamentId);
+      push(buffer, { kind: 'participantPublish', tournamentId });
+    }
+  }
+}
+
 /** MODIFY_SCHEDULING_PROFILE: `{ tournamentId, schedulingProfile }`. Carry the profile in
  *  the intent so the flat plan is projected from exactly what was set (delete-by-tournament
  *  + re-insert; the plan can shrink). */
