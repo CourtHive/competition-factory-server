@@ -18,6 +18,7 @@ const PK: Record<string, string[]> = {
   match_up_competitors: ['match_up_id', 'side_number', 'competitor_index'],
   entries: ['tournament_id', 'event_id', 'participant_id'],
   venues: ['venue_id'],
+  courts: ['court_id'],
   tournament_venues: ['tournament_id', 'venue_id'],
 };
 
@@ -227,6 +228,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       'match_up_competitors',
       'entries',
       'venues',
+      'courts',
       'tournament_venues',
     ]) {
       expect(snapshot(rebuilt, table)).toEqual(castSnapshot(table));
@@ -234,6 +236,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     expect(castSnapshot('seeds').length).toBeGreaterThan(0); // seedsCount:4 above must produce rows
     expect(castSnapshot('draws').length).toBeGreaterThan(0);
     expect(castSnapshot('structures').length).toBeGreaterThan(0);
+    expect(castSnapshot('courts').length).toBeGreaterThan(0); // venueProfiles courtsCount:4 above
     expect(castSnapshot('match_ups').length).toBeGreaterThan(0);
     expect(castSnapshot('tournament_venues')).toEqual([{ tournament_id: tournamentId, venue_id: 'v1' }]);
   });

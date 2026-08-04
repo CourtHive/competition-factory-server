@@ -84,11 +84,30 @@ describe('buildProjectionDeltas', () => {
     expect(deltas.find((d) => d.table === 'match_ups')?.topic).toBe('flattenDraw');
   });
 
-  it('venue → venues + tournament_venues upserts', async () => {
-    const deltas = await build([{ kind: 'venue', tournamentId: 't-1', venue: { venueId: 'v1', venueName: 'Center' } }]);
+  it('venue → venues + tournament_venues upserts, plus delete-by-venue + re-insert of courts', async () => {
+    const deltas = await build([
+      {
+        kind: 'venue',
+        tournamentId: 't-1',
+        venue: {
+          venueId: 'v1',
+          venueName: 'Center',
+          courts: [
+            { courtId: 'c1', courtName: 'Court 1', indoorOutdoor: 'INDOOR' },
+            { courtId: 'c2', courtName: 'Court 2' },
+          ],
+        },
+      },
+    ]);
     const tables = deltas.map((d) => `${d.op}:${d.table}`);
     expect(tables).toContain('upsert:venues');
     expect(tables).toContain('upsert:tournament_venues');
+    const courtOps = deltas.filter((d) => d.table === 'courts');
+    expect(courtOps[0]).toMatchObject({ op: 'delete', key: { venue_id: 'v1' } });
+    expect(courtOps.slice(1).map((d) => d.key)).toEqual([{ court_id: 'c1' }, { court_id: 'c2' }]);
+    expect(courtOps[1].row).toMatchObject({ venue_id: 'v1', court_name: 'Court 1', indoor_outdoor: 'INDOOR' });
+    // venue upserted before courts (FK parent)
+    expect(deltas.findIndex((d) => d.table === 'venues')).toBeLessThan(deltas.findIndex((d) => d.table === 'courts'));
   });
 
   it('delete intents → delete deltas with WHERE-clause keys', async () => {

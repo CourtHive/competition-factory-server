@@ -9,6 +9,7 @@ export const TABLE_MATCH_UPS = 'match_ups';
 export const TABLE_MATCH_UP_COMPETITORS = 'match_up_competitors';
 export const TABLE_ENTRIES = 'entries';
 export const TABLE_VENUES = 'venues';
+export const TABLE_COURTS = 'courts';
 export const TABLE_TOURNAMENT_VENUES = 'tournament_venues';
 
 // match_up_competitors.link_source

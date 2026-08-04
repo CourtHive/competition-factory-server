@@ -13,6 +13,7 @@ import {
   TABLE_MATCH_UP_COMPETITORS,
   TABLE_ENTRIES,
   TABLE_VENUES,
+  TABLE_COURTS,
   TABLE_TOURNAMENT_VENUES,
   LINK_CANONICAL,
 } from './projectionConstants';
@@ -30,6 +31,7 @@ const {
   matchUpRowSet,
   tournamentRow,
   venueRow,
+  courtRow,
   resolveMatchUpPublishState,
   getEventPublishStatus,
 } = readModel;
@@ -404,7 +406,7 @@ function entryDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[
   return deltas;
 }
 
-function venueDeltas(g: Grouped): ProjectionDelta[] {
+function venueDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[] {
   const deltas: ProjectionDelta[] = [];
   for (const { tournamentId, venue } of g.venues.values()) {
     const row = venueRow(venue);
@@ -418,6 +420,15 @@ function venueDeltas(g: Grouped): ProjectionDelta[] {
         'venue',
       ),
     );
+    // courts nest under the venue: delete-by-venue + re-insert (a court can be
+    // added/removed within a venue). The venue upsert precedes them (courts FK → venues).
+    const providerId = providerIdOf(records, tournamentId);
+    deltas.push(del(tournamentId, TABLE_COURTS, { venue_id: row.venue_id }, 'venue'));
+    for (const court of venue.courts ?? []) {
+      if (!court?.courtId) continue;
+      const courtRowData = courtRow(court, { venueId: row.venue_id, tournamentId, providerId });
+      deltas.push(upsert(tournamentId, TABLE_COURTS, { court_id: courtRowData.court_id }, courtRowData, 'venue'));
+    }
   }
   return deltas;
 }
@@ -480,7 +491,7 @@ export async function buildProjectionDeltas(args: BuildDeltasArgs): Promise<Proj
     ...eventDeltas(g, args.tournamentRecords),
     ...drawDeltas(g, args.tournamentRecords),
     ...seedDeltas(g, args.tournamentRecords),
-    ...venueDeltas(g),
+    ...venueDeltas(g, args.tournamentRecords),
     ...flatten,
     ...resultDeltas(g, args.tournamentRecords, coveredMatchUpIds),
     ...entryDeltas(g, args.tournamentRecords),
