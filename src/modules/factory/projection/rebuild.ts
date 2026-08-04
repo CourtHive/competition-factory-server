@@ -29,15 +29,22 @@ export function buildRebuildIntents(record: any): ProjectionIntent[] {
     { kind: 'schedulingProfile', tournamentId, schedulingProfile: record?.scheduling?.profile ?? [] },
   ];
 
+  // seeds re-project per structure, including nested round-robin group sub-structures
+  // (the `draw` intent already re-projects the draw + all its structures recursively).
+  const pushSeedIntents = (structureList: any[]) => {
+    for (const structure of structureList ?? []) {
+      if (structure?.structureId) intents.push({ kind: 'seeds', tournamentId, structureId: structure.structureId });
+      pushSeedIntents(structure?.structures);
+    }
+  };
+
   for (const event of record?.events ?? []) {
     for (const draw of event?.drawDefinitions ?? []) {
       if (draw?.drawId) {
         intents.push({ kind: 'flattenDraw', tournamentId, drawId: draw.drawId });
         intents.push({ kind: 'draw', tournamentId, drawId: draw.drawId });
       }
-      for (const structure of draw?.structures ?? []) {
-        if (structure?.structureId) intents.push({ kind: 'seeds', tournamentId, structureId: structure.structureId });
-      }
+      pushSeedIntents(draw?.structures);
     }
   }
 

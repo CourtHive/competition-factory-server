@@ -403,4 +403,39 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     expect(beyond.length).toBeGreaterThan(0);
     expect(beyond.every((r: any) => r.published === false)).toBe(true);
   });
+
+  // Round-robin nested group sub-structures: the producer now walks nested
+  // structures so every matchUp's structure_id (a GROUP) resolves to a structures
+  // row, and rebuild stays byte-identical to cast().
+  it('round-robin nested structures: rebuild ≡ cast + no orphaned match_up structure_id', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 8, drawType: 'ROUND_ROBIN', eventName: 'RR' }],
+      completeAllMatchUps: true,
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const flattenDraw = await flattenDrawOf(tournamentRecord);
+    const rebuiltDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: { [tournamentId]: tournamentRecord },
+      flattenDraw,
+    });
+    const rebuilt = applyDeltas(rebuiltDeltas);
+    const castRows: any = readModel.cast({ tournamentRecord }).rows;
+    const castSort = (table: string) =>
+      [...(castRows[table] ?? [])].sort((a: any, b: any) => keyString(table, a).localeCompare(keyString(table, b)));
+
+    for (const table of ['structures', 'match_ups']) {
+      expect(snapshot(rebuilt, table)).toEqual(castSort(table));
+    }
+
+    const structureIds = new Set(snapshot(rebuilt, 'structures').map((s: any) => s.structure_id));
+    const muStructureIds = [...new Set(snapshot(rebuilt, 'match_ups').map((s: any) => s.structure_id))];
+    expect(muStructureIds.length).toBeGreaterThan(0);
+    expect(muStructureIds.every((id) => structureIds.has(id))).toBe(true); // no orphaned join
+
+    const container = snapshot(rebuilt, 'structures').find((s: any) => s.structure_type === 'CONTAINER');
+    expect(container).toBeDefined();
+    const groups = snapshot(rebuilt, 'structures').filter((s: any) => s.parent_structure_id === container.structure_id);
+    expect(groups.length).toBeGreaterThanOrEqual(2);
+  });
 });
