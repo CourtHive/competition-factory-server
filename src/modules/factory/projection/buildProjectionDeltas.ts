@@ -268,6 +268,7 @@ async function flattenDrawDeltas(
         matchUp?.drawId,
         matchUp?.structureId,
         matchUp?.stage,
+        matchUp?.roundNumber,
       );
       const ctx: MatchUpRowContext = { tournamentId, providerId, published, embargo };
       const { matchUpRows, competitorRows } = matchUpRowSet(matchUp, ctx);
