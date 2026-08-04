@@ -183,6 +183,20 @@ export function recordDeleteDraw(buffer: DeltaBuffer | undefined, params: any[])
   }
 }
 
+/** DELETED_MATCHUP_IDS: `{ matchUpIds, tournamentId, eventId }`. Individual
+ *  matchUp removals that are NOT a whole-draw delete (structure/round removal,
+ *  ad-hoc matchUp removal). A whole-draw delete is handled by DELETED_DRAW_IDS.
+ *  The build guards against deleting a matchUp that was ALSO (re)built this cycle
+ *  (e.g. a draw replace fires delete + add for the same ids). */
+export function recordDeleteMatchUps(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    const matchUpIds = item?.matchUpIds ?? [];
+    if (tournamentId && matchUpIds.length) push(buffer, { kind: 'deleteMatchUps', tournamentId, matchUpIds });
+  }
+}
+
 /** DELETE_PARTICIPANTS: `{ participantIds, tournamentId }`. */
 export function recordDeleteParticipants(buffer: DeltaBuffer | undefined, params: any[]): void {
   if (!buffer || !Array.isArray(params)) return;

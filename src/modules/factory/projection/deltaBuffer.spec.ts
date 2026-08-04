@@ -3,6 +3,7 @@ import {
   recordAddDraw,
   recordAddMatchUps,
   recordDeleteDraw,
+  recordDeleteMatchUps,
   recordEntries,
   recordMatchUpResult,
   recordParticipants,
@@ -71,6 +72,19 @@ describe('deltaBuffer recorders', () => {
 
   it('recordEntries is a no-op when the buffer is undefined (feature off)', () => {
     expect(() => recordEntries(undefined, [{ tournamentId: 't-1', eventId: 'e1' }])).not.toThrow();
+  });
+
+  it('recordDeleteMatchUps records a deleteMatchUps intent carrying the matchUpIds', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordDeleteMatchUps(buffer, [{ tournamentId: 't-1', matchUpIds: ['m1', 'm2'] }]);
+    expect(buffer.intents).toContainEqual({ kind: 'deleteMatchUps', tournamentId: 't-1', matchUpIds: ['m1', 'm2'] });
+  });
+
+  it('recordDeleteMatchUps skips a notice with no matchUpIds and is a no-op when the buffer is off', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordDeleteMatchUps(buffer, [{ tournamentId: 't-1', matchUpIds: [] }]);
+    expect(buffer.intents).toHaveLength(0);
+    expect(() => recordDeleteMatchUps(undefined, [{ tournamentId: 't-1', matchUpIds: ['m1'] }])).not.toThrow();
   });
 
   it('recordPersonClaims records a claim only for a participant carrying the CANONICAL_PERSON stamp', () => {

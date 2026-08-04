@@ -45,6 +45,7 @@ interface Grouped {
   venues: Map<string, { tournamentId: string; venue: any }>; // venueId → venue
   deleteVenues: { tournamentId: string; venueId: string }[];
   deleteDraws: { tournamentId: string; drawId: string }[];
+  deleteMatchUps: Map<string, string>; // matchUpId → tournamentId
   deleteEvents: { tournamentId: string; eventId: string }[];
   deleteParticipants: { tournamentId: string; participantIds: string[] }[];
   claims: Map<string, { tournamentId: string; participantId: string; personId: string }>; // participantId → claim
@@ -63,6 +64,7 @@ function group(intents: ProjectionIntent[], records: Record<string, any>): Group
     venues: new Map(),
     deleteVenues: [],
     deleteDraws: [],
+    deleteMatchUps: new Map(),
     deleteEvents: [],
     deleteParticipants: [],
     claims: new Map(),
@@ -104,6 +106,9 @@ function group(intents: ProjectionIntent[], records: Record<string, any>): Group
         break;
       case 'deleteDraw':
         g.deleteDraws.push(intent);
+        break;
+      case 'deleteMatchUps':
+        for (const matchUpId of intent.matchUpIds) g.deleteMatchUps.set(matchUpId, intent.tournamentId);
         break;
       case 'deleteEvent':
         g.deleteEvents.push(intent);
@@ -244,6 +249,7 @@ function resultDeltas(g: Grouped, records: Record<string, any>, coveredMatchUpId
   for (const { tournamentId, matchUp } of g.matchUpResults.values()) {
     if (coveredMatchUpIds.has(matchUp.matchUpId)) continue; // already fully built by a flatten
     const row = matchUpResultRow(matchUp, tournamentId, providerIdOf(records, tournamentId));
+    coveredMatchUpIds.add(row.match_up_id); // a re-scored matchUp must not be deleted this cycle
     deltas.push(upsert(tournamentId, TABLE_MATCH_UPS, { match_up_id: row.match_up_id }, row, 'modifyMatchUp'));
   }
   return deltas;
@@ -296,7 +302,7 @@ function venueDeltas(g: Grouped): ProjectionDelta[] {
   return deltas;
 }
 
-function deleteDeltas(g: Grouped): ProjectionDelta[] {
+function deleteDeltas(g: Grouped, coveredMatchUpIds: Set<string>): ProjectionDelta[] {
   const deltas: ProjectionDelta[] = [];
   for (const { tournamentId, venueId } of g.deleteVenues) {
     deltas.push(
@@ -305,6 +311,13 @@ function deleteDeltas(g: Grouped): ProjectionDelta[] {
   }
   for (const { tournamentId, drawId } of g.deleteDraws) {
     deltas.push(del(tournamentId, TABLE_MATCH_UPS, { draw_id: drawId }, 'deleteDraw')); // competitors cascade
+  }
+  // Individual matchUp removals. A matchUp that was ALSO (re)built this cycle is in
+  // coveredMatchUpIds — skip it, else the delete (emitted last) would undo the upsert
+  // for a draw replace that reuses the same matchUpIds. Competitors cascade on the FK.
+  for (const [matchUpId, tournamentId] of g.deleteMatchUps) {
+    if (coveredMatchUpIds.has(matchUpId)) continue;
+    deltas.push(del(tournamentId, TABLE_MATCH_UPS, { match_up_id: matchUpId }, 'deletedMatchUpIds'));
   }
   for (const { tournamentId, eventId } of g.deleteEvents) {
     deltas.push(del(tournamentId, TABLE_MATCH_UPS, { event_id: eventId }, 'deleteEvent'));
@@ -344,6 +357,6 @@ export async function buildProjectionDeltas(args: BuildDeltasArgs): Promise<Proj
     ...resultDeltas(g, args.tournamentRecords, coveredMatchUpIds),
     ...entryDeltas(g, args.tournamentRecords),
     ...claimDeltas(g),
-    ...deleteDeltas(g),
+    ...deleteDeltas(g, coveredMatchUpIds),
   ];
 }
