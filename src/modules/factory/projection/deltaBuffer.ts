@@ -100,6 +100,23 @@ export function recordParticipants(buffer: DeltaBuffer | undefined, params: any[
   }
 }
 
+/** MODIFY_EVENT_ENTRIES / MODIFY_DRAW_ENTRIES: `{ tournamentId, eventId, entries }` /
+ *  `{ tournamentId, eventId, drawId, drawEntries }`. Entry membership/status/position
+ *  changed WITHOUT necessarily touching a participant record — refresh the entries
+ *  fact directly. (The factory only began dispatching these topics with the
+ *  notice-completeness work; before that, entries only refreshed on ADD/MODIFY_PARTICIPANTS.) */
+export function recordEntries(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  const seen = new Set<string>();
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (tournamentId && !seen.has(tournamentId)) {
+      seen.add(tournamentId);
+      push(buffer, { kind: 'entries', tournamentId });
+    }
+  }
+}
+
 /** Person self-claim: `addPersonOtherId` stamps `CANONICAL_PERSON` on a
  *  participant's `person.personOtherIds[]` and fires MODIFY_PARTICIPANTS. Detect
  *  that stamp and record a claimPerson intent so the read model's `person_id`

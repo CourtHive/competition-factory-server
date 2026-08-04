@@ -7,6 +7,7 @@ import {
   recordDeleteParticipants,
   recordDeleteEventsFromAudit,
   recordDeleteVenue,
+  recordEntries,
   recordMatchUpResult,
   recordParticipants,
   recordPersonClaims,
@@ -253,6 +254,8 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         recordParticipants(deltaBuffer, params);
         recordPersonClaims(deltaBuffer, params, CANONICAL_PERSON);
       },
+      [topicConstants.MODIFY_EVENT_ENTRIES]: (params) => recordEntries(deltaBuffer, params),
+      [topicConstants.MODIFY_DRAW_ENTRIES]: (params) => recordEntries(deltaBuffer, params),
       [topicConstants.ADD_VENUE]: (params) => recordVenue(deltaBuffer, params),
       [topicConstants.MODIFY_VENUE]: (params) => recordVenue(deltaBuffer, params),
       [topicConstants.DELETE_VENUE]: (params) => recordDeleteVenue(deltaBuffer, params),

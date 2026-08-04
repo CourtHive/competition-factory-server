@@ -11,6 +11,7 @@ export type ProjectionIntent =
   | { kind: 'claimPerson'; tournamentId: string; participantId: string; personId: string }
   | { kind: 'touchTournament'; tournamentId: string }
   | { kind: 'participants'; tournamentId: string }
+  | { kind: 'entries'; tournamentId: string }
   | { kind: 'venue'; tournamentId: string; venue: any }
   | { kind: 'deleteVenue'; tournamentId: string; venueId: string }
   | { kind: 'deleteDraw'; tournamentId: string; drawId: string }
