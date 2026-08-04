@@ -335,17 +335,25 @@ function eventDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[
 
 // Locate a structure + its owning event/draw in the final record (for a seeds
 // re-projection, the intent carries only the structureId).
+// Depth-first search for a structure by id, including nested round-robin group
+// sub-structures (a MODIFY_SEED_ASSIGNMENTS notice can carry a group's structureId).
+function findNestedStructure(structureList: any[], structureId: string): any {
+  for (const structure of structureList ?? []) {
+    if (structure?.structureId === structureId) return structure;
+    const nested = findNestedStructure(structure?.structures, structureId);
+    if (nested) return nested;
+  }
+  return undefined;
+}
+
 function findStructureContext(
   record: any,
   structureId: string,
 ): { eventId: string; drawId: string; structure: any } | undefined {
   for (const event of record?.events ?? []) {
     for (const draw of event.drawDefinitions ?? []) {
-      for (const structure of draw.structures ?? []) {
-        if (structure?.structureId === structureId) {
-          return { eventId: event.eventId, drawId: draw.drawId, structure };
-        }
-      }
+      const structure = findNestedStructure(draw.structures, structureId);
+      if (structure) return { eventId: event.eventId, drawId: draw.drawId, structure };
     }
   }
   return undefined;
@@ -376,14 +384,29 @@ function drawDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[]
     const drawRowData = drawRow(found.draw, tournamentId, found.eventId, providerId);
     deltas.push(upsert(tournamentId, TABLE_DRAWS, { draw_id: drawId }, drawRowData, 'draw'));
     deltas.push(del(tournamentId, TABLE_STRUCTURES, { draw_id: drawId }, 'draw'));
-    for (const structure of found.draw.structures ?? []) {
-      if (!structure?.structureId) continue;
-      const sctx = { tournamentId, eventId: found.eventId, drawId, providerId };
-      const row = structureRow(structure, sctx);
-      deltas.push(upsert(tournamentId, TABLE_STRUCTURES, { structure_id: row.structure_id }, row, 'draw'));
-    }
+    const ctxBase = { tournamentId, eventId: found.eventId, drawId, providerId };
+    collectStructureDeltas(found.draw.structures, ctxBase, null, tournamentId, deltas);
   }
   return deltas;
+}
+
+// Emit a structures upsert for each structure and its nested round-robin group
+// sub-structures (mirrors cast's collectStructures). `parentStructureId` = the
+// owning CONTAINER for a nested group (null at the top level), so a matchUp's
+// structure_id — which points at the GROUP — resolves to a structures row.
+function collectStructureDeltas(
+  structureList: any[],
+  ctxBase: { tournamentId: string; eventId: string; drawId: string; providerId: string | undefined },
+  parentStructureId: string | null,
+  tournamentId: string,
+  deltas: ProjectionDelta[],
+): void {
+  for (const structure of structureList ?? []) {
+    if (!structure?.structureId) continue;
+    const row = structureRow(structure, { ...ctxBase, parentStructureId });
+    deltas.push(upsert(tournamentId, TABLE_STRUCTURES, { structure_id: row.structure_id }, row, 'draw'));
+    collectStructureDeltas(structure.structures, ctxBase, structure.structureId, tournamentId, deltas);
+  }
 }
 
 // Seeds re-project PER STRUCTURE as delete-by-structure THEN re-insert: a seed set
