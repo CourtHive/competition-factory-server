@@ -263,14 +263,14 @@ async function flattenDrawDeltas(
       // publish INTENT + embargo resolve per-matchUp through the structure/stage/
       // draw cascade (embargo is stored, never collapsed into a visible flag).
       const status = eventPublishStatus(record, statusCache, matchUp?.eventId);
-      const { published, embargo } = resolveMatchUpPublishState(
+      const { published, embargo, scheduleEmbargo } = resolveMatchUpPublishState(
         status,
         matchUp?.drawId,
         matchUp?.structureId,
         matchUp?.stage,
         matchUp?.roundNumber,
       );
-      const ctx: MatchUpRowContext = { tournamentId, providerId, published, embargo };
+      const ctx: MatchUpRowContext = { tournamentId, providerId, published, embargo, scheduleEmbargo };
       const { matchUpRows, competitorRows } = matchUpRowSet(matchUp, ctx);
       for (const row of matchUpRows) {
         coveredMatchUpIds.add(row.match_up_id);
