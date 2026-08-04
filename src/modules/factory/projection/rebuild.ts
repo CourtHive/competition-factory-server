@@ -21,11 +21,23 @@ export function buildRebuildIntents(record: any): ProjectionIntent[] {
   const intents: ProjectionIntent[] = [
     { kind: 'touchTournament', tournamentId },
     { kind: 'participants', tournamentId },
+    { kind: 'events', tournamentId },
+    { kind: 'orderOfPlay', tournamentId },
+    { kind: 'participantPublish', tournamentId },
+    // the stored scheduling plan (NATIVE `scheduling.profile`; LEGACY extension records
+    // do not surface here, matching cast's NATIVE-first read on the same records)
+    { kind: 'schedulingProfile', tournamentId, schedulingProfile: record?.scheduling?.profile ?? [] },
   ];
 
   for (const event of record?.events ?? []) {
     for (const draw of event?.drawDefinitions ?? []) {
-      if (draw?.drawId) intents.push({ kind: 'flattenDraw', tournamentId, drawId: draw.drawId });
+      if (draw?.drawId) {
+        intents.push({ kind: 'flattenDraw', tournamentId, drawId: draw.drawId });
+        intents.push({ kind: 'draw', tournamentId, drawId: draw.drawId });
+      }
+      for (const structure of draw?.structures ?? []) {
+        if (structure?.structureId) intents.push({ kind: 'seeds', tournamentId, structureId: structure.structureId });
+      }
     }
   }
 

@@ -84,11 +84,30 @@ describe('buildProjectionDeltas', () => {
     expect(deltas.find((d) => d.table === 'match_ups')?.topic).toBe('flattenDraw');
   });
 
-  it('venue → venues + tournament_venues upserts', async () => {
-    const deltas = await build([{ kind: 'venue', tournamentId: 't-1', venue: { venueId: 'v1', venueName: 'Center' } }]);
+  it('venue → venues + tournament_venues upserts, plus delete-by-venue + re-insert of courts', async () => {
+    const deltas = await build([
+      {
+        kind: 'venue',
+        tournamentId: 't-1',
+        venue: {
+          venueId: 'v1',
+          venueName: 'Center',
+          courts: [
+            { courtId: 'c1', courtName: 'Court 1', indoorOutdoor: 'INDOOR' },
+            { courtId: 'c2', courtName: 'Court 2' },
+          ],
+        },
+      },
+    ]);
     const tables = deltas.map((d) => `${d.op}:${d.table}`);
     expect(tables).toContain('upsert:venues');
     expect(tables).toContain('upsert:tournament_venues');
+    const courtOps = deltas.filter((d) => d.table === 'courts');
+    expect(courtOps[0]).toMatchObject({ op: 'delete', key: { venue_id: 'v1' } });
+    expect(courtOps.slice(1).map((d) => d.key)).toEqual([{ court_id: 'c1' }, { court_id: 'c2' }]);
+    expect(courtOps[1].row).toMatchObject({ venue_id: 'v1', court_name: 'Court 1', indoor_outdoor: 'INDOOR' });
+    // venue upserted before courts (FK parent)
+    expect(deltas.findIndex((d) => d.table === 'venues')).toBeLessThan(deltas.findIndex((d) => d.table === 'courts'));
   });
 
   it('delete intents → delete deltas with WHERE-clause keys', async () => {
@@ -117,7 +136,268 @@ describe('buildProjectionDeltas', () => {
     };
     const deltas = await buildProjectionDeltas({ intents: [{ kind: 'participants', tournamentId: 't-1' }], tournamentRecords: records, flattenDraw: jest.fn() });
     expect(deltas.some((d) => d.table === 'tournaments')).toBe(true);
-    expect(deltas.find((d) => d.table === 'entries')).toMatchObject({ op: 'upsert', row: { participant_id: 'p1', person_id: '1001' } });
+    // delete-by-tournament THEN re-insert (a removed entry must not leave a stale row)
+    const entryOps = deltas.filter((d) => d.table === 'entries');
+    expect(entryOps[0]).toMatchObject({ op: 'delete', key: { tournament_id: 't-1' } });
+    expect(entryOps[1]).toMatchObject({ op: 'upsert', row: { participant_id: 'p1', person_id: '1001' } });
+  });
+
+  it('events intent → one events upsert per event (after tournaments, its FK parent)', async () => {
+    const records = {
+      't-1': {
+        ...RECORD,
+        events: [
+          { eventId: 'e1', eventName: 'Singles', eventType: 'SINGLES', gender: 'MALE' },
+          { eventId: 'e2', eventName: 'Doubles', eventType: 'DOUBLES' },
+        ],
+      },
+    };
+    const deltas = await buildProjectionDeltas({
+      intents: [{ kind: 'events', tournamentId: 't-1' }],
+      tournamentRecords: records,
+      flattenDraw: jest.fn(),
+    });
+    const eventDeltas = deltas.filter((d) => d.table === 'events');
+    expect(eventDeltas.map((d) => d.key)).toEqual([{ event_id: 'e1' }, { event_id: 'e2' }]);
+    expect(eventDeltas[0].row).toMatchObject({
+      event_id: 'e1',
+      tournament_id: 't-1',
+      provider_id: 'BOBOCA',
+      event_name: 'Singles',
+      event_type: 'SINGLES',
+      published: false,
+    });
+    // tournaments (FK parent) must be ordered before events
+    expect(deltas.findIndex((d) => d.table === 'tournaments')).toBeLessThan(
+      deltas.findIndex((d) => d.table === 'events'),
+    );
+  });
+
+  it('deleteEvent intent → events + match_ups + entries deletes (deduped by eventId)', async () => {
+    const deltas = await build([
+      { kind: 'deleteEvent', tournamentId: 't-1', eventId: 'e1' },
+      { kind: 'deleteEvent', tournamentId: 't-1', eventId: 'e1' }, // duplicate (AUDIT + DELETE_EVENT)
+    ]);
+    const deletes = deltas.filter((d) => d.op === 'delete');
+    expect(deletes).toEqual([
+      { tournamentId: 't-1', op: 'delete', table: 'events', key: { event_id: 'e1' }, topic: 'deleteEvent' },
+      { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { event_id: 'e1' }, topic: 'deleteEvent' },
+      {
+        tournamentId: 't-1',
+        op: 'delete',
+        table: 'entries',
+        key: { tournament_id: 't-1', event_id: 'e1' },
+        topic: 'deleteEvent',
+      },
+      { tournamentId: 't-1', op: 'delete', table: 'seeds', key: { event_id: 'e1' }, topic: 'deleteEvent' },
+      { tournamentId: 't-1', op: 'delete', table: 'draws', key: { event_id: 'e1' }, topic: 'deleteEvent' },
+    ]);
+  });
+
+  it('draw intent → draw upsert THEN delete-by-draw + re-insert of top-level structures', async () => {
+    const records = {
+      't-1': {
+        ...RECORD,
+        events: [
+          {
+            eventId: 'e1',
+            drawDefinitions: [
+              {
+                drawId: 'd1',
+                drawName: 'Main',
+                drawType: 'SINGLE_ELIMINATION',
+                structures: [
+                  { structureId: 's1', stage: 'MAIN' },
+                  { structureId: 's2', stage: 'CONSOLATION' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const deltas = await buildProjectionDeltas({
+      intents: [{ kind: 'draw', tournamentId: 't-1', drawId: 'd1' }],
+      tournamentRecords: records,
+      flattenDraw: jest.fn(),
+    });
+    const drawOps = deltas.filter((d) => d.table === 'draws');
+    const structOps = deltas.filter((d) => d.table === 'structures');
+    expect(drawOps).toHaveLength(1);
+    expect(drawOps[0]).toMatchObject({ op: 'upsert', key: { draw_id: 'd1' }, row: { draw_name: 'Main', draw_type: 'SINGLE_ELIMINATION' } });
+    // delete-by-draw first, then the two structure upserts (order matters)
+    expect(structOps[0]).toMatchObject({ op: 'delete', key: { draw_id: 'd1' } });
+    expect(structOps.slice(1).map((d) => d.key)).toEqual([{ structure_id: 's1' }, { structure_id: 's2' }]);
+    // draw upserted before structures (FK parent)
+    expect(deltas.findIndex((d) => d.table === 'draws')).toBeLessThan(deltas.findIndex((d) => d.table === 'structures'));
+  });
+
+  it('deleteDraw also deletes the draw row (structures cascade via the draws FK)', async () => {
+    const deltas = await build([{ kind: 'deleteDraw', tournamentId: 't-1', drawId: 'd1' }]);
+    expect(deltas).toContainEqual({
+      tournamentId: 't-1',
+      op: 'delete',
+      table: 'draws',
+      key: { draw_id: 'd1' },
+      topic: 'deleteDraw',
+    });
+  });
+
+  it('seeds intent → delete-by-structure THEN one upsert per participant-holding assignment', async () => {
+    const records = {
+      't-1': {
+        ...RECORD,
+        events: [
+          {
+            eventId: 'e1',
+            drawDefinitions: [
+              {
+                drawId: 'd1',
+                structures: [
+                  {
+                    structureId: 's1',
+                    seedAssignments: [
+                      { seedNumber: 1, participantId: 'p1', seedValue: 1 },
+                      { seedNumber: 2, participantId: 'p2', seedValue: 2 },
+                      { seedNumber: 3 }, // no participant → skipped
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const deltas = await buildProjectionDeltas({
+      intents: [{ kind: 'seeds', tournamentId: 't-1', structureId: 's1' }],
+      tournamentRecords: records,
+      flattenDraw: jest.fn(),
+    });
+    const seedOps = deltas.filter((d) => d.table === 'seeds');
+    // delete-by-structure first, then the two participant-holding upserts (order matters)
+    expect(seedOps[0]).toMatchObject({ op: 'delete', key: { structure_id: 's1' } });
+    expect(seedOps.slice(1).map((d) => d.key)).toEqual([
+      { structure_id: 's1', seed_number: 1 },
+      { structure_id: 's1', seed_number: 2 },
+    ]);
+    expect(seedOps[1].row).toMatchObject({ participant_id: 'p1', seed_value: '1', draw_id: 'd1', event_id: 'e1' });
+  });
+
+  it('a seeds intent for a structure that no longer exists emits only the delete', async () => {
+    const deltas = await build([{ kind: 'seeds', tournamentId: 't-1', structureId: 'gone' }]);
+    const seedOps = deltas.filter((d) => d.table === 'seeds');
+    expect(seedOps).toEqual([
+      { tournamentId: 't-1', op: 'delete', table: 'seeds', key: { structure_id: 'gone' }, topic: 'seeds' },
+    ]);
+  });
+
+  it('deleteDraw also deletes the draw’s seeds (no structures table to cascade from)', async () => {
+    const deltas = await build([{ kind: 'deleteDraw', tournamentId: 't-1', drawId: 'd1' }]);
+    expect(deltas).toContainEqual({
+      tournamentId: 't-1',
+      op: 'delete',
+      table: 'seeds',
+      key: { draw_id: 'd1' },
+      topic: 'deleteDraw',
+    });
+  });
+
+  it('deleteMatchUps intent → a match_ups delete per matchUpId (competitors cascade)', async () => {
+    const deltas = await build([{ kind: 'deleteMatchUps', tournamentId: 't-1', matchUpIds: ['m1', 'm2'] }]);
+    const deletes = deltas.filter((d) => d.op === 'delete');
+    expect(deletes).toEqual([
+      { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { match_up_id: 'm1' }, topic: 'deletedMatchUpIds' },
+      { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { match_up_id: 'm2' }, topic: 'deletedMatchUpIds' },
+    ]);
+  });
+
+  it('does NOT delete a matchUp that was also (re)built this cycle — draw-replace hazard guard', async () => {
+    // A draw replace fires delete(old ids) + flatten(new ids) for the SAME matchUpId.
+    // The flatten upsert must win; the delete (emitted last) must be skipped.
+    const flattenDraw = jest.fn().mockResolvedValue([singlesMatchUp('m1', 'd1')]);
+    const deltas = await build(
+      [
+        { kind: 'flattenDraw', tournamentId: 't-1', drawId: 'd1' },
+        { kind: 'deleteMatchUps', tournamentId: 't-1', matchUpIds: ['m1'] },
+      ],
+      flattenDraw,
+    );
+    expect(deltas.some((d) => d.op === 'delete' && d.key?.match_up_id === 'm1')).toBe(false);
+    expect(deltas.some((d) => d.op === 'upsert' && d.table === 'match_ups' && d.key?.match_up_id === 'm1')).toBe(true);
+  });
+
+  it('deleteMatchUps still deletes a matchUp that was NOT rebuilt this cycle', async () => {
+    const flattenDraw = jest.fn().mockResolvedValue([singlesMatchUp('m1', 'd1')]);
+    const deltas = await build(
+      [
+        { kind: 'flattenDraw', tournamentId: 't-1', drawId: 'd1' },
+        { kind: 'deleteMatchUps', tournamentId: 't-1', matchUpIds: ['m9'] }, // m9 not flattened
+      ],
+      flattenDraw,
+    );
+    expect(deltas.some((d) => d.op === 'delete' && d.key?.match_up_id === 'm9')).toBe(true);
+  });
+
+  it('orderOfPlay intent → upsert when published, delete when not', async () => {
+    const published = {
+      't-1': {
+        ...RECORD,
+        timeItems: [
+          { itemType: 'PUBLISH.STATUS', itemValue: { PUBLIC: { orderOfPlay: { published: true, scheduledDates: ['2025-01-05'] } } } },
+        ],
+      },
+    };
+    const up = await buildProjectionDeltas({
+      intents: [{ kind: 'orderOfPlay', tournamentId: 't-1' }],
+      tournamentRecords: published,
+      flattenDraw: jest.fn(),
+    });
+    expect(up.find((d) => d.table === 'order_of_play')).toMatchObject({
+      op: 'upsert',
+      key: { tournament_id: 't-1' },
+      row: { published: true, scheduled_dates: ['2025-01-05'] },
+    });
+
+    // no publish status → delete the row (an unpublish)
+    const down = await build([{ kind: 'orderOfPlay', tournamentId: 't-1' }]);
+    expect(down.find((d) => d.table === 'order_of_play')).toMatchObject({ op: 'delete', key: { tournament_id: 't-1' } });
+  });
+
+  it('participantPublish intent → upsert when published, delete when not', async () => {
+    const published = {
+      't-1': {
+        ...RECORD,
+        timeItems: [{ itemType: 'PUBLISH.STATUS', itemValue: { PUBLIC: { participants: { published: true, embargo: '2025-01-04' } } } }],
+      },
+    };
+    const up = await buildProjectionDeltas({
+      intents: [{ kind: 'participantPublish', tournamentId: 't-1' }],
+      tournamentRecords: published,
+      flattenDraw: jest.fn(),
+    });
+    expect(up.find((d) => d.table === 'participant_publish')).toMatchObject({
+      op: 'upsert',
+      key: { tournament_id: 't-1' },
+      row: { published: true, embargo: '2025-01-04' },
+    });
+
+    const down = await build([{ kind: 'participantPublish', tournamentId: 't-1' }]);
+    expect(down.find((d) => d.table === 'participant_publish')).toMatchObject({ op: 'delete', key: { tournament_id: 't-1' } });
+  });
+
+  it('schedulingProfile intent → delete-by-tournament THEN one upsert per (date, venue, round)', async () => {
+    const profile = [
+      { scheduleDate: '2025-01-05', venues: [{ venueId: 'v1', rounds: [{ drawId: 'd1', roundNumber: 1 }, { drawId: 'd1', roundNumber: 2 }] }] },
+    ];
+    const deltas = await build([{ kind: 'schedulingProfile', tournamentId: 't-1', schedulingProfile: profile }]);
+    const ops = deltas.filter((d) => d.table === 'scheduling_profile');
+    expect(ops[0]).toMatchObject({ op: 'delete', key: { tournament_id: 't-1' } });
+    expect(ops.slice(1).map((d) => d.key)).toEqual([
+      { tournament_id: 't-1', schedule_date: '2025-01-05', venue_id: 'v1', round_order: 0 },
+      { tournament_id: 't-1', schedule_date: '2025-01-05', venue_id: 'v1', round_order: 1 },
+    ]);
+    expect(ops[1].row).toMatchObject({ draw_id: 'd1', round_number: 1 });
   });
 
   it('entries intent → entries upserts WITHOUT forcing a tournaments upsert', async () => {
@@ -132,7 +412,10 @@ describe('buildProjectionDeltas', () => {
       tournamentRecords: records,
       flattenDraw: jest.fn(),
     });
-    expect(deltas.find((d) => d.table === 'entries')).toMatchObject({
+    // delete-by-tournament THEN re-insert (a removed entry must not leave a stale row)
+    const entryOps = deltas.filter((d) => d.table === 'entries');
+    expect(entryOps[0]).toMatchObject({ op: 'delete', key: { tournament_id: 't-1' } });
+    expect(entryOps[1]).toMatchObject({
       op: 'upsert',
       row: { participant_id: 'p1', entry_status: 'ALTERNATE' },
     });

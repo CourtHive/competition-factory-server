@@ -10,10 +10,18 @@ import { ProjectionDelta } from 'src/storage/interfaces/projection-outbox-storag
 // so we can compare the NET read-table state of two producer paths without a DB.
 const PK: Record<string, string[]> = {
   tournaments: ['tournament_id'],
+  events: ['event_id'],
+  draws: ['draw_id'],
+  structures: ['structure_id'],
+  seeds: ['structure_id', 'seed_number'],
   match_ups: ['match_up_id'],
   match_up_competitors: ['match_up_id', 'side_number', 'competitor_index'],
   entries: ['tournament_id', 'event_id', 'participant_id'],
   venues: ['venue_id'],
+  courts: ['court_id'],
+  order_of_play: ['tournament_id'],
+  scheduling_profile: ['tournament_id', 'schedule_date', 'venue_id', 'round_order'],
+  participant_publish: ['tournament_id'],
   tournament_venues: ['tournament_id', 'venue_id'],
 };
 
@@ -187,7 +195,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
   it('CFS rebuild ≡ factory cast() (single source of truth, no divergence)', async () => {
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       drawProfiles: [
-        { drawSize: 8, eventName: 'Singles' },
+        { drawSize: 8, seedsCount: 4, eventName: 'Singles' },
         {
           drawSize: 2,
           eventType: factoryConstants.eventConstants.TEAM,
@@ -199,6 +207,29 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       completeAllMatchUps: true,
     });
     const tournamentId = tournamentRecord.tournamentId;
+    // publish the order of play + set a scheduling plan so both schedule tables are exercised
+    const draw = tournamentRecord.events[0].drawDefinitions[0];
+    tournamentRecord.timeItems = [
+      {
+        itemType: 'PUBLISH.STATUS',
+        itemValue: { PUBLIC: { orderOfPlay: { published: true, scheduledDates: ['2025-01-05'] }, participants: { published: true } } },
+      },
+    ];
+    tournamentRecord.scheduling = {
+      profile: [
+        {
+          scheduleDate: '2025-01-05',
+          venues: [
+            {
+              venueId: 'v1',
+              rounds: [
+                { eventId: tournamentRecord.events[0].eventId, drawId: draw.drawId, structureId: draw.structures[0].structureId, roundNumber: 1 },
+              ],
+            },
+          ],
+        },
+      ],
+    };
     const flattenDraw = await flattenDrawOf(tournamentRecord);
     const records = { [tournamentId]: tournamentRecord };
 
@@ -215,15 +246,85 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
 
     for (const table of [
       'tournaments',
+      'events',
+      'draws',
+      'structures',
+      'seeds',
       'match_ups',
       'match_up_competitors',
       'entries',
       'venues',
+      'courts',
+      'order_of_play',
+      'scheduling_profile',
+      'participant_publish',
       'tournament_venues',
     ]) {
       expect(snapshot(rebuilt, table)).toEqual(castSnapshot(table));
     }
+    expect(castSnapshot('seeds').length).toBeGreaterThan(0); // seedsCount:4 above must produce rows
+    expect(castSnapshot('draws').length).toBeGreaterThan(0);
+    expect(castSnapshot('structures').length).toBeGreaterThan(0);
+    expect(castSnapshot('courts').length).toBeGreaterThan(0); // venueProfiles courtsCount:4 above
+    expect(castSnapshot('participant_publish')).toEqual([{ tournament_id: tournamentId, published: true, embargo: null }]);
+    expect(castSnapshot('tournaments')[0].published).toBe(true); // OoP + participants published above
+    expect(castSnapshot('order_of_play')).toEqual([
+      { tournament_id: tournamentId, published: true, scheduled_dates: ['2025-01-05'], event_ids: null, embargo: null },
+    ]);
+    expect(castSnapshot('scheduling_profile').length).toBeGreaterThan(0);
     expect(castSnapshot('match_ups').length).toBeGreaterThan(0);
     expect(castSnapshot('tournament_venues')).toEqual([{ tournament_id: tournamentId, venue_id: 'v1' }]);
+  });
+
+  // Removal / stale-row regression: an entry set can SHRINK while the participant
+  // record is KEPT (removeEventEntries / a withdrawal), which fires MODIFY_EVENT_ENTRIES
+  // (an `entries` intent) but NO deleteParticipants/deleteEvent. entryDeltas must
+  // delete-by-tournament + re-insert, else the removed entry survives as a stale row.
+  // The single-final-state capstone cannot see this (it starts from an empty table), so
+  // this drives TWO cycles against the SAME long-lived table set.
+  it('removeEventEntries (participant kept) leaves no stale entries row — incremental converges to cast()', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 8, eventName: 'Singles' }],
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const flattenDraw = await flattenDrawOf(tournamentRecord);
+    const records = { [tournamentId]: tournamentRecord };
+
+    // CYCLE 1 — full projection of the initial 8-entry state.
+    const initialDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw,
+    });
+
+    const event = tournamentRecord.events[0];
+    const initialEntryCount = event.entries.length;
+    expect(initialEntryCount).toBeGreaterThan(1);
+    const removed = event.entries[0];
+
+    // Remove ONE event entry but KEEP the participant record (the removeEventEntries shape).
+    event.entries = event.entries.slice(1);
+    expect(tournamentRecord.participants.some((p: any) => p.participantId === removed.participantId)).toBe(true);
+
+    // CYCLE 2 — the producer's response to MODIFY_EVENT_ENTRIES is a single `entries` intent.
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: [{ kind: 'entries', tournamentId }],
+      tournamentRecords: records,
+      flattenDraw,
+    });
+
+    // Both cycles apply to the SAME table set (the read model is long-lived).
+    const tables = applyDeltas([...initialDeltas, ...incrementalDeltas]);
+    const entries = snapshot(tables, 'entries');
+
+    // cast() of the FINAL record is the direct-re-query oracle.
+    const castRows: any = readModel.cast({ tournamentRecord }).rows;
+    const castEntries = [...(castRows.entries ?? [])].sort((a: any, b: any) =>
+      keyString('entries', a).localeCompare(keyString('entries', b)),
+    );
+
+    expect(entries).toEqual(castEntries); // no stale row survives the removal
+    expect(entries.length).toBe(initialEntryCount - 1);
+    expect(entries.some((r) => r.participant_id === removed.participantId)).toBe(false);
   });
 });

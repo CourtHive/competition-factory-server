@@ -117,6 +117,101 @@ export function recordEntries(buffer: DeltaBuffer | undefined, params: any[]): v
   }
 }
 
+/** ADD_DRAW_DEFINITION `{ drawDefinition, tournamentId, eventId }` / MODIFY_DRAW_DEFINITION
+ *  `{ tournamentId, eventId, drawDefinition }`. Re-project the draw + its top-level
+ *  structures. (ADD_DRAW_DEFINITION also flattens matchUps via recordAddDraw — this is
+ *  additive.) */
+export function recordDraw(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    const drawId = item?.drawDefinition?.drawId ?? item?.drawId;
+    if (tournamentId && drawId) push(buffer, { kind: 'draw', tournamentId, drawId });
+  }
+}
+
+/** PUBLISH_ORDER_OF_PLAY `{ tournamentId, scheduledDates, eventIds }` / UNPUBLISH_ORDER_OF_PLAY
+ *  `{ tournamentId, ... }`. Re-project the order-of-play publication state from the final
+ *  record (published → upsert; unpublished → delete). */
+export function recordOrderOfPlay(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  const seen = new Set<string>();
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (tournamentId && !seen.has(tournamentId)) {
+      seen.add(tournamentId);
+      push(buffer, { kind: 'orderOfPlay', tournamentId });
+    }
+  }
+}
+
+/** PUBLISH_PARTICIPANTS / UNPUBLISH_PARTICIPANTS: `{ tournamentId }`. Re-project the
+ *  participant-list publication state (published → upsert; unpublished → delete). */
+export function recordParticipantPublish(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  const seen = new Set<string>();
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (tournamentId && !seen.has(tournamentId)) {
+      seen.add(tournamentId);
+      push(buffer, { kind: 'participantPublish', tournamentId });
+    }
+  }
+}
+
+/** MODIFY_SCHEDULING_PROFILE: `{ tournamentId, schedulingProfile }`. Carry the profile in
+ *  the intent so the flat plan is projected from exactly what was set (delete-by-tournament
+ *  + re-insert; the plan can shrink). */
+export function recordSchedulingProfile(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (tournamentId) push(buffer, { kind: 'schedulingProfile', tournamentId, schedulingProfile: item?.schedulingProfile ?? [] });
+  }
+}
+
+/** MODIFY_SEED_ASSIGNMENTS: `{ tournamentId, eventId, drawId, structureId, seedAssignments }`.
+ *  A structure's seeds changed → re-project the seeds fact for that structure. Keyed
+ *  by structureId so the builder does a delete-by-structure + re-insert (a cleared
+ *  seed must not leave a stale row). */
+export function recordSeeds(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (tournamentId && item?.structureId) push(buffer, { kind: 'seeds', tournamentId, structureId: item.structureId });
+  }
+}
+
+/** ADD_EVENT / MODIFY_EVENT / PUBLISH_EVENT / UNPUBLISH_EVENT: an event was added
+ *  or its attributes / publish state changed → re-project the event rows for the
+ *  tournament. Payloads vary ({ event, tournamentId } / { eventId, tournamentId } /
+ *  { eventData, tournamentId }) but all carry (or fall back to) tournamentId. */
+export function recordEvents(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  const seen = new Set<string>();
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (tournamentId && !seen.has(tournamentId)) {
+      seen.add(tournamentId);
+      push(buffer, { kind: 'events', tournamentId });
+    }
+  }
+}
+
+/** DELETE_EVENT: `{ eventIds, tournamentId }`. Delete the event row + cascade its
+ *  match_ups / entries. Deduped by eventId with the AUDIT-derived deleteEvent path
+ *  in buildProjectionDeltas (both push a `deleteEvent` intent for the same id). */
+export function recordDeleteEvent(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (!tournamentId) continue;
+    for (const eventId of item?.eventIds ?? []) {
+      if (eventId) push(buffer, { kind: 'deleteEvent', tournamentId, eventId });
+    }
+  }
+}
+
 /** Person self-claim: `addPersonOtherId` stamps `CANONICAL_PERSON` on a
  *  participant's `person.personOtherIds[]` and fires MODIFY_PARTICIPANTS. Detect
  *  that stamp and record a claimPerson intent so the read model's `person_id`
@@ -180,6 +275,20 @@ export function recordDeleteDraw(buffer: DeltaBuffer | undefined, params: any[])
   for (const item of params) {
     const tournamentId = tidOf(buffer, item?.tournamentId);
     if (tournamentId && item?.drawId) push(buffer, { kind: 'deleteDraw', tournamentId, drawId: item.drawId });
+  }
+}
+
+/** DELETED_MATCHUP_IDS: `{ matchUpIds, tournamentId, eventId }`. Individual
+ *  matchUp removals that are NOT a whole-draw delete (structure/round removal,
+ *  ad-hoc matchUp removal). A whole-draw delete is handled by DELETED_DRAW_IDS.
+ *  The build guards against deleting a matchUp that was ALSO (re)built this cycle
+ *  (e.g. a draw replace fires delete + add for the same ids). */
+export function recordDeleteMatchUps(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    const matchUpIds = item?.matchUpIds ?? [];
+    if (tournamentId && matchUpIds.length) push(buffer, { kind: 'deleteMatchUps', tournamentId, matchUpIds });
   }
 }
 

@@ -4,15 +4,23 @@ import {
   recordAddDraw,
   recordAddMatchUps,
   recordDeleteDraw,
+  recordDeleteEvent,
+  recordDeleteMatchUps,
   recordDeleteParticipants,
   recordDeleteEventsFromAudit,
   recordDeleteVenue,
+  recordDraw,
   recordEntries,
+  recordEvents,
+  recordOrderOfPlay,
+  recordParticipantPublish,
+  recordSchedulingProfile,
   recordMatchUpResult,
   recordParticipants,
   recordPersonClaims,
   recordPositionAssignments,
   recordRepublishEvent,
+  recordSeeds,
   recordTouchTournament,
   recordVenue,
 } from '../projection/deltaBuffer';
@@ -102,6 +110,7 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
       },
       [topicConstants.PUBLISH_EVENT]: (params) => {
         if (Array.isArray(params)) {
+          recordEvents(deltaBuffer, params); // event.published flag on the events row
           for (const item of params) {
             const eventId = item.eventData?.eventInfo?.eventId;
             if (item.tournamentId && eventId) {
@@ -124,6 +133,7 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         }
       },
       [topicConstants.UNPUBLISH_EVENT]: (params) => {
+        recordEvents(deltaBuffer, params); // event.published flag on the events row
         for (const item of params) {
           if (item.tournamentId && item.eventId) {
             const eventDataKey = `ged|${item.tournamentId}|${item.eventId}`;
@@ -139,12 +149,14 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         }
       },
       [topicConstants.UNPUBLISH_ORDER_OF_PLAY]: (params) => {
+        recordOrderOfPlay(deltaBuffer, params); // order-of-play publication state
         for (const item of params) {
           if (item?.tournamentId) {
             const key = `gtm|${item.tournamentId}`;
             services?.cacheManager?.del(key);
           }
           clearCache(item.tournamentId);
+          recordTouchTournament(deltaBuffer, item.tournamentId); // refresh tournaments.published
           publicNotices?.push({
             topic: topicConstants.UNPUBLISH_ORDER_OF_PLAY,
             tournamentId: item.tournamentId,
@@ -152,8 +164,10 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         }
       },
       [topicConstants.PUBLISH_ORDER_OF_PLAY]: (params) => {
+        recordOrderOfPlay(deltaBuffer, params); // order-of-play publication state
         for (const item of params) {
           clearCache(item.tournamentId);
+          recordTouchTournament(deltaBuffer, item.tournamentId); // refresh tournaments.published
           publicNotices?.push({
             topic: topicConstants.PUBLISH_ORDER_OF_PLAY,
             tournamentId: item.tournamentId,
@@ -161,8 +175,10 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         }
       },
       [topicConstants.PUBLISH_PARTICIPANTS]: (params) => {
+        recordParticipantPublish(deltaBuffer, params); // participant-list publish state
         for (const item of params) {
           clearCache(item.tournamentId);
+          recordTouchTournament(deltaBuffer, item.tournamentId); // refresh tournaments.published
           publicNotices?.push({
             topic: topicConstants.PUBLISH_PARTICIPANTS,
             tournamentId: item.tournamentId,
@@ -170,17 +186,22 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         }
       },
       [topicConstants.UNPUBLISH_PARTICIPANTS]: (params) => {
+        recordParticipantPublish(deltaBuffer, params);
         for (const item of params) {
           clearCache(item.tournamentId);
+          recordTouchTournament(deltaBuffer, item.tournamentId);
           publicNotices?.push({
             topic: topicConstants.UNPUBLISH_PARTICIPANTS,
             tournamentId: item.tournamentId,
           });
         }
       },
+      // the tournament went dark (neither order-of-play nor participants published)
+      // → refresh the aggregate tournaments.published flag.
       [topicConstants.UNPUBLISH_TOURNAMENT]: (params) => {
         for (const item of params) {
           clearCache(item.tournamentId);
+          recordTouchTournament(deltaBuffer, item.tournamentId);
         }
       },
       [topicConstants.AUDIT]: (params) => {
@@ -245,7 +266,11 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
       // topics had no prior CFS subscription; the factory only retains a notice
       // when a subscription exists, so they must be registered to be observed.
       [topicConstants.ADD_MATCHUPS]: (params) => recordAddMatchUps(deltaBuffer, params),
-      [topicConstants.ADD_DRAW_DEFINITION]: (params) => recordAddDraw(deltaBuffer, params),
+      [topicConstants.ADD_DRAW_DEFINITION]: (params) => {
+        recordAddDraw(deltaBuffer, params); // flatten matchUps
+        recordDraw(deltaBuffer, params); // draw + structures rows
+      },
+      [topicConstants.MODIFY_DRAW_DEFINITION]: (params) => recordDraw(deltaBuffer, params),
       [topicConstants.ADD_PARTICIPANTS]: (params) => {
         recordParticipants(deltaBuffer, params);
         recordPersonClaims(deltaBuffer, params, CANONICAL_PERSON);
@@ -254,12 +279,18 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         recordParticipants(deltaBuffer, params);
         recordPersonClaims(deltaBuffer, params, CANONICAL_PERSON);
       },
+      [topicConstants.ADD_EVENT]: (params) => recordEvents(deltaBuffer, params),
+      [topicConstants.MODIFY_EVENT]: (params) => recordEvents(deltaBuffer, params),
+      [topicConstants.DELETE_EVENT]: (params) => recordDeleteEvent(deltaBuffer, params),
       [topicConstants.MODIFY_EVENT_ENTRIES]: (params) => recordEntries(deltaBuffer, params),
       [topicConstants.MODIFY_DRAW_ENTRIES]: (params) => recordEntries(deltaBuffer, params),
+      [topicConstants.MODIFY_SEED_ASSIGNMENTS]: (params) => recordSeeds(deltaBuffer, params),
+      [topicConstants.MODIFY_SCHEDULING_PROFILE]: (params) => recordSchedulingProfile(deltaBuffer, params),
       [topicConstants.ADD_VENUE]: (params) => recordVenue(deltaBuffer, params),
       [topicConstants.MODIFY_VENUE]: (params) => recordVenue(deltaBuffer, params),
       [topicConstants.DELETE_VENUE]: (params) => recordDeleteVenue(deltaBuffer, params),
       [topicConstants.DELETED_DRAW_IDS]: (params) => recordDeleteDraw(deltaBuffer, params),
+      [topicConstants.DELETED_MATCHUP_IDS]: (params) => recordDeleteMatchUps(deltaBuffer, params),
       [topicConstants.DELETE_PARTICIPANTS]: (params) => recordDeleteParticipants(deltaBuffer, params),
     },
   });

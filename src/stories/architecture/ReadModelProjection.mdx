@@ -1,0 +1,254 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Architecture/Read-Model Projection" />
+
+# Read-Model Projection (CQRS)
+
+The server is the **write side** of a CQRS split. Every mutation flows through the factory engine into the
+tournament record (see [Mutation Flow](?path=/docs/architecture-mutation-flow--docs)). A separate **read side**
+— the `courthive-query` service — serves flattened, query-optimized SQL tables (`query_*`) for read paths like
+`/me/participations` that would be expensive or awkward to answer from the nested tournament document.
+
+This story documents the seam between them: how a mutation on this server becomes a set of row-level deltas in a
+Postgres **outbox**, and how the read side owns and applies them.
+
+## The CQRS split — who owns what
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Responsibility</th><th style={{ textAlign: 'left' }}>Owner</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>The tournament record (source of truth)</td><td>CFS storage (Postgres)</td></tr>
+    <tr><td>Detecting record changes during a mutation</td><td>CFS — factory notice subscriptions</td></tr>
+    <tr><td>Turning changes into read-model row deltas</td><td>CFS — the factory <code>readModel</code> toolkit</td></tr>
+    <tr><td>The <code>projection_queue</code> outbox (schemaless deltas)</td><td>CFS storage (Postgres)</td></tr>
+    <tr><td>The <code>query_*</code> read tables + their schema</td><td><strong>courthive-query</strong></td></tr>
+    <tr><td>Draining the outbox and applying deltas idempotently</td><td><strong>courthive-query</strong> consumer</td></tr>
+    <tr><td>Serving read queries (e.g. <code>/me/participations</code>)</td><td><strong>courthive-query</strong></td></tr>
+  </tbody>
+</table>
+
+**CFS writes schemaless deltas; courthive-query owns the tables.** A projection delta names a *logical* table
+(`match_ups`, not `query_match_ups`) and carries a plain `row` object. The outbox row itself is schemaless
+(`row_key` / `row_data` JSONB, migration 039), so **adding a new read table needs no CFS migration** — only a
+courthive-query migration plus a one-line `tableMeta` allow-list entry. The consumer's applier is table-agnostic:
+it generates SQL from `delta.table` and gates on the allow-list.
+
+## Lifecycle of one mutation
+
+The producer path is **flag-gated** on `PROJECTION_OUTBOX_ENABLED`. When off, no delta buffer is created and
+every recorder below is a no-op — the mutation path is completely untouched.
+
+```
+executionQueue()  (inside the per-tournament lock)
+  │
+  ├─ createDeltaBuffer(tournamentIds)      ← only if projectionOutbox.isEnabled
+  │
+  ├─ mutationEngine.executionQueue(methods)
+  │     │  factory dispatches topic notices (addNotice) as the record changes
+  │     └─ getMutationEngine subscription handlers
+  │           record a lightweight "dirty INTENT" into the request-scoped deltaBuffer
+  │           (handlers have NO record/engine reference — they only note WHAT changed)
+  │
+  ├─ saveTournamentRecords()               ← record committed to storage
+  │
+  └─ POST-COMMIT FLUSH (still inside the lock, only if innerResult.success):
+        buildProjectionDeltas({ intents, finalRecords, flattenDraw })
+          │  turns intents → concrete ProjectionDelta[] against the FINAL saved state
+          └─ projectionOutbox.enqueue(deltas)     → projection_queue (single bulk INSERT)
+                                                        │
+                          ┌─────────────────────────────┘
+                          ▼
+        courthive-query consumer drains projection_queue in `seq` order
+          └─ deltaApplier applies each delta idempotently to the query_* tables
+```
+
+### Why the two-phase (intent → delta) design
+
+The subscription handlers fire **during** the mutation and have no reference to the engine state or the final
+record — they can only note *what* changed (a lightweight `ProjectionIntent` such as
+`flattenDraw` with a `tournamentId` + `drawId`). The concrete rows are built **after commit**, from the
+mutation's final saved state, by `buildProjectionDeltas`. This keeps the hot mutation path cheap and guarantees deltas reflect the committed
+record, not an intermediate state.
+
+The flush is **fail-soft**: it runs post-commit and post-ack-eligible, so an outbox error is logged and never
+blocks the mutation ack. A rolled-back or failed mutation skips the flush entirely (`innerResult.success` is
+false), so the read model can never get *ahead* of the record — at worst it lags, and a rebuild reconciles.
+
+## Byte-identity: one row shape, three producers
+
+The row builders live in the **factory** `readModel` toolkit (`tods-competition-factory` →
+`src/query/readModel/`) and are the single source of the read-model shape. Three paths reuse the *same* builders,
+so they cannot diverge:
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Path</th><th style={{ textAlign: 'left' }}>Entry point</th><th style={{ textAlign: 'left' }}>When</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Incremental (this server)</td><td><code>buildProjectionDeltas</code> over per-mutation intents</td><td>On every mutation</td></tr>
+    <tr><td>Rebuild / backfill</td><td><code>buildProjectionDeltas</code> over <code>buildRebuildIntents(record)</code></td><td>Full re-projection of a record</td></tr>
+    <tr><td>Reference (factory)</td><td><code>readModel.cast(&#123; tournamentRecord &#125;)</code></td><td>Pure full-record projection</td></tr>
+  </tbody>
+</table>
+
+The **conformance capstone** (`src/modules/factory/projection/projection-conformance.spec.ts`) asserts all three
+produce **byte-identical** rows across all 13 tables: incremental deltas ≡ rebuild deltas ≡ `cast()`. It applies
+the deltas through an in-memory reducer that mirrors the courthive-query consumer's upsert/update/delete semantics
+and compares the net table state. The capstone runs on a record that exercises singles, a team (TIE/RUBBER)
+event, seeds, a venue with courts, published order-of-play, a scheduling profile, and participant publish — every
+table produces rows and the two producer paths match.
+
+> Because the incremental producer emits rows one draw / one entity at a time while a rebuild projects the whole
+> record, the capstone is the guard that keeps them from drifting: any change to a row builder or delta shape that
+> breaks the equivalence fails CI.
+
+## Topic → table map
+
+`getMutationEngine.ts` wires each factory notice topic to a projection recorder in `deltaBuffer.ts`; the recorder
+pushes an intent, and `buildProjectionDeltas.ts` turns grouped intents into row deltas. The full map:
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Factory topic(s)</th><th style={{ textAlign: 'left' }}>Recorder → intent</th><th style={{ textAlign: 'left' }}>Table(s) written</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>MODIFY_TOURNAMENT_DETAIL</code></td><td><code>recordTouchTournament</code> → <code>touchTournament</code></td><td><code>tournaments</code></td></tr>
+    <tr><td><code>ADD_EVENT</code> / <code>MODIFY_EVENT</code></td><td><code>recordEvents</code> → <code>events</code></td><td><code>events</code> (one row/event)</td></tr>
+    <tr><td><code>DELETE_EVENT</code>, <code>AUDIT</code> (<code>DELETE_EVENTS</code>)</td><td><code>recordDeleteEvent</code> / <code>…FromAudit</code> → <code>deleteEvent</code></td><td><code>events</code>, <code>match_ups</code>, <code>entries</code>, <code>seeds</code>, <code>draws</code> (delete-by-event)</td></tr>
+    <tr><td><code>ADD_DRAW_DEFINITION</code></td><td><code>recordAddDraw</code> + <code>recordDraw</code> → <code>flattenDraw</code>, <code>draw</code>, <code>touchTournament</code></td><td><code>match_ups</code>, <code>match_up_competitors</code>, <code>draws</code>, <code>structures</code>, <code>tournaments</code></td></tr>
+    <tr><td><code>MODIFY_DRAW_DEFINITION</code></td><td><code>recordDraw</code> → <code>draw</code></td><td><code>draws</code>, <code>structures</code> (del-by-draw + reinsert)</td></tr>
+    <tr><td><code>ADD_MATCHUPS</code></td><td><code>recordAddMatchUps</code> → <code>flattenDraw</code>, <code>touchTournament</code></td><td><code>match_ups</code>, <code>match_up_competitors</code>, <code>tournaments</code></td></tr>
+    <tr><td><code>MODIFY_MATCHUP</code></td><td><code>recordMatchUpResult</code> → <code>matchUpResult</code></td><td><code>match_ups</code> (slim result row, no flatten)</td></tr>
+    <tr><td><code>MODIFY_POSITION_ASSIGNMENTS</code></td><td><code>recordPositionAssignments</code> → <code>flattenDraw</code></td><td><code>match_ups</code>, <code>match_up_competitors</code></td></tr>
+    <tr><td><code>DELETED_MATCHUP_IDS</code></td><td><code>recordDeleteMatchUps</code> → <code>deleteMatchUps</code></td><td><code>match_ups</code> (delete-by-id, competitors cascade)</td></tr>
+    <tr><td><code>DELETED_DRAW_IDS</code></td><td><code>recordDeleteDraw</code> → <code>deleteDraw</code></td><td><code>match_ups</code>, <code>seeds</code>, <code>draws</code> (structures cascade)</td></tr>
+    <tr><td><code>MODIFY_SEED_ASSIGNMENTS</code></td><td><code>recordSeeds</code> → <code>seeds</code></td><td><code>seeds</code> (del-by-structure + reinsert)</td></tr>
+    <tr><td><code>ADD_PARTICIPANTS</code> / <code>MODIFY_PARTICIPANTS</code></td><td><code>recordParticipants</code> + <code>recordPersonClaims</code> → <code>participants</code>, <code>claimPerson</code></td><td><code>entries</code>, <code>tournaments</code>; <code>claimPerson</code> stamps <code>person_id</code> on <code>match_up_competitors</code> + <code>entries</code></td></tr>
+    <tr><td><code>MODIFY_EVENT_ENTRIES</code> / <code>MODIFY_DRAW_ENTRIES</code></td><td><code>recordEntries</code> → <code>entries</code></td><td><code>entries</code></td></tr>
+    <tr><td><code>DELETE_PARTICIPANTS</code></td><td><code>recordDeleteParticipants</code> → <code>deleteParticipants</code></td><td><code>entries</code> (delete-by-participant)</td></tr>
+    <tr><td><code>ADD_VENUE</code> / <code>MODIFY_VENUE</code></td><td><code>recordVenue</code> → <code>venue</code></td><td><code>venues</code>, <code>tournament_venues</code>, <code>courts</code> (del-by-venue + reinsert)</td></tr>
+    <tr><td><code>DELETE_VENUE</code></td><td><code>recordDeleteVenue</code> → <code>deleteVenue</code></td><td><code>tournament_venues</code> (link only — a venue may be shared)</td></tr>
+    <tr><td><code>MODIFY_SCHEDULING_PROFILE</code></td><td><code>recordSchedulingProfile</code> → <code>schedulingProfile</code></td><td><code>scheduling_profile</code> (del-by-tournament + reinsert)</td></tr>
+    <tr><td><code>PUBLISH_ORDER_OF_PLAY</code> / <code>UNPUBLISH_ORDER_OF_PLAY</code></td><td><code>recordOrderOfPlay</code> + <code>recordTouchTournament</code></td><td><code>order_of_play</code> (upsert / delete), <code>tournaments.published</code></td></tr>
+    <tr><td><code>PUBLISH_PARTICIPANTS</code> / <code>UNPUBLISH_PARTICIPANTS</code></td><td><code>recordParticipantPublish</code> + <code>recordTouchTournament</code></td><td><code>participant_publish</code> (upsert / delete), <code>tournaments.published</code></td></tr>
+    <tr><td><code>UNPUBLISH_TOURNAMENT</code></td><td><code>recordTouchTournament</code> → <code>touchTournament</code></td><td><code>tournaments.published</code></td></tr>
+    <tr><td><code>PUBLISH_EVENT</code> / <code>UNPUBLISH_EVENT</code></td><td><code>recordEvents</code> + <code>recordRepublishEvent</code></td><td><code>events.published</code>, <code>match_ups</code> (re-flatten to recompute the per-matchUp <code>published</code> intent)</td></tr>
+  </tbody>
+</table>
+
+**13 tables** result: `tournaments` (+ `published`), `events`, `draws`, `structures`, `seeds`, `courts`,
+`order_of_play`, `scheduling_profile`, `participant_publish`, `match_ups`, `match_up_competitors`, `entries`,
+`venues` (with the `tournament_venues` link).
+
+## Delta operations
+
+A `ProjectionDelta` is `{ tournamentId, op, table, key, row?, topic? }`. Three ops:
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>op</th><th style={{ textAlign: 'left' }}>Consumer SQL</th><th style={{ textAlign: 'left' }}>Used for</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>upsert</code></td><td>Insert <code>row</code>, on PK conflict merge (SET the provided columns)</td><td>Building/refreshing a row</td></tr>
+    <tr><td><code>delete</code></td><td><code>DELETE … WHERE &lt;key&gt;</code> (key is an arbitrary equality filter)</td><td>Removing rows — a whole draw by <code>&#123; draw_id &#125;</code>, an event by <code>&#123; event_id &#125;</code>, a matchUp by <code>&#123; match_up_id &#125;</code></td></tr>
+    <tr><td><code>update</code></td><td><code>UPDATE … SET &lt;row&gt; WHERE &lt;key&gt;</code></td><td>Targeted column write where the full PK isn't known — a person self-claim stamping <code>person_id</code> on every competitor/entry row of a participant</td></tr>
+  </tbody>
+</table>
+
+### Delete-by-parent-then-reinsert (shrinking sets)
+
+Several children of a parent form a **set that can shrink**: a structure's seeds (a cleared seed), a draw's
+structures, a venue's courts, a tournament's scheduling-plan rows. An upsert-only refresh would leave the removed
+child as a **stale row**. So each of these re-projects as **delete-by-parent, then re-insert** the survivors:
+
+```
+// seeds re-projection for one structure (buildProjectionDeltas.ts, seedDeltas)
+delete  seeds where structure_id = S          // clears the whole set for the structure
+upsert  seeds (structure_id=S, seed_number=1) // re-insert each surviving seed
+upsert  seeds (structure_id=S, seed_number=2)
+…
+```
+
+The delete is emitted **before** its upserts (a delta array is applied in order), so on a **rebuild** against an
+empty table the delete is a harmless no-op and the net result equals `cast()`. The same shape applies to
+`structures` (delete-by-draw), `courts` (delete-by-venue), and `scheduling_profile` (delete-by-tournament). The
+parent upsert precedes its children so FK order holds (draw before its structures, venue before its courts).
+
+> **Delete/build ordering guard.** A whole-draw *replace* fires a delete for the old matchUp ids **and** a
+> flatten that rebuilds the same ids. Because deletes are emitted **last** in `buildProjectionDeltas`, any matchUp
+> (re)built this cycle is tracked in a `coveredMatchUpIds` set and its delete is **skipped** — otherwise the
+> trailing delete would undo the fresh upsert.
+
+### Publish state — resolved, never a stale boolean
+
+Publish/embargo is stored as a **read-time input**, not a baked "visible now" flag (a projection only refreshes on
+mutation, so a boolean would go stale the moment an embargo lifts). `order_of_play` / `participant_publish` rows
+are upserted when published and **deleted** when unpublished (resolved via `getTournamentPublishStatus`), and
+`tournaments.published` is the aggregate `orderOfPlay OR participants`. Per-matchUp rows carry a `published`
+intent plus an effective `embargo` timestamp (draw → stage → structure cascade), and actual visibility is computed
+at read time.
+
+## Array columns
+
+Two rows carry native Postgres array columns (`text[]`): `order_of_play.scheduled_dates` / `event_ids`. The
+producer emits them as plain JS arrays in the delta `row`; the courthive-query consumer maps them straight to
+`text[]` — there is no `jsonb` stringify in the generic applier. The read-model row builder is the single place
+that decides the array shape, so both the incremental and rebuild paths emit the identical array and the
+conformance capstone compares them element-wise.
+
+## Rebuild / backfill
+
+`buildRebuildIntents(record)` emits the full intent set for one tournament — touch + participants + events +
+order-of-play + participant-publish + scheduling-profile, one `flattenDraw` and one `draw` per draw, one `seeds`
+per structure, one `venue` per venue, and a `claimPerson` for each participant already carrying a
+`CANONICAL_PERSON` stamp (aligning historical self-claims that predate the incremental claim handler). It feeds
+the *same* `buildProjectionDeltas`, so a from-scratch rebuild yields byte-identical rows to the incremental path.
+This is the reconciliation backstop: because the outbox flush is fail-soft, a rebuild is the guaranteed way to
+bring the read model back into agreement with the record.
+
+> The rebuild reads `scheduling.profile` (NATIVE storage). LEGACY-extension scheduling profiles are not read —
+> matching `cast()`'s NATIVE-first read on the same records. Nested round-robin **group** sub-structures are not
+> projected (top-level structures + seeds only) — a shared, documented limitation of the `structures`/`seeds`
+> tables.
+
+## Known limitations
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Limitation</th><th style={{ textAlign: 'left' }}>Detail</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Nested RR sub-structures</td><td>Only top-level structures (and their seeds) are projected; round-robin group sub-structures are not.</td></tr>
+    <tr><td>LEGACY scheduling profile</td><td>Only NATIVE <code>scheduling.profile</code> is read by the rebuild; a LEGACY-extension profile does not project (cast matches this).</td></tr>
+    <tr><td>Fail-soft flush</td><td>An outbox enqueue error is logged, not retried inline — the read model lags until the next mutation or a rebuild reconciles.</td></tr>
+    <tr><td>Shared venues on DELETE_VENUE</td><td>Deletes only the <code>tournament_venues</code> link; the <code>venues</code>/<code>courts</code> rows persist (a venue may be shared across tournaments).</td></tr>
+  </tbody>
+</table>
+
+## Key Files
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Repo</th><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>CFS</td><td><code>src/modules/factory/engines/getMutationEngine.ts</code></td><td>Wires each factory topic → projection recorder (flag-gated via the delta buffer)</td></tr>
+    <tr><td>CFS</td><td><code>src/modules/factory/projection/deltaBuffer.ts</code></td><td>Recorders — push lightweight dirty intents during the mutation</td></tr>
+    <tr><td>CFS</td><td><code>src/modules/factory/projection/buildProjectionDeltas.ts</code></td><td>Post-commit: intents → concrete <code>ProjectionDelta[]</code> against the final record</td></tr>
+    <tr><td>CFS</td><td><code>src/modules/factory/projection/rebuild.ts</code></td><td><code>buildRebuildIntents</code> — full-record intent set for backfill/reconciliation</td></tr>
+    <tr><td>CFS</td><td><code>src/modules/factory/projection/projection-conformance.spec.ts</code></td><td>Byte-identity capstone: incremental ≡ rebuild ≡ <code>cast()</code></td></tr>
+    <tr><td>CFS</td><td><code>src/modules/factory/functions/private/executionQueue.ts</code></td><td>Post-commit flush + <code>projectionOutbox.enqueue</code> (fail-soft)</td></tr>
+    <tr><td>CFS</td><td><code>src/storage/interfaces/projection-outbox-storage.interface.ts</code></td><td><code>ProjectionDelta</code> contract + outbox storage interface</td></tr>
+    <tr><td>factory</td><td><code>src/query/readModel/</code> (<code>cast</code>, <code>readModelRows</code>, row builders)</td><td>Single source of the read-model row shape — shared by all three producers</td></tr>
+    <tr><td>courthive-query</td><td><code>src/modules/projection/deltaApplier.ts</code> + <code>tableMeta.ts</code></td><td>Table-agnostic consumer — applies deltas by <code>delta.table</code>, gated on the allow-list</td></tr>
+    <tr><td>courthive-query</td><td><code>src/storage/migrations/*.sql</code></td><td>The physical <code>query_*</code> tables (owned by the read side)</td></tr>
+  </tbody>
+</table>
+
+## See Also
+
+- [Mutation Flow](?path=/docs/architecture-mutation-flow--docs) — the write path that drives these notices
+- [Public Notifications](?path=/docs/architecture-public-notifications--docs) — the *other* notice consumer (real-time broadcast); the same subscription seam feeds both
+- [Server Architecture](?path=/docs/architecture-server-architecture--docs) — per-request isolation and locking that scope the delta buffer

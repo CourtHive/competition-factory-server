@@ -3,7 +3,15 @@ import {
   recordAddDraw,
   recordAddMatchUps,
   recordDeleteDraw,
+  recordDeleteEvent,
+  recordDraw,
+  recordDeleteMatchUps,
   recordEntries,
+  recordEvents,
+  recordOrderOfPlay,
+  recordParticipantPublish,
+  recordSchedulingProfile,
+  recordSeeds,
   recordMatchUpResult,
   recordParticipants,
   recordPersonClaims,
@@ -71,6 +79,87 @@ describe('deltaBuffer recorders', () => {
 
   it('recordEntries is a no-op when the buffer is undefined (feature off)', () => {
     expect(() => recordEntries(undefined, [{ tournamentId: 't-1', eventId: 'e1' }])).not.toThrow();
+  });
+
+  it('recordEvents records one events intent per tournament and de-dupes', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordEvents(buffer, [{ tournamentId: 't-1', event: { eventId: 'e1' } }, { tournamentId: 't-1' }]);
+    expect(buffer.intents.filter((i) => i.kind === 'events')).toEqual([{ kind: 'events', tournamentId: 't-1' }]);
+  });
+
+  it('recordDeleteEvent records a deleteEvent intent per eventId', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordDeleteEvent(buffer, [{ tournamentId: 't-1', eventIds: ['e1', 'e2'] }]);
+    expect(buffer.intents.filter((i) => i.kind === 'deleteEvent')).toEqual([
+      { kind: 'deleteEvent', tournamentId: 't-1', eventId: 'e1' },
+      { kind: 'deleteEvent', tournamentId: 't-1', eventId: 'e2' },
+    ]);
+  });
+
+  it('recordEvents / recordDeleteEvent are no-ops when the buffer is undefined (feature off)', () => {
+    expect(() => {
+      recordEvents(undefined, [{ tournamentId: 't-1' }]);
+      recordDeleteEvent(undefined, [{ tournamentId: 't-1', eventIds: ['e1'] }]);
+    }).not.toThrow();
+  });
+
+  it('recordDraw records a draw intent from drawDefinition.drawId (falls back to sole tournamentId)', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordDraw(buffer, [{ drawDefinition: { drawId: 'd1' } }]); // payload omits tournamentId
+    expect(buffer.intents).toContainEqual({ kind: 'draw', tournamentId: 't-1', drawId: 'd1' });
+    expect(() => recordDraw(undefined, [{ drawDefinition: { drawId: 'd1' } }])).not.toThrow();
+  });
+
+  it('recordOrderOfPlay records one orderOfPlay intent per tournament (deduped)', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordOrderOfPlay(buffer, [{ tournamentId: 't-1', scheduledDates: ['2025-01-05'] }, { tournamentId: 't-1' }]);
+    expect(buffer.intents.filter((i) => i.kind === 'orderOfPlay')).toEqual([{ kind: 'orderOfPlay', tournamentId: 't-1' }]);
+    expect(() => recordOrderOfPlay(undefined, [{ tournamentId: 't-1' }])).not.toThrow();
+  });
+
+  it('recordParticipantPublish records one participantPublish intent per tournament (deduped)', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordParticipantPublish(buffer, [{ tournamentId: 't-1' }, { tournamentId: 't-1' }]);
+    expect(buffer.intents.filter((i) => i.kind === 'participantPublish')).toEqual([
+      { kind: 'participantPublish', tournamentId: 't-1' },
+    ]);
+    expect(() => recordParticipantPublish(undefined, [{ tournamentId: 't-1' }])).not.toThrow();
+  });
+
+  it('recordSchedulingProfile carries the profile in the intent', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordSchedulingProfile(buffer, [{ tournamentId: 't-1', schedulingProfile: [{ scheduleDate: '2025-01-05' }] }]);
+    expect(buffer.intents).toContainEqual({
+      kind: 'schedulingProfile',
+      tournamentId: 't-1',
+      schedulingProfile: [{ scheduleDate: '2025-01-05' }],
+    });
+  });
+
+  it('recordSeeds records a seeds intent per structure (falls back to sole tournamentId)', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordSeeds(buffer, [{ drawId: 'd1', structureId: 's1' }]); // payload omits tournamentId
+    expect(buffer.intents).toContainEqual({ kind: 'seeds', tournamentId: 't-1', structureId: 's1' });
+  });
+
+  it('recordSeeds skips a notice with no structureId and is a no-op when the buffer is off', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordSeeds(buffer, [{ tournamentId: 't-1' }]);
+    expect(buffer.intents).toHaveLength(0);
+    expect(() => recordSeeds(undefined, [{ tournamentId: 't-1', structureId: 's1' }])).not.toThrow();
+  });
+
+  it('recordDeleteMatchUps records a deleteMatchUps intent carrying the matchUpIds', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordDeleteMatchUps(buffer, [{ tournamentId: 't-1', matchUpIds: ['m1', 'm2'] }]);
+    expect(buffer.intents).toContainEqual({ kind: 'deleteMatchUps', tournamentId: 't-1', matchUpIds: ['m1', 'm2'] });
+  });
+
+  it('recordDeleteMatchUps skips a notice with no matchUpIds and is a no-op when the buffer is off', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordDeleteMatchUps(buffer, [{ tournamentId: 't-1', matchUpIds: [] }]);
+    expect(buffer.intents).toHaveLength(0);
+    expect(() => recordDeleteMatchUps(undefined, [{ tournamentId: 't-1', matchUpIds: ['m1'] }])).not.toThrow();
   });
 
   it('recordPersonClaims records a claim only for a participant carrying the CANONICAL_PERSON stamp', () => {
