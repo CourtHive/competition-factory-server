@@ -282,6 +282,11 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
       [topicConstants.ADD_EVENT]: (params) => recordEvents(deltaBuffer, params),
       [topicConstants.MODIFY_EVENT]: (params) => recordEvents(deltaBuffer, params),
       [topicConstants.DELETE_EVENT]: (params) => recordDeleteEvent(deltaBuffer, params),
+      // publishing/un-publishing event seeding flips the event's publish status
+      // (getEventPublishStatus, which drives events.published in cast) — re-cast the
+      // events rows so query_events.published does not go stale on a seeding publish.
+      [topicConstants.PUBLISH_EVENT_SEEDING]: (params) => recordEvents(deltaBuffer, params),
+      [topicConstants.UNPUBLISH_EVENT_SEEDING]: (params) => recordEvents(deltaBuffer, params),
       [topicConstants.MODIFY_EVENT_ENTRIES]: (params) => recordEntries(deltaBuffer, params),
       [topicConstants.MODIFY_DRAW_ENTRIES]: (params) => recordEntries(deltaBuffer, params),
       [topicConstants.MODIFY_SEED_ASSIGNMENTS]: (params) => recordSeeds(deltaBuffer, params),

@@ -327,4 +327,39 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     expect(entries.length).toBe(initialEntryCount - 1);
     expect(entries.some((r) => r.participant_id === removed.participantId)).toBe(false);
   });
+
+  // Publishing event seeding flips getEventPublishStatus → cast() marks events.published
+  // true, but publishEventSeeding dispatches only PUBLISH_EVENT_SEEDING. That topic is now
+  // subscribed to recordEvents; this asserts the incremental events row matches cast() for
+  // the seeding-published state (an unsubscribed topic would leave query_events.published stale).
+  it('publishEventSeeding → incremental events.published matches cast() (seeding topic projects)', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 8, seedsCount: 4, eventName: 'Singles' }],
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const eventId = tournamentRecord.events[0].eventId;
+    const noFlatten = async () => [];
+
+    // baseline: an unpublished event projects published:false (incremental == cast).
+    const castEvents = (rec: any): any[] => (readModel.cast({ tournamentRecord: rec }).rows as any).events;
+    expect(castEvents(tournamentRecord)[0].published).toBe(false);
+
+    // publish seeding via the engine (writes the real PUBLISH.STATUS timeItem).
+    await tournamentEngineAsync.setState(tournamentRecord);
+    const pub: any = await tournamentEngineAsync.publishEventSeeding({ eventId });
+    expect(pub.success).toBe(true);
+    const mutated: any = (await tournamentEngineAsync.getState()).tournamentRecords[tournamentId];
+
+    // cast() (the oracle) now reports published:true.
+    expect(castEvents(mutated)[0].published).toBe(true);
+
+    // the incremental events intent (fired by the newly-subscribed PUBLISH_EVENT_SEEDING) must agree.
+    const deltas = await buildProjectionDeltas({
+      intents: [{ kind: 'events', tournamentId }],
+      tournamentRecords: { [tournamentId]: mutated },
+      flattenDraw: noFlatten,
+    });
+    const eventRow = deltas.find((d) => d.table === 'events' && d.row?.event_id === eventId);
+    expect(eventRow?.row?.published).toBe(true);
+  });
 });
