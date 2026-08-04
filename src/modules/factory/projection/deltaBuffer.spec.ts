@@ -7,6 +7,7 @@ import {
   recordDeleteMatchUps,
   recordEntries,
   recordEvents,
+  recordSeeds,
   recordMatchUpResult,
   recordParticipants,
   recordPersonClaims,
@@ -96,6 +97,19 @@ describe('deltaBuffer recorders', () => {
       recordEvents(undefined, [{ tournamentId: 't-1' }]);
       recordDeleteEvent(undefined, [{ tournamentId: 't-1', eventIds: ['e1'] }]);
     }).not.toThrow();
+  });
+
+  it('recordSeeds records a seeds intent per structure (falls back to sole tournamentId)', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordSeeds(buffer, [{ drawId: 'd1', structureId: 's1' }]); // payload omits tournamentId
+    expect(buffer.intents).toContainEqual({ kind: 'seeds', tournamentId: 't-1', structureId: 's1' });
+  });
+
+  it('recordSeeds skips a notice with no structureId and is a no-op when the buffer is off', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordSeeds(buffer, [{ tournamentId: 't-1' }]);
+    expect(buffer.intents).toHaveLength(0);
+    expect(() => recordSeeds(undefined, [{ tournamentId: 't-1', structureId: 's1' }])).not.toThrow();
   });
 
   it('recordDeleteMatchUps records a deleteMatchUps intent carrying the matchUpIds', () => {

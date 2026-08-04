@@ -16,6 +16,7 @@ import {
   recordPersonClaims,
   recordPositionAssignments,
   recordRepublishEvent,
+  recordSeeds,
   recordTouchTournament,
   recordVenue,
 } from '../projection/deltaBuffer';
@@ -264,6 +265,7 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
       [topicConstants.DELETE_EVENT]: (params) => recordDeleteEvent(deltaBuffer, params),
       [topicConstants.MODIFY_EVENT_ENTRIES]: (params) => recordEntries(deltaBuffer, params),
       [topicConstants.MODIFY_DRAW_ENTRIES]: (params) => recordEntries(deltaBuffer, params),
+      [topicConstants.MODIFY_SEED_ASSIGNMENTS]: (params) => recordSeeds(deltaBuffer, params),
       [topicConstants.ADD_VENUE]: (params) => recordVenue(deltaBuffer, params),
       [topicConstants.MODIFY_VENUE]: (params) => recordVenue(deltaBuffer, params),
       [topicConstants.DELETE_VENUE]: (params) => recordDeleteVenue(deltaBuffer, params),

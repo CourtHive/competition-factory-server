@@ -6,6 +6,7 @@ import { ProjectionIntent } from './projectionTypes';
 import {
   TABLE_TOURNAMENTS,
   TABLE_EVENTS,
+  TABLE_SEEDS,
   TABLE_MATCH_UPS,
   TABLE_MATCH_UP_COMPETITORS,
   TABLE_ENTRIES,
@@ -20,6 +21,7 @@ import {
 const {
   entryRows,
   eventRow,
+  seedRow,
   matchUpResultRow,
   matchUpRowSet,
   tournamentRow,
@@ -44,6 +46,7 @@ interface Grouped {
   touched: Set<string>; // tournamentIds needing a tournaments upsert
   participants: Set<string>; // tournamentIds needing an entries refresh
   events: Set<string>; // tournamentIds needing an events refresh
+  seeds: Map<string, string>; // structureId → tournamentId (seeds re-project per structure)
   matchUpResults: Map<string, { tournamentId: string; matchUp: any }>; // matchUpId → latest
   venues: Map<string, { tournamentId: string; venue: any }>; // venueId → venue
   deleteVenues: { tournamentId: string; venueId: string }[];
@@ -64,6 +67,7 @@ function group(intents: ProjectionIntent[], records: Record<string, any>): Group
     touched: new Set(),
     participants: new Set(),
     events: new Set(),
+    seeds: new Map(),
     matchUpResults: new Map(),
     venues: new Map(),
     deleteVenues: [],
@@ -103,6 +107,9 @@ function group(intents: ProjectionIntent[], records: Record<string, any>): Group
         break;
       case 'events':
         g.events.add(intent.tournamentId);
+        break;
+      case 'seeds':
+        g.seeds.set(intent.structureId, intent.tournamentId);
         break;
       case 'venue':
         g.venues.set(intent.venue.venueId, { tournamentId: intent.tournamentId, venue: intent.venue });
@@ -292,6 +299,49 @@ function eventDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[
   return deltas;
 }
 
+// Locate a structure + its owning event/draw in the final record (for a seeds
+// re-projection, the intent carries only the structureId).
+function findStructureContext(
+  record: any,
+  structureId: string,
+): { eventId: string; drawId: string; structure: any } | undefined {
+  for (const event of record?.events ?? []) {
+    for (const draw of event.drawDefinitions ?? []) {
+      for (const structure of draw.structures ?? []) {
+        if (structure?.structureId === structureId) {
+          return { eventId: event.eventId, drawId: draw.drawId, structure };
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+// Seeds re-project PER STRUCTURE as delete-by-structure THEN re-insert: a seed set
+// can SHRINK (a cleared seed), which an upsert-only refresh would leave stale. The
+// delete is emitted before its upserts (array order = apply order), so on a rebuild
+// (empty table) it is a harmless no-op and the net equals cast().
+function seedDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[] {
+  const deltas: ProjectionDelta[] = [];
+  for (const [structureId, tournamentId] of g.seeds) {
+    const record = records?.[tournamentId];
+    if (!record) continue;
+    deltas.push(del(tournamentId, TABLE_SEEDS, { structure_id: structureId }, 'seeds'));
+    const found = findStructureContext(record, structureId);
+    if (!found) continue; // structure gone (its draw was deleted) → the delete stands alone
+    const providerId = providerIdOf(records, tournamentId);
+    for (const assignment of found.structure.seedAssignments ?? []) {
+      if (!assignment?.participantId) continue;
+      const ctx = { tournamentId, eventId: found.eventId, drawId: found.drawId, structureId, providerId };
+      const row = seedRow(assignment, ctx);
+      deltas.push(
+        upsert(tournamentId, TABLE_SEEDS, { structure_id: row.structure_id, seed_number: row.seed_number }, row, 'seeds'),
+      );
+    }
+  }
+  return deltas;
+}
+
 function entryDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[] {
   const deltas: ProjectionDelta[] = [];
   for (const tournamentId of g.participants) {
@@ -337,6 +387,7 @@ function deleteDeltas(g: Grouped, coveredMatchUpIds: Set<string>): ProjectionDel
   }
   for (const { tournamentId, drawId } of g.deleteDraws) {
     deltas.push(del(tournamentId, TABLE_MATCH_UPS, { draw_id: drawId }, 'deleteDraw')); // competitors cascade
+    deltas.push(del(tournamentId, TABLE_SEEDS, { draw_id: drawId }, 'deleteDraw')); // no structures table to cascade from
   }
   // Individual matchUp removals. A matchUp that was ALSO (re)built this cycle is in
   // coveredMatchUpIds — skip it, else the delete (emitted last) would undo the upsert
@@ -349,6 +400,7 @@ function deleteDeltas(g: Grouped, coveredMatchUpIds: Set<string>): ProjectionDel
     deltas.push(del(tournamentId, TABLE_EVENTS, { event_id: eventId }, 'deleteEvent'));
     deltas.push(del(tournamentId, TABLE_MATCH_UPS, { event_id: eventId }, 'deleteEvent'));
     deltas.push(del(tournamentId, TABLE_ENTRIES, { tournament_id: tournamentId, event_id: eventId }, 'deleteEvent'));
+    deltas.push(del(tournamentId, TABLE_SEEDS, { event_id: eventId }, 'deleteEvent'));
   }
   for (const { tournamentId, participantIds } of g.deleteParticipants) {
     for (const participantId of participantIds) {
@@ -380,6 +432,7 @@ export async function buildProjectionDeltas(args: BuildDeltasArgs): Promise<Proj
   return [
     ...tournamentDeltas(g, args.tournamentRecords),
     ...eventDeltas(g, args.tournamentRecords),
+    ...seedDeltas(g, args.tournamentRecords),
     ...venueDeltas(g),
     ...flatten,
     ...resultDeltas(g, args.tournamentRecords, coveredMatchUpIds),

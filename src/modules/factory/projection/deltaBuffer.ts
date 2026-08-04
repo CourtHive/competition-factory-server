@@ -117,6 +117,18 @@ export function recordEntries(buffer: DeltaBuffer | undefined, params: any[]): v
   }
 }
 
+/** MODIFY_SEED_ASSIGNMENTS: `{ tournamentId, eventId, drawId, structureId, seedAssignments }`.
+ *  A structure's seeds changed → re-project the seeds fact for that structure. Keyed
+ *  by structureId so the builder does a delete-by-structure + re-insert (a cleared
+ *  seed must not leave a stale row). */
+export function recordSeeds(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (tournamentId && item?.structureId) push(buffer, { kind: 'seeds', tournamentId, structureId: item.structureId });
+  }
+}
+
 /** ADD_EVENT / MODIFY_EVENT / PUBLISH_EVENT / UNPUBLISH_EVENT: an event was added
  *  or its attributes / publish state changed → re-project the event rows for the
  *  tournament. Payloads vary ({ event, tournamentId } / { eventId, tournamentId } /

@@ -27,6 +27,9 @@ export function buildRebuildIntents(record: any): ProjectionIntent[] {
   for (const event of record?.events ?? []) {
     for (const draw of event?.drawDefinitions ?? []) {
       if (draw?.drawId) intents.push({ kind: 'flattenDraw', tournamentId, drawId: draw.drawId });
+      for (const structure of draw?.structures ?? []) {
+        if (structure?.structureId) intents.push({ kind: 'seeds', tournamentId, structureId: structure.structureId });
+      }
     }
   }
 

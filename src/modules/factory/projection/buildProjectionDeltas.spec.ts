@@ -167,7 +167,68 @@ describe('buildProjectionDeltas', () => {
         key: { tournament_id: 't-1', event_id: 'e1' },
         topic: 'deleteEvent',
       },
+      { tournamentId: 't-1', op: 'delete', table: 'seeds', key: { event_id: 'e1' }, topic: 'deleteEvent' },
     ]);
+  });
+
+  it('seeds intent → delete-by-structure THEN one upsert per participant-holding assignment', async () => {
+    const records = {
+      't-1': {
+        ...RECORD,
+        events: [
+          {
+            eventId: 'e1',
+            drawDefinitions: [
+              {
+                drawId: 'd1',
+                structures: [
+                  {
+                    structureId: 's1',
+                    seedAssignments: [
+                      { seedNumber: 1, participantId: 'p1', seedValue: 1 },
+                      { seedNumber: 2, participantId: 'p2', seedValue: 2 },
+                      { seedNumber: 3 }, // no participant → skipped
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const deltas = await buildProjectionDeltas({
+      intents: [{ kind: 'seeds', tournamentId: 't-1', structureId: 's1' }],
+      tournamentRecords: records,
+      flattenDraw: jest.fn(),
+    });
+    const seedOps = deltas.filter((d) => d.table === 'seeds');
+    // delete-by-structure first, then the two participant-holding upserts (order matters)
+    expect(seedOps[0]).toMatchObject({ op: 'delete', key: { structure_id: 's1' } });
+    expect(seedOps.slice(1).map((d) => d.key)).toEqual([
+      { structure_id: 's1', seed_number: 1 },
+      { structure_id: 's1', seed_number: 2 },
+    ]);
+    expect(seedOps[1].row).toMatchObject({ participant_id: 'p1', seed_value: '1', draw_id: 'd1', event_id: 'e1' });
+  });
+
+  it('a seeds intent for a structure that no longer exists emits only the delete', async () => {
+    const deltas = await build([{ kind: 'seeds', tournamentId: 't-1', structureId: 'gone' }]);
+    const seedOps = deltas.filter((d) => d.table === 'seeds');
+    expect(seedOps).toEqual([
+      { tournamentId: 't-1', op: 'delete', table: 'seeds', key: { structure_id: 'gone' }, topic: 'seeds' },
+    ]);
+  });
+
+  it('deleteDraw also deletes the draw’s seeds (no structures table to cascade from)', async () => {
+    const deltas = await build([{ kind: 'deleteDraw', tournamentId: 't-1', drawId: 'd1' }]);
+    expect(deltas).toContainEqual({
+      tournamentId: 't-1',
+      op: 'delete',
+      table: 'seeds',
+      key: { draw_id: 'd1' },
+      topic: 'deleteDraw',
+    });
   });
 
   it('deleteMatchUps intent → a match_ups delete per matchUpId (competitors cascade)', async () => {

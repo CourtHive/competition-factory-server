@@ -11,6 +11,7 @@ import { ProjectionDelta } from 'src/storage/interfaces/projection-outbox-storag
 const PK: Record<string, string[]> = {
   tournaments: ['tournament_id'],
   events: ['event_id'],
+  seeds: ['structure_id', 'seed_number'],
   match_ups: ['match_up_id'],
   match_up_competitors: ['match_up_id', 'side_number', 'competitor_index'],
   entries: ['tournament_id', 'event_id', 'participant_id'],
@@ -188,7 +189,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
   it('CFS rebuild ≡ factory cast() (single source of truth, no divergence)', async () => {
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       drawProfiles: [
-        { drawSize: 8, eventName: 'Singles' },
+        { drawSize: 8, seedsCount: 4, eventName: 'Singles' },
         {
           drawSize: 2,
           eventType: factoryConstants.eventConstants.TEAM,
@@ -217,6 +218,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     for (const table of [
       'tournaments',
       'events',
+      'seeds',
       'match_ups',
       'match_up_competitors',
       'entries',
@@ -225,6 +227,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     ]) {
       expect(snapshot(rebuilt, table)).toEqual(castSnapshot(table));
     }
+    expect(castSnapshot('seeds').length).toBeGreaterThan(0); // seedsCount:4 above must produce rows
     expect(castSnapshot('match_ups').length).toBeGreaterThan(0);
     expect(castSnapshot('tournament_venues')).toEqual([{ tournament_id: tournamentId, venue_id: 'v1' }]);
   });
