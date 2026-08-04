@@ -168,7 +168,57 @@ describe('buildProjectionDeltas', () => {
         topic: 'deleteEvent',
       },
       { tournamentId: 't-1', op: 'delete', table: 'seeds', key: { event_id: 'e1' }, topic: 'deleteEvent' },
+      { tournamentId: 't-1', op: 'delete', table: 'draws', key: { event_id: 'e1' }, topic: 'deleteEvent' },
     ]);
+  });
+
+  it('draw intent → draw upsert THEN delete-by-draw + re-insert of top-level structures', async () => {
+    const records = {
+      't-1': {
+        ...RECORD,
+        events: [
+          {
+            eventId: 'e1',
+            drawDefinitions: [
+              {
+                drawId: 'd1',
+                drawName: 'Main',
+                drawType: 'SINGLE_ELIMINATION',
+                structures: [
+                  { structureId: 's1', stage: 'MAIN' },
+                  { structureId: 's2', stage: 'CONSOLATION' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const deltas = await buildProjectionDeltas({
+      intents: [{ kind: 'draw', tournamentId: 't-1', drawId: 'd1' }],
+      tournamentRecords: records,
+      flattenDraw: jest.fn(),
+    });
+    const drawOps = deltas.filter((d) => d.table === 'draws');
+    const structOps = deltas.filter((d) => d.table === 'structures');
+    expect(drawOps).toHaveLength(1);
+    expect(drawOps[0]).toMatchObject({ op: 'upsert', key: { draw_id: 'd1' }, row: { draw_name: 'Main', draw_type: 'SINGLE_ELIMINATION' } });
+    // delete-by-draw first, then the two structure upserts (order matters)
+    expect(structOps[0]).toMatchObject({ op: 'delete', key: { draw_id: 'd1' } });
+    expect(structOps.slice(1).map((d) => d.key)).toEqual([{ structure_id: 's1' }, { structure_id: 's2' }]);
+    // draw upserted before structures (FK parent)
+    expect(deltas.findIndex((d) => d.table === 'draws')).toBeLessThan(deltas.findIndex((d) => d.table === 'structures'));
+  });
+
+  it('deleteDraw also deletes the draw row (structures cascade via the draws FK)', async () => {
+    const deltas = await build([{ kind: 'deleteDraw', tournamentId: 't-1', drawId: 'd1' }]);
+    expect(deltas).toContainEqual({
+      tournamentId: 't-1',
+      op: 'delete',
+      table: 'draws',
+      key: { draw_id: 'd1' },
+      topic: 'deleteDraw',
+    });
   });
 
   it('seeds intent → delete-by-structure THEN one upsert per participant-holding assignment', async () => {

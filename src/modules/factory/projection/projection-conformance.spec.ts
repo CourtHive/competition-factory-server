@@ -11,6 +11,8 @@ import { ProjectionDelta } from 'src/storage/interfaces/projection-outbox-storag
 const PK: Record<string, string[]> = {
   tournaments: ['tournament_id'],
   events: ['event_id'],
+  draws: ['draw_id'],
+  structures: ['structure_id'],
   seeds: ['structure_id', 'seed_number'],
   match_ups: ['match_up_id'],
   match_up_competitors: ['match_up_id', 'side_number', 'competitor_index'],
@@ -218,6 +220,8 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     for (const table of [
       'tournaments',
       'events',
+      'draws',
+      'structures',
       'seeds',
       'match_ups',
       'match_up_competitors',
@@ -228,6 +232,8 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       expect(snapshot(rebuilt, table)).toEqual(castSnapshot(table));
     }
     expect(castSnapshot('seeds').length).toBeGreaterThan(0); // seedsCount:4 above must produce rows
+    expect(castSnapshot('draws').length).toBeGreaterThan(0);
+    expect(castSnapshot('structures').length).toBeGreaterThan(0);
     expect(castSnapshot('match_ups').length).toBeGreaterThan(0);
     expect(castSnapshot('tournament_venues')).toEqual([{ tournament_id: tournamentId, venue_id: 'v1' }]);
   });

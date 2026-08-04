@@ -9,6 +9,7 @@ import {
   recordDeleteParticipants,
   recordDeleteEventsFromAudit,
   recordDeleteVenue,
+  recordDraw,
   recordEntries,
   recordEvents,
   recordMatchUpResult,
@@ -251,7 +252,11 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
       // topics had no prior CFS subscription; the factory only retains a notice
       // when a subscription exists, so they must be registered to be observed.
       [topicConstants.ADD_MATCHUPS]: (params) => recordAddMatchUps(deltaBuffer, params),
-      [topicConstants.ADD_DRAW_DEFINITION]: (params) => recordAddDraw(deltaBuffer, params),
+      [topicConstants.ADD_DRAW_DEFINITION]: (params) => {
+        recordAddDraw(deltaBuffer, params); // flatten matchUps
+        recordDraw(deltaBuffer, params); // draw + structures rows
+      },
+      [topicConstants.MODIFY_DRAW_DEFINITION]: (params) => recordDraw(deltaBuffer, params),
       [topicConstants.ADD_PARTICIPANTS]: (params) => {
         recordParticipants(deltaBuffer, params);
         recordPersonClaims(deltaBuffer, params, CANONICAL_PERSON);

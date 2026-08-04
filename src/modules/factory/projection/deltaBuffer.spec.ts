@@ -4,6 +4,7 @@ import {
   recordAddMatchUps,
   recordDeleteDraw,
   recordDeleteEvent,
+  recordDraw,
   recordDeleteMatchUps,
   recordEntries,
   recordEvents,
@@ -97,6 +98,13 @@ describe('deltaBuffer recorders', () => {
       recordEvents(undefined, [{ tournamentId: 't-1' }]);
       recordDeleteEvent(undefined, [{ tournamentId: 't-1', eventIds: ['e1'] }]);
     }).not.toThrow();
+  });
+
+  it('recordDraw records a draw intent from drawDefinition.drawId (falls back to sole tournamentId)', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordDraw(buffer, [{ drawDefinition: { drawId: 'd1' } }]); // payload omits tournamentId
+    expect(buffer.intents).toContainEqual({ kind: 'draw', tournamentId: 't-1', drawId: 'd1' });
+    expect(() => recordDraw(undefined, [{ drawDefinition: { drawId: 'd1' } }])).not.toThrow();
   });
 
   it('recordSeeds records a seeds intent per structure (falls back to sole tournamentId)', () => {

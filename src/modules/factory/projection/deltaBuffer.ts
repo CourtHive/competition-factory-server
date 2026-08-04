@@ -117,6 +117,19 @@ export function recordEntries(buffer: DeltaBuffer | undefined, params: any[]): v
   }
 }
 
+/** ADD_DRAW_DEFINITION `{ drawDefinition, tournamentId, eventId }` / MODIFY_DRAW_DEFINITION
+ *  `{ tournamentId, eventId, drawDefinition }`. Re-project the draw + its top-level
+ *  structures. (ADD_DRAW_DEFINITION also flattens matchUps via recordAddDraw — this is
+ *  additive.) */
+export function recordDraw(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    const drawId = item?.drawDefinition?.drawId ?? item?.drawId;
+    if (tournamentId && drawId) push(buffer, { kind: 'draw', tournamentId, drawId });
+  }
+}
+
 /** MODIFY_SEED_ASSIGNMENTS: `{ tournamentId, eventId, drawId, structureId, seedAssignments }`.
  *  A structure's seeds changed → re-project the seeds fact for that structure. Keyed
  *  by structureId so the builder does a delete-by-structure + re-insert (a cleared
