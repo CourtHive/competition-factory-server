@@ -362,4 +362,45 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     const eventRow = deltas.find((d) => d.table === 'events' && d.row?.event_id === eventId);
     expect(eventRow?.row?.published).toBe(true);
   });
+
+  // A per-structure roundLimit hides rounds beyond the limit (getEventData drops them).
+  // The incremental/rebuild producer threads matchUp.roundNumber into resolveMatchUpPublishState
+  // exactly as cast() does, so the two must agree — and rounds beyond the limit must be
+  // published:false, not exposed.
+  it('roundLimit publish: rebuild match_ups.published gates identically to cast()', async () => {
+    const {
+      tournamentRecord,
+      eventIds: [eventId],
+      drawIds: [drawId],
+    } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ eventType: 'SINGLES', drawType: 'AD_HOC', automated: true, roundsCount: 3, drawSize: 20 }],
+    });
+    await tournamentEngineAsync.setState(tournamentRecord);
+    const structureId = (await tournamentEngineAsync.getEvent({ drawId })).drawDefinition.structures[0].structureId;
+    await tournamentEngineAsync.publishEvent({
+      eventId,
+      removePriorValues: true,
+      drawDetails: { [drawId]: { structureDetails: { [structureId]: { roundLimit: 1, published: true } } } },
+    });
+    const mutated: any = (await tournamentEngineAsync.getState()).tournamentRecords[tournamentRecord.tournamentId];
+
+    const flattenDraw = await flattenDrawOf(mutated);
+    const rebuiltDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(mutated),
+      tournamentRecords: { [mutated.tournamentId]: mutated },
+      flattenDraw,
+    });
+    const rebuilt = applyDeltas(rebuiltDeltas);
+
+    const castRows: any = readModel.cast({ tournamentRecord: mutated }).rows;
+    const castSnap = [...(castRows.match_ups ?? [])].sort((a: any, b: any) =>
+      keyString('match_ups', a).localeCompare(keyString('match_ups', b)),
+    );
+    expect(snapshot(rebuilt, 'match_ups')).toEqual(castSnap);
+
+    // rounds beyond the limit exist and are published:false in both paths.
+    const beyond = castSnap.filter((r: any) => (r.round_number ?? 0) > 1);
+    expect(beyond.length).toBeGreaterThan(0);
+    expect(beyond.every((r: any) => r.published === false)).toBe(true);
+  });
 });
