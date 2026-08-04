@@ -1,3 +1,5 @@
+import { readModel } from 'tods-competition-factory';
+
 import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
 
 import { ProjectionIntent } from './projectionTypes';
@@ -24,9 +26,10 @@ export function buildRebuildIntents(record: any): ProjectionIntent[] {
     { kind: 'events', tournamentId },
     { kind: 'orderOfPlay', tournamentId },
     { kind: 'participantPublish', tournamentId },
-    // the stored scheduling plan (NATIVE `scheduling.profile`; LEGACY extension records
-    // do not surface here, matching cast's NATIVE-first read on the same records)
-    { kind: 'schedulingProfile', tournamentId, schedulingProfile: record?.scheduling?.profile ?? [] },
+    // the stored scheduling plan, resolved with the SAME native-first-with-legacy-
+    // -extension fallback cast() uses (previously NATIVE-only here, which emptied the
+    // scheduling_profile table on rebuild for LEGACY/imported extension-backed records).
+    { kind: 'schedulingProfile', tournamentId, schedulingProfile: readModel.resolveSchedulingProfile(record) },
   ];
 
   // seeds re-project per structure, including nested round-robin group sub-structures

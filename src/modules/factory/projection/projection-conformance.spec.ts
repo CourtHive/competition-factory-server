@@ -438,4 +438,53 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     const groups = snapshot(rebuilt, 'structures').filter((s: any) => s.parent_structure_id === container.structure_id);
     expect(groups.length).toBeGreaterThanOrEqual(2);
   });
+
+  // LEGACY / imported records store the scheduling plan in the `schedulingProfile`
+  // EXTENSION, not first-class `scheduling.profile`. rebuild used to read NATIVE only,
+  // so it emitted zero rows AND the delete-by-tournament WIPED the table cast() had
+  // populated. With the shared resolver both paths now agree.
+  it('LEGACY extension-backed scheduling profile: rebuild ≡ cast (rebuild no longer empties the table)', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 8, eventName: 'Singles' }],
+      venueProfiles: [{ venueId: 'v1', venueName: 'Club', courtsCount: 2, idPrefix: 'v1c' }],
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const draw = tournamentRecord.events[0].drawDefinitions[0];
+    const profile = [
+      {
+        scheduleDate: '2025-01-05',
+        venues: [
+          {
+            venueId: 'v1',
+            rounds: [
+              {
+                eventId: tournamentRecord.events[0].eventId,
+                drawId: draw.drawId,
+                structureId: draw.structures[0].structureId,
+                roundNumber: 1,
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    // LEGACY: the plan lives ONLY in the extension; there is no scheduling.profile.
+    (tournamentRecord as any).extensions = [{ name: 'schedulingProfile', value: profile }];
+
+    const flattenDraw = await flattenDrawOf(tournamentRecord);
+    const rebuiltDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: { [tournamentId]: tournamentRecord },
+      flattenDraw,
+    });
+    const rebuilt = applyDeltas(rebuiltDeltas);
+    const castRows: any = readModel.cast({ tournamentRecord }).rows;
+    const castSort = [...(castRows.scheduling_profile ?? [])].sort((a: any, b: any) =>
+      keyString('scheduling_profile', a).localeCompare(keyString('scheduling_profile', b)),
+    );
+
+    expect(snapshot(rebuilt, 'scheduling_profile')).toEqual(castSort);
+    expect(castSort.length).toBeGreaterThan(0); // the extension-backed plan projects
+    expect(snapshot(rebuilt, 'scheduling_profile').length).toBeGreaterThan(0); // rebuild no longer empties it
+  });
 });
