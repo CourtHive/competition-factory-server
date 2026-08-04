@@ -4,11 +4,13 @@ import {
   recordAddDraw,
   recordAddMatchUps,
   recordDeleteDraw,
+  recordDeleteEvent,
   recordDeleteMatchUps,
   recordDeleteParticipants,
   recordDeleteEventsFromAudit,
   recordDeleteVenue,
   recordEntries,
+  recordEvents,
   recordMatchUpResult,
   recordParticipants,
   recordPersonClaims,
@@ -103,6 +105,7 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
       },
       [topicConstants.PUBLISH_EVENT]: (params) => {
         if (Array.isArray(params)) {
+          recordEvents(deltaBuffer, params); // event.published flag on the events row
           for (const item of params) {
             const eventId = item.eventData?.eventInfo?.eventId;
             if (item.tournamentId && eventId) {
@@ -125,6 +128,7 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         }
       },
       [topicConstants.UNPUBLISH_EVENT]: (params) => {
+        recordEvents(deltaBuffer, params); // event.published flag on the events row
         for (const item of params) {
           if (item.tournamentId && item.eventId) {
             const eventDataKey = `ged|${item.tournamentId}|${item.eventId}`;
@@ -255,6 +259,9 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         recordParticipants(deltaBuffer, params);
         recordPersonClaims(deltaBuffer, params, CANONICAL_PERSON);
       },
+      [topicConstants.ADD_EVENT]: (params) => recordEvents(deltaBuffer, params),
+      [topicConstants.MODIFY_EVENT]: (params) => recordEvents(deltaBuffer, params),
+      [topicConstants.DELETE_EVENT]: (params) => recordDeleteEvent(deltaBuffer, params),
       [topicConstants.MODIFY_EVENT_ENTRIES]: (params) => recordEntries(deltaBuffer, params),
       [topicConstants.MODIFY_DRAW_ENTRIES]: (params) => recordEntries(deltaBuffer, params),
       [topicConstants.ADD_VENUE]: (params) => recordVenue(deltaBuffer, params),

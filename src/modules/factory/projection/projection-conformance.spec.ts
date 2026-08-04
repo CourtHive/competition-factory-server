@@ -10,6 +10,7 @@ import { ProjectionDelta } from 'src/storage/interfaces/projection-outbox-storag
 // so we can compare the NET read-table state of two producer paths without a DB.
 const PK: Record<string, string[]> = {
   tournaments: ['tournament_id'],
+  events: ['event_id'],
   match_ups: ['match_up_id'],
   match_up_competitors: ['match_up_id', 'side_number', 'competitor_index'],
   entries: ['tournament_id', 'event_id', 'participant_id'],
@@ -215,6 +216,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
 
     for (const table of [
       'tournaments',
+      'events',
       'match_ups',
       'match_up_competitors',
       'entries',

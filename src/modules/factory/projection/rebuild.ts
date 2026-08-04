@@ -21,6 +21,7 @@ export function buildRebuildIntents(record: any): ProjectionIntent[] {
   const intents: ProjectionIntent[] = [
     { kind: 'touchTournament', tournamentId },
     { kind: 'participants', tournamentId },
+    { kind: 'events', tournamentId },
   ];
 
   for (const event of record?.events ?? []) {

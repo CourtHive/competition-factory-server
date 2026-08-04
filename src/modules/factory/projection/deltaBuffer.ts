@@ -117,6 +117,36 @@ export function recordEntries(buffer: DeltaBuffer | undefined, params: any[]): v
   }
 }
 
+/** ADD_EVENT / MODIFY_EVENT / PUBLISH_EVENT / UNPUBLISH_EVENT: an event was added
+ *  or its attributes / publish state changed → re-project the event rows for the
+ *  tournament. Payloads vary ({ event, tournamentId } / { eventId, tournamentId } /
+ *  { eventData, tournamentId }) but all carry (or fall back to) tournamentId. */
+export function recordEvents(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  const seen = new Set<string>();
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (tournamentId && !seen.has(tournamentId)) {
+      seen.add(tournamentId);
+      push(buffer, { kind: 'events', tournamentId });
+    }
+  }
+}
+
+/** DELETE_EVENT: `{ eventIds, tournamentId }`. Delete the event row + cascade its
+ *  match_ups / entries. Deduped by eventId with the AUDIT-derived deleteEvent path
+ *  in buildProjectionDeltas (both push a `deleteEvent` intent for the same id). */
+export function recordDeleteEvent(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (!tournamentId) continue;
+    for (const eventId of item?.eventIds ?? []) {
+      if (eventId) push(buffer, { kind: 'deleteEvent', tournamentId, eventId });
+    }
+  }
+}
+
 /** Person self-claim: `addPersonOtherId` stamps `CANONICAL_PERSON` on a
  *  participant's `person.personOtherIds[]` and fires MODIFY_PARTICIPANTS. Detect
  *  that stamp and record a claimPerson intent so the read model's `person_id`

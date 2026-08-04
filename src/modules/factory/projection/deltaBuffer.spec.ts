@@ -3,8 +3,10 @@ import {
   recordAddDraw,
   recordAddMatchUps,
   recordDeleteDraw,
+  recordDeleteEvent,
   recordDeleteMatchUps,
   recordEntries,
+  recordEvents,
   recordMatchUpResult,
   recordParticipants,
   recordPersonClaims,
@@ -72,6 +74,28 @@ describe('deltaBuffer recorders', () => {
 
   it('recordEntries is a no-op when the buffer is undefined (feature off)', () => {
     expect(() => recordEntries(undefined, [{ tournamentId: 't-1', eventId: 'e1' }])).not.toThrow();
+  });
+
+  it('recordEvents records one events intent per tournament and de-dupes', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordEvents(buffer, [{ tournamentId: 't-1', event: { eventId: 'e1' } }, { tournamentId: 't-1' }]);
+    expect(buffer.intents.filter((i) => i.kind === 'events')).toEqual([{ kind: 'events', tournamentId: 't-1' }]);
+  });
+
+  it('recordDeleteEvent records a deleteEvent intent per eventId', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordDeleteEvent(buffer, [{ tournamentId: 't-1', eventIds: ['e1', 'e2'] }]);
+    expect(buffer.intents.filter((i) => i.kind === 'deleteEvent')).toEqual([
+      { kind: 'deleteEvent', tournamentId: 't-1', eventId: 'e1' },
+      { kind: 'deleteEvent', tournamentId: 't-1', eventId: 'e2' },
+    ]);
+  });
+
+  it('recordEvents / recordDeleteEvent are no-ops when the buffer is undefined (feature off)', () => {
+    expect(() => {
+      recordEvents(undefined, [{ tournamentId: 't-1' }]);
+      recordDeleteEvent(undefined, [{ tournamentId: 't-1', eventIds: ['e1'] }]);
+    }).not.toThrow();
   });
 
   it('recordDeleteMatchUps records a deleteMatchUps intent carrying the matchUpIds', () => {

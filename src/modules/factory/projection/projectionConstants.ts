@@ -1,6 +1,7 @@
 // Read-model target tables (snake_case, matching the courthive-query schema
 // in 001-read-model-tables.sql). row_data keys mirror those column names.
 export const TABLE_TOURNAMENTS = 'tournaments';
+export const TABLE_EVENTS = 'events';
 export const TABLE_MATCH_UPS = 'match_ups';
 export const TABLE_MATCH_UP_COMPETITORS = 'match_up_competitors';
 export const TABLE_ENTRIES = 'entries';

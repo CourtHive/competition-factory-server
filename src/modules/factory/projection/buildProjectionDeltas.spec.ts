@@ -120,6 +120,56 @@ describe('buildProjectionDeltas', () => {
     expect(deltas.find((d) => d.table === 'entries')).toMatchObject({ op: 'upsert', row: { participant_id: 'p1', person_id: '1001' } });
   });
 
+  it('events intent → one events upsert per event (after tournaments, its FK parent)', async () => {
+    const records = {
+      't-1': {
+        ...RECORD,
+        events: [
+          { eventId: 'e1', eventName: 'Singles', eventType: 'SINGLES', gender: 'MALE' },
+          { eventId: 'e2', eventName: 'Doubles', eventType: 'DOUBLES' },
+        ],
+      },
+    };
+    const deltas = await buildProjectionDeltas({
+      intents: [{ kind: 'events', tournamentId: 't-1' }],
+      tournamentRecords: records,
+      flattenDraw: jest.fn(),
+    });
+    const eventDeltas = deltas.filter((d) => d.table === 'events');
+    expect(eventDeltas.map((d) => d.key)).toEqual([{ event_id: 'e1' }, { event_id: 'e2' }]);
+    expect(eventDeltas[0].row).toMatchObject({
+      event_id: 'e1',
+      tournament_id: 't-1',
+      provider_id: 'BOBOCA',
+      event_name: 'Singles',
+      event_type: 'SINGLES',
+      published: false,
+    });
+    // tournaments (FK parent) must be ordered before events
+    expect(deltas.findIndex((d) => d.table === 'tournaments')).toBeLessThan(
+      deltas.findIndex((d) => d.table === 'events'),
+    );
+  });
+
+  it('deleteEvent intent → events + match_ups + entries deletes (deduped by eventId)', async () => {
+    const deltas = await build([
+      { kind: 'deleteEvent', tournamentId: 't-1', eventId: 'e1' },
+      { kind: 'deleteEvent', tournamentId: 't-1', eventId: 'e1' }, // duplicate (AUDIT + DELETE_EVENT)
+    ]);
+    const deletes = deltas.filter((d) => d.op === 'delete');
+    expect(deletes).toEqual([
+      { tournamentId: 't-1', op: 'delete', table: 'events', key: { event_id: 'e1' }, topic: 'deleteEvent' },
+      { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { event_id: 'e1' }, topic: 'deleteEvent' },
+      {
+        tournamentId: 't-1',
+        op: 'delete',
+        table: 'entries',
+        key: { tournament_id: 't-1', event_id: 'e1' },
+        topic: 'deleteEvent',
+      },
+    ]);
+  });
+
   it('deleteMatchUps intent → a match_ups delete per matchUpId (competitors cascade)', async () => {
     const deltas = await build([{ kind: 'deleteMatchUps', tournamentId: 't-1', matchUpIds: ['m1', 'm2'] }]);
     const deletes = deltas.filter((d) => d.op === 'delete');

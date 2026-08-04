@@ -12,6 +12,7 @@ export type ProjectionIntent =
   | { kind: 'touchTournament'; tournamentId: string }
   | { kind: 'participants'; tournamentId: string }
   | { kind: 'entries'; tournamentId: string }
+  | { kind: 'events'; tournamentId: string }
   | { kind: 'venue'; tournamentId: string; venue: any }
   | { kind: 'deleteVenue'; tournamentId: string; venueId: string }
   | { kind: 'deleteDraw'; tournamentId: string; drawId: string }
