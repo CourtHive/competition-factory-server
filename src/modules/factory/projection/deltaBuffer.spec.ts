@@ -3,6 +3,7 @@ import {
   recordAddDraw,
   recordAddMatchUps,
   recordDeleteDraw,
+  recordEntries,
   recordMatchUpResult,
   recordParticipants,
   recordPersonClaims,
@@ -51,6 +52,25 @@ describe('deltaBuffer recorders', () => {
     const buffer = createDeltaBuffer(['t-1']);
     recordParticipants(buffer, [{ tournamentId: 't-1' }, { tournamentId: 't-1' }]);
     expect(buffer.intents.filter((i) => i.kind === 'participants')).toHaveLength(1);
+  });
+
+  it('recordEntries records one entries intent per tournament and de-dupes', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordEntries(buffer, [
+      { tournamentId: 't-1', eventId: 'e1' },
+      { tournamentId: 't-1', drawId: 'd1' },
+    ]);
+    expect(buffer.intents.filter((i) => i.kind === 'entries')).toEqual([{ kind: 'entries', tournamentId: 't-1' }]);
+  });
+
+  it('recordEntries falls back to the sole mutation tournamentId when the notice omits it', () => {
+    const buffer = createDeltaBuffer(['t-9']);
+    recordEntries(buffer, [{ eventId: 'e1' }]); // no tournamentId in payload
+    expect(buffer.intents).toContainEqual({ kind: 'entries', tournamentId: 't-9' });
+  });
+
+  it('recordEntries is a no-op when the buffer is undefined (feature off)', () => {
+    expect(() => recordEntries(undefined, [{ tournamentId: 't-1', eventId: 'e1' }])).not.toThrow();
   });
 
   it('recordPersonClaims records a claim only for a participant carrying the CANONICAL_PERSON stamp', () => {

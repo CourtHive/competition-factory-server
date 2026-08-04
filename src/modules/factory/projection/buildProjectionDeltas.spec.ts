@@ -120,6 +120,26 @@ describe('buildProjectionDeltas', () => {
     expect(deltas.find((d) => d.table === 'entries')).toMatchObject({ op: 'upsert', row: { participant_id: 'p1', person_id: '1001' } });
   });
 
+  it('entries intent → entries upserts WITHOUT forcing a tournaments upsert', async () => {
+    const records = {
+      't-1': {
+        ...RECORD,
+        events: [{ eventId: 'e1', entries: [{ participantId: 'p1', entryStatus: 'ALTERNATE' }] }],
+      },
+    };
+    const deltas = await buildProjectionDeltas({
+      intents: [{ kind: 'entries', tournamentId: 't-1' }],
+      tournamentRecords: records,
+      flattenDraw: jest.fn(),
+    });
+    expect(deltas.find((d) => d.table === 'entries')).toMatchObject({
+      op: 'upsert',
+      row: { participant_id: 'p1', entry_status: 'ALTERNATE' },
+    });
+    // a pure entry change must NOT emit a tournaments upsert (unlike `participants`)
+    expect(deltas.some((d) => d.table === 'tournaments')).toBe(false);
+  });
+
   it('claimPerson → update deltas stamping person_id on competitors + entries', async () => {
     const deltas = await build([{ kind: 'claimPerson', tournamentId: 't-1', participantId: 'pa-1', personId: 'canon-9' }]);
     const updates = deltas.filter((d) => d.op === 'update');

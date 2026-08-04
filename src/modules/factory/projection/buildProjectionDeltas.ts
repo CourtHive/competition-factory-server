@@ -90,6 +90,11 @@ function group(intents: ProjectionIntent[], records: Record<string, any>): Group
         g.participants.add(intent.tournamentId);
         g.touched.add(intent.tournamentId);
         break;
+      case 'entries':
+        // Same entries-fact refresh as `participants`, but a pure entry change does
+        // not alter the tournaments row, so it does not force a tournaments upsert.
+        g.participants.add(intent.tournamentId);
+        break;
       case 'venue':
         g.venues.set(intent.venue.venueId, { tournamentId: intent.tournamentId, venue: intent.venue });
         g.touched.add(intent.tournamentId);
