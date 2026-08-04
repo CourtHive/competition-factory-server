@@ -336,6 +336,45 @@ describe('buildProjectionDeltas', () => {
     expect(deltas.some((d) => d.op === 'delete' && d.key?.match_up_id === 'm9')).toBe(true);
   });
 
+  it('orderOfPlay intent → upsert when published, delete when not', async () => {
+    const published = {
+      't-1': {
+        ...RECORD,
+        timeItems: [
+          { itemType: 'PUBLISH.STATUS', itemValue: { PUBLIC: { orderOfPlay: { published: true, scheduledDates: ['2025-01-05'] } } } },
+        ],
+      },
+    };
+    const up = await buildProjectionDeltas({
+      intents: [{ kind: 'orderOfPlay', tournamentId: 't-1' }],
+      tournamentRecords: published,
+      flattenDraw: jest.fn(),
+    });
+    expect(up.find((d) => d.table === 'order_of_play')).toMatchObject({
+      op: 'upsert',
+      key: { tournament_id: 't-1' },
+      row: { published: true, scheduled_dates: ['2025-01-05'] },
+    });
+
+    // no publish status → delete the row (an unpublish)
+    const down = await build([{ kind: 'orderOfPlay', tournamentId: 't-1' }]);
+    expect(down.find((d) => d.table === 'order_of_play')).toMatchObject({ op: 'delete', key: { tournament_id: 't-1' } });
+  });
+
+  it('schedulingProfile intent → delete-by-tournament THEN one upsert per (date, venue, round)', async () => {
+    const profile = [
+      { scheduleDate: '2025-01-05', venues: [{ venueId: 'v1', rounds: [{ drawId: 'd1', roundNumber: 1 }, { drawId: 'd1', roundNumber: 2 }] }] },
+    ];
+    const deltas = await build([{ kind: 'schedulingProfile', tournamentId: 't-1', schedulingProfile: profile }]);
+    const ops = deltas.filter((d) => d.table === 'scheduling_profile');
+    expect(ops[0]).toMatchObject({ op: 'delete', key: { tournament_id: 't-1' } });
+    expect(ops.slice(1).map((d) => d.key)).toEqual([
+      { tournament_id: 't-1', schedule_date: '2025-01-05', venue_id: 'v1', round_order: 0 },
+      { tournament_id: 't-1', schedule_date: '2025-01-05', venue_id: 'v1', round_order: 1 },
+    ]);
+    expect(ops[1].row).toMatchObject({ draw_id: 'd1', round_number: 1 });
+  });
+
   it('entries intent → entries upserts WITHOUT forcing a tournaments upsert', async () => {
     const records = {
       't-1': {

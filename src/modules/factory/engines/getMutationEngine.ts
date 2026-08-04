@@ -12,6 +12,8 @@ import {
   recordDraw,
   recordEntries,
   recordEvents,
+  recordOrderOfPlay,
+  recordSchedulingProfile,
   recordMatchUpResult,
   recordParticipants,
   recordPersonClaims,
@@ -146,6 +148,7 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         }
       },
       [topicConstants.UNPUBLISH_ORDER_OF_PLAY]: (params) => {
+        recordOrderOfPlay(deltaBuffer, params); // order-of-play publication state
         for (const item of params) {
           if (item?.tournamentId) {
             const key = `gtm|${item.tournamentId}`;
@@ -159,6 +162,7 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
         }
       },
       [topicConstants.PUBLISH_ORDER_OF_PLAY]: (params) => {
+        recordOrderOfPlay(deltaBuffer, params); // order-of-play publication state
         for (const item of params) {
           clearCache(item.tournamentId);
           publicNotices?.push({
@@ -271,6 +275,7 @@ export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?
       [topicConstants.MODIFY_EVENT_ENTRIES]: (params) => recordEntries(deltaBuffer, params),
       [topicConstants.MODIFY_DRAW_ENTRIES]: (params) => recordEntries(deltaBuffer, params),
       [topicConstants.MODIFY_SEED_ASSIGNMENTS]: (params) => recordSeeds(deltaBuffer, params),
+      [topicConstants.MODIFY_SCHEDULING_PROFILE]: (params) => recordSchedulingProfile(deltaBuffer, params),
       [topicConstants.ADD_VENUE]: (params) => recordVenue(deltaBuffer, params),
       [topicConstants.MODIFY_VENUE]: (params) => recordVenue(deltaBuffer, params),
       [topicConstants.DELETE_VENUE]: (params) => recordDeleteVenue(deltaBuffer, params),

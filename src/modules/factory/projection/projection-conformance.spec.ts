@@ -19,6 +19,8 @@ const PK: Record<string, string[]> = {
   entries: ['tournament_id', 'event_id', 'participant_id'],
   venues: ['venue_id'],
   courts: ['court_id'],
+  order_of_play: ['tournament_id'],
+  scheduling_profile: ['tournament_id', 'schedule_date', 'venue_id', 'round_order'],
   tournament_venues: ['tournament_id', 'venue_id'],
 };
 
@@ -204,6 +206,26 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       completeAllMatchUps: true,
     });
     const tournamentId = tournamentRecord.tournamentId;
+    // publish the order of play + set a scheduling plan so both schedule tables are exercised
+    const draw = tournamentRecord.events[0].drawDefinitions[0];
+    tournamentRecord.timeItems = [
+      { itemType: 'PUBLISH.STATUS', itemValue: { PUBLIC: { orderOfPlay: { published: true, scheduledDates: ['2025-01-05'] } } } },
+    ];
+    tournamentRecord.scheduling = {
+      profile: [
+        {
+          scheduleDate: '2025-01-05',
+          venues: [
+            {
+              venueId: 'v1',
+              rounds: [
+                { eventId: tournamentRecord.events[0].eventId, drawId: draw.drawId, structureId: draw.structures[0].structureId, roundNumber: 1 },
+              ],
+            },
+          ],
+        },
+      ],
+    };
     const flattenDraw = await flattenDrawOf(tournamentRecord);
     const records = { [tournamentId]: tournamentRecord };
 
@@ -229,6 +251,8 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       'entries',
       'venues',
       'courts',
+      'order_of_play',
+      'scheduling_profile',
       'tournament_venues',
     ]) {
       expect(snapshot(rebuilt, table)).toEqual(castSnapshot(table));
@@ -237,6 +261,10 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     expect(castSnapshot('draws').length).toBeGreaterThan(0);
     expect(castSnapshot('structures').length).toBeGreaterThan(0);
     expect(castSnapshot('courts').length).toBeGreaterThan(0); // venueProfiles courtsCount:4 above
+    expect(castSnapshot('order_of_play')).toEqual([
+      { tournament_id: tournamentId, published: true, scheduled_dates: ['2025-01-05'], event_ids: null, embargo: null },
+    ]);
+    expect(castSnapshot('scheduling_profile').length).toBeGreaterThan(0);
     expect(castSnapshot('match_ups').length).toBeGreaterThan(0);
     expect(castSnapshot('tournament_venues')).toEqual([{ tournament_id: tournamentId, venue_id: 'v1' }]);
   });

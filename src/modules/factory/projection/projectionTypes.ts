@@ -15,6 +15,8 @@ export type ProjectionIntent =
   | { kind: 'events'; tournamentId: string }
   | { kind: 'draw'; tournamentId: string; drawId: string }
   | { kind: 'seeds'; tournamentId: string; structureId: string }
+  | { kind: 'orderOfPlay'; tournamentId: string }
+  | { kind: 'schedulingProfile'; tournamentId: string; schedulingProfile: any[] }
   | { kind: 'venue'; tournamentId: string; venue: any }
   | { kind: 'deleteVenue'; tournamentId: string; venueId: string }
   | { kind: 'deleteDraw'; tournamentId: string; drawId: string }

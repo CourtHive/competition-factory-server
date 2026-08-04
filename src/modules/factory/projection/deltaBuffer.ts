@@ -130,6 +130,32 @@ export function recordDraw(buffer: DeltaBuffer | undefined, params: any[]): void
   }
 }
 
+/** PUBLISH_ORDER_OF_PLAY `{ tournamentId, scheduledDates, eventIds }` / UNPUBLISH_ORDER_OF_PLAY
+ *  `{ tournamentId, ... }`. Re-project the order-of-play publication state from the final
+ *  record (published → upsert; unpublished → delete). */
+export function recordOrderOfPlay(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  const seen = new Set<string>();
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (tournamentId && !seen.has(tournamentId)) {
+      seen.add(tournamentId);
+      push(buffer, { kind: 'orderOfPlay', tournamentId });
+    }
+  }
+}
+
+/** MODIFY_SCHEDULING_PROFILE: `{ tournamentId, schedulingProfile }`. Carry the profile in
+ *  the intent so the flat plan is projected from exactly what was set (delete-by-tournament
+ *  + re-insert; the plan can shrink). */
+export function recordSchedulingProfile(buffer: DeltaBuffer | undefined, params: any[]): void {
+  if (!buffer || !Array.isArray(params)) return;
+  for (const item of params) {
+    const tournamentId = tidOf(buffer, item?.tournamentId);
+    if (tournamentId) push(buffer, { kind: 'schedulingProfile', tournamentId, schedulingProfile: item?.schedulingProfile ?? [] });
+  }
+}
+
 /** MODIFY_SEED_ASSIGNMENTS: `{ tournamentId, eventId, drawId, structureId, seedAssignments }`.
  *  A structure's seeds changed → re-project the seeds fact for that structure. Keyed
  *  by structureId so the builder does a delete-by-structure + re-insert (a cleared

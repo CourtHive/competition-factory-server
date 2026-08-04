@@ -8,6 +8,8 @@ import {
   recordDeleteMatchUps,
   recordEntries,
   recordEvents,
+  recordOrderOfPlay,
+  recordSchedulingProfile,
   recordSeeds,
   recordMatchUpResult,
   recordParticipants,
@@ -105,6 +107,23 @@ describe('deltaBuffer recorders', () => {
     recordDraw(buffer, [{ drawDefinition: { drawId: 'd1' } }]); // payload omits tournamentId
     expect(buffer.intents).toContainEqual({ kind: 'draw', tournamentId: 't-1', drawId: 'd1' });
     expect(() => recordDraw(undefined, [{ drawDefinition: { drawId: 'd1' } }])).not.toThrow();
+  });
+
+  it('recordOrderOfPlay records one orderOfPlay intent per tournament (deduped)', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordOrderOfPlay(buffer, [{ tournamentId: 't-1', scheduledDates: ['2025-01-05'] }, { tournamentId: 't-1' }]);
+    expect(buffer.intents.filter((i) => i.kind === 'orderOfPlay')).toEqual([{ kind: 'orderOfPlay', tournamentId: 't-1' }]);
+    expect(() => recordOrderOfPlay(undefined, [{ tournamentId: 't-1' }])).not.toThrow();
+  });
+
+  it('recordSchedulingProfile carries the profile in the intent', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordSchedulingProfile(buffer, [{ tournamentId: 't-1', schedulingProfile: [{ scheduleDate: '2025-01-05' }] }]);
+    expect(buffer.intents).toContainEqual({
+      kind: 'schedulingProfile',
+      tournamentId: 't-1',
+      schedulingProfile: [{ scheduleDate: '2025-01-05' }],
+    });
   });
 
   it('recordSeeds records a seeds intent per structure (falls back to sole tournamentId)', () => {

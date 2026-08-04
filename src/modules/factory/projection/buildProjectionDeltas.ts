@@ -14,6 +14,8 @@ import {
   TABLE_ENTRIES,
   TABLE_VENUES,
   TABLE_COURTS,
+  TABLE_ORDER_OF_PLAY,
+  TABLE_SCHEDULING_PROFILE,
   TABLE_TOURNAMENT_VENUES,
   LINK_CANONICAL,
 } from './projectionConstants';
@@ -32,8 +34,11 @@ const {
   tournamentRow,
   venueRow,
   courtRow,
+  orderOfPlayRow,
+  schedulingProfileRows,
   resolveMatchUpPublishState,
   getEventPublishStatus,
+  getTournamentPublishStatus,
 } = readModel;
 type MatchUpRowContext = readModel.MatchUpRowContext;
 
@@ -54,6 +59,8 @@ interface Grouped {
   events: Set<string>; // tournamentIds needing an events refresh
   draws: Map<string, string>; // drawId → tournamentId (draw + its structures re-project)
   seeds: Map<string, string>; // structureId → tournamentId (seeds re-project per structure)
+  orderOfPlay: Set<string>; // tournamentIds needing an order-of-play publish-state refresh
+  schedulingProfiles: Map<string, any[]>; // tournamentId → the scheduling plan to re-project
   matchUpResults: Map<string, { tournamentId: string; matchUp: any }>; // matchUpId → latest
   venues: Map<string, { tournamentId: string; venue: any }>; // venueId → venue
   deleteVenues: { tournamentId: string; venueId: string }[];
@@ -76,6 +83,8 @@ function group(intents: ProjectionIntent[], records: Record<string, any>): Group
     events: new Set(),
     draws: new Map(),
     seeds: new Map(),
+    orderOfPlay: new Set(),
+    schedulingProfiles: new Map(),
     matchUpResults: new Map(),
     venues: new Map(),
     deleteVenues: [],
@@ -121,6 +130,12 @@ function group(intents: ProjectionIntent[], records: Record<string, any>): Group
         break;
       case 'seeds':
         g.seeds.set(intent.structureId, intent.tournamentId);
+        break;
+      case 'orderOfPlay':
+        g.orderOfPlay.add(intent.tournamentId);
+        break;
+      case 'schedulingProfile':
+        g.schedulingProfiles.set(intent.tournamentId, intent.schedulingProfile);
         break;
       case 'venue':
         g.venues.set(intent.venue.venueId, { tournamentId: intent.tournamentId, venue: intent.venue });
@@ -388,6 +403,51 @@ function seedDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[]
   return deltas;
 }
 
+// Order-of-play PUBLICATION state: one row when published, resolved from the final
+// record (same source cast() uses); an unpublish deletes the row.
+function orderOfPlayDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[] {
+  const deltas: ProjectionDelta[] = [];
+  for (const tournamentId of g.orderOfPlay) {
+    const record = records?.[tournamentId];
+    if (!record) continue;
+    const oop = getTournamentPublishStatus({ tournamentRecord: record })?.orderOfPlay;
+    if (oop?.published) {
+      const row = orderOfPlayRow(tournamentId, oop);
+      deltas.push(upsert(tournamentId, TABLE_ORDER_OF_PLAY, { tournament_id: tournamentId }, row, 'orderOfPlay'));
+    } else {
+      deltas.push(del(tournamentId, TABLE_ORDER_OF_PLAY, { tournament_id: tournamentId }, 'orderOfPlay'));
+    }
+  }
+  return deltas;
+}
+
+// The scheduling PLAN: delete-by-tournament + re-insert the flattened rows (the plan
+// can shrink). Projected from the intent's profile (byte-identical to cast, which reads
+// the same stored profile).
+function schedulingProfileDeltas(g: Grouped): ProjectionDelta[] {
+  const deltas: ProjectionDelta[] = [];
+  for (const [tournamentId, profile] of g.schedulingProfiles) {
+    deltas.push(del(tournamentId, TABLE_SCHEDULING_PROFILE, { tournament_id: tournamentId }, 'schedulingProfile'));
+    for (const row of schedulingProfileRows(tournamentId, profile)) {
+      deltas.push(
+        upsert(
+          tournamentId,
+          TABLE_SCHEDULING_PROFILE,
+          {
+            tournament_id: row.tournament_id,
+            schedule_date: row.schedule_date,
+            venue_id: row.venue_id,
+            round_order: row.round_order,
+          },
+          row,
+          'schedulingProfile',
+        ),
+      );
+    }
+  }
+  return deltas;
+}
+
 function entryDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[] {
   const deltas: ProjectionDelta[] = [];
   for (const tournamentId of g.participants) {
@@ -491,6 +551,8 @@ export async function buildProjectionDeltas(args: BuildDeltasArgs): Promise<Proj
     ...eventDeltas(g, args.tournamentRecords),
     ...drawDeltas(g, args.tournamentRecords),
     ...seedDeltas(g, args.tournamentRecords),
+    ...orderOfPlayDeltas(g, args.tournamentRecords),
+    ...schedulingProfileDeltas(g),
     ...venueDeltas(g, args.tournamentRecords),
     ...flatten,
     ...resultDeltas(g, args.tournamentRecords, coveredMatchUpIds),
