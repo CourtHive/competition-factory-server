@@ -136,7 +136,10 @@ describe('buildProjectionDeltas', () => {
     };
     const deltas = await buildProjectionDeltas({ intents: [{ kind: 'participants', tournamentId: 't-1' }], tournamentRecords: records, flattenDraw: jest.fn() });
     expect(deltas.some((d) => d.table === 'tournaments')).toBe(true);
-    expect(deltas.find((d) => d.table === 'entries')).toMatchObject({ op: 'upsert', row: { participant_id: 'p1', person_id: '1001' } });
+    // delete-by-tournament THEN re-insert (a removed entry must not leave a stale row)
+    const entryOps = deltas.filter((d) => d.table === 'entries');
+    expect(entryOps[0]).toMatchObject({ op: 'delete', key: { tournament_id: 't-1' } });
+    expect(entryOps[1]).toMatchObject({ op: 'upsert', row: { participant_id: 'p1', person_id: '1001' } });
   });
 
   it('events intent → one events upsert per event (after tournaments, its FK parent)', async () => {
@@ -409,7 +412,10 @@ describe('buildProjectionDeltas', () => {
       tournamentRecords: records,
       flattenDraw: jest.fn(),
     });
-    expect(deltas.find((d) => d.table === 'entries')).toMatchObject({
+    // delete-by-tournament THEN re-insert (a removed entry must not leave a stale row)
+    const entryOps = deltas.filter((d) => d.table === 'entries');
+    expect(entryOps[0]).toMatchObject({ op: 'delete', key: { tournament_id: 't-1' } });
+    expect(entryOps[1]).toMatchObject({
       op: 'upsert',
       row: { participant_id: 'p1', entry_status: 'ALTERNATE' },
     });

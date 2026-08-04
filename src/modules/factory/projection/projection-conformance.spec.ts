@@ -275,4 +275,56 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     expect(castSnapshot('match_ups').length).toBeGreaterThan(0);
     expect(castSnapshot('tournament_venues')).toEqual([{ tournament_id: tournamentId, venue_id: 'v1' }]);
   });
+
+  // Removal / stale-row regression: an entry set can SHRINK while the participant
+  // record is KEPT (removeEventEntries / a withdrawal), which fires MODIFY_EVENT_ENTRIES
+  // (an `entries` intent) but NO deleteParticipants/deleteEvent. entryDeltas must
+  // delete-by-tournament + re-insert, else the removed entry survives as a stale row.
+  // The single-final-state capstone cannot see this (it starts from an empty table), so
+  // this drives TWO cycles against the SAME long-lived table set.
+  it('removeEventEntries (participant kept) leaves no stale entries row — incremental converges to cast()', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 8, eventName: 'Singles' }],
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const flattenDraw = await flattenDrawOf(tournamentRecord);
+    const records = { [tournamentId]: tournamentRecord };
+
+    // CYCLE 1 — full projection of the initial 8-entry state.
+    const initialDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw,
+    });
+
+    const event = tournamentRecord.events[0];
+    const initialEntryCount = event.entries.length;
+    expect(initialEntryCount).toBeGreaterThan(1);
+    const removed = event.entries[0];
+
+    // Remove ONE event entry but KEEP the participant record (the removeEventEntries shape).
+    event.entries = event.entries.slice(1);
+    expect(tournamentRecord.participants.some((p: any) => p.participantId === removed.participantId)).toBe(true);
+
+    // CYCLE 2 — the producer's response to MODIFY_EVENT_ENTRIES is a single `entries` intent.
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: [{ kind: 'entries', tournamentId }],
+      tournamentRecords: records,
+      flattenDraw,
+    });
+
+    // Both cycles apply to the SAME table set (the read model is long-lived).
+    const tables = applyDeltas([...initialDeltas, ...incrementalDeltas]);
+    const entries = snapshot(tables, 'entries');
+
+    // cast() of the FINAL record is the direct-re-query oracle.
+    const castRows: any = readModel.cast({ tournamentRecord }).rows;
+    const castEntries = [...(castRows.entries ?? [])].sort((a: any, b: any) =>
+      keyString('entries', a).localeCompare(keyString('entries', b)),
+    );
+
+    expect(entries).toEqual(castEntries); // no stale row survives the removal
+    expect(entries.length).toBe(initialEntryCount - 1);
+    expect(entries.some((r) => r.participant_id === removed.participantId)).toBe(false);
+  });
 });

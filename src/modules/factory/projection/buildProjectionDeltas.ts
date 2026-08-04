@@ -473,9 +473,18 @@ function schedulingProfileDeltas(g: Grouped): ProjectionDelta[] {
   return deltas;
 }
 
+// Entries re-project as delete-by-tournament THEN re-insert the survivors: an
+// entry set can SHRINK (removeEventEntries / a withdrawn entry) while the
+// participant record is KEPT, so an upsert-only refresh would leave the removed
+// entry as a stale row (the removal fires no deleteParticipants/deleteEvent). The
+// delete is emitted before its upserts (array order = apply order), so on a rebuild
+// against an empty table it is a harmless no-op and the net equals cast(). Runs
+// BEFORE claimDeltas in buildProjectionDeltas, so the person-claim UPDATE still
+// lands on the freshly re-inserted rows.
 function entryDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[] {
   const deltas: ProjectionDelta[] = [];
   for (const tournamentId of g.participants) {
+    deltas.push(del(tournamentId, TABLE_ENTRIES, { tournament_id: tournamentId }, 'participants'));
     for (const row of entryRows(records?.[tournamentId])) {
       deltas.push(
         upsert(
