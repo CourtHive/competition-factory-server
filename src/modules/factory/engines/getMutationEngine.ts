@@ -44,7 +44,11 @@ globalState.setGlobalSubscriptions({
 // dispatches only the AUDIT topic notice. The AuditService subscription below
 // captures the snapshot.
 globalState.setAuditAuthorityServer(true);
-asyncGlobalState.createInstanceState(); // is there only one instance of asyncGlobalState?
+// DECISION: no module-scope createInstanceState().
+// WHY: seeding once at import gave every request in the process the SAME instance state —
+// per-request isolation in name only. Each entry point now establishes its own context via
+// asyncGlobalState.runWithInstanceState(); getInstanceState() is fail-closed, so an entry
+// point that forgets throws loudly instead of silently sharing. See competition-factory#4564.
 
 export function getMutationEngine(services?, publicNotices?: any[], deltaBuffer?: DeltaBuffer) {
   const engineAsync = asyncEngine();

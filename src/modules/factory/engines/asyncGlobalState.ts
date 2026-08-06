@@ -1,5 +1,7 @@
-import { factoryConstants } from 'tods-competition-factory';
-import { executionAsyncId, createHook } from 'async_hooks';
+import { factoryConstants, globalState } from 'tods-competition-factory';
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+type ImplemtationGlobalStateTypes = globalState.ImplemtationGlobalStateTypes;
 
 const INVALID_VALUES = 'Invalid values';
 const SUCCESS = { success: true };
@@ -11,26 +13,10 @@ const NOT_FOUND = 'Not found';
  * Sample on this page: https://stackabuse.com/using-async-hooks-for-request-context-handling-in-node-js/
  */
 
-const asyncCtxStateMap = new Map();
+const asyncLocalStorage = new AsyncLocalStorage<ImplemtationGlobalStateTypes>();
 
-const asyncHook = createHook({
-  init: (asyncId, _, _triggerAsyncId) => {
-    if (asyncCtxStateMap.has(_triggerAsyncId)) {
-      asyncCtxStateMap.set(asyncId, asyncCtxStateMap.get(_triggerAsyncId));
-    }
-  },
-  destroy: (asyncId) => {
-    if (asyncCtxStateMap.has(asyncId)) {
-      asyncCtxStateMap.delete(asyncId);
-    }
-  },
-});
-
-asyncHook.enable();
-
-function createInstanceState() {
-  const asyncId = executionAsyncId();
-  const instanceState: any = {
+function newInstanceState(): ImplemtationGlobalStateTypes {
+  return {
     disableNotifications: false,
     tournamentId: undefined,
     tournamentRecords: {},
@@ -39,21 +25,72 @@ function createInstanceState() {
     notices: [],
     methods: {},
   };
-
-  asyncCtxStateMap.set(asyncId, instanceState);
 }
 
-function getInstanceState() {
-  const asyncTaskId = executionAsyncId();
-  const instanceState = asyncCtxStateMap.get(asyncTaskId);
+/**
+ * Run `fn` with a fresh instance state bound to it and every async context it spawns.
+ * PREFERRED entry point — the store is scoped to the callback, so it cannot outlive the
+ * request or bleed into a sibling. Wrap each mutation / query / rebuild entry point in this.
+ */
+function runWithInstanceState<T>(fn: () => T): T {
+  return asyncLocalStorage.run(newInstanceState(), fn);
+}
 
-  if (!instanceState) throw new Error(`Can not get instance state for async task ${asyncTaskId}`);
+/**
+ * Bind a fresh instance state to the CURRENT execution context and its descendants.
+ * Back-compat shim for callers that seed and then continue inline. Prefer
+ * `runWithInstanceState` — `enterWith` has no scope end.
+ */
+function createInstanceState() {
+  asyncLocalStorage.enterWith(newInstanceState());
+}
 
-  return instanceState;
+/**
+ * DECISION: lazily bind a NEW state to the current async context; never share, never throw.
+ * WHY: two designs were rejected.
+ *   - Falling back to one shared default is fail-open — it is exactly the defect this replaces
+ *     (a single process-wide state) and it is invisible.
+ *   - Throwing is fail-closed but assumes every entry point is statically enumerable. It is not:
+ *     `governors.mocksGovernor.generateTournamentRecord()` dispatches notices, so a DIRECT
+ *     governor call touches instance state without going near an engine. A strict throw traded a
+ *     silent correctness bug for a loud production outage on a call graph we cannot fully sweep.
+ * Lazy creation binds via `enterWith`, so the new state covers the current context AND its
+ * descendants — a `setState` → `await` → `getState` sequence stays coherent — while remaining
+ * isolated from every sibling context. Unwrapped callers get correctness, not sharing.
+ * The warning below keeps this fail-soft rather than silent (architectural standard A2):
+ * prefer `runWithInstanceState` at each entry point so the store is scoped and released.
+ * See competition-factory#4564.
+ */
+let implicitContextCount = 0;
+
+function getInstanceState(): ImplemtationGlobalStateTypes {
+  const instanceState = asyncLocalStorage.getStore();
+  if (instanceState) return instanceState;
+
+  implicitContextCount += 1;
+  if (implicitContextCount === 1 || implicitContextCount % 100 === 0) {
+     
+    console.warn(
+      `[asyncGlobalState] factory engine state accessed outside runWithInstanceState() ` +
+        `(${implicitContextCount} so far) — an implicit per-context state was created. ` +
+        `Wrap the entry point in runWithInstanceState() so the store is scoped to the request.`,
+    );
+  }
+
+  const created = newInstanceState();
+  asyncLocalStorage.enterWith(created);
+  return created;
+}
+
+/** Test/diagnostic hook: how many times state was created implicitly rather than via runWithInstanceState. */
+function implicitContextCreations(): number {
+  return implicitContextCount;
 }
 
 export default {
   addNotice,
+  runWithInstanceState,
+  implicitContextCreations,
   callListener,
   createInstanceState,
   cycleMutationStatus,
