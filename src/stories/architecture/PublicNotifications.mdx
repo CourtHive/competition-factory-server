@@ -110,7 +110,7 @@ Possible `action` values:
 
 ## How Notices Are Collected
 
-During a mutation, the factory engine dispatches topic notices (`MODIFY_MATCHUP`, `MODIFY_POSITION_ASSIGNMENTS`, `PUBLISH_EVENT`, etc.). The subscriptions registered in `getMutationEngine` push a sanitized copy of each into a per-request `publicNotices` array. Because each request runs against its own `async_hooks`-isolated engine state (`asyncGlobalState`), concurrent mutations never mix notices. After the mutation succeeds, `TournamentBroadcastService.broadcastPublicNotices` groups those notices by tournament and emits the `publicUpdate` / `liveScore` events described above.
+During a mutation, the factory engine dispatches topic notices (`MODIFY_MATCHUP`, `MODIFY_POSITION_ASSIGNMENTS`, `PUBLISH_EVENT`, etc.). The subscription handlers push a sanitized copy of each into that request's `publicNotices` array. The handlers are a **module-scope constant** — identical on every request — and read `publicNotices` / `deltaBuffer` / `services` from a CFS-owned `AsyncLocalStorage` request context (`requestContext.ts`) rather than from closures. Re-registration per request is therefore idempotent, so a concurrent request cannot substitute its own handlers and capture another request's notices. After the mutation succeeds, `TournamentBroadcastService.broadcastPublicNotices` groups those notices by tournament and emits the `publicUpdate` / `liveScore` events described above.
 
 ## Client Examples
 

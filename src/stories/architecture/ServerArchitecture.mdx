@@ -52,7 +52,7 @@ Socket.IO message (/tmx namespace)
 
 ## Per-Request State Isolation
 
-The server uses Node.js `async_hooks` (via `asyncGlobalState.ts`) to provide per-request state isolation for the factory engine. Each incoming request gets its own engine state context, preventing cross-request data leakage.
+The server uses `AsyncLocalStorage` (via `asyncGlobalState.ts`) for factory-engine state isolation. Each **entry point** — `executionQueue`, `queryTournamentRecords`, the projection rebuild, mock generation — wraps itself in `runWithInstanceState()`, which scopes a fresh engine state to that call and every async context it spawns. Isolation comes from that wrapping; state reached outside a wrapper gets a lazily-created context-scoped store and logs a warning.
 
 ## Concurrency Control
 

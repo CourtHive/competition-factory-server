@@ -82,7 +82,7 @@ The client waits for this `ack` before applying mutations locally, ensuring serv
 
 ## Per-Request State Isolation
 
-The gateway serves many concurrent sockets from one Node.js process. Each `executionQueue` runs against its own factory-engine state, isolated via Node.js `async_hooks` (`asyncGlobalState`), while `withTournamentLock` serializes requests that touch the same tournament. See [Mutation Flow](?path=/docs/architecture-mutation-flow--docs) for details.
+The gateway serves many concurrent sockets from one Node.js process. Each `executionQueue` wraps itself in `runWithInstanceState()` so it runs against its own factory-engine state (`asyncGlobalState`, backed by `AsyncLocalStorage`), while `withTournamentLock` serializes requests that touch the same tournament. The lock is keyed per tournament, so different-tournament mutations run concurrently and rely on that wrapping for isolation. See [Mutation Flow](?path=/docs/architecture-mutation-flow--docs) for details.
 
 ## Broadcasting
 

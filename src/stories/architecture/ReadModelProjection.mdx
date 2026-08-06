@@ -23,7 +23,7 @@ Postgres **outbox**, and how the read side owns and applies them.
     <tr><td>Detecting record changes during a mutation</td><td>CFS — factory notice subscriptions</td></tr>
     <tr><td>Turning changes into read-model row deltas</td><td>CFS — the factory <code>readModel</code> toolkit</td></tr>
     <tr><td>The <code>projection_queue</code> outbox (schemaless deltas)</td><td>CFS storage (Postgres)</td></tr>
-    <tr><td>The <code>query_*</code> read tables + their schema</td><td><strong>courthive-query</strong></td></tr>
+    <tr><td>The <code>query_\*</code> read tables + their schema</td><td><strong>courthive-query</strong></td></tr>
     <tr><td>Draining the outbox and applying deltas idempotently</td><td><strong>courthive-query</strong> consumer</td></tr>
     <tr><td>Serving read queries (e.g. <code>/me/participations</code>)</td><td><strong>courthive-query</strong></td></tr>
   </tbody>
@@ -243,7 +243,7 @@ bring the read model back into agreement with the record.
     <tr><td>CFS</td><td><code>src/storage/interfaces/projection-outbox-storage.interface.ts</code></td><td><code>ProjectionDelta</code> contract + outbox storage interface</td></tr>
     <tr><td>factory</td><td><code>src/query/readModel/</code> (<code>cast</code>, <code>readModelRows</code>, row builders)</td><td>Single source of the read-model row shape — shared by all three producers</td></tr>
     <tr><td>courthive-query</td><td><code>src/modules/projection/deltaApplier.ts</code> + <code>tableMeta.ts</code></td><td>Table-agnostic consumer — applies deltas by <code>delta.table</code>, gated on the allow-list</td></tr>
-    <tr><td>courthive-query</td><td><code>src/storage/migrations/*.sql</code></td><td>The physical <code>query_*</code> tables (owned by the read side)</td></tr>
+    <tr><td>courthive-query</td><td><code>src/storage/migrations/\*.sql</code></td><td>The physical <code>query_\*</code> tables (owned by the read side)</td></tr>
   </tbody>
 </table>
 
