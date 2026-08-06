@@ -61,14 +61,19 @@ The `ack` is emitted from `tmxMessages.executionQueue` (see `client.emit('ack', 
 
 ## Per-Request State Isolation
 
-The server processes many concurrent requests through a single Node.js process, so the factory engine cannot hold mutable state on a shared singleton. Instead, each request gets its own factory-engine state via Node.js `async_hooks`:
+The server processes many concurrent requests through a single Node.js process, so the factory engine cannot hold mutable state on a shared singleton. Each **entry point** establishes its own factory-engine state via `AsyncLocalStorage`:
 
-- `getMutationEngine` builds an `asyncEngine()` instance and wires the factory's state provider to `asyncGlobalState` (`globalState.setStateProvider(asyncGlobalState)`).
-- `asyncGlobalState` registers an `async_hooks` `createHook` and keys per-context state (`tournamentRecords`, `subscriptions`, `notices`, `methods`, `modified`) by `executionAsyncId()`. The `init` hook propagates state to child async contexts; `destroy` cleans it up.
-- Because state is scoped to the async execution context, two concurrent `executionQueue` requests never see each other's `setState(...)` / notices — no cross-request contamination.
-- The same isolation lets `resolveMatchUpReferences` safely use `tournamentEngineAsync.setState(...).findMatchUp(...)` to backfill `drawId`/`eventId` on `setMatchUpStatus` methods that carry only a `matchUpId`.
+- `asyncGlobalState` holds engine state (`tournamentRecords`, `subscriptions`, `notices`, `methods`, `modified`) in an `AsyncLocalStorage` store. `runWithInstanceState(fn)` scopes a fresh store to `fn` and every async context it spawns.
+- Every entry point wraps itself: `executionQueue` (mutations), `queryTournamentRecords` (reads), the projection rebuild, and mock generation. Isolation comes from **that wrapping**, not from anything implicit.
+- `getMutationEngine()` builds an `asyncEngine()` instance and registers the subscription handlers. It takes no per-request arguments — the handlers read `publicNotices` / `deltaBuffer` / `services` from a separate CFS-owned request context (`requestContext.ts`).
+- State accessed *outside* any wrapper lazily gets a context-scoped store and logs a warning. That is a safety net, not isolation: unwrapped calls sharing a common parent context still share a store. Wrap the entry point.
 
-Per-request state isolation and the per-tournament mutex are complementary: `async_hooks` keeps concurrent requests' engine state separate, while `withTournamentLock` serializes requests that target the *same* tournament so their read-modify-write cycles cannot interleave.
+Per-request state isolation and the per-tournament mutex are complementary: `AsyncLocalStorage` keeps concurrent requests' engine state separate, while `withTournamentLock` serializes requests that target the *same* tournament so their read-modify-write cycles cannot interleave. Note the lock is keyed **per tournament**, so mutations on *different* tournaments — and all reads, which take no lock — run concurrently. Their isolation depends entirely on the wrapping above.
+
+> **History.** Until 2026-08-06 this section described an `async_hooks` `createHook` implementation keyed by
+> `executionAsyncId()`, seeded **once at module scope** in `getMutationEngine.ts`. That gave every request in the
+> process the *same* state object — per-request isolation in name only, and it never errored because it never
+> isolated. See [competition-factory#4564](https://github.com/CourtHive/competition-factory/issues/4564).
 
 ## REST API Mutations
 
@@ -119,8 +124,9 @@ The server uses per-tournament mutexes to prevent concurrent modifications:
     <tr><td>Server</td><td><code>src/modules/messaging/tmx/tmx.gateway.ts</code></td><td>WebSocket gateway</td></tr>
     <tr><td>Server</td><td><code>src/modules/messaging/tmx/tmxMessages.ts</code></td><td>Message routing</td></tr>
     <tr><td>Server</td><td><code>src/modules/factory/functions/private/executionQueue.ts</code></td><td>Mutation execution (lock, fetch, execute, save, audit)</td></tr>
-    <tr><td>Server</td><td><code>src/modules/factory/engines/getMutationEngine.ts</code></td><td>Builds the per-request async engine and wires subscriptions</td></tr>
-    <tr><td>Server</td><td><code>src/modules/factory/engines/asyncGlobalState.ts</code></td><td>Per-request factory state via Node.js <code>async_hooks</code></td></tr>
+    <tr><td>Server</td><td><code>src/modules/factory/engines/getMutationEngine.ts</code></td><td>Builds the async engine; registers the module-scope subscription handlers</td></tr>
+    <tr><td>Server</td><td><code>src/modules/factory/engines/asyncGlobalState.ts</code></td><td>Per-context factory state via <code>AsyncLocalStorage</code></td></tr>
+    <tr><td>Server</td><td><code>src/modules/factory/engines/requestContext.ts</code></td><td>Request-scoped <code>publicNotices</code> / <code>deltaBuffer</code> / <code>services</code></td></tr>
     <tr><td>Server</td><td><code>src/services/tournamentMutex.ts</code></td><td>Per-tournament mutex (sorted acquisition, 30s timeout)</td></tr>
   </tbody>
 </table>
