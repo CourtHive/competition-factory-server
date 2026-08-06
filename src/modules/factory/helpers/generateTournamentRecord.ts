@@ -1,8 +1,15 @@
+import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
 import { governors } from 'tods-competition-factory';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
 
 export async function generateTournamentRecord(mockProfile?: any, user?: any) {
-  const genResult = await governors.mocksGovernor.generateTournamentRecord(mockProfile);
+  // DECISION: mock generation needs its own engine-state context.
+  // WHY: governors are not uniformly pure — mocksGovernor.generateTournamentRecord dispatches
+  // notices, which write the factory instance state. A direct governor call is therefore an
+  // entry point too, not just engine calls. See competition-factory#4564.
+  const genResult = await asyncGlobalState.runWithInstanceState(async () =>
+    governors.mocksGovernor.generateTournamentRecord(mockProfile),
+  );
   if (!genResult || genResult.error) throw new Error(genResult?.error || 'Could not generate tournament record');
   const tournamentRecord: any = genResult.tournamentRecord;
 

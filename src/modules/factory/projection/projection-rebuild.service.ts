@@ -1,3 +1,4 @@
+import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
 import { tournamentEngineAsync } from 'tods-competition-factory';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
@@ -43,11 +44,14 @@ export class ProjectionRebuildService {
     const deltas = await buildProjectionDeltas({
       intents: buildRebuildIntents(tournamentRecord),
       tournamentRecords: { [tournamentId]: tournamentRecord },
-      flattenDraw: async (_tid: string, drawId: string) => {
-        await tournamentEngineAsync.setState(tournamentRecord);
-        const res: any = await tournamentEngineAsync.allDrawMatchUps({ drawId, inContext: true });
-        return res?.matchUps ?? [];
-      },
+      // own engine-state context: the rebuild is a separate entry point, not routed through
+      // executionQueue, and setState here would otherwise share process-wide state
+      flattenDraw: async (_tid: string, drawId: string) =>
+        asyncGlobalState.runWithInstanceState(async () => {
+          await tournamentEngineAsync.setState(tournamentRecord);
+          const res: any = await tournamentEngineAsync.allDrawMatchUps({ drawId, inContext: true });
+          return res?.matchUps ?? [];
+        }),
     });
     await this.outbox.enqueue(deltas);
     return deltas.length;
