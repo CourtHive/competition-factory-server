@@ -21,7 +21,8 @@ pnpm test                 # Jest tests
 pnpm test:watch           # Jest watch mode
 pnpm test:cov             # Jest with coverage
 pnpm test:e2e             # Playwright end-to-end tests
-pnpm lint                 # ESLint with auto-fix
+pnpm lint                 # ESLint — non-mutating, fails on any warning
+pnpm lint:fix             # ESLint with auto-fix (rewrites source)
 pnpm check-types          # TypeScript type check (tsc --noEmit)
 pnpm format               # Prettier on src/ and test/
 pnpm storybook            # Storybook dev server on :6007
