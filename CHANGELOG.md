@@ -1,5 +1,52 @@
 # Changelog
 
+## [2.23.0](https://github.com/CourtHive/competition-factory-server/compare/v2.22.0...v2.23.0) (2026-08-07)
+
+
+### Features
+
+* **projection:** project a courts read-model table under venues ([559e808](https://github.com/CourtHive/competition-factory-server/commit/559e8083e4305b51912ee73c4b37cc65f3714678))
+* **projection:** project a seeds read-model table from modify-seed-assignments ([c4ada22](https://github.com/CourtHive/competition-factory-server/commit/c4ada2226f134e7d1f35740c4633431337cb9b53))
+* **projection:** project an events read-model table from the event topics ([ab7a7eb](https://github.com/CourtHive/competition-factory-server/commit/ab7a7ebf2e9dafaa71d99c8ed58fb6d875e2d0df))
+* **projection:** project draws + structures read-model tables from draw definitions ([18cf877](https://github.com/CourtHive/competition-factory-server/commit/18cf877c77781914966f5131eae9a3b66f4d4a76))
+* **projection:** project nested round-robin group structures ([61810f0](https://github.com/CourtHive/competition-factory-server/commit/61810f094e595f8ed2bcd5472a1f6e11a026aea1))
+* **projection:** project nested round-robin group structures ([c87645b](https://github.com/CourtHive/competition-factory-server/commit/c87645b5064537c7c560718bf11c634886f664f4))
+* **projection:** project order-of-play + scheduling-profile read-model tables ([8452640](https://github.com/CourtHive/competition-factory-server/commit/8452640d809fc959197eed6718d8da8e46ca7148))
+* **projection:** project participant-publish + tournaments.published (the last publish topics) ([0f67257](https://github.com/CourtHive/competition-factory-server/commit/0f672575cb0c28bff0a83ea1eab5ad0ee565cd69))
+* **projection:** subscribe deleted-matchup-ids to delete individual match_ups rows ([bb835db](https://github.com/CourtHive/competition-factory-server/commit/bb835dbea585a8606c379b86238c3e9f4a3629ba))
+* **projection:** subscribe entries topics to refresh the entries read-model ([76fd73d](https://github.com/CourtHive/competition-factory-server/commit/76fd73d1091b6bc177a531b5a8cb3b5c97ea924e))
+* **projection:** subscribe entries topics to refresh the entries read-model ([d0a1dab](https://github.com/CourtHive/competition-factory-server/commit/d0a1dab3d9f1c3f4439438e4d528e9b46e105d0d))
+* **projection:** super-admin endpoint for read-model rebuild ([6e5ef46](https://github.com/CourtHive/competition-factory-server/commit/6e5ef469c47c60ebba07f6de217d59aad658090d))
+* **provisioner:** flag-gated retirement of CFS write endpoints (moved to AMS) ([3faf5f6](https://github.com/CourtHive/competition-factory-server/commit/3faf5f6bda11ec2a686add5d1e122ef84ce19a7e))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 6.14.0 ([7b0c715](https://github.com/CourtHive/competition-factory-server/commit/7b0c7155f7def9b6c751544d846ac8506a781352))
+* **deps:** update tods-competition-factory to 6.14.1 ([6258ee2](https://github.com/CourtHive/competition-factory-server/commit/6258ee27d65a2edacdf7e0e8be5e50b15d194dd2))
+* **deps:** update tods-competition-factory to 6.15.0 ([4c7d324](https://github.com/CourtHive/competition-factory-server/commit/4c7d324a67d29711fee29b13dec76a489057f059))
+* **deps:** update tods-competition-factory to 6.16.0 ([529ca2f](https://github.com/CourtHive/competition-factory-server/commit/529ca2f25b7f0295a38f330174f73eac2192e73f))
+* **deps:** update tods-competition-factory to 6.17.0 ([e0cc5a5](https://github.com/CourtHive/competition-factory-server/commit/e0cc5a581f991a32b5d2919a973752a5da863fd7))
+* **deps:** update tods-competition-factory to 6.18.0 ([b0d7dca](https://github.com/CourtHive/competition-factory-server/commit/b0d7dca3ab216fa19a43fd8d63c361527f1ca36e))
+* **deps:** update tods-competition-factory to 6.19.0 ([4f3b953](https://github.com/CourtHive/competition-factory-server/commit/4f3b953e6a6d9292be8402c7e4e45ed9abb56992))
+* **factory:** give each entry point its own engine state context ([#866](https://github.com/CourtHive/competition-factory-server/issues/866)) ([c431916](https://github.com/CourtHive/competition-factory-server/commit/c431916661c3b84d129a0d186574d1b0d8326d57))
+* **projection:** entries delete-by-parent (no stale query_entries row) + read-model story ([fca9567](https://github.com/CourtHive/competition-factory-server/commit/fca95679926eaa98d7fd8ec9846ad033aae42db8))
+* **projection:** re-project entries with delete-by-parent so a removed entry leaves no stale row ([30fa2e8](https://github.com/CourtHive/competition-factory-server/commit/30fa2e8de7200bbb1de2cbf5bd021817d3c237d5))
+* **projection:** re-project events on event-seeding publish so query_events.published is not stale ([b893d92](https://github.com/CourtHive/competition-factory-server/commit/b893d929778bdb716d376e12c1692d06fa0bdfaf))
+* **projection:** rebuild reads scheduling profile with the shared legacy fallback ([21ce7c2](https://github.com/CourtHive/competition-factory-server/commit/21ce7c215f75bae1f55e197110e4bc0d80e60a12))
+* **projection:** rebuild reads scheduling profile with the shared legacy fallback ([#6](https://github.com/CourtHive/competition-factory-server/issues/6)) ([5383dd3](https://github.com/CourtHive/competition-factory-server/commit/5383dd3c1b0b579347ee54f22bc1c5650fbd4e1f))
+* **projection:** subscribe event-seeding publish topics (query_events.published no longer stale) ([9dd8ea3](https://github.com/CourtHive/competition-factory-server/commit/9dd8ea376699d33ba175c81701c1c4221e87578b))
+* **projection:** thread matchUp roundNumber into read-model publish resolution ([9d0d6fe](https://github.com/CourtHive/competition-factory-server/commit/9d0d6fe1ff4413e19227a91ceb565cca647f9829))
+* **projection:** thread roundNumber into publish resolution (paired with factory embargo/roundLimit fix) ([288f4ff](https://github.com/CourtHive/competition-factory-server/commit/288f4ffddb1e412779de51dfa8d4c930fb4f9812))
+* **projection:** thread scheduleEmbargo into match_ups context ([#9](https://github.com/CourtHive/competition-factory-server/issues/9)) ([a9578a7](https://github.com/CourtHive/competition-factory-server/commit/a9578a7ae84526d8158fec369f48e35abc1448c2))
+* **projection:** thread scheduleEmbargo into the match_ups projection context ([dc514b3](https://github.com/CourtHive/competition-factory-server/commit/dc514b32a2631879571c47c14a44442c8a343956))
+
+
+### Documentation
+
+* **architecture:** describe the real per-request isolation mechanism ([#868](https://github.com/CourtHive/competition-factory-server/issues/868)) ([629592d](https://github.com/CourtHive/competition-factory-server/commit/629592d6d75916b74f45b40487ef0d85ec584f45))
+* **projection:** add read-model projection storybook architecture story ([9b1a538](https://github.com/CourtHive/competition-factory-server/commit/9b1a5383d70a57e9c135336204c8865701766766))
+
 ## [2.22.0](https://github.com/CourtHive/competition-factory-server/compare/v2.21.0...v2.22.0) (2026-07-29)
 
 
