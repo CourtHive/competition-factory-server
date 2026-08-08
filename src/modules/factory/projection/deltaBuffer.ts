@@ -93,9 +93,26 @@ export function recordParticipants(buffer: DeltaBuffer | undefined, params: any[
   const seen = new Set<string>();
   for (const item of params) {
     const tournamentId = tidOf(buffer, item?.tournamentId);
-    if (tournamentId && !seen.has(tournamentId)) {
+    if (!tournamentId) continue;
+    if (!seen.has(tournamentId)) {
       seen.add(tournamentId);
       push(buffer, { kind: 'participants', tournamentId });
+    }
+    // The `participants` intent above refreshes the ENTRIES fact only. A participant's
+    // name is also denormalized onto `match_up_competitors.participant_name`, which is
+    // written exclusively by the draw-scoped flatten — so a rename left those rows stale
+    // (found by the factory notice-conformance FIDELITY oracle). Fan out a targeted
+    // name update per changed participant; the notice payload already carries the new
+    // name, so this costs no record walk and no re-flatten.
+    for (const participant of item?.participants ?? []) {
+      const participantId = participant?.participantId;
+      if (!participantId) continue;
+      push(buffer, {
+        kind: 'participantName',
+        tournamentId,
+        participantId,
+        participantName: participant?.participantName ?? null,
+      });
     }
   }
 }

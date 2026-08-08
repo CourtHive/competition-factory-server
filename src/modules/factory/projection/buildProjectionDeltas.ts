@@ -1,4 +1,4 @@
-import { readModel } from 'tods-competition-factory';
+import { participantConstants, readModel } from 'tods-competition-factory';
 
 import { ProjectionDelta } from 'src/storage/interfaces/projection-outbox-storage.interface';
 
@@ -20,6 +20,11 @@ import {
   TABLE_TOURNAMENT_VENUES,
   LINK_CANONICAL,
 } from './projectionConstants';
+
+// Sourced from factory rather than redeclared locally: this must be the SAME value
+// factory stamps into `match_up_competitors.participant_type`, or the TEAM-grain
+// name update below silently matches nothing.
+const { TEAM: TEAM_PARTICIPANT } = participantConstants;
 
 // Row builders + person/publish resolution come from the factory read-model
 // toolkit — the SINGLE source shared with cast() (no CFS-local copy). The
@@ -72,6 +77,8 @@ interface Grouped {
   deleteEvents: Map<string, string>; // eventId → tournamentId (dedups AUDIT + DELETE_EVENT)
   deleteParticipants: { tournamentId: string; participantIds: string[] }[];
   claims: Map<string, { tournamentId: string; participantId: string; personId: string }>; // participantId → claim
+  // participantId → latest name (competitor rows denormalize participant_name)
+  participantNames: Map<string, { tournamentId: string; participantId: string; participantName: string | null }>;
 }
 
 function drawKey(tournamentId: string, drawId: string): string {
@@ -97,6 +104,7 @@ function group(intents: ProjectionIntent[], records: Record<string, any>): Group
     deleteEvents: new Map(),
     deleteParticipants: [],
     claims: new Map(),
+    participantNames: new Map(),
   };
 
   for (const intent of intents) {
@@ -166,6 +174,10 @@ function group(intents: ProjectionIntent[], records: Record<string, any>): Group
       case 'claimPerson':
         g.claims.set(intent.participantId, intent);
         break;
+      case 'participantName':
+        // last write wins within a cycle — the final name is the one to project
+        g.participantNames.set(`${intent.tournamentId}::${intent.participantId}`, intent);
+        break;
     }
   }
   return g;
@@ -211,8 +223,9 @@ function update(
   table: string,
   key: Record<string, any>,
   row: Record<string, any>,
+  topic = 'claimPerson',
 ): ProjectionDelta {
-  return { tournamentId, op: 'update', table, key, row, topic: 'claimPerson' };
+  return { tournamentId, op: 'update', table, key, row, topic };
 }
 
 // A person self-claim stamps the canonical personId onto every competitor +
@@ -236,6 +249,45 @@ function claimDeltas(g: Grouped): ProjectionDelta[] {
         TABLE_ENTRIES,
         { tournament_id: tournamentId, participant_id: participantId },
         { person_id: personId },
+      ),
+    );
+  }
+  return deltas;
+}
+
+/**
+ * A renamed participant's name is denormalized onto `match_up_competitors`. Targeted
+ * UPDATEs by participant column (same shape as `claimDeltas` — we do not know the
+ * competitor PKs), so a rename costs two statements per participant instead of a
+ * full re-flatten of every draw they appear in.
+ *
+ * Two grains, because `participant_name` means different things per row type
+ * (factory `readModelRows.ts`): for INDIVIDUAL and PAIR rows it is the INDIVIDUAL's
+ * name and `individual_participant_id` identifies them; for TEAM rows it is the
+ * TEAM's name, `individual_participant_id` is NULL, and the team is identified by
+ * `side_participant_id`.
+ *
+ * The TEAM key is discriminated by `participant_type` rather than by
+ * `individual_participant_id: null`. That is deliberate and load-bearing: the
+ * consumer's `buildUpdate` emits `WHERE col = $n` for every key column, so a null
+ * key would become `WHERE individual_participant_id = NULL` — never true in SQL, a
+ * silent no-op. Dropping the null instead would over-match and stamp the team's name
+ * onto its own players' rows.
+ */
+function participantNameDeltas(g: Grouped): ProjectionDelta[] {
+  const deltas: ProjectionDelta[] = [];
+  for (const { tournamentId, participantId, participantName } of g.participantNames.values()) {
+    const row = { participant_name: participantName };
+    deltas.push(
+      update(tournamentId, TABLE_MATCH_UP_COMPETITORS, { individual_participant_id: participantId }, row, 'participants'),
+    );
+    deltas.push(
+      update(
+        tournamentId,
+        TABLE_MATCH_UP_COMPETITORS,
+        { side_participant_id: participantId, participant_type: TEAM_PARTICIPANT },
+        row,
+        'participants',
       ),
     );
   }
@@ -617,6 +669,9 @@ export async function buildProjectionDeltas(args: BuildDeltasArgs): Promise<Proj
     ...resultDeltas(g, args.tournamentRecords, coveredMatchUpIds),
     ...entryDeltas(g, args.tournamentRecords),
     ...claimDeltas(g),
+    // after `flatten`: when both fire the flatten already wrote the correct name, and
+    // this is then a harmless no-op re-write of the same value.
+    ...participantNameDeltas(g),
     ...deleteDeltas(g, coveredMatchUpIds),
   ];
 }

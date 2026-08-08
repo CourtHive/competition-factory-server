@@ -9,6 +9,11 @@ export type ProjectionIntent =
   | { kind: 'matchUpResult'; tournamentId: string; matchUp: any }
   | { kind: 'republishEvent'; tournamentId: string; eventId: string }
   | { kind: 'claimPerson'; tournamentId: string; participantId: string; personId: string }
+  // A rename fans out to every competitor row carrying that participant's name.
+  // `match_up_competitors.participant_name` is otherwise written ONLY by the
+  // draw-scoped flatten, so without this a renamed person stays stale in the read
+  // model until something unrelated re-flattens their draw.
+  | { kind: 'participantName'; tournamentId: string; participantId: string; participantName: string | null }
   | { kind: 'touchTournament'; tournamentId: string }
   | { kind: 'participants'; tournamentId: string }
   | { kind: 'entries'; tournamentId: string }

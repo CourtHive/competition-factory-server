@@ -62,6 +62,34 @@ describe('deltaBuffer recorders', () => {
     expect(buffer.intents.filter((i) => i.kind === 'participants')).toHaveLength(1);
   });
 
+  it('recordParticipants fans out a participantName intent per changed participant', () => {
+    // Regression: participant_name is denormalized onto match_up_competitors and was
+    // written ONLY by the draw-scoped flatten, so a rename left those rows stale.
+    const buffer = createDeltaBuffer(['t-1']);
+    recordParticipants(buffer, [
+      {
+        tournamentId: 't-1',
+        participants: [
+          { participantId: 'p-1', participantName: 'Pete Sampras' },
+          { participantId: 'p-2', participantName: 'Andre Agassi' },
+        ],
+      },
+    ]);
+    expect(buffer.intents.filter((i) => i.kind === 'participantName')).toEqual([
+      { kind: 'participantName', tournamentId: 't-1', participantId: 'p-1', participantName: 'Pete Sampras' },
+      { kind: 'participantName', tournamentId: 't-1', participantId: 'p-2', participantName: 'Andre Agassi' },
+    ]);
+    // the entries-fact refresh is unchanged
+    expect(buffer.intents.filter((i) => i.kind === 'participants')).toHaveLength(1);
+  });
+
+  it('recordParticipants tolerates a payload with no participants array', () => {
+    const buffer = createDeltaBuffer(['t-1']);
+    recordParticipants(buffer, [{ tournamentId: 't-1' }]);
+    expect(buffer.intents.filter((i) => i.kind === 'participantName')).toHaveLength(0);
+    expect(buffer.intents.filter((i) => i.kind === 'participants')).toHaveLength(1);
+  });
+
   it('recordEntries records one entries intent per tournament and de-dupes', () => {
     const buffer = createDeltaBuffer(['t-1']);
     recordEntries(buffer, [

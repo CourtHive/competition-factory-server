@@ -446,6 +446,58 @@ describe('buildProjectionDeltas', () => {
     ]);
   });
 
+  it('participantName → targeted competitor name updates at BOTH grains', async () => {
+    const deltas = await build([
+      { kind: 'participantName', tournamentId: 't-1', participantId: 'pa-1', participantName: 'Pete Sampras' },
+    ]);
+    const updates = deltas.filter((d) => d.op === 'update');
+    expect(updates).toEqual([
+      {
+        tournamentId: 't-1',
+        op: 'update',
+        table: 'match_up_competitors',
+        // INDIVIDUAL + PAIR rows: participant_name is the INDIVIDUAL's name
+        key: { individual_participant_id: 'pa-1' },
+        row: { participant_name: 'Pete Sampras' },
+        topic: 'participants',
+      },
+      {
+        tournamentId: 't-1',
+        op: 'update',
+        table: 'match_up_competitors',
+        // TEAM rows: participant_name is the TEAM's name and individual_participant_id
+        // is NULL, so the team is identified by side_participant_id + participant_type.
+        key: { side_participant_id: 'pa-1', participant_type: 'TEAM' },
+        row: { participant_name: 'Pete Sampras' },
+        topic: 'participants',
+      },
+    ]);
+  });
+
+  it('participantName TEAM key never relies on a null column (consumer emits `col = $n`)', async () => {
+    // buildUpdate in courthive-query renders every key column as `col = $n`, so a
+    // `null` key would become `WHERE individual_participant_id = NULL` — never true,
+    // a silent no-op. Guard the shape rather than trusting the comment.
+    const deltas = await build([
+      { kind: 'participantName', tournamentId: 't-1', participantId: 'pa-1', participantName: 'X' },
+    ]);
+    const updates = deltas.filter((d) => d.op === 'update');
+    expect(updates.length).toBeGreaterThan(0); // never let this guard pass vacuously
+    for (const delta of updates) {
+      expect(Object.values(delta.key as Record<string, any>).every((v) => v !== null && v !== undefined)).toBe(true);
+    }
+  });
+
+  it('participantName de-dupes per participant, last name wins', async () => {
+    const deltas = await build([
+      { kind: 'participantName', tournamentId: 't-1', participantId: 'pa-1', participantName: 'Old' },
+      { kind: 'participantName', tournamentId: 't-1', participantId: 'pa-1', participantName: 'New' },
+    ]);
+    const updates = deltas.filter((d) => d.op === 'update');
+    expect(updates).toHaveLength(2); // two grains for ONE participant, not four
+    expect(updates.every((d) => (d.row as any).participant_name === 'New')).toBe(true);
+  });
+
   it('returns nothing for an empty intent buffer', async () => {
     expect(await build([])).toEqual([]);
   });
