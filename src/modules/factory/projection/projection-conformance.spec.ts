@@ -813,6 +813,155 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     expect(snapshot(tables, 'order_of_play')).toEqual(castUnpublished.order_of_play ?? []);
   });
 
+  it('tournaments.published tracks the publish AGGREGATE through touchTournament, both ways', async () => {
+    // There is no unPublishTournament method: tournaments.published is an AGGREGATE —
+    // published when the order of play OR the participant list is — and UNPUBLISH_TOURNAMENT
+    // is the notice factory emits when the last of those is withdrawn. It maps to
+    // touchTournament, which re-projects only the tournaments row. That is correct rather
+    // than narrow, because event/matchUp visibility is driven by EVENT publish state, not
+    // by this aggregate. Pinned in both directions so a future cascade is a deliberate act.
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 8, eventName: 'Singles' }],
+    });
+    await tournamentEngineAsync.setState(tournamentRecord);
+    const tournamentId = tournamentRecord.tournamentId;
+    const records = { [tournamentId]: tournamentRecord };
+    const initialDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+    expect(snapshot(applyDeltas(initialDeltas), 'tournaments')[0].published).toBeFalsy();
+
+    expect((await tournamentEngineAsync.publishParticipants({}))?.success).toEqual(true);
+    const afterPublish = (await tournamentEngineAsync.getTournament()).tournamentRecord;
+    records[tournamentId] = afterPublish;
+    const publishDeltas = await buildProjectionDeltas({
+      intents: [
+        { kind: 'participantPublish', tournamentId },
+        { kind: 'touchTournament', tournamentId },
+      ],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(afterPublish),
+    });
+
+    let tables = applyDeltas([...initialDeltas, ...publishDeltas]);
+    const castPublished: any = readModel.cast({ tournamentRecord: afterPublish }).rows;
+    expect(snapshot(tables, 'tournaments')).toEqual(castPublished.tournaments);
+    expect(snapshot(tables, 'tournaments')[0].published).toBe(true);
+    expect(snapshot(tables, 'participant_publish').length).toBe(1);
+
+    // withdraw it — the aggregate must fall back to false, and the publish-state row must go
+    expect((await tournamentEngineAsync.unPublishParticipants({}))?.success).toEqual(true);
+    const afterUnpublish = (await tournamentEngineAsync.getTournament()).tournamentRecord;
+    records[tournamentId] = afterUnpublish;
+    const unpublishDeltas = await buildProjectionDeltas({
+      intents: [
+        { kind: 'participantPublish', tournamentId },
+        { kind: 'touchTournament', tournamentId },
+      ],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(afterUnpublish),
+    });
+
+    tables = applyDeltas([...initialDeltas, ...publishDeltas, ...unpublishDeltas]);
+    const castUnpublished: any = readModel.cast({ tournamentRecord: afterUnpublish }).rows;
+    expect(snapshot(tables, 'tournaments')).toEqual(castUnpublished.tournaments);
+    expect(snapshot(tables, 'tournaments')[0].published).toBeFalsy();
+    expect(snapshot(tables, 'participant_publish')).toEqual(castUnpublished.participant_publish ?? []);
+  });
+
+  it('NATIVE scheduling profile: the schedulingProfile intent matches cast() (LEGACY path already covered)', async () => {
+    // The existing scheduling test drives the LEGACY extension path. The resolver handles
+    // both, and NATIVE is the default writeMode since 2026-07-03, so the first-class
+    // `scheduling.profile` shape is the one prod actually produces.
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 8, eventName: 'Singles' }],
+      venueProfiles: [{ venueId: 'v1', venueName: 'Club', courtsCount: 2, idPrefix: 'v1c' }],
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const draw = tournamentRecord.events[0].drawDefinitions[0];
+    const profile = [
+      {
+        scheduleDate: '2025-01-05',
+        venues: [
+          {
+            venueId: 'v1',
+            rounds: [
+              {
+                eventId: tournamentRecord.events[0].eventId,
+                drawId: draw.drawId,
+                structureId: draw.structures[0].structureId,
+                roundNumber: 1,
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    // NATIVE: first-class, no extension.
+    (tournamentRecord as any).scheduling = { profile };
+
+    const records = { [tournamentId]: tournamentRecord };
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: [{ kind: 'schedulingProfile', tournamentId, schedulingProfile: profile }],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    const tables = applyDeltas(incrementalDeltas);
+    const castRows: any = readModel.cast({ tournamentRecord }).rows;
+    const castSort = [...(castRows.scheduling_profile ?? [])].sort((a: any, b: any) =>
+      keyString('scheduling_profile', a).localeCompare(keyString('scheduling_profile', b)),
+    );
+    expect(castSort.length).toBeGreaterThan(0); // the NATIVE shape must actually resolve
+    expect(snapshot(tables, 'scheduling_profile')).toEqual(castSort);
+  });
+
+  it('MODIFY_DRAW_ENTRIES: the entries grain is EVENT-scoped — a draw-entry change projects nothing', async () => {
+    // MODIFY_DRAW_ENTRIES is a subscribed topic, which invites the assumption that draw
+    // entry status is queryable. It is not: entryRows walks event.entries only, so
+    // query_entries has no draw_id column and a pure draw-scope change moves no row.
+    // Pinned so nobody builds a query on drawDefinition entry status that can never work.
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 8, eventName: 'Singles' }],
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const records = { [tournamentId]: tournamentRecord };
+    const initialDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+    const before = snapshot(applyDeltas(initialDeltas), 'entries');
+    expect(before.length).toBeGreaterThan(0);
+    expect(before.every((r: any) => !('draw_id' in r))).toBe(true);
+
+    // change a DRAW entry's status only; the event entry is untouched
+    const drawDefinition = tournamentRecord.events[0].drawDefinitions[0];
+    const drawEntry = (drawDefinition.entries ?? [])[0];
+    expect(drawEntry).toBeDefined();
+    drawEntry.entryStatus = 'ALTERNATE';
+
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: [{ kind: 'entries', tournamentId }],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    // the intent must genuinely RUN — otherwise "unchanged" would hold vacuously for a
+    // dead intent just as well as for a correctly-identical re-projection
+    expect(incrementalDeltas.length).toBeGreaterThan(0);
+
+    const tables = applyDeltas([...initialDeltas, ...incrementalDeltas]);
+    const castRows: any = readModel.cast({ tournamentRecord }).rows;
+    const castEntries = [...(castRows.entries ?? [])].sort((a: any, b: any) =>
+      keyString('entries', a).localeCompare(keyString('entries', b)),
+    );
+    expect(snapshot(tables, 'entries')).toEqual(castEntries);
+    expect(snapshot(tables, 'entries')).toEqual(before); // genuinely unchanged
+  });
+
   it('publishEventSeeding → incremental events.published matches cast() (seeding topic projects)', async () => {
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       drawProfiles: [{ drawSize: 8, seedsCount: 4, eventName: 'Singles' }],
