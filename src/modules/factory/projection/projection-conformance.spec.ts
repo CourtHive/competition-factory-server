@@ -212,7 +212,12 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     tournamentRecord.timeItems = [
       {
         itemType: 'PUBLISH.STATUS',
-        itemValue: { PUBLIC: { orderOfPlay: { published: true, scheduledDates: ['2025-01-05'] }, participants: { published: true } } },
+        itemValue: {
+          PUBLIC: {
+            orderOfPlay: { published: true, scheduledDates: ['2025-01-05'] },
+            participants: { published: true },
+          },
+        },
       },
     ];
     tournamentRecord.scheduling = {
@@ -223,7 +228,12 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
             {
               venueId: 'v1',
               rounds: [
-                { eventId: tournamentRecord.events[0].eventId, drawId: draw.drawId, structureId: draw.structures[0].structureId, roundNumber: 1 },
+                {
+                  eventId: tournamentRecord.events[0].eventId,
+                  drawId: draw.drawId,
+                  structureId: draw.structures[0].structureId,
+                  roundNumber: 1,
+                },
               ],
             },
           ],
@@ -266,7 +276,9 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     expect(castSnapshot('draws').length).toBeGreaterThan(0);
     expect(castSnapshot('structures').length).toBeGreaterThan(0);
     expect(castSnapshot('courts').length).toBeGreaterThan(0); // venueProfiles courtsCount:4 above
-    expect(castSnapshot('participant_publish')).toEqual([{ tournament_id: tournamentId, published: true, embargo: null }]);
+    expect(castSnapshot('participant_publish')).toEqual([
+      { tournament_id: tournamentId, published: true, embargo: null },
+    ]);
     expect(castSnapshot('tournaments')[0].published).toBe(true); // OoP + participants published above
     expect(castSnapshot('order_of_play')).toEqual([
       { tournament_id: tournamentId, published: true, scheduled_dates: ['2025-01-05'], event_ids: null, embargo: null },
@@ -326,6 +338,91 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     expect(entries).toEqual(castEntries); // no stale row survives the removal
     expect(entries.length).toBe(initialEntryCount - 1);
     expect(entries.some((r) => r.participant_id === removed.participantId)).toBe(false);
+  });
+
+  // removeStructure deletes the playoff's matchUps AND strips loserMatchUpId from the
+  // surviving matchUps that fed it. Those edges are projected columns as of factory
+  // `feat(readModel): project draw-progression edges`, so a missed rewire is a stale row.
+  // The producer path is: DELETED_MATCHUP_IDS -> deleteMatchUps, MODIFY_DRAW_DEFINITION ->
+  // draw, and (the fix) MODIFY_MATCHUP per rewired matchUp -> matchUpResult. This asserts
+  // the incremental result converges to cast() — i.e. no surviving row keeps a
+  // loser_match_up_id pointing at a deleted matchUp.
+  it('removeStructure: incremental match_ups converge to cast() with no dangling progression edge', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 32, eventName: 'Singles' }],
+      completeAllMatchUps: true,
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const records = { [tournamentId]: tournamentRecord };
+    await tournamentEngineAsync.setState(tournamentRecord);
+
+    const drawId = tournamentRecord.events[0].drawDefinitions[0].drawId;
+    const structureId = tournamentRecord.events[0].drawDefinitions[0].structures[0].structureId;
+    const added = await tournamentEngineAsync.addPlayoffStructures({
+      playoffStructureNameBase: 'Playoff',
+      roundProfiles: [{ 3: 1 }],
+      structureId,
+      drawId,
+    });
+    expect(added.success).toEqual(true);
+
+    const withPlayoff = (await tournamentEngineAsync.getTournament()).tournamentRecord;
+    const edgesOf = (record: any) =>
+      new Map<string, string>(
+        (record.events ?? [])
+          .flatMap((e: any) => e.drawDefinitions ?? [])
+          .flatMap((d: any) => d.structures ?? [])
+          .flatMap((st: any) => st.matchUps ?? [])
+          .map((m: any) => [m.matchUpId, `${m.winnerMatchUpId ?? ''}|${m.loserMatchUpId ?? ''}`]),
+      );
+    const edgesBefore = edgesOf(withPlayoff);
+    const initialDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(withPlayoff),
+      tournamentRecords: { [tournamentId]: withPlayoff },
+      flattenDraw: await flattenDrawOf(withPlayoff),
+    });
+
+    const playoffStructureId = (await tournamentEngineAsync.getEvent({ drawId })).drawDefinition.structures.find(
+      (st: any) => st.structureId !== structureId,
+    ).structureId;
+    const removal = await tournamentEngineAsync.removeStructure({ structureId: playoffStructureId, drawId });
+    expect(removal.success).toEqual(true);
+
+    const finalRecord = (await tournamentEngineAsync.getTournament()).tournamentRecord;
+    records[tournamentId] = finalRecord;
+
+    // What the fixed factory dispatches: the deletes, the draw, and a MODIFY_MATCHUP per
+    // rewired matchUp. `matchUpResult` is what recordMatchUpResult pushes for that topic.
+    // The rewired set is derived by diffing the stored edges — the same set the factory
+    // fix notices — rather than hand-listed, so this cannot drift from the implementation.
+    const edgesAfter = edgesOf(finalRecord);
+    const rewired = (finalRecord.events ?? [])
+      .flatMap((e: any) => e.drawDefinitions ?? [])
+      .flatMap((d: any) => d.structures ?? [])
+      .flatMap((st: any) => st.matchUps ?? [])
+      .filter((m: any) => edgesBefore.get(m.matchUpId) !== edgesAfter.get(m.matchUpId));
+    expect(rewired.length).toBeGreaterThan(0); // the scenario must actually rewire something
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: [
+        { kind: 'deleteMatchUps', tournamentId, matchUpIds: removal.removedMatchUpIds },
+        { kind: 'draw', tournamentId, drawId },
+        ...rewired.map((m: any) => ({ kind: 'matchUpResult' as const, tournamentId, matchUp: m })),
+      ],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(finalRecord),
+    });
+
+    const tables = applyDeltas([...initialDeltas, ...incrementalDeltas]);
+    const matchUps = snapshot(tables, 'match_ups');
+    const surviving = new Set(matchUps.map((r: any) => r.match_up_id));
+
+    // no surviving row may point at a matchUp that no longer exists
+    for (const row of matchUps) {
+      if (row.loser_match_up_id) expect(surviving.has(row.loser_match_up_id)).toBe(true);
+      if (row.winner_match_up_id) expect(surviving.has(row.winner_match_up_id)).toBe(true);
+    }
+    expect(removal.removedMatchUpIds.length).toBeGreaterThan(0);
+    expect(matchUps.some((r: any) => removal.removedMatchUpIds.includes(r.match_up_id))).toBe(false);
   });
 
   // Publishing event seeding flips getEventPublishStatus → cast() marks events.published
