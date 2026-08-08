@@ -33,6 +33,43 @@ function matchesKey(row: Record<string, any>, key: Record<string, any>): boolean
   return Object.entries(key).every(([k, v]) => row[k] === v);
 }
 
+/**
+ * FK cascades the REAL schema performs but a naive in-memory reducer would not, so the
+ * producer legitimately emits no explicit delete for the child. Mirrors the ON DELETE
+ * CASCADE constraints in courthive-query's migrations; child → (parent table, join column).
+ *
+ * Without this the harness reports false positives — a deleteEvent emits a query_draws
+ * delete and lets query_structures.draw_id cascade, which reads as an orphan here while
+ * being perfectly correct in Postgres. Getting that wrong in the other direction is worse:
+ * a cascade modelled here that the schema does NOT have would hide a real orphan, so this
+ * map must track the migrations exactly.
+ */
+const FK_CASCADES: Array<{ child: string; parent: string; column: string }> = [
+  { child: 'structures', parent: 'draws', column: 'draw_id' },
+  { child: 'match_up_competitors', parent: 'match_ups', column: 'match_up_id' },
+  { child: 'courts', parent: 'venues', column: 'venue_id' },
+];
+
+function applyFkCascades(tables: Record<string, Map<string, any>>): void {
+  // repeat to a fixed point: draws -> structures could later feed another level
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const { child, parent, column } of FK_CASCADES) {
+      const childRows = tables[child];
+      const parentRows = tables[parent];
+      if (!childRows || !parentRows) continue;
+      const live = new Set([...parentRows.values()].map((r: any) => r[column]));
+      for (const [pk, row] of [...childRows]) {
+        if (row[column] !== undefined && row[column] !== null && !live.has(row[column])) {
+          childRows.delete(pk);
+          changed = true;
+        }
+      }
+    }
+  }
+}
+
 function applyDeltas(deltas: ProjectionDelta[]): Record<string, Map<string, any>> {
   const tables: Record<string, Map<string, any>> = {};
   for (const d of deltas) {
@@ -46,6 +83,7 @@ function applyDeltas(deltas: ProjectionDelta[]): Record<string, Map<string, any>
       for (const [pk, row] of [...t]) if (matchesKey(row, d.key)) t.delete(pk);
     }
   }
+  applyFkCascades(tables);
   return tables;
 }
 
@@ -448,6 +486,191 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
   // true, but publishEventSeeding dispatches only PUBLISH_EVENT_SEEDING. That topic is now
   // subscribed to recordEvents; this asserts the incremental events row matches cast() for
   // the seeding-published state (an unsubscribed topic would leave query_events.published stale).
+  // ── narrow-intent coverage ────────────────────────────────────────────────
+  // The failure mode these exist for: a topic IS subscribed and an intent IS pushed, but
+  // the intent expands to a re-projection too narrow to carry the change. That gap is
+  // invisible to factory's notice-conformance oracles, which check the notice stream
+  // rather than the consumer's topic→row mapping — it is exactly how the MODIFY_MATCHUP
+  // slim-row miss reached main earlier in this workstream.
+
+  it('MODIFY_PARTICIPANTS rename: competitor participant_name converges to cast()', async () => {
+    // recordParticipants pushes {kind:'participants'}, which re-projects ONLY the entries
+    // table — match_up_competitors.participant_name is otherwise written exclusively by
+    // the draw-scoped flatten. The participantName intent is what closes that.
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 8, eventName: 'Singles' }],
+      completeAllMatchUps: true,
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const records = { [tournamentId]: tournamentRecord };
+    const initialDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    const target = tournamentRecord.participants.find((p: any) => p.participantType === 'INDIVIDUAL');
+    expect(target).toBeDefined();
+    target.participantName = 'Renamed Competitor';
+    if (target.person) target.person.standardFamilyName = 'Competitor';
+
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: [
+        { kind: 'participants', tournamentId },
+        {
+          kind: 'participantName',
+          tournamentId,
+          participantId: target.participantId,
+          participantName: target.participantName,
+        },
+      ],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    const tables = applyDeltas([...initialDeltas, ...incrementalDeltas]);
+    const competitors = snapshot(tables, 'match_up_competitors');
+    const castRows: any = readModel.cast({ tournamentRecord }).rows;
+    const castCompetitors = [...(castRows.match_up_competitors ?? [])].sort((a: any, b: any) =>
+      keyString('match_up_competitors', a).localeCompare(keyString('match_up_competitors', b)),
+    );
+
+    const renamedRows = competitors.filter((r) => r.individual_participant_id === target.participantId);
+    expect(renamedRows.length).toBeGreaterThan(0); // the participant must actually compete
+    expect(renamedRows.every((r) => r.participant_name === 'Renamed Competitor')).toBe(true);
+    expect(competitors).toEqual(castCompetitors);
+  });
+
+  it('MODIFY_TOURNAMENT_DETAIL: touchTournament carries the renamed tournaments row', async () => {
+    // touchTournament is the narrowest intent in the map — one row, no children. If it
+    // did not re-read the record the tournaments row would keep the pre-mutation name.
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 4, eventName: 'Singles' }],
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const records = { [tournamentId]: tournamentRecord };
+    const initialDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    tournamentRecord.tournamentName = 'Renamed Championships';
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: [{ kind: 'touchTournament', tournamentId }],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    const tables = applyDeltas([...initialDeltas, ...incrementalDeltas]);
+    const castRows: any = readModel.cast({ tournamentRecord }).rows;
+    expect(snapshot(tables, 'tournaments')).toEqual(castRows.tournaments);
+    expect(snapshot(tables, 'tournaments')[0].tournament_name).toEqual('Renamed Championships');
+  });
+
+  it('MODIFY_SEED_ASSIGNMENTS: the seeds intent re-projects a changed seed to match cast()', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 8, seedsCount: 4, eventName: 'Singles' }],
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const records = { [tournamentId]: tournamentRecord };
+    const initialDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    const structure = tournamentRecord.events[0].drawDefinitions[0].structures[0];
+    const assignment = (structure.seedAssignments ?? []).find((a: any) => a.participantId);
+    expect(assignment).toBeDefined();
+    // move the seed to a different entered participant (the shape of a seed reassignment)
+    const otherEntry = tournamentRecord.events[0].entries.find(
+      (e: any) => e.participantId !== assignment.participantId,
+    );
+    expect(otherEntry).toBeDefined();
+    assignment.participantId = otherEntry.participantId;
+
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: [{ kind: 'seeds', tournamentId, structureId: structure.structureId }],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    const tables = applyDeltas([...initialDeltas, ...incrementalDeltas]);
+    const castRows: any = readModel.cast({ tournamentRecord }).rows;
+    const castSeeds = [...(castRows.seeds ?? [])].sort((a: any, b: any) =>
+      keyString('seeds', a).localeCompare(keyString('seeds', b)),
+    );
+    expect(snapshot(tables, 'seeds')).toEqual(castSeeds);
+  });
+
+  it('DELETE_EVENT: the cascade leaves no orphaned match_ups, entries, draws or structures', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      eventProfiles: [
+        { eventName: 'Keep', drawProfiles: [{ drawSize: 8 }] },
+        { eventName: 'Drop', drawProfiles: [{ drawSize: 8 }] },
+      ],
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const records = { [tournamentId]: tournamentRecord };
+    const initialDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    const dropped = tournamentRecord.events.find((e: any) => e.eventName === 'Drop');
+    expect(dropped).toBeDefined();
+    const droppedEventId = dropped.eventId;
+    tournamentRecord.events = tournamentRecord.events.filter((e: any) => e.eventId !== droppedEventId);
+
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: [{ kind: 'deleteEvent', tournamentId, eventId: droppedEventId }],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    const tables = applyDeltas([...initialDeltas, ...incrementalDeltas]);
+    for (const table of ['match_ups', 'entries', 'draws', 'structures']) {
+      const orphans = snapshot(tables, table).filter((r: any) => r.event_id === droppedEventId);
+      expect({ table, orphans: orphans.length }).toEqual({ table, orphans: 0 });
+    }
+    // the surviving event is untouched
+    expect(snapshot(tables, 'events').length).toBe(1);
+  });
+
+  it('MODIFY_VENUE: the venue intent re-projects venues + courts to match cast()', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 4, eventName: 'Singles' }],
+      venueProfiles: [{ venueName: 'Center', courtsCount: 3 }],
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const records = { [tournamentId]: tournamentRecord };
+    const initialDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    const venue = tournamentRecord.venues[0];
+    venue.venueName = 'Renamed Venue';
+    venue.courts[0].courtName = 'Renamed Court';
+
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: [{ kind: 'venue', tournamentId, venue }],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    const tables = applyDeltas([...initialDeltas, ...incrementalDeltas]);
+    const castRows: any = readModel.cast({ tournamentRecord }).rows;
+    const sortBy = (name: string, rows: any[]) =>
+      [...rows].sort((a, b) => keyString(name, a).localeCompare(keyString(name, b)));
+    expect(snapshot(tables, 'venues')).toEqual(sortBy('venues', castRows.venues ?? []));
+    expect(snapshot(tables, 'courts')).toEqual(sortBy('courts', castRows.courts ?? []));
+    expect(snapshot(tables, 'courts').some((r: any) => r.court_name === 'Renamed Court')).toBe(true);
+  });
+
   it('publishEventSeeding → incremental events.published matches cast() (seeding topic projects)', async () => {
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       drawProfiles: [{ drawSize: 8, seedsCount: 4, eventName: 'Singles' }],
