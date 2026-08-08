@@ -671,6 +671,148 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     expect(snapshot(tables, 'courts').some((r: any) => r.court_name === 'Renamed Court')).toBe(true);
   });
 
+  it('DELETE_VENUE drops only the tournament link — venue + courts are RETAINED by design', async () => {
+    // This is the one place the read model is deliberately NOT cast()-equal. Venues may be
+    // shared across tournaments, so DELETE_VENUE removes the tournament_venues link and
+    // leaves query_venues (and its courts, which FK-cascade from it) in place —
+    // documented in migration 009. Pinned so nobody "fixes" it into an equality later.
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 4, eventName: 'Singles' }],
+      venueProfiles: [{ venueName: 'Center', courtsCount: 2 }],
+    });
+    const tournamentId = tournamentRecord.tournamentId;
+    const records = { [tournamentId]: tournamentRecord };
+    const venueId = tournamentRecord.venues[0].venueId;
+    const initialDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    tournamentRecord.venues = [];
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: [{ kind: 'deleteVenue', tournamentId, venueId }],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    const tables = applyDeltas([...initialDeltas, ...incrementalDeltas]);
+    expect(snapshot(tables, 'tournament_venues')).toEqual([]); // link dropped
+    expect(snapshot(tables, 'venues').map((r: any) => r.venue_id)).toEqual([venueId]); // retained
+    expect(snapshot(tables, 'courts').length).toBe(2); // retained with their venue
+
+    // …and cast() of the venue-less record genuinely disagrees. Asserting the divergence
+    // rather than glossing it keeps the exception honest.
+    const castRows: any = readModel.cast({ tournamentRecord }).rows;
+    expect(castRows.venues ?? []).toEqual([]);
+  });
+
+  it('DELETE_PARTICIPANTS: the entries-only intent is safe BECAUSE factory blocks deleting a competitor', async () => {
+    // recordDeleteParticipants pushes an intent that deletes entries rows only. Nothing
+    // clears match_up_competitors, which has no participant FK — so that narrow intent is
+    // correct ONLY while factory refuses to delete a participant holding a draw position.
+    // Both halves are pinned: if that guard ever relaxes, this fails and the projection
+    // needs a competitor cascade.
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 8, eventName: 'Singles' }],
+      participantsProfile: { participantsCount: 12 },
+      completeAllMatchUps: true,
+    });
+    await tournamentEngineAsync.setState(tournamentRecord);
+    const seeded = (await tournamentEngineAsync.getTournament()).tournamentRecord;
+    const entered = new Set(seeded.events[0].entries.map((e: any) => e.participantId));
+    const competing = seeded.participants.find(
+      (p: any) => p.participantType === 'INDIVIDUAL' && entered.has(p.participantId),
+    );
+    const spare = seeded.participants.find(
+      (p: any) => p.participantType === 'INDIVIDUAL' && !entered.has(p.participantId),
+    );
+    expect(competing).toBeDefined();
+    expect(spare).toBeDefined();
+
+    // half 1 — the dangerous case is refused at the source
+    const refused: any = await tournamentEngineAsync.deleteParticipants({
+      participantIds: [competing.participantId],
+    });
+    expect(refused?.success).not.toBe(true);
+    expect(refused?.error?.code).toEqual('ERR_EXISTING_PARTICIPANT_DRAW_POSITION_ASSIGNMENT');
+
+    // half 2 — a non-competing participant deletes cleanly and converges to cast()
+    const tournamentId = seeded.tournamentId;
+    const records = { [tournamentId]: seeded };
+    const initialDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(seeded),
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(seeded),
+    });
+    const removedOk: any = await tournamentEngineAsync.deleteParticipants({ participantIds: [spare.participantId] });
+    expect(removedOk?.success).toEqual(true);
+
+    const finalRecord = (await tournamentEngineAsync.getTournament()).tournamentRecord;
+    records[tournamentId] = finalRecord;
+    const incrementalDeltas = await buildProjectionDeltas({
+      intents: [{ kind: 'deleteParticipants', tournamentId, participantIds: [spare.participantId] }],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(finalRecord),
+    });
+
+    const tables = applyDeltas([...initialDeltas, ...incrementalDeltas]);
+    const castRows: any = readModel.cast({ tournamentRecord: finalRecord }).rows;
+    const castEntries = [...(castRows.entries ?? [])].sort((a: any, b: any) =>
+      keyString('entries', a).localeCompare(keyString('entries', b)),
+    );
+    expect(snapshot(tables, 'entries')).toEqual(castEntries);
+    // the deleted participant never competed, so no competitor row should reference them
+    expect(
+      snapshot(tables, 'match_up_competitors').some((r: any) => r.individual_participant_id === spare.participantId),
+    ).toBe(false);
+  });
+
+  it('PUBLISH_ORDER_OF_PLAY then UNPUBLISH: the orderOfPlay intent tracks cast() both ways', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 8, eventName: 'Singles' }],
+    });
+    await tournamentEngineAsync.setState(tournamentRecord);
+    const tournamentId = tournamentRecord.tournamentId;
+    const records = { [tournamentId]: tournamentRecord };
+    const initialDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(tournamentRecord),
+    });
+
+    const published: any = await tournamentEngineAsync.publishOrderOfPlay();
+    expect(published?.success).toEqual(true);
+    const afterPublish = (await tournamentEngineAsync.getTournament()).tournamentRecord;
+    records[tournamentId] = afterPublish;
+    const publishDeltas = await buildProjectionDeltas({
+      intents: [{ kind: 'orderOfPlay', tournamentId }],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(afterPublish),
+    });
+
+    let tables = applyDeltas([...initialDeltas, ...publishDeltas]);
+    const castPublished: any = readModel.cast({ tournamentRecord: afterPublish }).rows;
+    expect(snapshot(tables, 'order_of_play')).toEqual(castPublished.order_of_play ?? []);
+    expect(snapshot(tables, 'order_of_play').length).toBe(1);
+
+    // …and back off again — an unpublish that left the row behind would keep a schedule
+    // visible after it was withdrawn, which is the direction that actually leaks.
+    const unpublished: any = await tournamentEngineAsync.unPublishOrderOfPlay();
+    expect(unpublished?.success).toEqual(true);
+    const afterUnpublish = (await tournamentEngineAsync.getTournament()).tournamentRecord;
+    records[tournamentId] = afterUnpublish;
+    const unpublishDeltas = await buildProjectionDeltas({
+      intents: [{ kind: 'orderOfPlay', tournamentId }],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(afterUnpublish),
+    });
+
+    tables = applyDeltas([...initialDeltas, ...publishDeltas, ...unpublishDeltas]);
+    const castUnpublished: any = readModel.cast({ tournamentRecord: afterUnpublish }).rows;
+    expect(snapshot(tables, 'order_of_play')).toEqual(castUnpublished.order_of_play ?? []);
+  });
+
   it('publishEventSeeding → incremental events.published matches cast() (seeding topic projects)', async () => {
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       drawProfiles: [{ drawSize: 8, seedsCount: 4, eventName: 'Singles' }],
