@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.23.1](https://github.com/CourtHive/competition-factory-server/compare/v2.23.0...v2.23.1) (2026-08-09)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 6.20.0 ([2260bc3](https://github.com/CourtHive/competition-factory-server/commit/2260bc36a0a1daff4cafffc0b1283a97bd6725d1))
+* **projection:** re-project competitor names on a participant rename ([7b77599](https://github.com/CourtHive/competition-factory-server/commit/7b77599d89844b40a011be6edbb75f5daa28d975))
+* **projection:** resolve events.published via factory's shared cascade predicate ([c3bb4e2](https://github.com/CourtHive/competition-factory-server/commit/c3bb4e285c9e7522a70d56cf87a27892e31cfe5c))
+
 ## [2.23.0](https://github.com/CourtHive/competition-factory-server/compare/v2.22.0...v2.23.0) (2026-08-07)
 
 
