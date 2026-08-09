@@ -46,6 +46,7 @@ const {
   resolveMatchUpPublishState,
   getEventPublishStatus,
   isEventPublished,
+  applyProgressionEdges,
   getTournamentPublishStatus,
 } = readModel;
 type MatchUpRowContext = readModel.MatchUpRowContext;
@@ -310,6 +311,17 @@ async function flattenDrawDeltas(
   for (const { tournamentId, drawId } of g.flattenDraws.values()) {
     const matchUps = await args.flattenDraw(tournamentId, drawId);
     const record = args.tournamentRecords?.[tournamentId];
+
+    // Derive the progression edges rather than trusting whatever the flatten carried:
+    // draws generated before the edges were materialised (and TODS records not produced
+    // by the factory) store none, so a plain flatten projects NULL and a consumer cannot
+    // tell "no loser feed" from "never recorded". cast() derives them the same way via
+    // the same helper, which is what keeps the two paths byte-identical.
+    const drawDefinition = (record?.events ?? [])
+      .flatMap((event: any) => event?.drawDefinitions ?? [])
+      .find((d: any) => d?.drawId === drawId);
+    if (drawDefinition) applyProgressionEdges({ drawDefinitions: [drawDefinition], matchUps });
+
     const providerId = providerIdOf(args.tournamentRecords, tournamentId);
     const statusCache = new Map<string, any>();
     for (const matchUp of matchUps ?? []) {
