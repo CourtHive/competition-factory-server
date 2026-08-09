@@ -1060,26 +1060,13 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     expect(snapshot(tables, 'order_of_play')).toEqual([]);
     expect(snapshot(tables, 'participant_publish')).toEqual([]);
 
-    // ⚠️ KNOWN BUG, pinned deliberately — `query_events.published` stays TRUE after the
-    // event is unpublished, leaving the read model internally inconsistent: the event
-    // advertises published while every one of its matchUps correctly reports false.
-    //
-    // Cause: both cast() (factory `cast.ts`) and this producer (`buildProjectionDeltas`
-    // ~line 380) compute it as `!!getEventPublishStatus({ event })`. unPublishEvent leaves
-    // the PUBLISH.STATUS timeItem in place with a PUBLIC envelope of
-    // `{ structureIds: undefined, drawIds: undefined, seeding: undefined }` — which
-    // JSON.stringify renders as `{}` (undefined values are omitted) but whose
-    // `Object.keys().length` is 3. So it is truthy AND survives a naive `keyed()` /
-    // non-empty test; the obvious one-line fixes do not work. A correct predicate has to
-    // mirror the draw-level cascade in `resolveMatchUpPublishState`, since an event is
-    // published only if some draw resolves published.
-    //
-    // NOT fixed here: changing this column's semantics is a data-contract decision, and
-    // the fix belongs in factory's shared row logic so cast() and the producer stay
-    // identical. Asserted as-is so the inconsistency is visible and this test FAILS the
-    // moment it is corrected — at which point flip these two lines.
-    expect(snapshot(tables, 'events')[0].published).toBe(true); // ← wrong, and known
-    expect(snapshot(tables, 'events')).toEqual(castDark.events); // producer ≡ cast() even so
+    // Was a pinned KNOWN BUG here: events.published stayed TRUE after unpublish, because
+    // both cast() and this producer tested `!!getEventPublishStatus({ event })` and
+    // unPublishEvent retains the PUBLIC envelope with undefined-valued keys. Fixed in
+    // factory `isEventPublished`, which resolves through the same cascade as the matchUps
+    // and is now shared by both paths.
+    expect(snapshot(tables, 'events')[0].published).toBe(false);
+    expect(snapshot(tables, 'events')).toEqual(castDark.events); // producer ≡ cast()
   });
 
   it('publishEventSeeding → incremental events.published matches cast() (seeding topic projects)', async () => {

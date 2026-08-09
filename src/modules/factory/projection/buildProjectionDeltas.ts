@@ -45,6 +45,7 @@ const {
   participantPublishRow,
   resolveMatchUpPublishState,
   getEventPublishStatus,
+  isEventPublished,
   getTournamentPublishStatus,
 } = readModel;
 type MatchUpRowContext = readModel.MatchUpRowContext;
@@ -279,7 +280,13 @@ function participantNameDeltas(g: Grouped): ProjectionDelta[] {
   for (const { tournamentId, participantId, participantName } of g.participantNames.values()) {
     const row = { participant_name: participantName };
     deltas.push(
-      update(tournamentId, TABLE_MATCH_UP_COMPETITORS, { individual_participant_id: participantId }, row, 'participants'),
+      update(
+        tournamentId,
+        TABLE_MATCH_UP_COMPETITORS,
+        { individual_participant_id: participantId },
+        row,
+        'participants',
+      ),
     );
     deltas.push(
       update(
@@ -377,7 +384,10 @@ function eventDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[
     const providerId = providerIdOf(records, tournamentId);
     for (const event of record.events ?? []) {
       if (!event?.eventId) continue;
-      const published = !!getEventPublishStatus({ event });
+      // resolves through the publish cascade — NOT a truthiness test on the PUBLIC
+      // envelope, which unPublishEvent retains with undefined-valued keys. Shared with
+      // cast() so the two paths cannot diverge.
+      const published = isEventPublished(getEventPublishStatus({ event }));
       const row = eventRow(event, tournamentId, providerId, published);
       deltas.push(upsert(tournamentId, TABLE_EVENTS, { event_id: row.event_id }, row, 'events'));
     }
@@ -479,7 +489,13 @@ function seedDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[]
       const ctx = { tournamentId, eventId: found.eventId, drawId: found.drawId, structureId, providerId };
       const row = seedRow(assignment, ctx);
       deltas.push(
-        upsert(tournamentId, TABLE_SEEDS, { structure_id: row.structure_id, seed_number: row.seed_number }, row, 'seeds'),
+        upsert(
+          tournamentId,
+          TABLE_SEEDS,
+          { structure_id: row.structure_id, seed_number: row.seed_number },
+          row,
+          'seeds',
+        ),
       );
     }
   }
@@ -514,7 +530,9 @@ function participantPublishDeltas(g: Grouped, records: Record<string, any>): Pro
     const participants = getTournamentPublishStatus({ tournamentRecord: record })?.participants;
     if (participants?.published) {
       const row = participantPublishRow(tournamentId, participants);
-      deltas.push(upsert(tournamentId, TABLE_PARTICIPANT_PUBLISH, { tournament_id: tournamentId }, row, 'participantPublish'));
+      deltas.push(
+        upsert(tournamentId, TABLE_PARTICIPANT_PUBLISH, { tournament_id: tournamentId }, row, 'participantPublish'),
+      );
     } else {
       deltas.push(del(tournamentId, TABLE_PARTICIPANT_PUBLISH, { tournament_id: tournamentId }, 'participantPublish'));
     }
