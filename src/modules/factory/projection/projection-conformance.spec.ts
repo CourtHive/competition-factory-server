@@ -1,4 +1,11 @@
-import { mocksEngine, tournamentEngineAsync, factoryConstants, readModel } from 'tods-competition-factory';
+import {
+  mocksEngine,
+  tournamentEngineAsync,
+  factoryConstants,
+  globalState,
+  readModel,
+  topicConstants,
+} from 'tods-competition-factory';
 
 import { buildProjectionDeltas } from './buildProjectionDeltas';
 import { buildRebuildIntents } from './rebuild';
@@ -960,6 +967,119 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     );
     expect(snapshot(tables, 'entries')).toEqual(castEntries);
     expect(snapshot(tables, 'entries')).toEqual(before); // genuinely unchanged
+  });
+
+  it('composite [Unpublish Tournament]: the real TMX three-notice flow darkens every projected surface', async () => {
+    // The user-facing operation. TMX's [Unpublish Tournament] button
+    // (publishingTab/tournamentControls.ts) has NO single engine method behind it — it
+    // composes UNPUBLISH_PARTICIPANTS + UNPUBLISH_ORDER_OF_PLAY + one UNPUBLISH_EVENT per
+    // published event into a single mutationRequest. Factory then fires UNPUBLISH_TOURNAMENT
+    // on its own, from checkAndNotifyUnpublishTournament, once the LAST publication is gone.
+    //
+    // Each leg has a different carrier, which is the point of testing the composite rather
+    // than the legs: participants → participantPublish, OoP → orderOfPlay, event → events +
+    // republishEvent (the flatten that moves match_ups.published), tournament →
+    // touchTournament. A single missing leg leaves content visible after it was withdrawn.
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 8, eventName: 'Singles' }],
+      completeAllMatchUps: true,
+    });
+    await tournamentEngineAsync.setState(tournamentRecord);
+    const tournamentId = tournamentRecord.tournamentId;
+    const eventId = tournamentRecord.events[0].eventId;
+
+    // ── publish everything ────────────────────────────────────────────────────
+    expect((await tournamentEngineAsync.publishEvent({ eventId }))?.success).toEqual(true);
+    expect((await tournamentEngineAsync.publishOrderOfPlay())?.success).toEqual(true);
+    expect((await tournamentEngineAsync.publishParticipants({}))?.success).toEqual(true);
+
+    const published = (await tournamentEngineAsync.getTournament()).tournamentRecord;
+    const records = { [tournamentId]: published };
+    const publishedDeltas = await buildProjectionDeltas({
+      intents: buildRebuildIntents(published),
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(published),
+    });
+    const publishedTables = applyDeltas(publishedDeltas);
+    // the starting state must genuinely be "visible", or the darkening proves nothing
+    expect(snapshot(publishedTables, 'tournaments')[0].published).toBe(true);
+    expect(snapshot(publishedTables, 'events')[0].published).toBe(true);
+    // guard the vacuity trap: .every() and .some() both give the wanted answer on an
+    // EMPTY array, so a flatten that produced no rows at all would pass silently.
+    expect(snapshot(publishedTables, 'match_ups').length).toBeGreaterThan(0);
+    expect(snapshot(publishedTables, 'match_ups').every((r: any) => r.published)).toBe(true);
+    expect(snapshot(publishedTables, 'order_of_play').length).toBe(1);
+    expect(snapshot(publishedTables, 'participant_publish').length).toBe(1);
+
+    // ── the composite unpublish, in TMX's order, capturing what factory dispatches ──
+    const firedTopics: string[] = [];
+    const capture: Record<string, any> = {};
+    for (const topic of Object.values(topicConstants) as string[]) {
+      capture[topic] = () => firedTopics.push(topic);
+    }
+    globalState.setSubscriptions({ subscriptions: capture });
+    try {
+      expect((await tournamentEngineAsync.unPublishParticipants({}))?.success).toEqual(true);
+      expect((await tournamentEngineAsync.unPublishOrderOfPlay())?.success).toEqual(true);
+      expect((await tournamentEngineAsync.unPublishEvent({ eventId }))?.success).toEqual(true);
+    } finally {
+      globalState.setSubscriptions({ subscriptions: {} });
+    }
+
+    // factory's derived "fully dark" signal must have fired — this is the leg that has no
+    // engine method and so is easiest to assume away.
+    expect(firedTopics).toContain(topicConstants.UNPUBLISH_TOURNAMENT);
+
+    const dark = (await tournamentEngineAsync.getTournament()).tournamentRecord;
+    records[tournamentId] = dark;
+    const unpublishDeltas = await buildProjectionDeltas({
+      intents: [
+        { kind: 'participantPublish', tournamentId },
+        { kind: 'orderOfPlay', tournamentId },
+        { kind: 'events', tournamentId },
+        { kind: 'republishEvent', tournamentId, eventId },
+        { kind: 'touchTournament', tournamentId },
+      ],
+      tournamentRecords: records,
+      flattenDraw: await flattenDrawOf(dark),
+    });
+
+    const tables = applyDeltas([...publishedDeltas, ...unpublishDeltas]);
+    const castDark: any = readModel.cast({ tournamentRecord: dark }).rows;
+
+    // every projected visibility surface converges to the rebuild oracle
+    expect(snapshot(tables, 'tournaments')).toEqual(castDark.tournaments);
+    expect(snapshot(tables, 'events')).toEqual(castDark.events);
+    expect(snapshot(tables, 'order_of_play')).toEqual(castDark.order_of_play ?? []);
+    expect(snapshot(tables, 'participant_publish')).toEqual(castDark.participant_publish ?? []);
+
+    // …and explicitly: nothing is left visible. This is the direction that leaks.
+    expect(snapshot(tables, 'tournaments')[0].published).toBeFalsy();
+    expect(snapshot(tables, 'match_ups').length).toBeGreaterThan(0); // not vacuously dark
+    expect(snapshot(tables, 'match_ups').some((r: any) => r.published)).toBe(false);
+    expect(snapshot(tables, 'order_of_play')).toEqual([]);
+    expect(snapshot(tables, 'participant_publish')).toEqual([]);
+
+    // ⚠️ KNOWN BUG, pinned deliberately — `query_events.published` stays TRUE after the
+    // event is unpublished, leaving the read model internally inconsistent: the event
+    // advertises published while every one of its matchUps correctly reports false.
+    //
+    // Cause: both cast() (factory `cast.ts`) and this producer (`buildProjectionDeltas`
+    // ~line 380) compute it as `!!getEventPublishStatus({ event })`. unPublishEvent leaves
+    // the PUBLISH.STATUS timeItem in place with a PUBLIC envelope of
+    // `{ structureIds: undefined, drawIds: undefined, seeding: undefined }` — which
+    // JSON.stringify renders as `{}` (undefined values are omitted) but whose
+    // `Object.keys().length` is 3. So it is truthy AND survives a naive `keyed()` /
+    // non-empty test; the obvious one-line fixes do not work. A correct predicate has to
+    // mirror the draw-level cascade in `resolveMatchUpPublishState`, since an event is
+    // published only if some draw resolves published.
+    //
+    // NOT fixed here: changing this column's semantics is a data-contract decision, and
+    // the fix belongs in factory's shared row logic so cast() and the producer stay
+    // identical. Asserted as-is so the inconsistency is visible and this test FAILS the
+    // moment it is corrected — at which point flip these two lines.
+    expect(snapshot(tables, 'events')[0].published).toBe(true); // ← wrong, and known
+    expect(snapshot(tables, 'events')).toEqual(castDark.events); // producer ≡ cast() even so
   });
 
   it('publishEventSeeding → incremental events.published matches cast() (seeding topic projects)', async () => {
