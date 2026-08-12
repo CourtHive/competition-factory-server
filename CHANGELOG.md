@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.24.1](https://github.com/CourtHive/competition-factory-server/compare/v2.24.0...v2.24.1) (2026-08-12)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 6.22.0 ([ef7c732](https://github.com/CourtHive/competition-factory-server/commit/ef7c7325a5193801586f722ebaf464b15f96848e))
+* **projection:** scope the full rebuild in one async-state context ([38475b0](https://github.com/CourtHive/competition-factory-server/commit/38475b0a41feae359831180015effd2e628be07b))
+
 ## [2.24.0](https://github.com/CourtHive/competition-factory-server/compare/v2.23.1...v2.24.0) (2026-08-12)
 
 
