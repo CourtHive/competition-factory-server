@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.24.0](https://github.com/CourtHive/competition-factory-server/compare/v2.23.1...v2.24.0) (2026-08-12)
+
+
+### Features
+
+* **projection:** derive progression edges in the incremental producer ([11eeb57](https://github.com/CourtHive/competition-factory-server/commit/11eeb576cc4b59f5596954e648176caed5d2df49))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 6.21.0 ([20f1b78](https://github.com/CourtHive/competition-factory-server/commit/20f1b78ea382ecfc51323133c5f4d0ec6f820746))
+
 ## [2.23.1](https://github.com/CourtHive/competition-factory-server/compare/v2.23.0...v2.23.1) (2026-08-09)
 
 
