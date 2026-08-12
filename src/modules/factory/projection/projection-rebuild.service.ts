@@ -41,20 +41,25 @@ export class ProjectionRebuildService {
     const { tournamentRecord }: any = await this.storage.findTournamentRecord({ tournamentId });
     if (!tournamentRecord) return 0;
 
-    const deltas = await buildProjectionDeltas({
-      intents: buildRebuildIntents(tournamentRecord),
-      tournamentRecords: { [tournamentId]: tournamentRecord },
-      // own engine-state context: the rebuild is a separate entry point, not routed through
-      // executionQueue, and setState here would otherwise share process-wide state
-      flattenDraw: async (_tid: string, drawId: string) =>
-        asyncGlobalState.runWithInstanceState(async () => {
+    // ONE outer runWithInstanceState scopes the WHOLE rebuild (buildProjectionDeltas AND flattenDraw),
+    // mirroring executionQueue (executionQueue.ts:76 → 159). Previously only flattenDraw was wrapped, so
+    // buildProjectionDeltas' own factory reads (readModel/context resolution) ran outside any AsyncLocalStorage
+    // store — each getInstanceState() then minted an isolated implicit state (~9/tournament; ~14.5k over a
+    // full backfill), warning-spamming, bloating memory, and stalling the rebuild. flattenDraw now inherits
+    // the outer store instead of opening its own per-draw store.
+    return asyncGlobalState.runWithInstanceState(async () => {
+      const deltas = await buildProjectionDeltas({
+        intents: buildRebuildIntents(tournamentRecord),
+        tournamentRecords: { [tournamentId]: tournamentRecord },
+        flattenDraw: async (_tid: string, drawId: string) => {
           await tournamentEngineAsync.setState(tournamentRecord);
           const res: any = await tournamentEngineAsync.allDrawMatchUps({ drawId, inContext: true });
           return res?.matchUps ?? [];
-        }),
+        },
+      });
+      await this.outbox.enqueue(deltas);
+      return deltas.length;
     });
-    await this.outbox.enqueue(deltas);
-    return deltas.length;
   }
 
   /**
