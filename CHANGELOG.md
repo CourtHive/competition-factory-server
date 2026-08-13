@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.24.2](https://github.com/CourtHive/competition-factory-server/compare/v2.24.1...v2.24.2) (2026-08-13)
+
+
+### Bug Fixes
+
+* **factory:** scope every HTTP request in a factory engine-state store ([d94e817](https://github.com/CourtHive/competition-factory-server/commit/d94e81782822cef22666ef4eb66ae15cdabc6f82))
+
 ## [2.24.1](https://github.com/CourtHive/competition-factory-server/compare/v2.24.0...v2.24.1) (2026-08-12)
 
 
