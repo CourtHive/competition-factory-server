@@ -1,3 +1,4 @@
+import { InstanceStateMiddleware } from '../factory/engines/instanceState.middleware';
 import { TournamentSyncModule } from '../tournament-sync/tournament-sync.module';
 import { RankingsProxyModule } from '../rankings-proxy/rankings-proxy.module';
 import { RankingsWebhookModule } from '../rankings-webhook/rankings-webhook.module';
@@ -30,7 +31,7 @@ import { TournamentAdminModule } from '../tournament-admin/tournament-admin.modu
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AppService } from './app.service';
 import { APP_GUARD } from '@nestjs/core';
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 
 // Core modules — always loaded regardless of profile.
 //
@@ -98,4 +99,11 @@ const throttlerModule = ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]);
   controllers: [AppController, RuntimeConfigController],
   providers: [AppService, { provide: APP_GUARD, useClass: HttpThrottlerGuard }],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  // Establish a factory engine-state store for every HTTP request so no REST handler can
+  // touch the engine outside runWithInstanceState (see InstanceStateMiddleware). forRoutes('*')
+  // covers current + future endpoints; the Socket.IO path wraps itself in executionQueue.
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(InstanceStateMiddleware).forRoutes('*');
+  }
+}
