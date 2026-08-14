@@ -75,3 +75,10 @@ score-relay
 # ARCHIVES_PATH is unset — dev/CI dumps deleted-provider data here (e.g.
 # throwaway E2E providers). Never commit these local dumps.
 .archives-local/
+
+# Per-session Claude Code state: `settings.local.json` is personal and
+# `.claude/worktrees/` holds git worktrees (architectural standard A8), so this
+# directory is tooling, never source. Untracked it shows as a permanent pending
+# change in every `git status` — and it is not merely cosmetic: a dirty repo
+# aborts the whole `bump-factory-consumers.sh` fan-out at preflight.
+.claude
