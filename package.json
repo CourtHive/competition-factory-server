@@ -143,6 +143,9 @@
       "json",
       "ts"
     ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/.claude/"
+    ],
     "modulePaths": [
       "<rootDir>"
     ],
@@ -156,7 +159,8 @@
     ],
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "/e2e/"
+      "/e2e/",
+      "<rootDir>/.claude/"
     ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
