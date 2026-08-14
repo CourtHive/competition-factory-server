@@ -1,0 +1,118 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# competition-factory-server is the one ecosystem service whose CI cannot install
+# from the registry alone: `courthive-ingest` is a PRIVATE, UNPUBLISHED package
+# consumed as `link:../courthive-ingest` (package.json dependency AND a
+# pnpm-workspace.yaml override), and the Jest globalSetup imports it to fail fast
+# on a stale build. So the sibling is checked out and built first, using the same
+# app-token pattern sync-i18n.yml already uses to reach courthive-i18n.
+#
+# The other three overrides (tods-competition-factory, @courthive/provider-config,
+# @courthive/i18n) ARE published, so they are stripped and installed from the
+# registry — only the courthive-ingest link is preserved.
+#
+# No service containers: the suite was verified to pass with no .env and no PG_* /
+# REDIS_URL set (128 passed, 1 skipped, 1260 tests). Specs mock the storage layer;
+# the Postgres globalTeardown self-skips unless STORAGE_PROVIDER=postgres.
+
+jobs:
+  verify:
+    name: lint · types · test · build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.RELEASE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: CourtHive
+          repositories: competition-factory-server,courthive-ingest
+
+      - name: Checkout competition-factory-server
+        uses: actions/checkout@v7
+        with:
+          path: competition-factory-server
+
+      # Must land as a SIBLING directory: both the package.json dependency and the
+      # pnpm-workspace.yaml override resolve `link:../courthive-ingest` relative to
+      # the server checkout.
+      - name: Checkout courthive-ingest
+        uses: actions/checkout@v7
+        with:
+          repository: CourtHive/courthive-ingest
+          token: ${{ steps.app-token.outputs.token }}
+          path: courthive-ingest
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # courthive-ingest links ../factory, which is not checked out here.
+      - name: 'Strip link: overrides (courthive-ingest)'
+        working-directory: courthive-ingest
+        run: |
+          node -e "
+          const fs = require('fs');
+          if (fs.existsSync('pnpm-workspace.yaml')) {
+            const before = fs.readFileSync('pnpm-workspace.yaml', 'utf8');
+            const after = before.split('\n').filter(line => !/:\s*link:\S+\s*\$/.test(line)).join('\n');
+            if (after !== before) fs.writeFileSync('pnpm-workspace.yaml', after);
+          }
+          "
+          rm -f pnpm-lock.yaml
+
+      # The server consumes courthive-ingest from its build/ output (main:
+      # build/index.js), so it must be built before the server installs.
+      - name: Build courthive-ingest
+        working-directory: courthive-ingest
+        run: |
+          pnpm install
+          pnpm build
+
+      # Strip only the PUBLISHED overrides; keep courthive-ingest pointing at the
+      # sibling checkout above.
+      - name: 'Strip published link: overrides (server)'
+        working-directory: competition-factory-server
+        run: |
+          node -e "
+          const fs = require('fs');
+          if (fs.existsSync('pnpm-workspace.yaml')) {
+            const before = fs.readFileSync('pnpm-workspace.yaml', 'utf8');
+            const after = before
+              .split('\n')
+              .filter(line => !(/:\s*link:\S+\s*\$/.test(line) && !line.includes('courthive-ingest')))
+              .join('\n');
+            if (after !== before) fs.writeFileSync('pnpm-workspace.yaml', after);
+          }
+          "
+          rm -f pnpm-lock.yaml
+
+      - name: Install
+        working-directory: competition-factory-server
+        run: pnpm install
+
+      - name: Lint
+        working-directory: competition-factory-server
+        run: pnpm lint
+
+      - name: Check types
+        working-directory: competition-factory-server
+        run: pnpm check-types
+
+      - name: Test
+        working-directory: competition-factory-server
+        run: pnpm test
+
+      - name: Build
+        working-directory: competition-factory-server
+        run: pnpm build
