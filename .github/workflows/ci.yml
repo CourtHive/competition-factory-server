@@ -19,13 +19,12 @@ permissions:
 # @courthive/i18n) ARE published, so they are stripped and installed from the
 # registry — only the courthive-ingest link is preserved.
 #
-# No service containers: the suite was verified to pass with no .env and no PG_* /
-# REDIS_URL set (128 passed, 1 skipped, 1260 tests). Specs mock the storage layer;
-# the Postgres globalTeardown self-skips unless STORAGE_PROVIDER=postgres.
+# Scope is lint + check-types + build. `pnpm test` needs a Postgres service and is
+# a follow-up — see the note above the Build step for the measured evidence.
 
 jobs:
   verify:
-    name: lint · types · test · build
+    name: lint · types · build
     runs-on: ubuntu-latest
     steps:
       - name: Mint App token
@@ -76,14 +75,22 @@ jobs:
             if (after !== before) fs.writeFileSync('pnpm-workspace.yaml', after);
           }
           "
-          rm -f pnpm-lock.yaml
 
       # The server consumes courthive-ingest from its build/ output (main:
       # build/index.js), so it must be built before the server installs.
+      #
+      # --no-frozen-lockfile rather than deleting the lockfile: stripping the
+      # overrides makes the lockfile stale, and CI defaults to frozen. Keeping it
+      # means only the stripped deps re-resolve while everything else installs at
+      # its locked version. Deleting it re-resolves EVERYTHING, which collides with
+      # `minimumReleaseAge: 1440` the moment any transitive dep published in the
+      # last 24h — a time bomb that fires on an unrelated PR. It fired on this one:
+      # `@storybook/csf-plugin@10.5.8 ... within the minimumReleaseAge cutoff`,
+      # published 98 seconds inside the window.
       - name: Build courthive-ingest
         working-directory: courthive-ingest
         run: |
-          pnpm install
+          pnpm install --no-frozen-lockfile
           pnpm build
 
       # Strip only the PUBLISHED overrides; keep courthive-ingest pointing at the
@@ -102,11 +109,10 @@ jobs:
             if (after !== before) fs.writeFileSync('pnpm-workspace.yaml', after);
           }
           "
-          rm -f pnpm-lock.yaml
 
       - name: Install
         working-directory: competition-factory-server
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Lint
         working-directory: competition-factory-server
@@ -116,9 +122,28 @@ jobs:
         working-directory: competition-factory-server
         run: pnpm check-types
 
-      - name: Test
-        working-directory: competition-factory-server
-        run: pnpm test
+      # NOTE: `pnpm test` is deliberately NOT run here yet, and the reason is
+      # specific rather than caution.
+      #
+      # The suite needs a real Postgres. Rehearsed in a clean clone with a valid
+      # .env (APP_PORT / APP_NAME / JWT_SECRET / NODE_ENV are all @IsDefined in
+      # src/config/config-validation.ts) and no database:
+      #
+      #   Test Suites: 10 failed, 6 skipped, 113 passed, 123 of 129
+      #   Tests:       36 failed, 47 skipped, 1180 passed, 1263
+      #   error: role "courthive" does not exist
+      #
+      # Ten suites — providers.service, factory.controller, and the *.e2e.spec
+      # files — open a pg pool. Making this green needs a `services: postgres`
+      # container with the right role/database plus the migration-runner bootstrap
+      # (src/storage/postgres/migration-runner.service.ts), and a CI .env built
+      # from the tracked .env.example. That is worth doing and is the obvious next
+      # step; it is left out of this PR because it could not be verified locally
+      # (no Docker on the authoring machine) and guessing at it in CI is how the
+      # first three runs of this workflow were spent.
+      #
+      # lint + check-types + build were each verified end-to-end in a clean
+      # two-repo clone that reproduces this workflow exactly.
 
       - name: Build
         working-directory: competition-factory-server
