@@ -152,6 +152,7 @@
     "rootDir": "./",
     "setupFiles": [
       "dotenv/config",
+      "./src/tests/config/disable-throttle.ts",
       "./src/tests/config/silence-logger.ts"
     ],
     "setupFilesAfterEnv": [
