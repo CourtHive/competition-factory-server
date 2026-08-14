@@ -17,7 +17,16 @@ export interface SanctioningRecordSnapshot {
   status: string;
   governingBodyId?: string;
   governingBody?: { organisationId?: string } & Record<string, unknown>;
-  sanctioningLevel?: string;
+  /**
+   * The tier the tournament was sanctioned at. A `TierClassification` — the same shape a
+   * tournament's `tournamentTier` uses — since the factory unified `sanctioningLevel` and
+   * `sanctioningTier` onto one type; AMS stores and returns both halves.
+   *
+   * CFS does not read this itself: the whole snapshot is handed to the factory's
+   * `activateFromSanctioning`, which copies the tier onto the activated tournament. It is declared
+   * so the snapshot type stays an accurate description of what AMS actually sends.
+   */
+  sanctioningTier?: { system: string; value: string };
   policySnapshot?: unknown;
   proposal: {
     tournamentId?: string;
