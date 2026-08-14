@@ -27,5 +27,13 @@
     "strict": true,
     "types": ["node", "jest", "express", "supertest"]
   },
-  "exclude": ["node_modules", "dist", "build", "admin-client", "e2e"]
+  // audit-worker is a separate package with its own package.json, its own
+  // tsconfig, and its own `tods-competition-factory` dependency. Type-checking it
+  // from here pulled a SECOND copy of the factory into resolution
+  // (audit-worker/node_modules/...), which made inferred types in root src
+  // unnameable — TS2883 on asyncGlobalState, getMutationEngine, queryEngine,
+  // factory.service and getEventData. It also checked audit-worker/src/__tests__,
+  // which audit-worker's own tsconfig deliberately excludes. Excluded here the
+  // same way admin-client and e2e are; audit-worker owns its own type check.
+  "exclude": ["node_modules", "dist", "build", "admin-client", "audit-worker", "e2e"]
 }

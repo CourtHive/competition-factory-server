@@ -108,24 +108,6 @@ jobs:
         working-directory: competition-factory-server
         run: pnpm install
 
-      # audit-worker/ is a separate package (pnpm-workspace.yaml has `packages: []`)
-      # with its own package.json and its own vitest devDependency, so the root
-      # install does not reach it. But the root tsconfig excludes only
-      # node_modules/dist/build/admin-client/e2e — NOT audit-worker — so
-      # `pnpm check-types` does type-check audit-worker/src/**, including its
-      # vitest specs. On a dev machine that passes only because someone has run
-      # an install inside audit-worker/ at some point; on a clean runner it fails
-      # with `Cannot find module 'vitest'`. Installing here makes the runner match
-      # a working dev machine without changing what is type-checked.
-      #
-      # The underlying non-reproducibility is worth fixing properly — either
-      # exclude audit-worker from the root tsconfig the way admin-client already
-      # is and give it its own gate, or make it a real workspace package. Left
-      # alone deliberately: that is a repo-shape decision, not a CI one.
-      - name: Install audit-worker deps
-        working-directory: competition-factory-server/audit-worker
-        run: pnpm install
-
       - name: Lint
         working-directory: competition-factory-server
         run: pnpm lint
