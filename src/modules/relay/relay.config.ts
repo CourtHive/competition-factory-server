@@ -2,13 +2,57 @@ import { Injectable, Logger } from '@nestjs/common';
 
 export type InstanceRole = 'local' | 'cloud';
 
+/**
+ * Resolve the instance role from the environment.
+ *
+ * DEFAULTS TO `cloud`, and anything unrecognised also resolves to `cloud`.
+ * `local` must be opted into explicitly.
+ *
+ * This inverted on 2026-08-15. The previous default was `local`, which meant the
+ * PRODUCTION cloud server ran the local-side services — the mutation mirror and
+ * the `/factory/sync/*` routes — purely because nothing set the variable. It was
+ * inert only by accident (`UPSTREAM_SERVER_URL` happened to be unset), which is
+ * the definition of a fail-open default under
+ * `Mentat/standards/architectural-standards.md` A3: the misconfiguration an
+ * operator is most likely to make must not be the dangerous one.
+ *
+ * `local` is the rarer, more privileged deployment — a venue appliance that
+ * mirrors mutations to an upstream server. Requiring it to be declared means an
+ * instance can only take on that behaviour deliberately.
+ *
+ * Exported as a free function (not just a getter) because `RelayModule.forRoot()`
+ * and `TournamentSyncModule.forRoot()` both need the role at MODULE-CONSTRUCTION
+ * time, before DI can hand them a `RelayConfig`. They previously each inlined
+ * their own copy of the parse, so a change here silently applied to one and not
+ * the others.
+ */
+export function resolveInstanceRole(): InstanceRole {
+  const raw = (process.env.INSTANCE_ROLE ?? 'cloud').trim().toLowerCase();
+  return raw === 'local' ? 'local' : 'cloud';
+}
+
+/**
+ * Whether site-server federation is configured on this instance.
+ *
+ * Gates the cloud-side export controller. Without this, flipping the default to
+ * `cloud` would have ADDED `GET /factory/tournaments` (an unbounded
+ * `listTournamentIds()` behind a shared static bearer, already on the design-flaw
+ * punch list as an A7 offender) to every instance that had simply never set
+ * `INSTANCE_ROLE` — trading one fail-open for another.
+ *
+ * With the gate, an instance that has not configured federation contributes
+ * nothing from this module in either role.
+ */
+export function isFederationConfigured(): boolean {
+  return Boolean(process.env.UPSTREAM_API_KEY?.trim());
+}
+
 @Injectable()
 export class RelayConfig {
   private readonly logger = new Logger(RelayConfig.name);
 
   get role(): InstanceRole {
-    const raw = (process.env.INSTANCE_ROLE ?? 'local').toLowerCase();
-    return raw === 'cloud' ? 'cloud' : 'local';
+    return resolveInstanceRole();
   }
 
   get venueId(): string {

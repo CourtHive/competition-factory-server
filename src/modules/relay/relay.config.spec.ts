@@ -1,4 +1,4 @@
-import { RelayConfig } from './relay.config';
+import { RelayConfig, isFederationConfigured, resolveInstanceRole } from './relay.config';
 
 describe('RelayConfig', () => {
   const ORIGINAL = { ...process.env };
@@ -7,14 +7,55 @@ describe('RelayConfig', () => {
     process.env = { ...ORIGINAL };
   });
 
-  it('defaults role to local', () => {
+  // The default INVERTED on 2026-08-15 (was 'local'). `local` is the rarer,
+  // more privileged deployment and must now be opted into — see
+  // `resolveInstanceRole` for the fail-open this closes.
+  it('defaults role to cloud when INSTANCE_ROLE is unset', () => {
     delete process.env.INSTANCE_ROLE;
-    expect(new RelayConfig().role).toBe('local');
+    expect(new RelayConfig().role).toBe('cloud');
+  });
+
+  it('resolves an unrecognised role to cloud rather than local', () => {
+    // Fail-closed: a typo ('Local ', 'site', '') must not silently grant the
+    // instance local-side behaviour.
+    for (const value of ['locl', 'site', 'LOCALHOST', '']) {
+      process.env.INSTANCE_ROLE = value;
+      expect(new RelayConfig().role).toBe('cloud');
+    }
+  });
+
+  it('opts into local only on an explicit, case- and space-insensitive match', () => {
+    for (const value of ['local', 'LOCAL', '  Local  ']) {
+      process.env.INSTANCE_ROLE = value;
+      expect(new RelayConfig().role).toBe('local');
+    }
   });
 
   it('parses cloud role', () => {
     process.env.INSTANCE_ROLE = 'cloud';
     expect(new RelayConfig().role).toBe('cloud');
+  });
+
+  // Asserted directly, not only through `RelayConfig.role`: both module
+  // `forRoot()` factories call the free function at module-construction time,
+  // before DI exists, so that is the path production actually takes.
+  it('resolveInstanceRole is the same decision the modules make', () => {
+    delete process.env.INSTANCE_ROLE;
+    expect(resolveInstanceRole()).toBe('cloud');
+
+    process.env.INSTANCE_ROLE = 'local';
+    expect(resolveInstanceRole()).toBe('local');
+  });
+
+  it('reports federation configured only when UPSTREAM_API_KEY is a non-blank value', () => {
+    delete process.env.UPSTREAM_API_KEY;
+    expect(isFederationConfigured()).toBe(false);
+
+    process.env.UPSTREAM_API_KEY = '   ';
+    expect(isFederationConfigured()).toBe(false);
+
+    process.env.UPSTREAM_API_KEY = 'service-key';
+    expect(isFederationConfigured()).toBe(true);
   });
 
   it('falls back to dev venue id', () => {
