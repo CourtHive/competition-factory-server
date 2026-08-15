@@ -167,8 +167,23 @@ jobs:
       #
       # 113 suites / 1171 tests, verified green with Postgres unreachable, and
       # falsified by breaking an included spec (gate goes red).
+      # src/config/config-validation.ts marks APP_PORT / APP_NAME / JWT_SECRET /
+      # NODE_ENV as @IsDefined and throws 'missing valid ENV' otherwise. Locally
+      # these come from an untracked .env, which is why the suite passes on a dev
+      # machine and four suites failed on the first CI run here. NestJS ConfigModule
+      # reads .env directly, so neutralising dotenv is NOT enough to reproduce a
+      # runner locally — supplying the variables is.
+      #
+      # NODE_ENV=test matches Environment.Testing and is what jest sets anyway.
+      # JWT_SECRET only has to satisfy MinLength(1); no suite in this gate verifies
+      # a real signature against it.
       - name: Test (database-free suites)
         working-directory: competition-factory-server
+        env:
+          APP_NAME: competition-factory-server-ci
+          APP_PORT: '8383'
+          JWT_SECRET: ci-only-value-not-used-by-any-deployment
+          NODE_ENV: test
         run: pnpm test:unit
 
       - name: Build
