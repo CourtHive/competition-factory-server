@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.25.0](https://github.com/CourtHive/competition-factory-server/compare/v2.24.2...v2.25.0) (2026-08-15)
+
+
+### Features
+
+* **factory:** name author peers in the shared-facility coordination projection ([#886](https://github.com/CourtHive/competition-factory-server/issues/886)) ([c1697be](https://github.com/CourtHive/competition-factory-server/commit/c1697bee8ed26b87e6144665271de093046b7fe2))
+
+
+### Bug Fixes
+
+* **deps:** update @courthive/provider-config to 0.13.0 ([6e4a379](https://github.com/CourtHive/competition-factory-server/commit/6e4a3792973fa388feabe083431c8104be682e19))
+* **deps:** update tods-competition-factory to 6.22.1 ([98f8d5b](https://github.com/CourtHive/competition-factory-server/commit/98f8d5b0c993eb99747ea36e28d5afacb5a3e433))
+* **deps:** update tods-competition-factory to 6.24.0 ([5577dc1](https://github.com/CourtHive/competition-factory-server/commit/5577dc11074934c70a6b4ee04b8cb29fb33da16c))
+* **deps:** update tods-competition-factory to 6.25.0 ([fe4b801](https://github.com/CourtHive/competition-factory-server/commit/fe4b8012275ff573279fa1688a1d593d9567694d))
+* **sanctioning:** describe the ams tier snapshot as a tierclassification ([#884](https://github.com/CourtHive/competition-factory-server/issues/884)) ([8e69153](https://github.com/CourtHive/competition-factory-server/commit/8e691537e7b9674394f7c6d2d17d1343b3d3c57f))
+* **tests:** disable http throttling in jest so login limits stop flaking the suite ([#885](https://github.com/CourtHive/competition-factory-server/issues/885)) ([7b19d92](https://github.com/CourtHive/competition-factory-server/commit/7b19d92f95f2b81e7825c1b81a434cad682f834b))
+
 ## [2.24.2](https://github.com/CourtHive/competition-factory-server/compare/v2.24.1...v2.24.2) (2026-08-13)
 
 
