@@ -1,4 +1,9 @@
 import { sanctioningEngine } from 'tods-competition-factory';
+import {
+  foreignSanctionedRegistration,
+  ITA_PARTICIPANT_OTHER_ID,
+  USTA_PARTICIPANT_OTHER_ID,
+} from './foreignIdentity.fixture';
 
 import { RegistrationsService } from './registrations.service';
 
@@ -157,6 +162,70 @@ describe('RegistrationsService', () => {
       expect(methods.some((m: any) => m.method === 'addParticipants')).toBe(false);
     });
   });
+
+      // F2b — a registration that originated with an OUTSIDE sanctioning body carries that
+      // body's id for the competitor, and accept stamps it onto the participant so results
+      // can be addressed back. Every input here is built from the SHARED fixture, so the
+      // contract has exactly one description and cannot drift per test.
+      describe('foreign sanctioning identity (participantOtherIds)', () => {
+        function acceptWith(reg: any) {
+          declarationsClient.getRegistration.mockResolvedValue(reg);
+          personsClient.getById.mockResolvedValue({
+            person: { standardGivenName: 'Jane', standardFamilyName: 'Doe' },
+          });
+          return service.acceptRegistration({
+            userContext: adminUserContext,
+            tournamentId: 't-1',
+            registrationId: 'r-1',
+          });
+        }
+
+        function addedParticipant() {
+          return mockExecutionQueue.mock.calls[0][0].methods[0].params.participants[0];
+        }
+
+        it('stamps the foreign id onto the participant it creates', async () => {
+          await acceptWith(
+            foreignSanctionedRegistration({}, { participantOtherIds: [ITA_PARTICIPANT_OTHER_ID] }),
+          );
+          expect(addedParticipant().participantOtherIds).toEqual([ITA_PARTICIPANT_OTHER_ID]);
+        });
+
+        it('carries every organisation the registration names, in order', async () => {
+          await acceptWith(
+            foreignSanctionedRegistration(
+              {},
+              { participantOtherIds: [ITA_PARTICIPANT_OTHER_ID, USTA_PARTICIPANT_OTHER_ID] },
+            ),
+          );
+          expect(addedParticipant().participantOtherIds.map((o: any) => o.organisationId)).toEqual(['ITA', 'USTA']);
+        });
+
+        // An ordinary self-registration must not acquire an empty array — absent means
+        // absent, and a stray [] would read as "known to zero organisations" downstream.
+        it('omits the attribute entirely for an ordinary self-registration', async () => {
+          await acceptWith(foreignSanctionedRegistration());
+          expect('participantOtherIds' in addedParticipant()).toBe(false);
+        });
+
+        it('omits the attribute when the body sent an empty list', async () => {
+          await acceptWith(foreignSanctionedRegistration({}, { participantOtherIds: [] }));
+          expect('participantOtherIds' in addedParticipant()).toBe(false);
+        });
+
+        // The foreign id is participant-grain and INDEPENDENT of the person-grain link —
+        // both must survive, since only one of them can serve a PAIR or TEAM.
+        it('does not disturb the CANONICAL_PERSON personOtherIds link', async () => {
+          await acceptWith(
+            foreignSanctionedRegistration({}, { participantOtherIds: [ITA_PARTICIPANT_OTHER_ID] }),
+          );
+          const participant = addedParticipant();
+          expect(participant.person.personOtherIds).toEqual([
+            expect.objectContaining({ organisationId: 'CANONICAL_PERSON', personId: 'p-canon' }),
+          ]);
+          expect(participant.participantOtherIds).toEqual([ITA_PARTICIPANT_OTHER_ID]);
+        });
+      });
 
       it('rejects when applicant has no canonical name (nothing to name the participant)', async () => {
         declarationsClient.getRegistration.mockResolvedValue(declarationsReg({ payload: { eventIds: [] } }));
