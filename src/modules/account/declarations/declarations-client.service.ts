@@ -37,6 +37,12 @@ export interface RegistrationSnapshot {
     notes?: string;
     answers?: Record<string, unknown>;
   };
+  /** The participantId reserved by courthive-declarations when the person registered.
+   *  Carried into the tournamentRecord at accept instead of minting a fresh one, so the
+   *  identity predates every record and is the same value in each record that ends up
+   *  holding this participation. Null for registrations predating declarations migration
+   *  0004 — accept still mints for those. */
+  participantId?: string | null;
   updatedAt: string;
 }
 
