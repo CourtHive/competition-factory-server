@@ -234,6 +234,13 @@ function update(
 // entry row for the claimed participant (targeted UPDATE — we don't know the
 // competitor PKs, so match by participant column). Makes the self-claimed rows
 // visible to the person-scoped query.
+//
+// Both keys carry `tournament_id`. `buildUpdate` emits `WHERE col = $n` for every key
+// column and cannot express a join, so before the competitors table carried the column
+// this statement was table-wide — its correctness resting entirely on participantIds
+// being globally unique, which holds for factory UUIDs but not for mocksEngine
+// `nonRandom: 1` seeds, TODS imports that reuse ids across tournaments, or an ingest
+// pipeline assigning deterministic ids.
 function claimDeltas(g: Grouped): ProjectionDelta[] {
   const deltas: ProjectionDelta[] = [];
   for (const { tournamentId, participantId, personId } of g.claims.values()) {
@@ -241,7 +248,7 @@ function claimDeltas(g: Grouped): ProjectionDelta[] {
       update(
         tournamentId,
         TABLE_MATCH_UP_COMPETITORS,
-        { individual_participant_id: participantId },
+        { tournament_id: tournamentId, individual_participant_id: participantId },
         { person_id: personId, link_source: LINK_CANONICAL },
       ),
     );
@@ -261,7 +268,9 @@ function claimDeltas(g: Grouped): ProjectionDelta[] {
  * A renamed participant's name is denormalized onto `match_up_competitors`. Targeted
  * UPDATEs by participant column (same shape as `claimDeltas` — we do not know the
  * competitor PKs), so a rename costs two statements per participant instead of a
- * full re-flatten of every draw they appear in.
+ * full re-flatten of every draw they appear in. Both keys are scoped by
+ * `tournament_id` — see the note on `claimDeltas` for why an unscoped rename was a
+ * cross-tournament write.
  *
  * Two grains, because `participant_name` means different things per row type
  * (factory `readModelRows.ts`): for INDIVIDUAL and PAIR rows it is the INDIVIDUAL's
@@ -284,7 +293,7 @@ function participantNameDeltas(g: Grouped): ProjectionDelta[] {
       update(
         tournamentId,
         TABLE_MATCH_UP_COMPETITORS,
-        { individual_participant_id: participantId },
+        { tournament_id: tournamentId, individual_participant_id: participantId },
         row,
         'participants',
       ),
@@ -293,7 +302,7 @@ function participantNameDeltas(g: Grouped): ProjectionDelta[] {
       update(
         tournamentId,
         TABLE_MATCH_UP_COMPETITORS,
-        { side_participant_id: participantId, participant_type: TEAM_PARTICIPANT },
+        { tournament_id: tournamentId, side_participant_id: participantId, participant_type: TEAM_PARTICIPANT },
         row,
         'participants',
       ),
@@ -457,7 +466,7 @@ function drawDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[]
     const providerId = providerIdOf(records, tournamentId);
     const drawRowData = drawRow(found.draw, tournamentId, found.eventId, providerId);
     deltas.push(upsert(tournamentId, TABLE_DRAWS, { draw_id: drawId }, drawRowData, 'draw'));
-    deltas.push(del(tournamentId, TABLE_STRUCTURES, { draw_id: drawId }, 'draw'));
+    deltas.push(del(tournamentId, TABLE_STRUCTURES, { tournament_id: tournamentId, draw_id: drawId }, 'draw'));
     const ctxBase = { tournamentId, eventId: found.eventId, drawId, providerId };
     collectStructureDeltas(found.draw.structures, ctxBase, null, tournamentId, deltas);
   }
@@ -492,7 +501,7 @@ function seedDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[]
   for (const [structureId, tournamentId] of g.seeds) {
     const record = records?.[tournamentId];
     if (!record) continue;
-    deltas.push(del(tournamentId, TABLE_SEEDS, { structure_id: structureId }, 'seeds'));
+    deltas.push(del(tournamentId, TABLE_SEEDS, { tournament_id: tournamentId, structure_id: structureId }, 'seeds'));
     const found = findStructureContext(record, structureId);
     if (!found) continue; // structure gone (its draw was deleted) → the delete stands alone
     const providerId = providerIdOf(records, tournamentId);
@@ -622,8 +631,12 @@ function venueDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[
     );
     // courts nest under the venue: delete-by-venue + re-insert (a court can be
     // added/removed within a venue). The venue upsert precedes them (courts FK → venues).
+    // Scoped by tournament as well as venue: a venue is a CROSS-tournament dimension
+    // (shared-facility scheduling), so an unscoped delete-by-venue wiped the court rows
+    // another tournament at the same venue had projected, and that tournament would not
+    // re-project them until its own venue changed next.
     const providerId = providerIdOf(records, tournamentId);
-    deltas.push(del(tournamentId, TABLE_COURTS, { venue_id: row.venue_id }, 'venue'));
+    deltas.push(del(tournamentId, TABLE_COURTS, { tournament_id: tournamentId, venue_id: row.venue_id }, 'venue'));
     for (const court of venue.courts ?? []) {
       if (!court?.courtId) continue;
       const courtRowData = courtRow(court, { venueId: row.venue_id, tournamentId, providerId });
@@ -641,23 +654,31 @@ function deleteDeltas(g: Grouped, coveredMatchUpIds: Set<string>): ProjectionDel
     );
   }
   for (const { tournamentId, drawId } of g.deleteDraws) {
-    deltas.push(del(tournamentId, TABLE_MATCH_UPS, { draw_id: drawId }, 'deleteDraw')); // competitors cascade
-    deltas.push(del(tournamentId, TABLE_SEEDS, { draw_id: drawId }, 'deleteDraw')); // seeds don't FK a structures table
-    deltas.push(del(tournamentId, TABLE_DRAWS, { draw_id: drawId }, 'deleteDraw')); // structures cascade via draws FK
+    const key = { tournament_id: tournamentId, draw_id: drawId };
+    deltas.push(
+      del(tournamentId, TABLE_MATCH_UPS, key, 'deleteDraw'), // competitors cascade
+      del(tournamentId, TABLE_SEEDS, key, 'deleteDraw'), // seeds don't FK a structures table
+      del(tournamentId, TABLE_DRAWS, key, 'deleteDraw'), // structures cascade via draws FK
+    );
   }
   // Individual matchUp removals. A matchUp that was ALSO (re)built this cycle is in
   // coveredMatchUpIds — skip it, else the delete (emitted last) would undo the upsert
   // for a draw replace that reuses the same matchUpIds. Competitors cascade on the FK.
   for (const [matchUpId, tournamentId] of g.deleteMatchUps) {
     if (coveredMatchUpIds.has(matchUpId)) continue;
-    deltas.push(del(tournamentId, TABLE_MATCH_UPS, { match_up_id: matchUpId }, 'deletedMatchUpIds'));
+    deltas.push(
+      del(tournamentId, TABLE_MATCH_UPS, { tournament_id: tournamentId, match_up_id: matchUpId }, 'deletedMatchUpIds'),
+    );
   }
   for (const [eventId, tournamentId] of g.deleteEvents) {
-    deltas.push(del(tournamentId, TABLE_EVENTS, { event_id: eventId }, 'deleteEvent'));
-    deltas.push(del(tournamentId, TABLE_MATCH_UPS, { event_id: eventId }, 'deleteEvent'));
-    deltas.push(del(tournamentId, TABLE_ENTRIES, { tournament_id: tournamentId, event_id: eventId }, 'deleteEvent'));
-    deltas.push(del(tournamentId, TABLE_SEEDS, { event_id: eventId }, 'deleteEvent'));
-    deltas.push(del(tournamentId, TABLE_DRAWS, { event_id: eventId }, 'deleteEvent')); // structures cascade via draws FK
+    const key = { tournament_id: tournamentId, event_id: eventId };
+    deltas.push(
+      del(tournamentId, TABLE_EVENTS, key, 'deleteEvent'),
+      del(tournamentId, TABLE_MATCH_UPS, key, 'deleteEvent'),
+      del(tournamentId, TABLE_ENTRIES, key, 'deleteEvent'),
+      del(tournamentId, TABLE_SEEDS, key, 'deleteEvent'),
+      del(tournamentId, TABLE_DRAWS, key, 'deleteEvent'), // structures cascade via draws FK
+    );
   }
   for (const { tournamentId, participantIds } of g.deleteParticipants) {
     for (const participantId of participantIds) {
