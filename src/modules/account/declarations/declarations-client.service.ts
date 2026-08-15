@@ -24,6 +24,26 @@ export interface PairStatus {
 }
 
 /** A pending/decided REGISTRATION declaration, as the declarations service returns it. */
+/**
+ * A participant's identity in ANOTHER organisation's system, as it arrives on a
+ * registration. Structurally mirrors the factory's `UnifiedParticipantID`.
+ *
+ * Declared here rather than imported from `tods-competition-factory` ON PURPOSE: the type
+ * ships with factory #4620, which is merged but not yet released, and CI installs the
+ * PUBLISHED package. Importing it now would build locally through the `link:` override and
+ * fail on CI. Swap this for the factory import once the pin reaches the release carrying
+ * it — the shape is identical, so that change is a one-liner with no behavioural effect.
+ *
+ * The runtime does NOT need the new factory: `addParticipant` commits with
+ * `tournamentRecord.participants?.push(participant)`, storing the object wholesale and
+ * unfiltered, so the stamped field survives on any factory version.
+ */
+export interface RegistrationParticipantOtherId {
+  organisationId: string;
+  participantId: string;
+  uniqueOrganisationName?: string;
+}
+
 export interface RegistrationSnapshot {
   declarationId: string;
   personId: string;
@@ -36,6 +56,15 @@ export interface RegistrationSnapshot {
     partnerInviteId?: string;
     notes?: string;
     answers?: Record<string, unknown>;
+    /** The CFS-attested applicant name, denormalized onto the payload by declarations
+     *  `apply()` so the off-CFS pending list is showable without a persons lookup. Was
+     *  always written and always read (through an `as any` cast) but never declared. */
+    applicant?: { givenName?: string; familyName?: string };
+    /** Set when the registration originated with an OUTSIDE sanctioning body: that body's
+     *  own id(s) for this competitor. Stamped onto the participant at accept so results
+     *  can be addressed back to the system that registered them. Absent for an ordinary
+     *  self-registration. */
+    participantOtherIds?: RegistrationParticipantOtherId[];
   };
   /** The participantId reserved by courthive-declarations when the person registered.
    *  Carried into the tournamentRecord at accept instead of minting a fresh one, so the

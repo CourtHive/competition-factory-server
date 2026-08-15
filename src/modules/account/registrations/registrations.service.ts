@@ -319,18 +319,29 @@ export class RegistrationsService {
     const cached = plan.individualByPerson.get(personId);
     if (cached) return cached;
 
-    const applicant = (registration?.payload as any)?.applicant;
+    const applicant = registration?.payload?.applicant;
     const canonical = await this.personsClient.getById(personId).catch(() => null);
     const givenName = canonical?.person?.standardGivenName ?? applicant?.givenName ?? '';
     const familyName = canonical?.person?.standardFamilyName ?? applicant?.familyName ?? '';
     if (!givenName || !familyName) return null;
 
     const participantId = registration?.participantId ?? tools.UUID();
+    // F2b — a registration that originated with an OUTSIDE sanctioning body carries that
+    // body's own id for this competitor. Stamp it so results can later be addressed back
+    // to the system that registered them; `personOtherIds` below cannot serve that for a
+    // PAIR or TEAM, which have no `person` at all.
+    //
+    // Creation-time only. Stamping a participant ALREADY in the record would be an update,
+    // which needs factory `addParticipantOtherId` — merged but unreleased — so that path
+    // waits for the pin. Omitted rather than set to [] so a self-registration carries no
+    // empty array into the record.
+    const participantOtherIds = registration?.payload?.participantOtherIds;
     plan.newParticipants.push({
       participantId,
       participantType: 'INDIVIDUAL',
       participantRole: 'COMPETITOR',
       participantName: `${givenName} ${familyName}`,
+      ...(participantOtherIds?.length ? { participantOtherIds } : {}),
       person: {
         standardGivenName: givenName,
         standardFamilyName: familyName,
