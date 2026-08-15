@@ -80,7 +80,10 @@ describe('FactoryService.getScheduleProjection — coordination view', () => {
 
   it('tags author peers with full cells and view peers with opaque cells', async () => {
     const ctx = { tournamentId: 'ctx', linkedTournamentIds: ['ctx', 'author-peer', 'view-peer'] };
-    const peers = { 'author-peer': { tournamentId: 'author-peer' }, 'view-peer': { tournamentId: 'view-peer' } };
+    const peers = {
+      'author-peer': { tournamentId: 'author-peer', tournamentName: 'My Other Tournament' },
+      'view-peer': { tournamentId: 'view-peer', tournamentName: 'Somebody Else Open' },
+    };
     const service = makeCoordService(ctx, peers);
     jest.spyOn(queryGovernor, 'getScheduleProjection').mockImplementation(({ tournamentRecord }: any) => ({
       scheduleCells: [
@@ -108,5 +111,28 @@ describe('FactoryService.getScheduleProjection — coordination view', () => {
     expect(byTournament['view-peer'].labels).toBeUndefined();
     expect(byTournament['view-peer'].roundName).toBeUndefined();
     expect(byTournament['view-peer'].matchUpId).toBeUndefined();
+  });
+
+  it('names author peers and NEVER names view peers', async () => {
+    // The client labels a reserved cell with the peer tournament name so a director can see which of
+    // their OWN linked tournaments holds a court. Naming a `view` peer would break the invariant that
+    // a reserved cell reveals a court is taken, never by whom.
+    const ctx = { tournamentId: 'ctx', linkedTournamentIds: ['ctx', 'author-peer', 'view-peer'] };
+    const peers = {
+      'author-peer': { tournamentId: 'author-peer', tournamentName: 'My Other Tournament' },
+      'view-peer': { tournamentId: 'view-peer', tournamentName: 'Somebody Else Open' },
+    };
+    const service = makeCoordService(ctx, peers);
+    jest.spyOn(queryGovernor, 'getScheduleProjection').mockImplementation(({ tournamentRecord }: any) => ({
+      scheduleCells: [
+        { tournamentId: tournamentRecord.tournamentId, courtId: 'c1', courtOrder: 1, matchUpId: 'm1', labels: [] },
+      ],
+    }));
+
+    const result = await service.getScheduleProjection({ tournamentId: 'ctx' }, undefined, userContext);
+    const byTournament = Object.fromEntries(result.scheduleCells.map((c: any) => [c.tournamentId, c]));
+
+    expect(byTournament['author-peer'].tournamentName).toEqual('My Other Tournament');
+    expect(byTournament['view-peer'].tournamentName).toBeUndefined();
   });
 });

@@ -247,8 +247,13 @@ export class FactoryService {
     for (const peerId of Object.keys(peerRecords)) {
       const access = canMutateTournament(peerRecords[peerId], userContext, assignedIds) ? 'author' : 'view';
       const projection: any = queryGovernor.getScheduleProjection({ tournamentRecord: peerRecords[peerId], venueIds });
+      // `author` cells carry the peer's tournamentName so the client can label which of the
+      // caller's OWN linked tournaments holds a court. Deliberately NOT added to `view` cells:
+      // those stay routed through opaqueReservedCell, preserving the invariant that a reserved
+      // cell reveals a court is taken, never by whom.
+      const tournamentName = peerRecords[peerId]?.tournamentName;
       for (const cell of projection?.scheduleCells ?? []) {
-        scheduleCells.push(access === 'view' ? opaqueReservedCell(cell) : { ...cell, access });
+        scheduleCells.push(access === 'view' ? opaqueReservedCell(cell) : { ...cell, access, tournamentName });
       }
     }
     return { scheduleCells };
