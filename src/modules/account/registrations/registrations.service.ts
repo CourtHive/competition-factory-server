@@ -240,7 +240,7 @@ export class RegistrationsService {
       return { registrationId, ok: false, reason: `Registration is not acceptable in state: ${reg.status}` };
     }
 
-    const participantId = await this.ensureIndividual(reg.personId, (reg.payload as any)?.applicant, plan);
+    const participantId = await this.ensureIndividual(reg.personId, reg, plan);
     if (!participantId) {
       return { registrationId, ok: false, reason: 'Applicant has no canonical name — ask them to complete their HiveID profile' };
     }
@@ -277,7 +277,7 @@ export class RegistrationsService {
 
     const partnerPersonId = status.nominatorPersonId === reg.personId ? status.inviteePersonId : status.nominatorPersonId;
     const partnerReg = plan.byPersonAndInvite.get(`${partnerPersonId}:${inviteId}`);
-    const partnerParticipantId = await this.ensureIndividual(partnerPersonId, (partnerReg?.payload as any)?.applicant, plan);
+    const partnerParticipantId = await this.ensureIndividual(partnerPersonId, partnerReg, plan);
     if (!partnerParticipantId) return null; // partner has no canonical name → can't form the pair
 
     const pairParticipantId = plan.ensurePair(inviteId, participantId, partnerParticipantId);
@@ -293,16 +293,39 @@ export class RegistrationsService {
   }
 
   /** Resolve (or reuse) a person's INDIVIDUAL participant; null when they have no canonical name. */
-  private async ensureIndividual(personId: string, applicant: any, plan: AcceptancePlan): Promise<string | null> {
+  /**
+   * Resolve the participantId for a person, in strict precedence:
+   *
+   *   1. a participant ALREADY in the tournamentRecord for this person (seeded into
+   *      `individualByPerson` from their CANONICAL_PERSON personOtherIds entry) — never
+   *      create a second participant for someone already entered;
+   *   2. the participantId **reserved at registration** by courthive-declarations;
+   *   3. mint.
+   *
+   * Step 2 is what makes the identity predate every record. An id minted here is an
+   * artifact of whichever engine ran first, so two records holding the same participation
+   * would disagree; an id reserved at registration is authored upstream of both, which is
+   * what lets a forwarded mutation replay verbatim elsewhere rather than needing an
+   * id-translation table.
+   *
+   * Step 3 must remain: walk-ins and director-added participants never pass through
+   * registration, and registrations predating declarations migration 0004 carry no id.
+   */
+  private async ensureIndividual(
+    personId: string,
+    registration: RegistrationSnapshot | undefined,
+    plan: AcceptancePlan,
+  ): Promise<string | null> {
     const cached = plan.individualByPerson.get(personId);
     if (cached) return cached;
 
+    const applicant = (registration?.payload as any)?.applicant;
     const canonical = await this.personsClient.getById(personId).catch(() => null);
     const givenName = canonical?.person?.standardGivenName ?? applicant?.givenName ?? '';
     const familyName = canonical?.person?.standardFamilyName ?? applicant?.familyName ?? '';
     if (!givenName || !familyName) return null;
 
-    const participantId = tools.UUID();
+    const participantId = registration?.participantId ?? tools.UUID();
     plan.newParticipants.push({
       participantId,
       participantType: 'INDIVIDUAL',

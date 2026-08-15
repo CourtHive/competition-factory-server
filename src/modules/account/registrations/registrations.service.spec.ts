@@ -102,6 +102,62 @@ describe('RegistrationsService', () => {
         });
       });
 
+    // 3d-0 — the participantId is reserved when the person REGISTERS, and accept merely
+  // carries it. Precedence is strict: a participant already in the record wins (never
+  // create a second one for the same person), then the reservation, then a mint.
+  describe('participantId precedence (reserved at registration)', () => {
+    function acceptWith(reg: any) {
+      declarationsClient.getRegistration.mockResolvedValue(reg);
+      personsClient.getById.mockResolvedValue({
+        person: { standardGivenName: 'Jane', standardFamilyName: 'Doe' },
+      });
+      return service.acceptRegistration({
+        userContext: adminUserContext,
+        tournamentId: 't-1',
+        registrationId: 'r-1',
+      });
+    }
+
+    it('CARRIES the participantId reserved at registration instead of minting', async () => {
+      const result = await acceptWith(declarationsReg({ participantId: 'reserved-at-registration' }));
+      const participant = mockExecutionQueue.mock.calls[0][0].methods[0].params.participants[0];
+      expect(participant.participantId).toBe('reserved-at-registration');
+      expect(result.participantId).toBe('reserved-at-registration');
+    });
+
+    // Back-compat: registrations predating declarations migration 0004 carry no
+    // reservation, and walk-ins never pass through registration at all.
+    it('MINTS when the registration carries no reservation', async () => {
+      await acceptWith(declarationsReg({ participantId: null }));
+      const participant = mockExecutionQueue.mock.calls[0][0].methods[0].params.participants[0];
+      expect(participant.participantId).toBeTruthy();
+      expect(participant.participantId).not.toBe('reserved-at-registration');
+    });
+
+    // The record wins over the reservation — otherwise re-accepting someone already
+    // entered would create a SECOND participant for the same person.
+    it('prefers a participant ALREADY in the record over the reservation', async () => {
+      tournamentStorageService.findTournamentRecord.mockResolvedValue({
+        tournamentRecord: {
+          ...baseTournament,
+          participants: [
+            {
+              participantId: 'already-in-record',
+              participantType: 'INDIVIDUAL',
+              person: { personOtherIds: [{ organisationId: 'CANONICAL_PERSON', personId: 'p-canon' }] },
+            },
+          ],
+        },
+      });
+
+      const result = await acceptWith(declarationsReg({ participantId: 'reserved-at-registration' }));
+      expect(result.participantId).toBe('already-in-record');
+      // no addParticipants at all — the person is already there
+      const methods = mockExecutionQueue.mock.calls[0][0].methods;
+      expect(methods.some((m: any) => m.method === 'addParticipants')).toBe(false);
+    });
+  });
+
       it('rejects when applicant has no canonical name (nothing to name the participant)', async () => {
         declarationsClient.getRegistration.mockResolvedValue(declarationsReg({ payload: { eventIds: [] } }));
         personsClient.getById.mockResolvedValue(null);
