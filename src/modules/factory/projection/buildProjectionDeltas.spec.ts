@@ -103,7 +103,7 @@ describe('buildProjectionDeltas', () => {
     expect(tables).toContain('upsert:venues');
     expect(tables).toContain('upsert:tournament_venues');
     const courtOps = deltas.filter((d) => d.table === 'courts');
-    expect(courtOps[0]).toMatchObject({ op: 'delete', key: { venue_id: 'v1' } });
+    expect(courtOps[0]).toMatchObject({ op: 'delete', key: { tournament_id: 't-1', venue_id: 'v1' } });
     expect(courtOps.slice(1).map((d) => d.key)).toEqual([{ court_id: 'c1' }, { court_id: 'c2' }]);
     expect(courtOps[1].row).toMatchObject({ venue_id: 'v1', court_name: 'Court 1', indoor_outdoor: 'INDOOR' });
     // venue upserted before courts (FK parent)
@@ -120,8 +120,8 @@ describe('buildProjectionDeltas', () => {
     const deletes = deltas.filter((d) => d.op === 'delete');
     expect(deletes).toEqual(
       expect.arrayContaining([
-        { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { draw_id: 'd1' }, topic: 'deleteDraw' },
-        { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { event_id: 'e1' }, topic: 'deleteEvent' },
+        { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { tournament_id: 't-1', draw_id: 'd1' }, topic: 'deleteDraw' },
+        { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { tournament_id: 't-1', event_id: 'e1' }, topic: 'deleteEvent' },
         { tournamentId: 't-1', op: 'delete', table: 'entries', key: { tournament_id: 't-1', event_id: 'e1' }, topic: 'deleteEvent' },
         { tournamentId: 't-1', op: 'delete', table: 'tournament_venues', key: { tournament_id: 't-1', venue_id: 'v1' }, topic: 'deleteVenue' },
         { tournamentId: 't-1', op: 'delete', table: 'entries', key: { tournament_id: 't-1', participant_id: 'p1' }, topic: 'deleteParticipants' },
@@ -180,8 +180,8 @@ describe('buildProjectionDeltas', () => {
     ]);
     const deletes = deltas.filter((d) => d.op === 'delete');
     expect(deletes).toEqual([
-      { tournamentId: 't-1', op: 'delete', table: 'events', key: { event_id: 'e1' }, topic: 'deleteEvent' },
-      { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { event_id: 'e1' }, topic: 'deleteEvent' },
+      { tournamentId: 't-1', op: 'delete', table: 'events', key: { tournament_id: 't-1', event_id: 'e1' }, topic: 'deleteEvent' },
+      { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { tournament_id: 't-1', event_id: 'e1' }, topic: 'deleteEvent' },
       {
         tournamentId: 't-1',
         op: 'delete',
@@ -189,8 +189,8 @@ describe('buildProjectionDeltas', () => {
         key: { tournament_id: 't-1', event_id: 'e1' },
         topic: 'deleteEvent',
       },
-      { tournamentId: 't-1', op: 'delete', table: 'seeds', key: { event_id: 'e1' }, topic: 'deleteEvent' },
-      { tournamentId: 't-1', op: 'delete', table: 'draws', key: { event_id: 'e1' }, topic: 'deleteEvent' },
+      { tournamentId: 't-1', op: 'delete', table: 'seeds', key: { tournament_id: 't-1', event_id: 'e1' }, topic: 'deleteEvent' },
+      { tournamentId: 't-1', op: 'delete', table: 'draws', key: { tournament_id: 't-1', event_id: 'e1' }, topic: 'deleteEvent' },
     ]);
   });
 
@@ -226,7 +226,7 @@ describe('buildProjectionDeltas', () => {
     expect(drawOps).toHaveLength(1);
     expect(drawOps[0]).toMatchObject({ op: 'upsert', key: { draw_id: 'd1' }, row: { draw_name: 'Main', draw_type: 'SINGLE_ELIMINATION' } });
     // delete-by-draw first, then the two structure upserts (order matters)
-    expect(structOps[0]).toMatchObject({ op: 'delete', key: { draw_id: 'd1' } });
+    expect(structOps[0]).toMatchObject({ op: 'delete', key: { tournament_id: 't-1', draw_id: 'd1' } });
     expect(structOps.slice(1).map((d) => d.key)).toEqual([{ structure_id: 's1' }, { structure_id: 's2' }]);
     // draw upserted before structures (FK parent)
     expect(deltas.findIndex((d) => d.table === 'draws')).toBeLessThan(deltas.findIndex((d) => d.table === 'structures'));
@@ -238,7 +238,7 @@ describe('buildProjectionDeltas', () => {
       tournamentId: 't-1',
       op: 'delete',
       table: 'draws',
-      key: { draw_id: 'd1' },
+      key: { tournament_id: 't-1', draw_id: 'd1' },
       topic: 'deleteDraw',
     });
   });
@@ -276,7 +276,7 @@ describe('buildProjectionDeltas', () => {
     });
     const seedOps = deltas.filter((d) => d.table === 'seeds');
     // delete-by-structure first, then the two participant-holding upserts (order matters)
-    expect(seedOps[0]).toMatchObject({ op: 'delete', key: { structure_id: 's1' } });
+    expect(seedOps[0]).toMatchObject({ op: 'delete', key: { tournament_id: 't-1', structure_id: 's1' } });
     expect(seedOps.slice(1).map((d) => d.key)).toEqual([
       { structure_id: 's1', seed_number: 1 },
       { structure_id: 's1', seed_number: 2 },
@@ -288,7 +288,7 @@ describe('buildProjectionDeltas', () => {
     const deltas = await build([{ kind: 'seeds', tournamentId: 't-1', structureId: 'gone' }]);
     const seedOps = deltas.filter((d) => d.table === 'seeds');
     expect(seedOps).toEqual([
-      { tournamentId: 't-1', op: 'delete', table: 'seeds', key: { structure_id: 'gone' }, topic: 'seeds' },
+      { tournamentId: 't-1', op: 'delete', table: 'seeds', key: { tournament_id: 't-1', structure_id: 'gone' }, topic: 'seeds' },
     ]);
   });
 
@@ -298,7 +298,7 @@ describe('buildProjectionDeltas', () => {
       tournamentId: 't-1',
       op: 'delete',
       table: 'seeds',
-      key: { draw_id: 'd1' },
+      key: { tournament_id: 't-1', draw_id: 'd1' },
       topic: 'deleteDraw',
     });
   });
@@ -307,8 +307,8 @@ describe('buildProjectionDeltas', () => {
     const deltas = await build([{ kind: 'deleteMatchUps', tournamentId: 't-1', matchUpIds: ['m1', 'm2'] }]);
     const deletes = deltas.filter((d) => d.op === 'delete');
     expect(deletes).toEqual([
-      { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { match_up_id: 'm1' }, topic: 'deletedMatchUpIds' },
-      { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { match_up_id: 'm2' }, topic: 'deletedMatchUpIds' },
+      { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { tournament_id: 't-1', match_up_id: 'm1' }, topic: 'deletedMatchUpIds' },
+      { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { tournament_id: 't-1', match_up_id: 'm2' }, topic: 'deletedMatchUpIds' },
     ]);
   });
 
@@ -431,7 +431,7 @@ describe('buildProjectionDeltas', () => {
         tournamentId: 't-1',
         op: 'update',
         table: 'match_up_competitors',
-        key: { individual_participant_id: 'pa-1' },
+        key: { tournament_id: 't-1', individual_participant_id: 'pa-1' },
         row: { person_id: 'canon-9', link_source: 'canonical' },
         topic: 'claimPerson',
       },
@@ -457,7 +457,7 @@ describe('buildProjectionDeltas', () => {
         op: 'update',
         table: 'match_up_competitors',
         // INDIVIDUAL + PAIR rows: participant_name is the INDIVIDUAL's name
-        key: { individual_participant_id: 'pa-1' },
+        key: { tournament_id: 't-1', individual_participant_id: 'pa-1' },
         row: { participant_name: 'Pete Sampras' },
         topic: 'participants',
       },
@@ -467,7 +467,7 @@ describe('buildProjectionDeltas', () => {
         table: 'match_up_competitors',
         // TEAM rows: participant_name is the TEAM's name and individual_participant_id
         // is NULL, so the team is identified by side_participant_id + participant_type.
-        key: { side_participant_id: 'pa-1', participant_type: 'TEAM' },
+        key: { tournament_id: 't-1', side_participant_id: 'pa-1', participant_type: 'TEAM' },
         row: { participant_name: 'Pete Sampras' },
         topic: 'participants',
       },
@@ -500,5 +500,64 @@ describe('buildProjectionDeltas', () => {
 
   it('returns nothing for an empty intent buffer', async () => {
     expect(await build([])).toEqual([]);
+  });
+
+  // A structural invariant, not a spot check. `buildUpdate`/`buildDelete` emit
+  // `WHERE col = $n` for every key column and cannot express a join, so a key without
+  // `tournament_id` is a statement that reaches across every tournament in the read
+  // model. `pickColumns` SILENTLY DROPS columns missing from the allow-list, so such a
+  // key never errors — it just quietly matches too much. Every delete/update must carry
+  // it, on every table that has the column.
+  //
+  // `venues` is the sole exemption and is exempted BY NAME rather than by "no key
+  // matched": it is a cross-tournament dimension with no tournament_id column, linked
+  // through tournament_venues (which is itself scoped).
+  it('every delete and update delta is scoped by tournament_id', async () => {
+    const flattenDraw = jest.fn().mockResolvedValue([singlesMatchUp('m1', 'd1')]);
+    const deltas = await build(
+      [
+        { kind: 'flattenDraw', tournamentId: 't-1', drawId: 'd1' },
+        { kind: 'draw', tournamentId: 't-1', drawId: 'd1' },
+        { kind: 'seeds', tournamentId: 't-1', structureId: 's1' },
+        { kind: 'participants', tournamentId: 't-1' },
+        { kind: 'events', tournamentId: 't-1' },
+        { kind: 'orderOfPlay', tournamentId: 't-1' },
+        { kind: 'participantPublish', tournamentId: 't-1' },
+        { kind: 'schedulingProfile', tournamentId: 't-1', schedulingProfile: [] },
+        { kind: 'venue', tournamentId: 't-1', venue: { venueId: 'v1', courts: [{ courtId: 'c1' }] } },
+        { kind: 'participantName', tournamentId: 't-1', participantId: 'pa-1', participantName: 'New' },
+        { kind: 'claimPerson', tournamentId: 't-1', participantId: 'pa-1', personId: 'per-1' },
+        { kind: 'deleteDraw', tournamentId: 't-1', drawId: 'd1' },
+        { kind: 'deleteEvent', tournamentId: 't-1', eventId: 'e1' },
+        { kind: 'deleteVenue', tournamentId: 't-1', venueId: 'v1' },
+        { kind: 'deleteMatchUps', tournamentId: 't-1', matchUpIds: ['m1'] },
+        { kind: 'deleteParticipants', tournamentId: 't-1', participantIds: ['p1'] },
+      ] as any,
+      flattenDraw,
+    );
+
+    const scopable = deltas.filter((d) => (d.op === 'delete' || d.op === 'update') && d.table !== 'venues');
+    // the guard must never pass because nothing reached it
+    expect(scopable.length).toBeGreaterThan(10);
+    const unscoped = scopable
+      .filter((d) => (d.key as any)?.tournament_id !== 't-1')
+      .map((d) => `${d.op}:${d.table}:${JSON.stringify(d.key)}`);
+    expect(unscoped).toEqual([]);
+  });
+
+  it('scopes the competitor rename and person-claim updates, which key on a participantId', async () => {
+    const deltas = await build([
+      { kind: 'participantName', tournamentId: 't-1', participantId: 'pa-1', participantName: 'New' },
+      { kind: 'claimPerson', tournamentId: 't-1', participantId: 'pa-1', personId: 'per-1' },
+    ] as any);
+
+    const competitorUpdates = deltas.filter((d) => d.op === 'update' && d.table === 'match_up_competitors');
+    expect(competitorUpdates).toHaveLength(3); // rename at both grains + the claim stamp
+    for (const delta of competitorUpdates) {
+      expect(delta.key).toMatchObject({ tournament_id: 't-1' });
+      // still keyed on the participant — scoping ADDS a filter, it does not replace one
+      const key = delta.key as any;
+      expect(key.individual_participant_id ?? key.side_participant_id).toEqual('pa-1');
+    }
   });
 });

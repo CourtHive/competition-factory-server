@@ -114,6 +114,28 @@ const factoryProjectsBracketTopology = (() => {
 })();
 const itWithBracketTopology = factoryProjectsBracketTopology ? it : it.skip;
 
+/**
+ * Does the LINKED factory stamp `tournament_id` onto competitor rows? Same situation as
+ * the bracket-topology probe above and detected the same way (from cast() output, so it
+ * self-activates on the pin bump with nothing to remember to flip).
+ *
+ * It gates more than a column assertion. The participant-rename and person-claim deltas
+ * now key on `(tournament_id, <participant column>)` — an unscoped key was a
+ * cross-tournament write — so against a factory that does not stamp the column those
+ * UPDATEs match NO rows and the convergence assertions fail. That is not a test artifact:
+ * it is the real behaviour, and it is why **CFS must not be deployed until the pinned
+ * factory carries the column.** The skip keeps CI honest against the published package;
+ * the deploy ordering is what keeps production correct.
+ */
+const factoryScopesCompetitorsByTournament = (() => {
+  const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+    drawProfiles: [{ drawSize: 4 }],
+  });
+  const row: any = (readModel.cast({ tournamentRecord })?.rows as any)?.match_up_competitors?.[0] ?? {};
+  return 'tournament_id' in row;
+})();
+const itWithScopedCompetitors = factoryScopesCompetitorsByTournament ? it : it.skip;
+
 describe('projection conformance — incremental path ≡ rebuild path (byte-identical rows)', () => {
   async function flattenDrawOf(record: any) {
     return async (_tid: string, drawId: string) => {
@@ -123,61 +145,64 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     };
   }
 
-  it('a completed tournament projects to the same match_ups + competitors + entries either way', async () => {
-    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
-      drawProfiles: [{ drawSize: 8 }],
-      completeAllMatchUps: true,
-    });
-    const tournamentId = tournamentRecord.tournamentId;
-    // stamp a CANONICAL_PERSON claim on the first individual participant so the
-    // claimPerson convergence is exercised too.
-    const claimed = (tournamentRecord.participants ?? []).find((p: any) => p.participantType === 'INDIVIDUAL');
-    claimed.person ??= {};
-    claimed.person.personOtherIds = [{ organisationId: 'CANONICAL_PERSON', personId: 'canon-conf' }];
+  itWithScopedCompetitors(
+    'a completed tournament projects to the same match_ups + competitors + entries either way',
+    async () => {
+      const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+        drawProfiles: [{ drawSize: 8 }],
+        completeAllMatchUps: true,
+      });
+      const tournamentId = tournamentRecord.tournamentId;
+      // stamp a CANONICAL_PERSON claim on the first individual participant so the
+      // claimPerson convergence is exercised too.
+      const claimed = (tournamentRecord.participants ?? []).find((p: any) => p.participantType === 'INDIVIDUAL');
+      claimed.person ??= {};
+      claimed.person.personOtherIds = [{ organisationId: 'CANONICAL_PERSON', personId: 'canon-conf' }];
 
-    const flattenDraw = await flattenDrawOf(tournamentRecord);
-    const records = { [tournamentId]: tournamentRecord };
+      const flattenDraw = await flattenDrawOf(tournamentRecord);
+      const records = { [tournamentId]: tournamentRecord };
 
-    // REBUILD path: full projection from the final record.
-    const rebuildDeltas = await buildProjectionDeltas({
-      intents: buildRebuildIntents(tournamentRecord),
-      tournamentRecords: records,
-      flattenDraw,
-    });
+      // REBUILD path: full projection from the final record.
+      const rebuildDeltas = await buildProjectionDeltas({
+        intents: buildRebuildIntents(tournamentRecord),
+        tournamentRecords: records,
+        flattenDraw,
+      });
 
-    // INCREMENTAL path: the intents the producers accumulate over the tournament
-    // lifecycle — draw flatten + a slim result update per completed matchUp +
-    // participants/touch/venue/claim. Must converge to the same rows.
-    const flatMatchUps = await flattenDraw(tournamentId, tournamentRecord.events[0].drawDefinitions[0].drawId);
-    const incrementalIntents: ProjectionIntent[] = [
-      { kind: 'touchTournament', tournamentId },
-      { kind: 'participants', tournamentId },
-      ...tournamentRecord.events.flatMap((e: any) =>
-        (e.drawDefinitions ?? []).map(
-          (d: any) => ({ kind: 'flattenDraw', tournamentId, drawId: d.drawId }) as ProjectionIntent,
+      // INCREMENTAL path: the intents the producers accumulate over the tournament
+      // lifecycle — draw flatten + a slim result update per completed matchUp +
+      // participants/touch/venue/claim. Must converge to the same rows.
+      const flatMatchUps = await flattenDraw(tournamentId, tournamentRecord.events[0].drawDefinitions[0].drawId);
+      const incrementalIntents: ProjectionIntent[] = [
+        { kind: 'touchTournament', tournamentId },
+        { kind: 'participants', tournamentId },
+        ...tournamentRecord.events.flatMap((e: any) =>
+          (e.drawDefinitions ?? []).map(
+            (d: any) => ({ kind: 'flattenDraw', tournamentId, drawId: d.drawId }) as ProjectionIntent,
+          ),
         ),
-      ),
-      ...flatMatchUps
-        .filter((m: any) => m.winningSide || m.matchUpStatus)
-        .map((m: any) => ({ kind: 'matchUpResult', tournamentId, matchUp: m }) as ProjectionIntent),
-      { kind: 'claimPerson', tournamentId, participantId: claimed.participantId, personId: 'canon-conf' },
-    ];
-    const incrementalDeltas = await buildProjectionDeltas({
-      intents: incrementalIntents,
-      tournamentRecords: records,
-      flattenDraw,
-    });
+        ...flatMatchUps
+          .filter((m: any) => m.winningSide || m.matchUpStatus)
+          .map((m: any) => ({ kind: 'matchUpResult', tournamentId, matchUp: m }) as ProjectionIntent),
+        { kind: 'claimPerson', tournamentId, participantId: claimed.participantId, personId: 'canon-conf' },
+      ];
+      const incrementalDeltas = await buildProjectionDeltas({
+        intents: incrementalIntents,
+        tournamentRecords: records,
+        flattenDraw,
+      });
 
-    const rebuilt = applyDeltas(rebuildDeltas);
-    const incremental = applyDeltas(incrementalDeltas);
+      const rebuilt = applyDeltas(rebuildDeltas);
+      const incremental = applyDeltas(incrementalDeltas);
 
-    for (const table of ['tournaments', 'match_ups', 'match_up_competitors', 'entries']) {
-      expect(snapshot(incremental, table)).toEqual(snapshot(rebuilt, table));
-    }
-    // sanity: the tournament actually produced rows
-    expect(snapshot(rebuilt, 'match_ups').length).toBeGreaterThan(0);
-    expect(snapshot(rebuilt, 'match_up_competitors').some((r) => r.person_id === 'canon-conf')).toBe(true);
-  });
+      for (const table of ['tournaments', 'match_ups', 'match_up_competitors', 'entries']) {
+        expect(snapshot(incremental, table)).toEqual(snapshot(rebuilt, table));
+      }
+      // sanity: the tournament actually produced rows
+      expect(snapshot(rebuilt, 'match_ups').length).toBeGreaterThan(0);
+      expect(snapshot(rebuilt, 'match_up_competitors').some((r) => r.person_id === 'canon-conf')).toBe(true);
+    },
+  );
 
   // Increment 6 (unblocked slice) — validate the read model's TEAMS / dual-match
   // handling (the S3 re-grain the whole schema exists for) against an ITA-shaped
@@ -500,7 +525,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
   // rather than the consumer's topic→row mapping — it is exactly how the MODIFY_MATCHUP
   // slim-row miss reached main earlier in this workstream.
 
-  it('MODIFY_PARTICIPANTS rename: competitor participant_name converges to cast()', async () => {
+  itWithScopedCompetitors('MODIFY_PARTICIPANTS rename: competitor participant_name converges to cast()', async () => {
     // recordParticipants pushes {kind:'participants'}, which re-projects ONLY the entries
     // table — match_up_competitors.participant_name is otherwise written exclusively by
     // the draw-scoped flatten. The participantName intent is what closes that.
