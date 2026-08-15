@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   verify:
-    name: lint · types · build
+    name: lint · types · test · build
     runs-on: ubuntu-latest
     steps:
       - name: Mint App token
@@ -144,6 +144,47 @@ jobs:
       #
       # lint + check-types + build were each verified end-to-end in a clean
       # two-repo clone that reproduces this workflow exactly.
+
+      # `pnpm test:unit` rather than `pnpm test`: 15 of the 130 suites open a real
+      # pg pool and cannot run without a database, and a Postgres service container
+      # was ruled out for this workflow. Measured by running the full suite with
+      # Postgres pointed at a closed port, which separates database dependence from
+      # config dependence:
+      #
+      #   Test Suites: 15 failed, 1 skipped, 114 passed, 129 of 130
+      #   Tests:       80 failed, 3 skipped, 1196 passed, 1279
+      #
+      # The gate excludes every `*.e2e.spec.ts` plus two integration tests misnamed
+      # as unit specs (factory.controller, providers.service). That is a rule rather
+      # than a hand-maintained list, so new e2e specs are covered automatically — at
+      # the cost of two e2e suites that would in fact pass without a database
+      # (instanceState.middleware, projection-verify). Deliberate: rot-resistance
+      # over two suites.
+      #
+      # Consequence worth knowing: a NEW spec that needs a database and is not named
+      # `*.e2e.spec.ts` will fail this gate. That is the intended forcing function —
+      # rename it, or drop the dependency.
+      #
+      # 113 suites / 1171 tests, verified green with Postgres unreachable, and
+      # falsified by breaking an included spec (gate goes red).
+      # src/config/config-validation.ts marks APP_PORT / APP_NAME / JWT_SECRET /
+      # NODE_ENV as @IsDefined and throws 'missing valid ENV' otherwise. Locally
+      # these come from an untracked .env, which is why the suite passes on a dev
+      # machine and four suites failed on the first CI run here. NestJS ConfigModule
+      # reads .env directly, so neutralising dotenv is NOT enough to reproduce a
+      # runner locally — supplying the variables is.
+      #
+      # NODE_ENV=test matches Environment.Testing and is what jest sets anyway.
+      # JWT_SECRET only has to satisfy MinLength(1); no suite in this gate verifies
+      # a real signature against it.
+      - name: Test (database-free suites)
+        working-directory: competition-factory-server
+        env:
+          APP_NAME: competition-factory-server-ci
+          APP_PORT: '8383'
+          JWT_SECRET: ci-only-value-not-used-by-any-deployment
+          NODE_ENV: test
+        run: pnpm test:unit
 
       - name: Build
         working-directory: competition-factory-server

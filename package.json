@@ -36,6 +36,7 @@
     "lint:report": "eslint src & eslint --cache src -f json > eslint-report.json",
     "boundary:check": "node scripts/check-account-boundary.mjs",
     "test": "jest",
+    "test:unit": "jest --testPathIgnorePatterns \"/node_modules/\" \"/e2e/\" \"<rootDir>/.claude/\" \"\\\\.e2e\\\\.spec\\\\.ts$\" \"src/modules/factory/factory.controller.spec.ts\" \"src/modules/providers/providers.service.spec.ts\"",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/jest/bin/jest --runInBand",
