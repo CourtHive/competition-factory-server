@@ -7,9 +7,11 @@ import { ProvisionerModule } from '../provisioner/provisioner.module';
 // OfficiatingModule + SanctioningModule retired 2026-05-27 (un-registered) and
 // their module dirs + orphaned storage layer removed 2026-06-26: superseded by AMS
 // (AMS-WS-07, AMS-WS-08); no consumer in TMX/admin-client/AMS-console calls the
-// CFS routes. CFS Postgres tables (sanctioning_records etc.) + migration 013 are
-// RETAINED pending a data migration into courthive_ams — provider archive / cleanup
-// / revive still read those tables via raw SQL. See
+// CFS routes. The trailing Postgres tables (official_records, sanctioning_records)
+// were dropped 2026-08-16 in migration 041 — both were empty in prod, so the
+// "data migration into courthive_ams" tail closed with nothing to move. Officiating
+// and sanctioning state is now AMS-owned outright; CFS reaches sanctioning through
+// SanctioningClient over the service token. See
 // Mentat/planning/AMS_DEPLOY_AND_RETIREMENT.md §CFS retirement windows #1 + #2.
 import { PoliciesModule } from '../policies/policies.module';
 import { AuditModule } from '../audit/audit.module';
