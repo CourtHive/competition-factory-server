@@ -63,6 +63,21 @@ const requestPublicNotices = () => getRequestContext().publicNotices;
 const requestDeltaBuffer = () => getRequestContext().deltaBuffer;
 const requestServices = () => getRequestContext().services;
 
+/**
+ * Delete the per-event `ged|<tid>|<eid>` key and record that a targeted eviction happened.
+ *
+ * The controller's `invalidateTournamentCache` consults `requestEvictedEventKeys()` and skips its
+ * blanket `ged|` sweep only when at least one targeted eviction was recorded. That is the fail-safe:
+ * a mutation whose notices never carry an eventId evicts nothing here, the set stays empty, and the
+ * controller falls back to the old tournament-wide behaviour rather than serving stale event data.
+ */
+const evictEventData = (tournamentId, eventId) => {
+  if (!tournamentId || !eventId) return;
+  const key = `ged|${tournamentId}|${eventId}`;
+  requestServices()?.cacheManager?.del(key);
+  getRequestContext().evictedEventKeys?.add(key);
+};
+
 const clearCache = (tournamentId) => {
   if (!tournamentId || typeof tournamentId !== 'string') return;
   // Evict every fixed-shape per-tournament cache key on every
@@ -114,10 +129,7 @@ export const subscriptionHandlers = {
     recordPositionAssignments(requestDeltaBuffer(), params);
     for (const item of params) {
       // Clear event data cache using the eventId from position assignment notices
-      if (item.tournamentId && item.eventId) {
-        const eventDataKey = `ged|${item.tournamentId}|${item.eventId}`;
-        requestServices()?.cacheManager?.del(eventDataKey);
-      }
+      evictEventData(item.tournamentId, item.eventId);
       clearCache(item.tournamentId);
       requestPublicNotices()?.push({
         topic: topicConstants.MODIFY_POSITION_ASSIGNMENTS,
@@ -140,8 +152,7 @@ export const subscriptionHandlers = {
           // item.eventData here is only the inner eventData object — seeding
           // it directly would serve a participants-less shape to the next
           // public reader for the full TTL, blanking every bracket side to TBD.
-          const eventDataKey = `ged|${item.tournamentId}|${eventId}`;
-          requestServices()?.cacheManager?.del(eventDataKey);
+          evictEventData(item.tournamentId, eventId);
         }
         clearCache(item.tournamentId);
         recordRepublishEvent(requestDeltaBuffer(), item.tournamentId, eventId);
@@ -156,10 +167,7 @@ export const subscriptionHandlers = {
   [topicConstants.UNPUBLISH_EVENT]: (params) => {
     recordEvents(requestDeltaBuffer(), params); // event.published flag on the events row
     for (const item of params) {
-      if (item.tournamentId && item.eventId) {
-        const eventDataKey = `ged|${item.tournamentId}|${item.eventId}`;
-        requestServices()?.cacheManager?.del(eventDataKey);
-      }
+      evictEventData(item.tournamentId, item.eventId);
       clearCache(item.tournamentId);
       recordRepublishEvent(requestDeltaBuffer(), item.tournamentId, item.eventId);
       requestPublicNotices()?.push({
@@ -291,7 +299,14 @@ export const subscriptionHandlers = {
     recordAddDraw(requestDeltaBuffer(), params); // flatten matchUps
     recordDraw(requestDeltaBuffer(), params); // draw + structures rows
   },
-  [topicConstants.MODIFY_DRAW_DEFINITION]: (params) => recordDraw(requestDeltaBuffer(), params),
+  [topicConstants.MODIFY_DRAW_DEFINITION]: (params) => {
+    recordDraw(requestDeltaBuffer(), params);
+    // `modifyDrawNotice` carries eventId, and `modifyMatchUpNotice` fires it alongside every
+    // MODIFY_MATCHUP that has a drawDefinition — so this is where a SCORE gets its per-event
+    // eviction. MODIFY_MATCHUP's own payload is only { matchUp, tournamentId, context } and cannot
+    // target. Evicting here keeps the score path precise without a factory change.
+    for (const item of params ?? []) evictEventData(item?.tournamentId, item?.eventId);
+  },
   [topicConstants.ADD_PARTICIPANTS]: (params) => {
     recordParticipants(requestDeltaBuffer(), params);
     recordPersonClaims(requestDeltaBuffer(), params, CANONICAL_PERSON);
