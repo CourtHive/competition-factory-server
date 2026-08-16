@@ -435,6 +435,71 @@ describe('FactoryController', () => {
       expect(mockCache.del.mock.calls.map((c: any[]) => c[0])).toContain('ged|t1|e2');
     });
 
+    it('warmCache re-seeds the evicted event payload through the same cacheFx path', async () => {
+      await populateCacheForTid(mockController, 't1');
+      jest.clearAllMocks();
+
+      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+        success: true,
+        publicNotices: [],
+        evictedEventKeys: ['ged|t1|e1'],
+      });
+      const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
+      await mockController.executionQueue(
+        { tournamentIds: ['t1'], methods: [], warmCache: true } as any,
+        mockReq,
+      );
+
+      // Rebuilt via the service, and stored under the SAME key with the full result shape.
+      expect(mockService.getEventData).toHaveBeenCalledWith({ tournamentId: 't1', eventId: 'e1' });
+      const setKeys = mockCache.set.mock.calls.map((c: any[]) => c[0]);
+      expect(setKeys).toContain('ged|t1|e1');
+    });
+
+    it('does NOT warm when warmCache is absent — building the payload is the cost we avoid', async () => {
+      await populateCacheForTid(mockController, 't1');
+      jest.clearAllMocks();
+
+      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+        success: true,
+        publicNotices: [],
+        evictedEventKeys: ['ged|t1|e1'],
+      });
+      const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
+      await mockController.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, mockReq);
+
+      expect(mockService.getEventData).not.toHaveBeenCalled();
+      expect(mockCache.set.mock.calls.map((c: any[]) => c[0])).not.toContain('ged|t1|e1');
+    });
+
+    it('warms AFTER invalidation, so the seeded key is not swept', async () => {
+      await populateCacheForTid(mockController, 't1');
+      jest.clearAllMocks();
+
+      const order: string[] = [];
+      (mockCache.del as jest.Mock).mockImplementation((k: string) => {
+        if (k === 'ged|t1|e1') order.push('del');
+        return Promise.resolve();
+      });
+      (mockCache.set as jest.Mock).mockImplementation((k: string) => {
+        if (k === 'ged|t1|e1') order.push('set');
+      });
+
+      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+        success: true,
+        publicNotices: [],
+        evictedEventKeys: ['ged|t1|e1'],
+      });
+      const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
+      await mockController.executionQueue(
+        { tournamentIds: ['t1'], methods: [], warmCache: true } as any,
+        mockReq,
+      );
+
+      // The seed must be the LAST thing to touch the key, or it feeds the sweep.
+      expect(order[order.length - 1]).toBe('set');
+    });
+
     it('deletes tracked keys on scoreMatchUp success', async () => {
       await populateCacheForTid(mockController, 't1');
 

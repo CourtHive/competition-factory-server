@@ -152,6 +152,33 @@ export class FactoryController {
   // schedule state that are not restricted to publish state. Only the
   // standard tournamentInfo reads (which respect usePublishState) are
   // intended for unauthenticated access.
+  /**
+   * Re-seed the per-event payloads a mutation just evicted, so the first public reader after a
+   * publish does not pay a cache miss. Opt-in via `warmCache` — building these payloads is exactly
+   * the cost the default path exists to avoid, so it happens only when a reader is imminent.
+   *
+   * Seeds through `cacheFx`, never a hand-built object. `cacheFx` stores the whole
+   * `{ success, eventData, participants }` result under the same TTL and calls `trackTournamentKey`,
+   * so the seeded and naturally-cached shapes cannot drift. That drift is a real bug, not a
+   * hypothetical: the invalidate-not-seed comment in `getMutationEngine.ts` records that seeding the
+   * inner `eventData` alone serves a participants-less shape and blanks every bracket side to TBD for
+   * the full TTL.
+   *
+   * Awaited rather than fire-and-forget: the caller opted in because a reader is imminent, so
+   * returning before the cache is populated would race the very reader this exists for.
+   *
+   * MUST run after `invalidateTournamentCache`, or it would seed keys the sweep then deletes.
+   */
+  private async warmEventDataCache(evictedEventKeys: readonly string[]): Promise<void> {
+    for (const key of evictedEventKeys) {
+      // `ged|<tournamentId>|<eventId>` — rebuild the params from the key so the seeded entry is
+      // keyed identically to what the public `eventdata` route would compute.
+      const [prefix, tournamentId, eventId] = key.split('|');
+      if (prefix !== 'ged' || !tournamentId || !eventId) continue;
+      await this.cacheFx(key, (params) => this.factoryService.getEventData(params), { tournamentId, eventId });
+    }
+  }
+
   @Get('assistant-context/:tid')
   async getAssistantContext(@Param('tid') tid) {
     const key = `gac|${tid}`;
@@ -291,6 +318,10 @@ export class FactoryController {
       this.broadcastService.broadcastMutation(eqd);
       this.broadcastService.broadcastPublicNotices(eqd, publicNotices);
       this.invalidateTournamentCache(eqd.tournamentIds ?? [], result?.evictedEventKeys);
+      // Strictly after invalidation — seeding first would only feed the sweep.
+      if (eqd.warmCache && result?.evictedEventKeys?.length) {
+        await this.warmEventDataCache(result.evictedEventKeys);
+      }
     }
     return result;
   }
