@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 
+import { SnapshotProjectionService } from './projection/snapshot-projection.service';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { insertPendingSave } from './helpers/pendingSaves';
 import { FactoryService } from './factory.service';
@@ -40,6 +41,10 @@ function makeFactoryService(overrides: { tournamentStorageService?: any; pgPool?
   const tournamentProvisionerStorage: any = {};
   const providerStorage: any = {};
 
+  // Disabled outbox — enqueueSnapshots short-circuits, so these validation tests
+  // exercise the save path without a projection dependency.
+  const snapshotProjection: any = new SnapshotProjectionService({ isEnabled: false, enqueue: jest.fn() } as any);
+
   // Real builder over disabled collaborators — mirrors the production bag shape
   // (A1) rather than a stub that could drift from it.
   const mutationServices: any = new MutationServicesService({ isEnabled: false, enqueue: jest.fn() } as any, {
@@ -49,6 +54,7 @@ function makeFactoryService(overrides: { tournamentStorageService?: any; pgPool?
 
   const svc = new FactoryService(
     tournamentStorageService,
+    snapshotProjection,
     mutationServices,
     assignmentsService,
     auditService,

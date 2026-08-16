@@ -83,9 +83,28 @@ export class TournamentStorageService {
     return this.tournamentStorage.saveTournamentRecord({ tournamentRecord, ownerEpoch });
   }
 
+  /**
+   * `projectionMode` is REQUIRED, not defaulted, and is the seam between the two
+   * ways a tournament reaches storage:
+   *
+   * - `'deltas'`  — the caller came through `executionQueue`, which raised
+   *                 factory notices and already filled a delta buffer it flushes
+   *                 post-commit. This facade must not project anything.
+   * - `'snapshot'`— the caller replaced the record WHOLESALE (`/factory/save`,
+   *                 provider-key save, commit-save, pipeline load). No notices
+   *                 were raised, so the caller owns emitting a snapshot span.
+   *
+   * Required rather than defaulted because both plausible defaults are wrong:
+   * defaulting to `'deltas'` silently loses the projection on every wholesale
+   * save (the bug this exists to prevent), and defaulting to `'snapshot'` makes
+   * every ordinary mutation re-project the entire tournament. A caller that has
+   * not thought about which it is has a bug either way — so make it say.
+   * `mutation-services.guard.spec.ts` asserts every call site passes one.
+   */
   async saveTournamentRecords(params: {
     tournamentRecords?: Record<string, any>;
     tournamentRecord?: any;
+    projectionMode: 'deltas' | 'snapshot';
     ownerEpoch?: number;
     userId?: string;
   }) {

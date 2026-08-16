@@ -18,10 +18,30 @@ export const PROJECTION_OUTBOX_STORAGE = Symbol('PROJECTION_OUTBOX_STORAGE');
  * - `row`  — the projected row for an upsert, or the SET columns for an update
  *            (snake_case columns matching the query-service schema); omitted for deletes.
  * - `topic`— originating factory notice topic, for provenance/debugging.
+ *
+ * SNAPSHOT OPS (`snapshot_begin` / `snapshot_end`) bracket a WHOLESALE replace —
+ * a tournamentRecord pushed in its entirety (`/factory/save`, provider-key save,
+ * commit-save, backend pipeline load) rather than mutated through
+ * `executionQueue`. Such a push raises no factory notices, so there is no diff to
+ * express incrementally, and upserts alone are not sufficient: an entity REMOVED
+ * from the record emits nothing, so its read-model rows would survive forever.
+ *
+ * The consumer must treat `snapshot_begin` … `snapshot_end` as ONE transaction:
+ *
+ *   1. on `snapshot_begin`, open a transaction and
+ *      `DELETE FROM <t> WHERE tournament_id = $tournamentId`
+ *      for every table in `row.tables`;
+ *   2. apply the upserts that follow;
+ *   3. on `snapshot_end` (matching `key.snapshotId`), COMMIT.
+ *
+ * Applying it atomically is what keeps readers from ever observing a
+ * half-emptied tournament. Both markers carry `key.snapshotId`; `snapshot_end`
+ * also carries `row.deltaCount` so a consumer can detect a truncated span rather
+ * than committing a partial snapshot.
  */
 export interface ProjectionDelta {
   tournamentId: string;
-  op: 'upsert' | 'delete' | 'update';
+  op: 'upsert' | 'delete' | 'update' | 'snapshot_begin' | 'snapshot_end';
   table: string;
   key: Record<string, any>;
   row?: Record<string, any>;

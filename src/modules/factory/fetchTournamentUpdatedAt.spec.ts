@@ -1,3 +1,4 @@
+import { SnapshotProjectionService } from './projection/snapshot-projection.service';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { FactoryService } from './factory.service';
 
@@ -15,6 +16,7 @@ function makeService(storageImpl: (params: any) => Promise<any>) {
   } as any);
   const service = new FactoryService(
     tournamentStorageService as any,
+    new SnapshotProjectionService({ isEnabled: false, enqueue: jest.fn() } as any) as any,
     mutationServices,
     assignmentsService as any,
     {} as any,
