@@ -1,6 +1,8 @@
 import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
 import { AssignmentsService } from './assignments.service';
 import { FactoryController } from './factory.controller';
+import { MutationServicesModule } from '../mutation-services/mutation-services.module';
+import { TelemetryModule } from '../telemetry/telemetry.module';
 import { StorageModule } from 'src/storage/storage.module';
 import { AuditModule } from '../audit/audit.module';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -15,7 +17,19 @@ describe('AppService', () => {
 
   beforeAll(async () => {
     app = await Test.createTestingModule({
-      imports: [AuthModule, UsersModule, CacheModule, StorageModule, BroadcastModule, AuditModule],
+      // TelemetryModule + MutationServicesModule imported (not stubbed) so the
+      // test module mirrors the real provider graph — A1. Telemetry is inert
+      // without LOAD_PROFILE_ENABLED.
+      imports: [
+        AuthModule,
+        UsersModule,
+        CacheModule,
+        StorageModule,
+        BroadcastModule,
+        AuditModule,
+        TelemetryModule,
+        MutationServicesModule,
+      ],
       providers: [FactoryService, AssignmentsService, ConfigService],
       controllers: [FactoryController],
     }).compile();

@@ -1,0 +1,38 @@
+-- 042-add-tournament-owner-epoch.sql
+-- Fencing token for tournament-affinity sharding.
+--
+-- WHY NOW, while CFS still runs a single writer: `withTournamentLock` is a
+-- process-local Map (src/services/tournamentMutex.ts), so the moment a second
+-- CFS process writes the same tournament, two whole-document read-modify-write
+-- cycles interleave and the later save silently discards the earlier one — the
+-- same lost-update class as the H7 draw-destruction incident, with no exception
+-- raised anywhere. A fencing token makes that physically impossible, and it can
+-- only be introduced cheaply BEFORE concurrent writers exist: adding it later
+-- means a deploy window where some processes honour the fence and some do not,
+-- which is precisely the corruption it exists to prevent.
+--
+-- SEMANTICS: `owner_epoch` is bumped once per OWNERSHIP CHANGE, not per write —
+-- it is not an optimistic-concurrency version column. A writer carries the epoch
+-- it was granted and every save asserts `tournaments.owner_epoch <= $granted`.
+-- A writer deposed by a handoff carries a lower epoch than the row, its
+-- predicate evaluates false, and it affects zero rows. Correctness therefore
+-- does not depend on the deposed process being well-behaved, reachable, or even
+-- aware it was deposed — which matters because no lease timeout can bound a GC
+-- pause, a VM migration, or CPU steal.
+--
+-- BEHAVIOUR TODAY: every writer is granted the default epoch 0 and every row
+-- defaults to 0, so the predicate is `0 <= 0` and always passes. There is
+-- deliberately NO bypass branch for "no epoch supplied" (A3 — an absent field
+-- must not be a permissive default): a process that has not been upgraded to
+-- carry a real epoch writes 0, and is therefore fenced automatically the moment
+-- any real epoch is granted to anyone.
+--
+-- ADD COLUMN with a non-volatile DEFAULT is metadata-only on Postgres 11+, so
+-- this does not rewrite the tournaments table. NOTE that mentat and nest share
+-- one prod database (PG_DATABASE=courthive) — running migrations on mentat
+-- applies them to PROD.
+--
+-- Design: planning/CFS_TOURNAMENT_AFFINITY_SHARDING.md ("Fencing — the part
+-- that cannot be skipped").
+
+ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS owner_epoch BIGINT NOT NULL DEFAULT 0;

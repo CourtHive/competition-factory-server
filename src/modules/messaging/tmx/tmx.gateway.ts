@@ -3,6 +3,7 @@ import { TournamentBroadcastService } from '../broadcast/tournament-broadcast.se
 import { canViewTournament, canMutateTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { buildUserContext } from 'src/modules/account/auth/helpers/buildUserContext';
+import { MutationServicesService } from 'src/modules/mutation-services/mutation-services.service';
 import { AssignmentsService } from 'src/modules/factory/assignments.service';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
@@ -25,8 +26,6 @@ import {
   CHAT_STORAGE,
   type IChatStorage,
   type ChatMessageRecord,
-  PROJECTION_OUTBOX_STORAGE,
-  type IProjectionOutboxStorage,
 } from 'src/storage/interfaces';
 import { UsersService } from 'src/modules/users/users.service';
 import { resolveCorsOrigins } from 'src/common/cors';
@@ -110,8 +109,8 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     @Inject(CHAT_STORAGE) private readonly chatStorage: IChatStorage,
-    @Inject(PROJECTION_OUTBOX_STORAGE) private readonly projectionOutbox: IProjectionOutboxStorage,
     private readonly tournamentStorageService: TournamentStorageService,
+    private readonly mutationServices: MutationServicesService,
     private readonly broadcastService: TournamentBroadcastService,
     private readonly assignmentsService: AssignmentsService,
     private readonly usersService: UsersService,
@@ -302,7 +301,11 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
         const result = await tmxMessages[type]({
           client,
           payload,
-          services: { cacheManager: this.cacheManager, projectionOutbox: this.projectionOutbox },
+          // Assembled by MutationServicesService, never as a literal here — a
+          // per-callsite bag is what let the REST path silently lose the
+          // projection outbox. This path contributes only its request-scoped
+          // half (no cache-key side-table on the socket path).
+          services: this.mutationServices.build({ cacheManager: this.cacheManager }),
           storage: this.tournamentStorageService,
           auditService: this.auditService,
         });

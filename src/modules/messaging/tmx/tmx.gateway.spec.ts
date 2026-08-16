@@ -1,6 +1,7 @@
-import { Logger } from '@nestjs/common';
+import { MutationServicesService } from 'src/modules/mutation-services/mutation-services.service';
 import { TmxGateway, TOURNAMENT_ROOM_PREFIX } from './tmx.gateway';
 import { tmxMessages } from './tmxMessages';
+import { Logger } from '@nestjs/common';
 
 /**
  * Focused unit tests for TmxGateway.joinTournament and getActiveRoomPresence.
@@ -87,8 +88,14 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     userStorage,
     providerStorage,
     chatStorage,
-    { isEnabled: false, enqueue: jest.fn() } as any,
     tournamentStorageService,
+    // Real builder over disabled collaborators — mirrors the production shape
+    // (A1) so the gateway is exercised against the same bag it will receive in
+    // prod, rather than against a stub that could drift from it.
+    new MutationServicesService({ isEnabled: false, enqueue: jest.fn() } as any, {
+      record: jest.fn(),
+      isEnabled: false,
+    } as any),
     broadcastService,
     assignmentsService,
     usersService,

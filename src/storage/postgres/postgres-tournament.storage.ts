@@ -1,14 +1,26 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
-
+import { FENCED_BY_NEWER_OWNER, SUCCESS } from 'src/common/constants/app';
 import { ITournamentStorage } from '../interfaces/tournament-storage.interface';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { factoryConstants } from 'tods-competition-factory';
 import { PG_POOL } from './postgres.config';
-import { SUCCESS } from 'src/common/constants/app';
+import { Pool } from 'pg';
 
 @Injectable()
 export class PostgresTournamentStorage implements ITournamentStorage {
+  private readonly logger = new Logger(PostgresTournamentStorage.name);
+
+  // Per-tournament fence-rejection counter, driving the A2 throttled-log
+  // milestones (1, 10, 100, 1000, then every 50th) and the recovery WARN.
+  //
+  // A4 — resets on restart, DELIBERATELY. Unlike the audit failure counters
+  // (where a reset masks a chronic failure as a first failure), re-emitting the
+  // loud line after a restart is the behaviour we want here: a fence rejection
+  // means this process was deposed as owner while holding a record, which is
+  // never routine and always warrants investigation. The map is empty in normal
+  // operation — entries are created only by a rejection and dropped on recovery.
+  private readonly fenceRejections = new Map<string, number>();
+
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   async findTournamentRecord({ tournamentId }: { tournamentId: string }) {
@@ -76,7 +88,19 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     };
   }
 
-  async saveTournamentRecord({ tournamentRecord }: { tournamentRecord: any }) {
+  /**
+   * Persist one tournament record, guarded by the `owner_epoch` fencing token.
+   *
+   * The `WHERE tournaments.owner_epoch <= EXCLUDED.owner_epoch` clause on the
+   * DO UPDATE branch is the entire safety mechanism: a writer deposed by an
+   * ownership handoff carries a lower epoch than the row and affects zero rows,
+   * atomically, without needing to know it was deposed. `rowCount === 0` on a
+   * conflict therefore means FENCED, not "nothing to do".
+   *
+   * `ownerEpoch` defaults to 0 rather than being optional-and-bypassed (A3):
+   * there is no code path in which a missing epoch permits an unguarded write.
+   */
+  async saveTournamentRecord({ tournamentRecord, ownerEpoch = 0 }: { tournamentRecord: any; ownerEpoch?: number }) {
     const key = tournamentRecord?.tournamentId;
     if (!key) return { error: 'Invalid tournamentRecord' };
 
@@ -85,31 +109,80 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     const startDate = tournamentRecord.startDate ?? null;
     const endDate = tournamentRecord.endDate ?? null;
 
-    await this.pool.query(
-      `INSERT INTO tournaments (tournament_id, provider_id, tournament_name, start_date, end_date, data, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+    // Serialised once here and its length returned to the caller. The byte size
+    // of the document is the central measurement for the load profile (Stage 0)
+    // — re-stringifying to measure it would double the exact cost being
+    // measured, which is self-defeating for a performance instrument.
+    const serialized = JSON.stringify(tournamentRecord);
+
+    const result = await this.pool.query(
+      `INSERT INTO tournaments (tournament_id, provider_id, tournament_name, start_date, end_date, data, owner_epoch, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
        ON CONFLICT (tournament_id) DO UPDATE SET
          provider_id = EXCLUDED.provider_id,
          tournament_name = EXCLUDED.tournament_name,
          start_date = EXCLUDED.start_date,
          end_date = EXCLUDED.end_date,
          data = EXCLUDED.data,
-         updated_at = NOW()`,
-      [key, providerId, tournamentName, startDate, endDate, JSON.stringify(tournamentRecord)],
+         owner_epoch = EXCLUDED.owner_epoch,
+         updated_at = NOW()
+       WHERE tournaments.owner_epoch <= EXCLUDED.owner_epoch`,
+      [key, providerId, tournamentName, startDate, endDate, serialized, ownerEpoch],
     );
 
-    return { ...SUCCESS };
+    if (!result.rowCount) return this.recordFenceRejection(key, ownerEpoch);
+
+    this.recordFenceRecovery(key);
+    return { ...SUCCESS, bytes: serialized.length };
   }
 
-  async saveTournamentRecords(params: { tournamentRecords?: Record<string, any>; tournamentRecord?: any }) {
+  /**
+   * A2 — a fence rejection must never be a silent no-op. Counts per tournament,
+   * emits ERROR at milestones and DEBUG between them, and returns the distinct
+   * FENCED error so callers can tell "you were deposed" (discard and
+   * re-resolve) from "the write failed" (retryable).
+   */
+  private recordFenceRejection(tournamentId: string, ownerEpoch: number) {
+    const count = (this.fenceRejections.get(tournamentId) ?? 0) + 1;
+    this.fenceRejections.set(tournamentId, count);
+
+    const isMilestone = count === 1 || count === 10 || count === 100 || count === 1000 || count % 50 === 0;
+    const message =
+      `FENCED (${count}x): save for tournament ${tournamentId} rejected — this process holds epoch ` +
+      `${ownerEpoch} but the row has advanced beyond it. The in-hand record is stale; it must be ` +
+      `discarded, not retried.`;
+    if (isMilestone) this.logger.error(message);
+    else this.logger.debug(message);
+
+    return { error: FENCED_BY_NEWER_OWNER, fenced: true, tournamentId };
+  }
+
+  /** A2 — surface the first success after one or more fence rejections. */
+  private recordFenceRecovery(tournamentId: string): void {
+    const previous = this.fenceRejections.get(tournamentId);
+    if (!previous) return;
+    this.fenceRejections.delete(tournamentId);
+    this.logger.warn(`Fenced writes for tournament ${tournamentId} recovered after ${previous} rejection(s)`);
+  }
+
+  async saveTournamentRecords(params: {
+    tournamentRecords?: Record<string, any>;
+    tournamentRecord?: any;
+    ownerEpoch?: number;
+  }) {
     const tournamentRecords = getTournamentRecords(params);
+    const bytes: Record<string, number> = {};
 
     for (const tournamentId of Object.keys(tournamentRecords)) {
-      const result: any = await this.saveTournamentRecord({ tournamentRecord: tournamentRecords[tournamentId] });
+      const result: any = await this.saveTournamentRecord({
+        tournamentRecord: tournamentRecords[tournamentId],
+        ownerEpoch: params?.ownerEpoch,
+      });
       if (result.error) return result;
+      bytes[tournamentId] = result.bytes ?? 0;
     }
 
-    return { ...SUCCESS };
+    return { ...SUCCESS, bytes };
   }
 
   async removeTournamentRecords(params: { tournamentIds?: string[]; tournamentId?: string }) {

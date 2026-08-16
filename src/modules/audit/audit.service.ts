@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
 
+import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { executionQueue } from '../factory/functions/private/executionQueue';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import {
@@ -53,6 +54,11 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly tournamentStorageService?: TournamentStorageService,
     @Optional() @Inject(TOURNAMENT_PROVISIONER_STORAGE)
     private readonly tournamentProvisionerStorage?: ITournamentProvisionerStorage,
+    // Optional to match the constructor's existing style (several specs build
+    // AuditService with storage alone). The restore path below degrades to an
+    // empty bag when it is absent, which is exactly the prior behaviour — but
+    // in the wired application it is always present.
+    @Optional() private readonly mutationServices?: MutationServicesService,
   ) {}
 
   async onModuleInit() {
@@ -536,7 +542,12 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
         userEmail,
         source: 'audit-restore',
       },
-      undefined,
+      // A draw restore is a real mutation and must reach the read model like
+      // any other — this passed `undefined` before, so a recovered draw was
+      // written to the record but never projected. That is the worst place to
+      // have the gap: the read model would still be showing the destroyed draw
+      // after a successful recovery.
+      this.mutationServices?.build() ?? {},
       this.tournamentStorageService,
       this,
       this.tournamentProvisionerStorage,
