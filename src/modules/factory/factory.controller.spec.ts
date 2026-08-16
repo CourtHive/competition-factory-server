@@ -435,14 +435,16 @@ describe('FactoryController', () => {
       expect(mockCache.del.mock.calls.map((c: any[]) => c[0])).toContain('ged|t1|e2');
     });
 
-    it('warmCache re-seeds the evicted event payload through the same cacheFx path', async () => {
+    it('spares a WARMED key from the sweep, so the rebuilt payload survives', async () => {
       await populateCacheForTid(mockController, 't1');
       jest.clearAllMocks();
 
+      // executionQueue did the warming (both transports share it); it reports what it re-seeded.
       (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
         success: true,
         publicNotices: [],
         evictedEventKeys: ['ged|t1|e1'],
+        warmedEventKeys: ['ged|t1|e1'],
       });
       const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
       await mockController.executionQueue(
@@ -450,13 +452,11 @@ describe('FactoryController', () => {
         mockReq,
       );
 
-      // Rebuilt via the service, and stored under the SAME key with the full result shape.
-      expect(mockService.getEventData).toHaveBeenCalledWith({ tournamentId: 't1', eventId: 'e1' });
-      const setKeys = mockCache.set.mock.calls.map((c: any[]) => c[0]);
-      expect(setKeys).toContain('ged|t1|e1');
+      // Without this the sweep would delete exactly the payload the caller paid to rebuild.
+      expect(mockCache.del.mock.calls.map((c: any[]) => c[0])).not.toContain('ged|t1|e1');
     });
 
-    it('does NOT warm when warmCache is absent — building the payload is the cost we avoid', async () => {
+    it('still evicts the event key when nothing was warmed', async () => {
       await populateCacheForTid(mockController, 't1');
       jest.clearAllMocks();
 
@@ -464,40 +464,20 @@ describe('FactoryController', () => {
         success: true,
         publicNotices: [],
         evictedEventKeys: ['ged|t1|e1'],
+        warmedEventKeys: [],
       });
       const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
       await mockController.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, mockReq);
 
-      expect(mockService.getEventData).not.toHaveBeenCalled();
-      expect(mockCache.set.mock.calls.map((c: any[]) => c[0])).not.toContain('ged|t1|e1');
+      expect(mockCache.del.mock.calls.map((c: any[]) => c[0])).toContain('ged|t1|e1');
     });
 
-    it('warms AFTER invalidation, so the seeded key is not swept', async () => {
-      await populateCacheForTid(mockController, 't1');
-      jest.clearAllMocks();
-
-      const order: string[] = [];
-      (mockCache.del as jest.Mock).mockImplementation((k: string) => {
-        if (k === 'ged|t1|e1') order.push('del');
-        return Promise.resolve();
-      });
-      (mockCache.set as jest.Mock).mockImplementation((k: string) => {
-        if (k === 'ged|t1|e1') order.push('set');
-      });
-
-      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
-        success: true,
-        publicNotices: [],
-        evictedEventKeys: ['ged|t1|e1'],
-      });
+    it('passes a trackCacheKey callback so warmed keys enter the side-table', async () => {
       const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
-      await mockController.executionQueue(
-        { tournamentIds: ['t1'], methods: [], warmCache: true } as any,
-        mockReq,
-      );
+      await mockController.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, mockReq);
 
-      // The seed must be the LAST thing to touch the key, or it feeds the sweep.
-      expect(order[order.length - 1]).toBe('set');
+      const services = (mockService.executionQueue as jest.Mock).mock.calls[0][1];
+      expect(typeof services.trackCacheKey).toBe('function');
     });
 
     it('deletes tracked keys on scoreMatchUp success', async () => {
