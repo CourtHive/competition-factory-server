@@ -1,6 +1,7 @@
 import { tournamentEngineAsync, factoryConstants } from 'tods-competition-factory';
 import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
 import { runWithRequestContext } from 'src/modules/factory/engines/requestContext';
+import { warmEventDataCache } from './warmEventDataCache';
 import { withTournamentLock } from 'src/services/tournamentMutex';
 import { getMutationEngine } from '../../engines/getMutationEngine';
 import { computeEffectiveConfig } from '@courthive/provider-config';
@@ -189,7 +190,19 @@ export async function executionQueue(
     );
 
     Logger.debug(`[executionQueue] publicNotices: ${publicNotices.length}`);
-    return { ...mutationResult, publicNotices, evictedEventKeys: [...evictedEventKeys] };
+    // Opt-in cache warming. Lives here rather than in the controller so BOTH transports get it —
+    // TMX publishes over WebSocket (tmxMessages -> here) and never touches factory.controller.
+    // Runs after the mutation has been saved, so the rebuilt payload reflects the write.
+    const warmedEventKeys = payload?.warmCache
+      ? await warmEventDataCache({
+          evictedEventKeys: [...evictedEventKeys],
+          cacheManager: services?.cacheManager,
+          trackKey: services?.trackCacheKey,
+          storage,
+        })
+      : [];
+
+    return { ...mutationResult, publicNotices, evictedEventKeys: [...evictedEventKeys], warmedEventKeys };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     Logger.error(`executionQueue exception for tournaments [${tournamentIds.join(', ')}]: ${message}`);

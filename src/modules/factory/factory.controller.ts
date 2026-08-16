@@ -106,7 +106,11 @@ export class FactoryController {
    * (gti|<tid>|<flags>) and per-event keys (ged|<tid>|<eid>) that the
    * previous fixed-prefix list missed.
    */
-  private invalidateTournamentCache(tournamentIds: readonly string[], evictedEventKeys?: readonly string[]): void {
+  private invalidateTournamentCache(
+    tournamentIds: readonly string[],
+    evictedEventKeys?: readonly string[],
+    warmedEventKeys?: readonly string[],
+  ): void {
     // Per-event `ged|<tid>|<eid>` payloads are the bulk of this cache — measured at 3.26 MB across a
     // Grand-Slam-shaped tournament's five events, four times the tournamentRecord they derive from
     // (Mentat/tools/slam-scale-bench). Sweeping them all on every write meant one score discarded the
@@ -116,15 +120,24 @@ export class FactoryController {
     // FAIL-SAFE: narrow ONLY when the mutation actually reported targeted evictions. An empty list
     // means no notice carried an eventId, so we cannot know which events changed and fall back to the
     // original tournament-wide sweep. "Invalidate less" must never silently become "serve stale".
-    const narrow = Boolean(evictedEventKeys?.length);
+    // Set, not Array.includes — membership check inside a per-key loop (coding-standards: Set + .has()).
+    const evicted = new Set(evictedEventKeys ?? []);
+    // Keys re-seeded by `warmCache` must survive: a warmed key is by definition also an evicted one,
+    // so without this the sweep would delete exactly the payload the caller just paid to rebuild.
+    const warmed = new Set(warmedEventKeys ?? []);
+    const narrow = evicted.size > 0;
     for (const tid of tournamentIds) {
       if (!tid || typeof tid !== 'string') continue;
       const keys = this.cacheKeysByTournament.get(tid);
       if (!keys) continue;
       const retained = new Set<string>();
       for (const key of keys) {
+        if (warmed.has(key)) {
+          retained.add(key);
+          continue;
+        }
         // A per-event key is spared only when the handlers already evicted the ones that changed.
-        if (narrow && key.startsWith('ged|') && !evictedEventKeys!.includes(key)) {
+        if (narrow && key.startsWith('ged|') && !evicted.has(key)) {
           retained.add(key);
           continue;
         }
@@ -152,33 +165,6 @@ export class FactoryController {
   // schedule state that are not restricted to publish state. Only the
   // standard tournamentInfo reads (which respect usePublishState) are
   // intended for unauthenticated access.
-  /**
-   * Re-seed the per-event payloads a mutation just evicted, so the first public reader after a
-   * publish does not pay a cache miss. Opt-in via `warmCache` — building these payloads is exactly
-   * the cost the default path exists to avoid, so it happens only when a reader is imminent.
-   *
-   * Seeds through `cacheFx`, never a hand-built object. `cacheFx` stores the whole
-   * `{ success, eventData, participants }` result under the same TTL and calls `trackTournamentKey`,
-   * so the seeded and naturally-cached shapes cannot drift. That drift is a real bug, not a
-   * hypothetical: the invalidate-not-seed comment in `getMutationEngine.ts` records that seeding the
-   * inner `eventData` alone serves a participants-less shape and blanks every bracket side to TBD for
-   * the full TTL.
-   *
-   * Awaited rather than fire-and-forget: the caller opted in because a reader is imminent, so
-   * returning before the cache is populated would race the very reader this exists for.
-   *
-   * MUST run after `invalidateTournamentCache`, or it would seed keys the sweep then deletes.
-   */
-  private async warmEventDataCache(evictedEventKeys: readonly string[]): Promise<void> {
-    for (const key of evictedEventKeys) {
-      // `ged|<tournamentId>|<eventId>` — rebuild the params from the key so the seeded entry is
-      // keyed identically to what the public `eventdata` route would compute.
-      const [prefix, tournamentId, eventId] = key.split('|');
-      if (prefix !== 'ged' || !tournamentId || !eventId) continue;
-      await this.cacheFx(key, (params) => this.factoryService.getEventData(params), { tournamentId, eventId });
-    }
-  }
-
   @Get('assistant-context/:tid')
   async getAssistantContext(@Param('tid') tid) {
     const key = `gac|${tid}`;
@@ -312,16 +298,16 @@ export class FactoryController {
     const payload: any = { ...eqd, provisioner, auditSource: req.auditSource };
     if (verifiedUser?.email) payload.userEmail = verifiedUser.email;
     if (verifiedUser?.userId || verifiedUser?.sub) payload.userId = verifiedUser.userId ?? verifiedUser.sub;
-    const result = await this.factoryService.executionQueue(payload, { cacheManager: this.cacheManager });
+    const result = await this.factoryService.executionQueue(payload, {
+      cacheManager: this.cacheManager,
+      // Lets a warmed key enter the side-table. The WS path has no side-table and passes nothing.
+      trackCacheKey: (key: string) => this.trackTournamentKey(key),
+    });
     if (result?.success) {
       const { publicNotices } = result;
       this.broadcastService.broadcastMutation(eqd);
       this.broadcastService.broadcastPublicNotices(eqd, publicNotices);
-      this.invalidateTournamentCache(eqd.tournamentIds ?? [], result?.evictedEventKeys);
-      // Strictly after invalidation — seeding first would only feed the sweep.
-      if (eqd.warmCache && result?.evictedEventKeys?.length) {
-        await this.warmEventDataCache(result.evictedEventKeys);
-      }
+      this.invalidateTournamentCache(eqd.tournamentIds ?? [], result?.evictedEventKeys, result?.warmedEventKeys);
     }
     return result;
   }
