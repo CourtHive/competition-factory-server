@@ -1,4 +1,14 @@
-import { sanctioningEngine } from 'tods-competition-factory';
+import { sanctioningEngine, tournamentEngine } from 'tods-competition-factory';
+
+/**
+ * The existing-participant stamp rides on factory `addParticipantOtherId`, which is merged
+ * (#4620) but NOT yet published. CI installs the published package, so these cases SKIP
+ * there and activate automatically on the pin bump — the same probe the service itself
+ * uses, deliberately duplicated here rather than imported so a divergence between guard
+ * and behaviour shows up as a failure rather than a silent skip.
+ */
+const stampsExisting = typeof (tournamentEngine as any)?.addParticipantOtherId === 'function';
+const itWithStamp = stampsExisting ? it : it.skip;
 import {
   foreignSanctionedRegistration,
   ITA_PARTICIPANT_OTHER_ID,
@@ -183,6 +193,59 @@ describe('RegistrationsService', () => {
         function addedParticipant() {
           return mockExecutionQueue.mock.calls[0][0].methods[0].params.participants[0];
         }
+
+        // The other half of F2b: a person ALREADY in the record still has to receive the
+        // foreign body's ids, or someone accepted earlier by a self-registration stays
+        // permanently unaddressable back to the body that later registered them. This is an
+        // UPDATE, so it rides on addParticipantOtherId rather than addParticipants.
+        itWithStamp('stamps an existing participant via addParticipantOtherId, not addParticipants', async () => {
+          tournamentStorageService.findTournamentRecord.mockResolvedValue({
+            tournamentRecord: {
+              ...baseTournament,
+              participants: [
+                {
+                  participantId: 'already-in-record',
+                  participantType: 'INDIVIDUAL',
+                  person: { personOtherIds: [{ organisationId: 'CANONICAL_PERSON', personId: 'p-canon' }] },
+                },
+              ],
+            },
+          });
+
+          await acceptWith(
+            foreignSanctionedRegistration({}, { participantOtherIds: [ITA_PARTICIPANT_OTHER_ID] }),
+          );
+
+          const methods = mockExecutionQueue.mock.calls[0][0].methods;
+          expect(methods.some((m: any) => m.method === 'addParticipants')).toBe(false);
+          const stamp = methods.find((m: any) => m.method === 'addParticipantOtherId');
+          expect(stamp).toBeDefined();
+          expect(stamp.params).toMatchObject({
+            participantId: 'already-in-record',
+            organisationId: 'ITA',
+            otherParticipantId: ITA_PARTICIPANT_OTHER_ID.participantId,
+          });
+        });
+
+        itWithStamp('queues no stamp for an existing participant when no foreign ids were sent', async () => {
+          tournamentStorageService.findTournamentRecord.mockResolvedValue({
+            tournamentRecord: {
+              ...baseTournament,
+              participants: [
+                {
+                  participantId: 'already-in-record',
+                  participantType: 'INDIVIDUAL',
+                  person: { personOtherIds: [{ organisationId: 'CANONICAL_PERSON', personId: 'p-canon' }] },
+                },
+              ],
+            },
+          });
+
+          await acceptWith(foreignSanctionedRegistration());
+
+          const methods = mockExecutionQueue.mock.calls[0][0].methods;
+          expect(methods.some((m: any) => m.method === 'addParticipantOtherId')).toBe(false);
+        });
 
         it('stamps the foreign id onto the participant it creates', async () => {
           await acceptWith(

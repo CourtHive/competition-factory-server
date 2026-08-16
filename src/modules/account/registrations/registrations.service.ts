@@ -14,7 +14,7 @@
  * + reject/waitlist go TMX ↔ declarations directly.
  */
 import { BadRequestException, ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { sanctioningEngine, tools } from 'tods-competition-factory';
+import { sanctioningEngine, tools, tournamentEngine } from 'tods-competition-factory';
 
 import { type RegistrationEntry } from 'src/storage/interfaces';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
@@ -65,6 +65,9 @@ class AcceptancePlan {
   readonly individualByPerson = new Map<string, string>();
   readonly pairByInvite = new Map<string, string>();
   readonly newParticipants: any[] = [];
+  /** Foreign ids to stamp onto participants that ALREADY exist in the record — an update,
+   *  not a create, so it cannot ride on `addParticipants`. */
+  readonly participantOtherIdStamps: { participantId: string; organisationId: string; otherParticipantId: string; uniqueOrganisationName?: string }[] = [];
   readonly stampRegistrations = new Set<string>();
   readonly handled = new Set<string>();
   private readonly pairByMembers = new Map<string, string>();
@@ -112,6 +115,35 @@ class AcceptancePlan {
     }
     this.pairByInvite.set(inviteId, participantId);
     return participantId;
+  }
+}
+
+/**
+ * Does the LINKED factory expose `addParticipantOtherId`?
+ *
+ * It ships with factory #4620 — merged, not yet released — and CI installs the PUBLISHED
+ * package, so the capability is probed rather than assumed. Queueing the method against a
+ * factory that lacks it would fail the whole executionQueue, taking the accept down with
+ * it; skipping is the safe degradation, because the ids still land on every participant
+ * the accept CREATES (that path rides on `addParticipants` and needs no new method).
+ *
+ * Detected from the engine surface rather than a version string, so it self-activates on
+ * the pin bump with nothing to remember to flip — same pattern as the read-model
+ * conformance guards.
+ */
+const factoryStampsExistingParticipants = typeof (tournamentEngine as any)?.addParticipantOtherId === 'function';
+
+/** Queue a foreign-id stamp per organisation for a participant already in the record. */
+function queueForeignIdStamps(participantId: string, registration: RegistrationSnapshot | undefined, plan: AcceptancePlan): void {
+  if (!factoryStampsExistingParticipants) return;
+  for (const otherId of registration?.payload?.participantOtherIds ?? []) {
+    if (!otherId?.organisationId || !otherId?.participantId) continue;
+    plan.participantOtherIdStamps.push({
+      participantId,
+      organisationId: otherId.organisationId,
+      otherParticipantId: otherId.participantId,
+      ...(otherId.uniqueOrganisationName ? { uniqueOrganisationName: otherId.uniqueOrganisationName } : {}),
+    });
   }
 }
 
@@ -317,7 +349,13 @@ export class RegistrationsService {
     plan: AcceptancePlan,
   ): Promise<string | null> {
     const cached = plan.individualByPerson.get(personId);
-    if (cached) return cached;
+    if (cached) {
+      // Already in the record. A foreign sanctioning body's ids still have to reach this
+      // participant — otherwise a person accepted earlier by a self-registration would be
+      // permanently unaddressable back to the body that later registered them.
+      queueForeignIdStamps(cached, registration, plan);
+      return cached;
+    }
 
     const applicant = registration?.payload?.applicant;
     const canonical = await this.personsClient.getById(personId).catch(() => null);
@@ -365,6 +403,9 @@ export class RegistrationsService {
     }
     for (const { eventId, participantIds } of plan.entriesByEvent()) {
       methods.push({ method: 'addEventEntries', params: { eventId, participantIds, entryStatus: 'DIRECT_ACCEPTANCE' } });
+    }
+    for (const stamp of plan.participantOtherIdStamps) {
+      methods.push({ method: 'addParticipantOtherId', params: { tournamentId: ctx.tournamentId, ...stamp } });
     }
     const result: any = await runExecutionQueue(
       {
