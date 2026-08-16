@@ -1,4 +1,30 @@
 /**
+ * ⚠️ WHY `maxWorkers: 1` IS SET IN package.json — do not remove it to speed the suite up.
+ *
+ * Every spec shares ONE Postgres. Specs that boot the real AppModule write through to it,
+ * and cleanup is per-spec plus the sweep below. With jest's default worker pool that is a
+ * data race: one worker's cleanup deletes rows another worker's spec is mid-assertion on.
+ *
+ * Measured 2026-08-16, not assumed:
+ *
+ *   parallel (default workers):  3 of 6 full runs FAILED — 50%
+ *   serial   (--runInBand):      3 of 3 full runs passed
+ *
+ * The failures rotate across spec families — Provisioner, Audit Trail E2E, FactoryController
+ * cache invalidation — and each one passes in isolation, which is what made it read as
+ * random. The symptom is displaced from the cause: a spec fails on "rows that should exist
+ * do not", because a *different* file's teardown removed them.
+ *
+ * Cost is ~30s (13s → 45s). A split parallel-unit / serial-db strategy was measured at 39s
+ * and rejected: it needs a hand-curated list of which specs touch the DB, and one wrong
+ * entry silently restores the 50% failure rate.
+ *
+ * The real fix that buys the parallelism back is per-worker database isolation
+ * (`JEST_WORKER_ID`-suffixed databases, each migrated). Tracked in Mentat TASKS.md; until
+ * then, correctness beats 30 seconds.
+ *
+ * ---
+ *
  * Jest globalTeardown — wipes well-known test-pattern rows from Postgres
  * after the full test suite finishes.
  *
