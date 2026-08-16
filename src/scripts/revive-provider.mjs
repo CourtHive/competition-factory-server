@@ -18,6 +18,13 @@
  * only per the Plan A design. Revive should require an operator who
  * has SSH access to the box anyway.
  *
+ * Pre-migration-041 archives also contain official_records.json and
+ * sanctioning_records.json. Those are deliberately NOT restored: the
+ * tables were dropped in 041 because officiating and sanctioning are
+ * courthive-ams's domain. Every such payload on record is empty (`[]`),
+ * so nothing is lost. Manifest verification still covers the files —
+ * only the INSERT is gone.
+ *
  * Exit codes:
  *   0  success
  *   1  configuration / argument error
@@ -194,8 +201,6 @@ async function main() {
     user_providers: await readJson(archivePath, 'user_providers.json'),
     provisioner_providers: await readJson(archivePath, 'provisioner_providers.json'),
     tournament_assignments: await readJson(archivePath, 'tournament_assignments.json'),
-    official_records: await readJson(archivePath, 'official_records.json'),
-    sanctioning_records: await readJson(archivePath, 'sanctioning_records.json'),
     tournament_provisioner: await readJson(archivePath, 'tournament_provisioner.json'),
     pending_saves: await readJson(archivePath, 'pending_saves.json'),
     provider_topologies: await readJson(archivePath, 'provider_topologies.json'),
@@ -219,8 +224,6 @@ async function main() {
     restored.user_providers = await insertRows(client, 'user_providers', data.user_providers);
     restored.provisioner_providers = await insertRows(client, 'provisioner_providers', data.provisioner_providers);
     restored.tournament_assignments = await insertRows(client, 'tournament_assignments', data.tournament_assignments);
-    restored.official_records = await insertRows(client, 'official_records', data.official_records);
-    restored.sanctioning_records = await insertRows(client, 'sanctioning_records', data.sanctioning_records);
     restored.tournament_provisioner = await insertRows(client, 'tournament_provisioner', data.tournament_provisioner);
     restored.pending_saves = await insertRows(client, 'pending_saves', data.pending_saves);
     restored.provider_topologies = await insertRows(client, 'provider_topologies', data.provider_topologies);

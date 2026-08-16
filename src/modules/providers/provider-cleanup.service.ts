@@ -12,8 +12,6 @@
  *     user_providers           (provider_id)
  *     provisioner_providers    (provider_id)
  *     tournament_assignments   (provider_id)
- *     official_records         (provider_id)
- *     sanctioning_records      (applicant_provider_id)
  *     tournament_provisioner   (provider_id)
  *     pending_saves            (provider_id)
  *     calendars                (provider_abbr — KEYED BY ABBR, not id!)
@@ -42,8 +40,6 @@ export interface CleanupCounts {
   userAssociations: number;
   provisionerAssociations: number;
   tournamentAssignments: number;
-  officialRecords: number;
-  sanctioningRecords: number;
   tournamentProvisioner: number;
   pendingSaves: number;
   calendars: number;
@@ -77,8 +73,6 @@ export class ProviderCleanupService {
         (SELECT COUNT(*) FROM user_providers WHERE provider_id = $1)            AS user_associations,
         (SELECT COUNT(*) FROM provisioner_providers WHERE provider_id = $1)     AS provisioner_associations,
         (SELECT COUNT(*) FROM tournament_assignments WHERE provider_id = $1)    AS tournament_assignments,
-        (SELECT COUNT(*) FROM official_records WHERE provider_id = $1)          AS official_records,
-        (SELECT COUNT(*) FROM sanctioning_records WHERE applicant_provider_id = $1) AS sanctioning_records,
         (SELECT COUNT(*) FROM tournament_provisioner WHERE provider_id = $1)    AS tournament_provisioner,
         (SELECT COUNT(*) FROM pending_saves WHERE provider_id = $1)             AS pending_saves,
         (SELECT COUNT(*) FROM calendars WHERE provider_abbr = $2)               AS calendars,
@@ -94,8 +88,6 @@ export class ProviderCleanupService {
       userAssociations: Number(row.user_associations ?? 0),
       provisionerAssociations: Number(row.provisioner_associations ?? 0),
       tournamentAssignments: Number(row.tournament_assignments ?? 0),
-      officialRecords: Number(row.official_records ?? 0),
-      sanctioningRecords: Number(row.sanctioning_records ?? 0),
       tournamentProvisioner: Number(row.tournament_provisioner ?? 0),
       pendingSaves: Number(row.pending_saves ?? 0),
       calendars: Number(row.calendars ?? 0),
@@ -123,8 +115,6 @@ export class ProviderCleanupService {
       const userAssoc          = await client.query('DELETE FROM user_providers WHERE provider_id = $1', [providerId]);
       const provisionerAssoc   = await client.query('DELETE FROM provisioner_providers WHERE provider_id = $1', [providerId]);
       const tournamentAssign   = await client.query('DELETE FROM tournament_assignments WHERE provider_id = $1', [providerId]);
-      const officialRec        = await client.query('DELETE FROM official_records WHERE provider_id = $1', [providerId]);
-      const sanctioningRec     = await client.query('DELETE FROM sanctioning_records WHERE applicant_provider_id = $1', [providerId]);
       const tournamentProv     = await client.query('DELETE FROM tournament_provisioner WHERE provider_id = $1', [providerId]);
       const pendingSaves       = await client.query('DELETE FROM pending_saves WHERE provider_id = $1', [providerId]);
       const calendars          = await client.query('DELETE FROM calendars WHERE provider_abbr = $1', [providerAbbr]);
@@ -158,8 +148,6 @@ export class ProviderCleanupService {
         userAssociations: userAssoc.rowCount ?? 0,
         provisionerAssociations: provisionerAssoc.rowCount ?? 0,
         tournamentAssignments: tournamentAssign.rowCount ?? 0,
-        officialRecords: officialRec.rowCount ?? 0,
-        sanctioningRecords: sanctioningRec.rowCount ?? 0,
         tournamentProvisioner: tournamentProv.rowCount ?? 0,
         pendingSaves: pendingSaves.rowCount ?? 0,
         calendars: calendars.rowCount ?? 0,

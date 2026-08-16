@@ -111,7 +111,6 @@ export class ProviderArchiveService {
       { rel: 'user_providers.json',        sql: 'SELECT * FROM user_providers WHERE provider_id = $1' },
       { rel: 'provisioner_providers.json', sql: 'SELECT * FROM provisioner_providers WHERE provider_id = $1' },
       { rel: 'tournament_assignments.json', sql: 'SELECT * FROM tournament_assignments WHERE provider_id = $1' },
-      { rel: 'official_records.json',      sql: 'SELECT * FROM official_records WHERE provider_id = $1' },
       { rel: 'tournament_provisioner.json', sql: 'SELECT * FROM tournament_provisioner WHERE provider_id = $1' },
       { rel: 'pending_saves.json',         sql: 'SELECT * FROM pending_saves WHERE provider_id = $1' },
       { rel: 'provider_topologies.json',   sql: 'SELECT * FROM provider_topologies WHERE provider_id = $1' },
@@ -123,13 +122,6 @@ export class ProviderArchiveService {
       const result = await this.pool.query(sql, [provider.providerId]);
       await writeJson(rel, result.rows, result.rows.length);
     }
-
-    // Sanctioning uses a differently-named column.
-    const sanctioning = await this.pool.query(
-      'SELECT * FROM sanctioning_records WHERE applicant_provider_id = $1',
-      [provider.providerId],
-    );
-    await writeJson('sanctioning_records.json', sanctioning.rows, sanctioning.rows.length);
 
     // Calendar is keyed by abbr, not id.
     const calendars = await this.pool.query(
