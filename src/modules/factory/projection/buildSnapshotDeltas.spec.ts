@@ -1,6 +1,6 @@
 import { mocksEngine, tournamentEngineAsync } from 'tods-competition-factory';
 
-import { SNAPSHOT_OWNED_TABLES, SNAPSHOT_SHARED_TABLES } from './projectionConstants';
+import { SNAPSHOT_CASCADE_COVERED_TABLES, SNAPSHOT_OWNED_TABLES, SNAPSHOT_SHARED_TABLES } from './projectionConstants';
 import { buildProjectionDeltas } from './buildProjectionDeltas';
 import { buildSnapshotDeltas } from './buildSnapshotDeltas';
 import { buildRebuildIntents } from './rebuild';
@@ -104,7 +104,38 @@ describe('buildSnapshotDeltas', () => {
     // If a projected row in an owned table lacks tournament_id, the consumer's
     // `DELETE ... WHERE tournament_id = $1` cannot reach it and the snapshot
     // would leave orphans behind — the bug this whole path exists to fix.
+    //
+    // This is the assertion that caught match_up_competitors, and it only
+    // caught it in CI: locally node_modules/tods-competition-factory is a
+    // `link:` symlink to the sibling working copy, where the column IS present.
+    // CI installs the pinned published version, which is what production runs.
     expect([...new Set(violations)]).toEqual([]);
+  });
+
+  it('keeps cascade-covered tables OUT of the purge scope', async () => {
+    const tournamentRecord = makeRecord();
+    const [begin] = await buildSnapshotDeltas({ tournamentRecord, snapshotId: 'snap-1', source: 'test' });
+
+    for (const table of SNAPSHOT_CASCADE_COVERED_TABLES) {
+      // Listing one here AND in the owned scope would be the bug: the delete
+      // would target a column those rows may not carry.
+      expect(begin.row?.tables).not.toContain(table);
+    }
+  });
+
+  it('reports which owned tables this fixture leaves unverified', async () => {
+    const tournamentRecord = makeRecord();
+    const deltas = await buildSnapshotDeltas({ tournamentRecord, snapshotId: 'snap-1', source: 'test' });
+
+    const exercised = new Set(deltas.filter((d) => d.op === 'upsert').map((d) => d.table));
+    const unverified = SNAPSHOT_OWNED_TABLES.filter((t) => !exercised.has(t));
+
+    // The tournament_id assertion above can only check tables this fixture
+    // actually produces rows for. Rather than let that gap be silent — which is
+    // how match_up_competitors would have slipped through a second time — pin
+    // the unexercised set so it is visible, and so ADDING coverage (or adding a
+    // table to the scope) forces this list to be revisited.
+    expect(unverified).toEqual(['order_of_play', 'scheduling_profile', 'participant_publish']);
   });
 
   it('confirms the shared table genuinely lacks tournament_id', async () => {

@@ -44,11 +44,31 @@ export const SNAPSHOT_OWNED_TABLES = [
   TABLE_SCHEDULING_PROFILE,
   TABLE_PARTICIPANT_PUBLISH,
   TABLE_MATCH_UPS,
-  TABLE_MATCH_UP_COMPETITORS,
   TABLE_ENTRIES,
   TABLE_COURTS,
   TABLE_TOURNAMENT_VENUES,
 ] as const;
+
+/**
+ * Purged by FK cascade from a parent that IS in the scope above, so they must
+ * not be listed there.
+ *
+ * `match_up_competitors` is here rather than in the owned list for a concrete
+ * reason found by CI, not by reasoning: its projected rows do NOT reliably carry
+ * `tournament_id` on the PUBLISHED factory (6.25.0, which is what production
+ * runs), so `DELETE … WHERE tournament_id` would silently miss them and leave
+ * orphans — exactly the failure the snapshot exists to prevent. It is reached
+ * instead by `ON DELETE CASCADE` from `match_ups.match_up_id`.
+ *
+ * A local run cannot catch this: node_modules/tods-competition-factory is a
+ * `link:` symlink to the sibling working copy (6.26.0, where the column IS
+ * present), while CI installs the pinned published version.
+ *
+ * CONSUMER REQUIREMENT: courthive-query must actually declare these cascades.
+ * They are mirrored in projection-conformance.spec.ts's FK_CASCADES, whose own
+ * comment states that map must track the migrations exactly.
+ */
+export const SNAPSHOT_CASCADE_COVERED_TABLES = [TABLE_MATCH_UP_COMPETITORS] as const;
 
 /** Projected tables a snapshot must never purge — cross-tournament dimensions. */
 export const SNAPSHOT_SHARED_TABLES = [TABLE_VENUES] as const;
