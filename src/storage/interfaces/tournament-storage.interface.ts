@@ -27,12 +27,22 @@ export interface ITournamentStorage {
     error?: any;
   }>;
 
-  saveTournamentRecord(params: { tournamentRecord: any }): Promise<{ success?: boolean; error?: string }>;
+  /**
+   * `ownerEpoch` is the fencing token this writer was granted for the
+   * tournament (migration 042). Defaults to 0 in the implementation — never
+   * treated as "unguarded" when absent. A save rejected by the fence resolves
+   * with `{ error: FENCED_BY_NEWER_OWNER, fenced: true }`.
+   */
+  saveTournamentRecord(params: {
+    tournamentRecord: any;
+    ownerEpoch?: number;
+  }): Promise<{ success?: boolean; error?: string; fenced?: boolean }>;
 
   saveTournamentRecords(params: {
     tournamentRecords?: Record<string, any>;
     tournamentRecord?: any;
-  }): Promise<{ success?: boolean; error?: string }>;
+    ownerEpoch?: number;
+  }): Promise<{ success?: boolean; error?: string; fenced?: boolean }>;
 
   removeTournamentRecords(params: {
     tournamentIds?: string[];

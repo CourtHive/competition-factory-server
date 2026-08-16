@@ -13,6 +13,8 @@ import { ProvisionerModule } from '../provisioner/provisioner.module';
 // and sanctioning state is now AMS-owned outright; CFS reaches sanctioning through
 // SanctioningClient over the service token. See
 // Mentat/planning/AMS_DEPLOY_AND_RETIREMENT.md §CFS retirement windows #1 + #2.
+import { MutationServicesModule } from '../mutation-services/mutation-services.module';
+import { TelemetryModule } from '../telemetry/telemetry.module';
 import { PoliciesModule } from '../policies/policies.module';
 import { AuditModule } from '../audit/audit.module';
 import { ConfigReadinessModule } from '../config-readiness/config-readiness.module';
@@ -83,6 +85,13 @@ const tournamentModules = isModuleEnabled('tournament')
       CacheModule,
       AuditModule,
       ProvisionerModule,
+      // Stage 0 of tournament-affinity sharding — per-tournament mutation load
+      // telemetry. Inert unless LOAD_PROFILE_ENABLED=true.
+      TelemetryModule,
+      // Single builder for the executionQueue services bag. Must load after
+      // TelemetryModule (it injects LoadProfileService). Both mutation entry
+      // points route through it so the bag cannot diverge per call site again.
+      MutationServicesModule,
       TournamentSyncModule.forRoot(),
     ]
   : [];

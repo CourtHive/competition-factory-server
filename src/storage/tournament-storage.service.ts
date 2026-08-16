@@ -56,7 +56,15 @@ export class TournamentStorageService {
    *   existing createdByUserId extension), stamps the extension so the
    *   access-control helper can trace tournament ownership.
    */
-  async saveTournamentRecord({ tournamentRecord, userId }: { tournamentRecord: any; userId?: string }) {
+  async saveTournamentRecord({
+    tournamentRecord,
+    ownerEpoch,
+    userId,
+  }: {
+    tournamentRecord: any;
+    ownerEpoch?: number;
+    userId?: string;
+  }) {
     const key = tournamentRecord?.tournamentId;
     if (!key) return { error: 'Invalid tournamentRecord' };
 
@@ -72,21 +80,32 @@ export class TournamentStorageService {
       await this.addToOrUpdateCalendar({ providerId, tournamentRecord });
     }
 
-    return this.tournamentStorage.saveTournamentRecord({ tournamentRecord });
+    return this.tournamentStorage.saveTournamentRecord({ tournamentRecord, ownerEpoch });
   }
 
-  async saveTournamentRecords(params: { tournamentRecords?: Record<string, any>; tournamentRecord?: any; userId?: string }) {
+  async saveTournamentRecords(params: {
+    tournamentRecords?: Record<string, any>;
+    tournamentRecord?: any;
+    ownerEpoch?: number;
+    userId?: string;
+  }) {
     const tournamentRecords = this.extractTournamentRecords(params);
+    // Per-tournament serialised byte size, surfaced for the load profile
+    // (Stage 0). Measured by the storage layer during the write it was already
+    // performing — never re-computed here.
+    const bytes: Record<string, number> = {};
 
     for (const tournamentId of Object.keys(tournamentRecords)) {
       const result: any = await this.saveTournamentRecord({
         tournamentRecord: tournamentRecords[tournamentId],
+        ownerEpoch: params.ownerEpoch,
         userId: params.userId,
       });
       if (result.error) return result;
+      bytes[tournamentId] = result.bytes ?? 0;
     }
 
-    return { ...SUCCESS };
+    return { ...SUCCESS, bytes };
   }
 
   async removeTournamentRecords(

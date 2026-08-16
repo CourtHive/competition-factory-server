@@ -81,6 +81,14 @@ export async function executionQueue(
     const mutationResult = await runWithRequestContext(requestContext, async () =>
       asyncGlobalState.runWithInstanceState(async () =>
         withTournamentLock(tournamentIds, async () => {
+          // LOAD PROFILE (Stage 0 of tournament-affinity sharding): the clock
+          // starts after the lock is acquired, so what is measured is the work
+          // itself — fetch, mutate, save — and not time spent queueing behind
+          // another mutation on the same tournament. Lock-wait is a different
+          // measurement with a different meaning and mixing them would make a
+          // contended tournament look expensive when it is merely popular.
+          const startedAt = Date.now();
+
           const result: any = await storage.fetchTournamentRecords({ tournamentIds });
           if (result.error) return result;
 
@@ -107,12 +115,41 @@ export async function executionQueue(
 
           if (innerResult.success) {
             const mutatedTournamentRecords: any = mutationEngine.getState().tournamentRecords;
-            const updateResult = await storage.saveTournamentRecords({
+            const updateResult: any = await storage.saveTournamentRecords({
               tournamentRecords: mutatedTournamentRecords,
             });
             if (!updateResult.success) {
+              // A fenced save is NOT a retryable persistence failure — it means
+              // this process was deposed as owner of the tournament and the
+              // record it just mutated represents a history that no longer
+              // exists. Surfaced distinctly (`fenced: true`) so the caller
+              // re-resolves its route rather than retrying, and so the ack
+              // carries the real reason. Both paths return early, which is what
+              // keeps the cache-clear, audit, and projection-flush hooks below
+              // from running against a write that never landed.
+              if (updateResult.fenced) {
+                recordLoadProfile({
+                  services,
+                  tournamentIds,
+                  tournamentRecords: result.tournamentRecords,
+                  methodCount: methods.length,
+                  elapsedMs: Date.now() - startedAt,
+                  bytes: {},
+                  fenced: true,
+                });
+                return { error: updateResult.error, fenced: true, tournamentIds };
+              }
               return { error: 'Could not persist tournament record(s)' };
             }
+
+            recordLoadProfile({
+              services,
+              tournamentIds,
+              tournamentRecords: mutatedTournamentRecords,
+              methodCount: methods.length,
+              elapsedMs: Date.now() - startedAt,
+              bytes: updateResult.bytes ?? {},
+            });
           }
 
           // Now that save is complete, flush deferred cache deletions
@@ -254,6 +291,53 @@ function buildAuditMetadata(payload: any): Record<string, any> | undefined {
   if (payload?.factoryVersion) meta.factoryVersion = payload.factoryVersion;
   if (payload?.timestamp) meta.clientTimestamp = payload.timestamp;
   return Object.keys(meta).length ? meta : undefined;
+}
+
+/**
+ * Emit one load-profile sample per tournament touched by this mutation
+ * (Stage 0 of tournament-affinity sharding — see
+ * Mentat/planning/CFS_TOURNAMENT_AFFINITY_SHARDING.md).
+ *
+ * Synchronous and non-throwing by construction: `LoadProfileService.record()`
+ * is a few map operations, buffers in memory, and flushes on an interval. It
+ * runs on the mutation hot path inside the tournament lock, which is precisely
+ * why it must never await a write — instrumenting the path with a per-mutation
+ * Postgres round-trip would add latency to the code being measured and change
+ * the shape of what it reports.
+ *
+ * Absent from `services` (any caller that has not been wired, and every unit
+ * test) this is a no-op — telemetry must never be able to fail a mutation.
+ */
+function recordLoadProfile({
+  services,
+  tournamentIds,
+  tournamentRecords,
+  methodCount,
+  elapsedMs,
+  bytes,
+  fenced,
+}: {
+  services?: any;
+  tournamentIds: string[];
+  tournamentRecords?: Record<string, any>;
+  methodCount: number;
+  elapsedMs: number;
+  bytes: Record<string, number>;
+  fenced?: boolean;
+}): void {
+  const loadProfile = services?.loadProfile;
+  if (!loadProfile?.record) return;
+
+  for (const tournamentId of tournamentIds) {
+    loadProfile.record({
+      tournamentId,
+      tournamentRecord: tournamentRecords?.[tournamentId],
+      elapsedMs,
+      methodCount,
+      recordBytes: bytes[tournamentId] ?? 0,
+      fenced,
+    });
+  }
 }
 
 /**

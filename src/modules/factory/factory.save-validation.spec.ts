@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 
+import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { insertPendingSave } from './helpers/pendingSaves';
 import { FactoryService } from './factory.service';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
@@ -39,8 +40,16 @@ function makeFactoryService(overrides: { tournamentStorageService?: any; pgPool?
   const tournamentProvisionerStorage: any = {};
   const providerStorage: any = {};
 
+  // Real builder over disabled collaborators — mirrors the production bag shape
+  // (A1) rather than a stub that could drift from it.
+  const mutationServices: any = new MutationServicesService({ isEnabled: false, enqueue: jest.fn() } as any, {
+    record: jest.fn(),
+    isEnabled: false,
+  } as any);
+
   const svc = new FactoryService(
     tournamentStorageService,
+    mutationServices,
     assignmentsService,
     auditService,
     tournamentStorage,

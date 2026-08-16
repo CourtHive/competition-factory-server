@@ -8,6 +8,7 @@ import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
 import { insertPendingSave, getPendingSaveStatus, getPendingSaveData, updatePendingSaveStatus } from './helpers/pendingSaves';
 import { validateL2 } from './helpers/validateTournamentRecord';
+import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { MutationMirrorService } from '../tournament-sync/mutation-mirror.service';
 import { PG_POOL } from 'src/storage/postgres/postgres.config';
 import { checkEngineError } from '../../common/errors/engineError';
@@ -50,6 +51,7 @@ function opaqueReservedCell(cell: any) {
 export class FactoryService {
   constructor(
     private readonly tournamentStorageService: TournamentStorageService,
+    private readonly mutationServices: MutationServicesService,
     private readonly assignmentsService: AssignmentsService,
     private readonly auditService: AuditService,
     @Inject(TOURNAMENT_STORAGE) private readonly tournamentStorage: ITournamentStorage,
@@ -65,9 +67,17 @@ export class FactoryService {
   }
 
   async executionQueue(params, services) {
+    // BUG FIX: this path previously forwarded the controller's bag verbatim,
+    // which carried `{ cacheManager, trackCacheKey }` and NOTHING else — so
+    // every REST and provisioner mutation ran with `services.projectionOutbox`
+    // undefined and enqueued no read-model deltas. Silent: no error, no log,
+    // no failing test; the read model simply never learned about those
+    // mutations. Assembling through MutationServicesService here (rather than
+    // at each controller) means every current and future REST caller gets the
+    // server-owned services by construction.
     const result = await eq(
-      params,
-      services,
+      { ...params },
+      this.mutationServices.build(services ?? {}),
       this.tournamentStorageService,
       this.auditService,
       this.tournamentProvisionerStorage,
@@ -127,9 +137,15 @@ export class FactoryService {
       // Call the private mutation path directly (not this.executionQueue) so a
       // per-tournament EXISTING_POLICY_TYPE result is inspected, not thrown by
       // checkEngineError.
+      //
+      // Services still come from the builder. This previously passed
+      // `undefined`, which is the same divergence as the REST path had: a real
+      // `attachPolicies` mutation that saved the record but enqueued no
+      // read-model delta and emitted no telemetry. Bypassing this.executionQueue
+      // for its error-handling must not also mean bypassing the services bag.
       const res: any = await eq(
         params,
-        undefined,
+        this.mutationServices.build(),
         this.tournamentStorageService,
         this.auditService,
         this.tournamentProvisionerStorage,
@@ -164,7 +180,11 @@ export class FactoryService {
   async score(params, cacheManager) {
     return await setMatchUpStatus(
       params,
-      { cacheManager },
+      // setMatchUpStatus forwards straight into executionQueue, so this needs
+      // the full bag too — it previously passed `{ cacheManager }` alone, which
+      // meant REST score submissions saved the record but produced no
+      // read-model delta.
+      this.mutationServices.build({ cacheManager }),
       this.tournamentStorageService,
       this.auditService,
       this.tournamentProvisionerStorage,

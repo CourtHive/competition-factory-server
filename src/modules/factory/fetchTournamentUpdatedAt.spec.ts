@@ -1,3 +1,4 @@
+import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { FactoryService } from './factory.service';
 
 // Focused unit test for the lightweight staleness probe. Constructs FactoryService
@@ -8,8 +9,13 @@ const SUPER_ADMIN_USER = { roles: ['superadmin'] };
 function makeService(storageImpl: (params: any) => Promise<any>) {
   const tournamentStorageService = { fetchTournamentUpdatedAt: jest.fn(storageImpl) };
   const assignmentsService = { getAssignedTournamentIds: jest.fn().mockResolvedValue([]) };
+  const mutationServices: any = new MutationServicesService({ isEnabled: false, enqueue: jest.fn() } as any, {
+    record: jest.fn(),
+    isEnabled: false,
+  } as any);
   const service = new FactoryService(
     tournamentStorageService as any,
+    mutationServices,
     assignmentsService as any,
     {} as any,
     {} as any,
