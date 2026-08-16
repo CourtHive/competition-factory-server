@@ -117,6 +117,10 @@ export async function executionQueue(
             const mutatedTournamentRecords: any = mutationEngine.getState().tournamentRecords;
             const updateResult: any = await storage.saveTournamentRecords({
               tournamentRecords: mutatedTournamentRecords,
+              // This path raised factory notices, so the delta buffer below
+              // already holds the incremental projection — the facade must not
+              // re-project the whole tournament on every mutation.
+              projectionMode: 'deltas',
             });
             if (!updateResult.success) {
               // A fenced save is NOT a retryable persistence failure — it means
@@ -502,9 +506,17 @@ function stampProvisionerOrigin({
     record.parentOrganisation.extensions = extensions;
   }
 
-  // Re-save with the extension stamped
+  // Re-save with the extension stamped.
+  //
+  // `'deltas'`, not `'snapshot'`: this is a targeted extension stamp inside the
+  // executionQueue flow, not a wholesale replace, so re-projecting the entire
+  // tournament here would be a large cost for one field. It preserves the
+  // existing behaviour exactly (the facade projects nothing on this path).
+  //
+  // Pre-existing and NOT addressed here: this is fire-and-forget, so it can
+  // resolve after the tournament lock has been released.
   const resaveRecords: any = mutationEngine.getState().tournamentRecords;
   storage
-    .saveTournamentRecords({ tournamentRecords: resaveRecords })
+    .saveTournamentRecords({ tournamentRecords: resaveRecords, projectionMode: 'deltas' })
     .catch((err) => Logger.error(`Provisioner extension re-save failed: ${err.message}`, 'executionQueue'));
 }

@@ -8,8 +8,10 @@ import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
 import { insertPendingSave, getPendingSaveStatus, getPendingSaveData, updatePendingSaveStatus } from './helpers/pendingSaves';
 import { validateL2 } from './helpers/validateTournamentRecord';
+import { SnapshotProjectionService } from './projection/snapshot-projection.service';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { MutationMirrorService } from '../tournament-sync/mutation-mirror.service';
+import { withTournamentLock } from 'src/services/tournamentMutex';
 import { PG_POOL } from 'src/storage/postgres/postgres.config';
 import { checkEngineError } from '../../common/errors/engineError';
 import { AssignmentsService } from './assignments.service';
@@ -51,6 +53,7 @@ function opaqueReservedCell(cell: any) {
 export class FactoryService {
   constructor(
     private readonly tournamentStorageService: TournamentStorageService,
+    private readonly snapshotProjection: SnapshotProjectionService,
     private readonly mutationServices: MutationServicesService,
     private readonly assignmentsService: AssignmentsService,
     private readonly auditService: AuditService,
@@ -372,7 +375,22 @@ export class FactoryService {
     // a misleading success envelope (caught 2026-05-29 via the
     // provisioner-mismatched-providerid e2e test).
     const userId = userContext?.userId;
-    await this.tournamentStorageService.saveTournamentRecords({ tournamentRecords, userId });
+    // A generated record is a wholesale write too. The purge is a no-op for a
+    // genuinely new tournamentId, but the upserts are how the read model learns
+    // the tournament exists at all — today it learns nothing. Locked for the
+    // same reason as /factory/save: a caller may pin an existing tournamentId
+    // via tournamentAttributes, which makes this a replace.
+    await withTournamentLock(Object.keys(tournamentRecords), async () => {
+      const saveResult = await this.tournamentStorageService.saveTournamentRecords({
+        tournamentRecords,
+        projectionMode: 'snapshot',
+        userId,
+      });
+      if (saveResult?.success) {
+        await this.snapshotProjection.enqueueSnapshots({ tournamentRecords, source: 'factory-generate' });
+      }
+      return saveResult;
+    });
 
     // Provisioner ownership stamp — fail-soft, same policy as the
     // executionQueue path (executionQueue.ts:161). The tournament exists
@@ -463,8 +481,33 @@ export class FactoryService {
 
     // Save directly — tournament must be available immediately for
     // subsequent executionQueue mutations from the client.
+    //
+    // LOCKED, unlike before. This path replaces the whole record, so without the
+    // per-tournament lock it interleaves with an in-flight executionQueue
+    // mutation and silently discards it — the same lost-update class owner_epoch
+    // guards against between processes, but reachable today within one. Skipping
+    // executionQueue for immediacy was deliberate; skipping the lock was not.
+    //
+    // The lock is taken HERE and never in TournamentStorageService:
+    // executionQueue calls that facade from INSIDE the lock and the mutex is not
+    // reentrant, so locking at the facade would deadlock every mutation until
+    // the 30s timeout.
     const userId = userContext?.userId ?? user?.userId;
-    const result = await this.tournamentStorageService.saveTournamentRecords({ tournamentRecords, userId });
+    const savedIds = Object.keys(tournamentRecords);
+    const result = await withTournamentLock(savedIds, async () => {
+      const saveResult = await this.tournamentStorageService.saveTournamentRecords({
+        tournamentRecords,
+        projectionMode: 'snapshot',
+        userId,
+      });
+      if (!saveResult?.success) return saveResult;
+
+      // Post-commit, still inside the lock — the same seam executionQueue uses
+      // for its delta flush. A wholesale replace raises no factory notices, so
+      // the read model only learns about it through this snapshot span.
+      await this.snapshotProjection.enqueueSnapshots({ tournamentRecords, source: 'factory-save' });
+      return saveResult;
+    });
 
     // For oversized records, queue an async L2 pass so the validation
     // result is still discoverable post-hoc via /factory/save-status.
@@ -497,8 +540,18 @@ export class FactoryService {
     if (!data) return { error: 'Save not found' };
 
     const tournamentId = data.tournamentId;
-    const result = await this.tournamentStorageService.saveTournamentRecords({
-      tournamentRecords: { [tournamentId]: data },
+    // Accepting a pending save writes the whole record — same wholesale-replace
+    // semantics, same lock and snapshot requirements as /factory/save.
+    const tournamentRecords = { [tournamentId]: data };
+    const result = await withTournamentLock([tournamentId], async () => {
+      const saveResult = await this.tournamentStorageService.saveTournamentRecords({
+        tournamentRecords,
+        projectionMode: 'snapshot',
+      });
+      if (saveResult?.success) {
+        await this.snapshotProjection.enqueueSnapshots({ tournamentRecords, source: 'commit-save' });
+      }
+      return saveResult;
     });
 
     await updatePendingSaveStatus(this.pgPool, saveId, 'accepted');

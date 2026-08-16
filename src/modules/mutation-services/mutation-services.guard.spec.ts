@@ -172,6 +172,62 @@ describe('no mutation path supplies a partial services bag', () => {
     expect(offenders).toEqual([]);
   });
 
+  /**
+   * Matches calls on the STORAGE FACADE only. Deliberately anchored to the two
+   * receiver names the facade is reached by, because two unrelated things share
+   * the method name: `FactoryService.saveTournamentRecords` (the locked,
+   * snapshotting wholesale-save entry point) and
+   * `services/fileSystem/saveTournamentRecords` (a JSON file writer used by
+   * tests). Neither takes a projectionMode, and neither should be flagged.
+   */
+  const FACADE_SAVE_CALL = /(?:tournamentStorageService|\bstorage)\.saveTournamentRecords\(\{[\s\S]{0,500}?\}\)/g;
+
+  function facadeSaveCalls(): { path: string; call: string }[] {
+    const root = join(__dirname, '..', '..');
+    const calls: { path: string; call: string }[] = [];
+
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name !== 'node_modules') walk(full);
+          continue;
+        }
+        if (!entry.name.endsWith('.ts')) continue;
+        if (entry.name.includes('.spec.') || entry.name.includes('.e2e.')) continue;
+        // The facade declares the parameter; it does not call itself.
+        if (full.endsWith('tournament-storage.service.ts')) continue;
+
+        const source = readFileSync(full, 'utf-8');
+        for (const match of source.matchAll(FACADE_SAVE_CALL)) calls.push({ path: full, call: match[0] });
+      }
+    };
+
+    walk(root);
+    return calls;
+  }
+
+  it('finds the facade save calls (guard is actually looking at something)', () => {
+    const calls = facadeSaveCalls();
+
+    // Vacuous-pass protection: a regex that matches nothing would make the
+    // assertion below trivially true.
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.map((c) => c.path).join('|')).toContain('factory.service.ts');
+  });
+
+  it('never calls the storage facade without declaring a projectionMode', () => {
+    const offenders = facadeSaveCalls()
+      .filter(({ call }) => !call.includes('projectionMode'))
+      .map(({ path, call }) => `${path}: ${call.slice(0, 80)}`);
+
+    // TypeScript already makes this a compile error, but the type only binds
+    // callers reaching the facade through its declared type. This also catches
+    // an `any`-typed storage reference slipping past it, and states the rule
+    // where someone adding a save path will read it.
+    expect(offenders).toEqual([]);
+  });
+
   it('never hand-rolls a bare { cacheManager } bag', () => {
     const offenders = sourceFilesImportingMutationEntrypoints()
       .filter(({ source }) => /\n\s*\{\s*cacheManager\s*\},/.test(source))
