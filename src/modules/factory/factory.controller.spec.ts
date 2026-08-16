@@ -366,6 +366,75 @@ describe('FactoryController', () => {
       }
     });
 
+    it('narrows to the evicted event key, sparing OTHER events\' cached payloads', async () => {
+      await populateCacheForTid(mockController, 't1');
+      await mockController.eventData({ tournamentId: 't1', eventId: 'e2' } as any);
+      jest.clearAllMocks();
+
+      // The mutation reported a targeted eviction for e1 only.
+      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+        success: true,
+        publicNotices: [],
+        evictedEventKeys: ['ged|t1|e1'],
+      });
+      const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
+      await mockController.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, mockReq);
+
+      const deletedKeys = mockCache.del.mock.calls.map((c: any[]) => c[0]);
+      // e2's payload is untouched — this is the whole point of the change.
+      expect(deletedKeys).not.toContain('ged|t1|e2');
+      // e1 was reported evicted, so the controller may still delete it (idempotent).
+      // Tournament-scoped keys aggregate across events and must ALL still go.
+      for (const key of ['gac|t1', 'gmr|t1', 'gti|t1', 'gti|t1|ms', 'gtm|t1', 'gtp|t1']) {
+        expect(deletedKeys).toContain(key);
+      }
+    });
+
+    it('FAIL-SAFE: sweeps every event key when no targeted eviction was reported', async () => {
+      await populateCacheForTid(mockController, 't1');
+      await mockController.eventData({ tournamentId: 't1', eventId: 'e2' } as any);
+      jest.clearAllMocks();
+
+      // No evictedEventKeys — the mutation's notices never carried an eventId, so the controller
+      // cannot know which events changed and must fall back to the tournament-wide sweep.
+      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+        success: true,
+        publicNotices: [],
+        evictedEventKeys: [],
+      });
+      const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
+      await mockController.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, mockReq);
+
+      const deletedKeys = mockCache.del.mock.calls.map((c: any[]) => c[0]);
+      expect(deletedKeys).toContain('ged|t1|e1');
+      expect(deletedKeys).toContain('ged|t1|e2');
+    });
+
+    it('keeps tracking a spared event key so a later write can still evict it', async () => {
+      await populateCacheForTid(mockController, 't1');
+      await mockController.eventData({ tournamentId: 't1', eventId: 'e2' } as any);
+
+      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+        success: true,
+        publicNotices: [],
+        evictedEventKeys: ['ged|t1|e1'],
+      });
+      const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
+      await mockController.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, mockReq);
+
+      // Second write, this time with no targeted eviction: the spared e2 key must still be known
+      // to the side-table, or it would leak and never be invalidated again.
+      jest.clearAllMocks();
+      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+        success: true,
+        publicNotices: [],
+        evictedEventKeys: [],
+      });
+      await mockController.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, mockReq);
+
+      expect(mockCache.del.mock.calls.map((c: any[]) => c[0])).toContain('ged|t1|e2');
+    });
+
     it('deletes tracked keys on scoreMatchUp success', async () => {
       await populateCacheForTid(mockController, 't1');
 

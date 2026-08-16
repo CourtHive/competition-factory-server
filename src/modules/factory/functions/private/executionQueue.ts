@@ -34,6 +34,10 @@ export async function executionQueue(
 
   try {
     const publicNotices: any[] = [];
+    // `ged|<tid>|<eid>` keys evicted precisely by notice handlers that carried an eventId. Returned
+    // so the controller can skip its blanket per-event sweep — and, when EMPTY, deliberately fall
+    // back to it. See FactoryRequestContext.evictedEventKeys.
+    const evictedEventKeys = new Set<string>();
     // Collect cache keys to clear AFTER save to avoid race condition
     // where an HTTP read repopulates the cache with stale data between
     // cache-clear (during mutation) and save (after mutation).
@@ -61,6 +65,7 @@ export async function executionQueue(
     const requestContext = {
       publicNotices,
       deltaBuffer,
+      evictedEventKeys,
       services: {
         ...services,
         cacheManager: deferredClearCache,
@@ -184,7 +189,7 @@ export async function executionQueue(
     );
 
     Logger.debug(`[executionQueue] publicNotices: ${publicNotices.length}`);
-    return { ...mutationResult, publicNotices };
+    return { ...mutationResult, publicNotices, evictedEventKeys: [...evictedEventKeys] };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     Logger.error(`executionQueue exception for tournaments [${tournamentIds.join(', ')}]: ${message}`);

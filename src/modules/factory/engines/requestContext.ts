@@ -22,6 +22,15 @@ export type FactoryRequestContext = {
   publicNotices?: any[];
   deltaBuffer?: DeltaBuffer;
   services?: any;
+  /**
+   * `ged|<tid>|<eid>` keys this request evicted precisely, because a notice carried the eventId.
+   *
+   * Read by the controller's `invalidateTournamentCache`: when non-empty it skips its blanket
+   * per-event sweep, trusting the targeted evictions. When EMPTY it sweeps every `ged|` key as
+   * before. That is the fail-safe — a mutation whose notices never carry an eventId records
+   * nothing here and gets the old, broader behaviour rather than leaving stale event data.
+   */
+  evictedEventKeys?: Set<string>;
 };
 
 const asyncLocalStorage = new AsyncLocalStorage<FactoryRequestContext>();

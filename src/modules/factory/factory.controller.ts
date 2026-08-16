@@ -106,15 +106,33 @@ export class FactoryController {
    * (gti|<tid>|<flags>) and per-event keys (ged|<tid>|<eid>) that the
    * previous fixed-prefix list missed.
    */
-  private invalidateTournamentCache(tournamentIds: readonly string[]): void {
+  private invalidateTournamentCache(tournamentIds: readonly string[], evictedEventKeys?: readonly string[]): void {
+    // Per-event `ged|<tid>|<eid>` payloads are the bulk of this cache — measured at 3.26 MB across a
+    // Grand-Slam-shaped tournament's five events, four times the tournamentRecord they derive from
+    // (Mentat/tools/slam-scale-bench). Sweeping them all on every write meant one score discarded the
+    // cached data for every OTHER event too. Verified with the same harness that a score leaves other
+    // events' payloads byte-identical, so evicting only the affected event is sound.
+    //
+    // FAIL-SAFE: narrow ONLY when the mutation actually reported targeted evictions. An empty list
+    // means no notice carried an eventId, so we cannot know which events changed and fall back to the
+    // original tournament-wide sweep. "Invalidate less" must never silently become "serve stale".
+    const narrow = Boolean(evictedEventKeys?.length);
     for (const tid of tournamentIds) {
       if (!tid || typeof tid !== 'string') continue;
       const keys = this.cacheKeysByTournament.get(tid);
       if (!keys) continue;
+      const retained = new Set<string>();
       for (const key of keys) {
+        // A per-event key is spared only when the handlers already evicted the ones that changed.
+        if (narrow && key.startsWith('ged|') && !evictedEventKeys!.includes(key)) {
+          retained.add(key);
+          continue;
+        }
         void this.cacheManager.del(key);
       }
-      this.cacheKeysByTournament.delete(tid);
+      // Keep tracking the keys still live, so a later write can still find and evict them.
+      if (retained.size) this.cacheKeysByTournament.set(tid, retained);
+      else this.cacheKeysByTournament.delete(tid);
     }
   }
 
@@ -244,7 +262,7 @@ export class FactoryController {
       };
       this.broadcastService.broadcastMutation(payload);
       this.broadcastService.broadcastPublicNotices(payload, publicNotices);
-      this.invalidateTournamentCache(payload.tournamentIds);
+      this.invalidateTournamentCache(payload.tournamentIds, result?.evictedEventKeys);
     }
     return result;
   }
@@ -272,7 +290,7 @@ export class FactoryController {
       const { publicNotices } = result;
       this.broadcastService.broadcastMutation(eqd);
       this.broadcastService.broadcastPublicNotices(eqd, publicNotices);
-      this.invalidateTournamentCache(eqd.tournamentIds ?? []);
+      this.invalidateTournamentCache(eqd.tournamentIds ?? [], result?.evictedEventKeys);
     }
     return result;
   }
