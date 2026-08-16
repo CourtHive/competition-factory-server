@@ -1,0 +1,135 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Architecture/Response Caching" />
+
+# Response Caching
+
+Read endpoints on `FactoryController` are cached for **3 minutes** so that polling clients — mobile, the
+public viewer, automated dashboards — do not recompute the same payload on every request. Writes evict
+what they changed.
+
+The interesting parts are the two that are easy to get wrong: **how much a write invalidates**, and
+**when a write is allowed to re-seed**.
+
+## Cache keys
+
+Every cached read is stored under a `<prefix>|<tournamentId>[|<...>]` key. Segment `[1]` is always the
+tournament id — that is what makes per-tournament invalidation possible.
+
+| Key | Endpoint | Scope |
+| --- | --- | --- |
+| `gti\|<tid>` | `GET /factory/tournamentinfo/:tid` | tournament |
+| `gti\|<tid>\|<flags>` | `POST /factory/tournamentinfo` | tournament, per flag combination |
+| `ged\|<tid>\|<eid>` | `POST /factory/eventdata` | **one event** |
+| `gtm\|<tid>` | `POST /factory/scheduledmatchups` | tournament |
+| `gtp\|<tid>` | `POST /factory/participants` | tournament |
+| `gmr\|<tid>` | `POST /factory/matchups` | tournament |
+| `gac\|<tid>` | `GET /factory/assistant-context/:tid` | tournament |
+
+`cacheFx(key, fx, params)` is the single wrapper: on a hit it returns the stored value stamped
+`_cached: true`; on a miss it calls `fx`, and stores the result only when there is no `error`.
+
+Because `cache-manager` has no prefix-delete primitive, the controller keeps a **side-table** of every key
+it has issued per tournament. That table is capped at 200 keys per tournament with FIFO eviction, so a
+client polling many flag-variant combinations cannot grow it without bound. A key evicted from the
+*tracking* set is not iterate-evicted on the next mutation; it ages out via the TTL instead.
+
+## Invalidation happens at two layers
+
+### Layer 1 — notice handlers (`getMutationEngine.ts`)
+
+Factory notices fire during the mutation. Handlers evict what they can attribute:
+
+- `clearCache(tournamentId)` evicts the **tournament-scoped** shapes — `gti|`, `gtm|`, `gac|`, `gtp|`,
+  `gmr|`. These aggregate across events, so any write can change them.
+- `evictEventData(tournamentId, eventId)` evicts **one** `ged|<tid>|<eid>` key, and records that a
+  targeted eviction happened. Used by `MODIFY_POSITION_ASSIGNMENTS`, `MODIFY_DRAW_DEFINITION`,
+  `PUBLISH_EVENT` and `UNPUBLISH_EVENT`.
+
+`clearCache` deliberately does **not** touch `ged|` keys — per-event payloads belong to the topics that
+know which event changed.
+
+> **Where a score gets its eventId.** `MODIFY_MATCHUP`'s payload is only
+> `{ matchUp, tournamentId, context }` — factory has the `eventId` but does not emit it on that topic.
+> `MODIFY_DRAW_DEFINITION` *does* carry it and fires on the same mutation whenever a `drawDefinition` is
+> present, which is what lets a score evict precisely its own event with no factory change.
+
+### Layer 2 — the controller (`invalidateTournamentCache`)
+
+After a successful write the controller sweeps the side-table. It **narrows** when the mutation reported
+targeted evictions: per-event `ged|` keys not named in that list are **spared**, while every
+tournament-scoped key still goes.
+
+**Fail-safe:** narrowing happens only when at least one targeted eviction was reported. An empty list
+means no notice carried an eventId, so the controller falls back to the original tournament-wide sweep.
+_Invalidate less_ must never silently become _serve stale_.
+
+Spared keys are written back into the side-table so a later write can still find and evict them.
+
+#### Why this matters
+
+Measured on a Grand-Slam-shaped tournament (5 events, 635 matchUps — see
+`Mentat/tools/slam-scale-bench`):
+
+| | |
+| --- | --- |
+| Cached event payloads, all 5 events | **3.26 MB** |
+| The entire `tournamentRecord` they derive from | 0.82 MB |
+| `getEventData` for all 5 events | ~92 ms |
+
+`getEventData` denormalizes participants into every matchUp side, so the cached payload is **four times
+larger than the record it is built from**. Before narrowing, one score discarded all of it — including
+four events that had not changed.
+
+## `warmCache` — opt-in re-seeding
+
+A write can ask CFS to re-seed the per-event payloads it just evicted:
+
+```json
+POST /factory
+{
+  "tournamentIds": ["<tid>"],
+  "methods": [{ "method": "publishEvent", "params": { "eventId": "<eid>" } }],
+  "warmCache": true
+}
+```
+
+**Default is `false`, and that default is deliberate.** Building the payload is exactly the cost the
+normal path avoids. Turn it on when a reader is imminent; leave it off otherwise.
+
+| Publish shape | `warmCache` | Why |
+| --- | --- | --- |
+| Draw released, crowd about to look | **on** | the miss is user-visible |
+| Draft / administrative / bulk republish | **off** | no reader is coming; the build is waste |
+
+Mechanics, and the reasons behind them:
+
+- **Re-seeds exactly the keys that were evicted this request** — the same list the narrowing uses.
+- **Seeds through `cacheFx`**, never a hand-built object, so the seeded and naturally-cached shapes
+  cannot drift. This is a real failure mode, not a hypothetical: the cached value is the full
+  `{ success, eventData, participants }` result, and seeding the notice's inner `eventData` alone would
+  serve a participants-less shape that **blanks every bracket side to TBD for the full TTL**.
+- **Runs strictly after invalidation** — seeding first would only feed the sweep.
+- **Awaited, not fire-and-forget.** The caller opted in because a reader is imminent; returning before
+  the cache is populated would race that reader, and a detached promise would swallow errors.
+
+The flag lives on the executionQueue payload rather than on `publishEvent` params, so the **factory never
+sees it** — caching is a server concern and this keeps it there.
+
+> **Client status.** `warmCache` is available on the API; TMX does not set it yet. Until a client passes
+> it, behaviour is unchanged.
+
+## WebSocket vs HTTP
+
+Both paths run the layer-1 handlers. Only the HTTP controller keeps the side-table, so **flag-variant**
+`gti|<tid>|<flags>` keys are evicted on the HTTP path but not by `clearCache`. A WS-driven mutation
+therefore leaves flag-variant tournamentInfo reads stale until the TTL elapses — acceptable, because the
+live broadcast already notifies interactive clients, and consumers needing consistency should read the
+no-flags route.
+
+## Adding a cached endpoint
+
+1. Build a key shaped `<prefix>|<tournamentId>[|<...>]` — segment `[1]` **must** be the tournament id.
+2. Read through `cacheFx`, which handles hit/miss, the TTL and side-table tracking.
+3. Decide the scope. Tournament-wide? Add it to `clearCache`. Narrower than that? Evict it from the
+   topic handler that knows the identifying id, and record the eviction so the controller can spare it.
