@@ -593,6 +593,30 @@ export class FactoryService {
     return await publicQueries.getEventData({ hydrateParticipants, tournamentId, eventId }, this.tournamentStorage);
   }
 
+  async getDrawData({
+    structuresProfile,
+    tournamentId,
+    drawId,
+  }: {
+    structuresProfile?: string;
+    tournamentId: string;
+    drawId: string;
+  }) {
+    return await publicQueries.getDrawData({ structuresProfile, tournamentId, drawId }, this.tournamentStorage);
+  }
+
+  async getStructureData({
+    tournamentId,
+    structureId,
+    drawId,
+  }: {
+    tournamentId: string;
+    structureId: string;
+    drawId: string;
+  }) {
+    return await publicQueries.getStructureData({ tournamentId, structureId, drawId }, this.tournamentStorage);
+  }
+
   async getScheduleMatchUps({ params }) {
     return await publicQueries.getCompetitionScheduleMatchUps(params, this.tournamentStorage);
   }

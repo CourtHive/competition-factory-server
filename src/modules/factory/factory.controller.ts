@@ -9,10 +9,25 @@ import { GetTournamentInfoDto } from './dto/getTournamentInfo.dto';
 import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
 import { GetParticipantsDto } from './dto/getParticipants.dto';
 import { ExecutionQueueDto } from './dto/executionQueue.dto';
+import { GetStructureDataDto } from './dto/getStructureData.dto';
+import { GetDrawDataDto } from './dto/getDrawData.dto';
 import { GetEventDataDto } from './dto/getEventData.dto';
 import { GetMatchUpsDto } from './dto/getMatchUps.dto';
 
-import { Controller, Get, Post, HttpCode, HttpStatus, Body, UseGuards, Inject, Param, Logger, Req, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  HttpCode,
+  HttpStatus,
+  Body,
+  UseGuards,
+  Inject,
+  Param,
+  Logger,
+  Req,
+  ForbiddenException,
+} from '@nestjs/common';
 import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
 import { ADMIN, CLIENT, GENERATE, PROVIDER_ADMIN, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
 import { ApplyPrivacyPolicyDto } from './dto/applyPrivacyPolicy.dto';
@@ -136,8 +151,10 @@ export class FactoryController {
           retained.add(key);
           continue;
         }
-        // A per-event key is spared only when the handlers already evicted the ones that changed.
-        if (narrow && key.startsWith('ged|') && !evicted.has(key)) {
+        // A per-ENTITY key (event, draw, structure) is spared only when the handlers already evicted
+        // the ones that changed. Tournament-scoped keys always go — they aggregate across entities.
+        const perEntity = key.startsWith('ged|') || key.startsWith('gdd|') || key.startsWith('gsd|');
+        if (narrow && perEntity && !evicted.has(key)) {
           retained.add(key);
           continue;
         }
@@ -203,6 +220,36 @@ export class FactoryController {
   async eventData(@Body() ged: GetEventDataDto) {
     const key = `ged|${ged.tournamentId}|${ged.eventId}`;
     return await this.cacheFx(key, (params) => this.factoryService.getEventData(params), ged);
+  }
+
+  /**
+   * Draw tier of the payload decomposition. Its OWN cache key, so a change in one draw does not evict
+   * another's cached payload — cache granularity is invalidation granularity.
+   *
+   * `structuresProfile: 'STUBS'` is part of the key: the thin and full responses are different
+   * documents and must not share an entry, or a client asking for one would receive the other.
+   */
+  @Public()
+  @Post('drawdata')
+  async drawData(@Body() gdd: GetDrawDataDto) {
+    const profile = gdd.structuresProfile === 'STUBS' ? '|s' : '';
+    const key = `gdd|${gdd.tournamentId}|${gdd.drawId}${profile}`;
+    return await this.cacheFx(key, (params) => this.factoryService.getDrawData(params), gdd);
+  }
+
+  /**
+   * Structure tier — the drill-in.
+   *
+   * ⚠️ This narrows the RESPONSE, not the server's work: every draw is a single structure group, so
+   * the factory cannot skip assembling siblings. The justification is a per-structure cache entry and
+   * a smaller body, NOT compute. See the correction in
+   * `Mentat/planning/PUBLISH_WARMCACHE_AND_PAYLOAD_DECOMPOSITION.md`.
+   */
+  @Public()
+  @Post('structuredata')
+  async structureData(@Body() gsd: GetStructureDataDto) {
+    const key = `gsd|${gsd.tournamentId}|${gsd.structureId}`;
+    return await this.cacheFx(key, (params) => this.factoryService.getStructureData(params), gsd);
   }
 
   @Public()

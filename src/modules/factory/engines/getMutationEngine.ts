@@ -71,11 +71,30 @@ const requestServices = () => getRequestContext().services;
  * a mutation whose notices never carry an eventId evicts nothing here, the set stays empty, and the
  * controller falls back to the old tournament-wide behaviour rather than serving stale event data.
  */
-const evictEventData = (tournamentId, eventId) => {
-  if (!tournamentId || !eventId) return;
-  const key = `ged|${tournamentId}|${eventId}`;
+const evictKey = (key: string) => {
   requestServices()?.cacheManager?.del(key);
   getRequestContext().evictedEventKeys?.add(key);
+};
+
+const evictEventData = (tournamentId, eventId) => {
+  if (!tournamentId || !eventId) return;
+  evictKey(`ged|${tournamentId}|${eventId}`);
+};
+
+/**
+ * Evict the DRAW tier. Both `structuresProfile` variants are separate documents under separate keys,
+ * so both must go — sparing the thin one would serve a stale structure list.
+ */
+const evictDrawData = (tournamentId, drawId) => {
+  if (!tournamentId || !drawId) return;
+  evictKey(`gdd|${tournamentId}|${drawId}`);
+  evictKey(`gdd|${tournamentId}|${drawId}|s`);
+};
+
+/** Evict the STRUCTURE tier. */
+const evictStructureData = (tournamentId, structureId) => {
+  if (!tournamentId || !structureId) return;
+  evictKey(`gsd|${tournamentId}|${structureId}`);
 };
 
 const clearCache = (tournamentId) => {
@@ -109,6 +128,11 @@ export const subscriptionHandlers = {
     for (const item of params) {
       clearCache(item.tournamentId);
       recordMatchUpResult(requestDeltaBuffer(), item);
+      // A score changes the structure it is in AND the draw containing it, so both tiers go — but
+      // only THOSE. Sibling structures and other draws keep their cached payloads, which is the whole
+      // point of giving them their own keys. drawId/structureId ride the notice as of factory 6.27.0.
+      evictStructureData(item.tournamentId, item.structureId);
+      evictDrawData(item.tournamentId, item.drawId);
       const matchUp = item?.matchUp;
       const notices = requestPublicNotices();
       if (!matchUp || !notices) continue;
@@ -130,6 +154,8 @@ export const subscriptionHandlers = {
     for (const item of params) {
       // Clear event data cache using the eventId from position assignment notices
       evictEventData(item.tournamentId, item.eventId);
+      evictStructureData(item.tournamentId, item.structureId);
+      evictDrawData(item.tournamentId, item.drawId);
       clearCache(item.tournamentId);
       requestPublicNotices()?.push({
         topic: topicConstants.MODIFY_POSITION_ASSIGNMENTS,
@@ -297,7 +323,8 @@ export const subscriptionHandlers = {
   [topicConstants.ADD_MATCHUPS]: (params) => recordAddMatchUps(requestDeltaBuffer(), params),
   [topicConstants.ADD_DRAW_DEFINITION]: (params) => {
     recordAddDraw(requestDeltaBuffer(), params); // flatten matchUps
-    recordDraw(requestDeltaBuffer(), params); // draw + structures rows
+    recordDraw(requestDeltaBuffer(), params);
+    for (const item of params ?? []) evictDrawData(item?.tournamentId, item?.drawDefinition?.drawId ?? item?.drawId); // draw + structures rows
   },
   [topicConstants.MODIFY_DRAW_DEFINITION]: (params) => {
     recordDraw(requestDeltaBuffer(), params);
