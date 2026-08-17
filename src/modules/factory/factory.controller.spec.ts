@@ -256,9 +256,7 @@ describe('FactoryController', () => {
       const sms = { tournamentId: 't1', matchUpId: 'm1', drawId: 'd1' };
       await mockController.scoreMatchUp(sms as any, {} as any);
 
-      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(
-        expect.objectContaining({ tournamentIds: ['t1'] }),
-      );
+      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(expect.objectContaining({ tournamentIds: ['t1'] }));
       expect(mockBroadcast.broadcastPublicNotices).toHaveBeenCalled();
     });
 
@@ -291,6 +289,8 @@ describe('FactoryController', () => {
       getParticipants: jest.fn().mockResolvedValue(mockResult),
       getMatchUps: jest.fn().mockResolvedValue(mockResult),
       getAssistantContext: jest.fn().mockResolvedValue(mockResult),
+      getDrawData: jest.fn().mockResolvedValue(mockResult),
+      getStructureData: jest.fn().mockResolvedValue(mockResult),
       executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
       score: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
     } as unknown as FactoryService;
@@ -334,9 +334,7 @@ describe('FactoryController', () => {
       await mockController.executionQueue(eqd as any, mockReq);
 
       const deletedKeys = mockCache.del.mock.calls.map((c: any[]) => c[0]).sort();
-      expect(deletedKeys).toEqual(
-        ['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|ms', 'gtm|t1', 'gtp|t1'].sort(),
-      );
+      expect(deletedKeys).toEqual(['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|ms', 'gtm|t1', 'gtp|t1'].sort());
     });
 
     it('deletes flag-variant keys (gti|<tid>|<flags>) on invalidation', async () => {
@@ -382,7 +380,7 @@ describe('FactoryController', () => {
       }
     });
 
-    it('narrows to the evicted event key, sparing OTHER events\' cached payloads', async () => {
+    it("narrows to the evicted event key, sparing OTHER events' cached payloads", async () => {
       await populateCacheForTid(mockController, 't1');
       await mockController.eventData({ tournamentId: 't1', eventId: 'e2' } as any);
       jest.clearAllMocks();
@@ -463,10 +461,7 @@ describe('FactoryController', () => {
         warmedEventKeys: ['ged|t1|e1'],
       });
       const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
-      await mockController.executionQueue(
-        { tournamentIds: ['t1'], methods: [], warmCache: true } as any,
-        mockReq,
-      );
+      await mockController.executionQueue({ tournamentIds: ['t1'], methods: [], warmCache: true } as any, mockReq);
 
       // Without this the sweep would delete exactly the payload the caller paid to rebuild.
       expect(mockCache.del.mock.calls.map((c: any[]) => c[0])).not.toContain('ged|t1|e1');
@@ -496,6 +491,66 @@ describe('FactoryController', () => {
       expect(typeof services.trackCacheKey).toBe('function');
     });
 
+    it('gives each tier its own cache key', async () => {
+      await mockController.drawData({ tournamentId: 't1', drawId: 'd1' } as any);
+      await mockController.drawData({ tournamentId: 't1', drawId: 'd1', structuresProfile: 'STUBS' } as any);
+      await mockController.structureData({ tournamentId: 't1', drawId: 'd1', structureId: 's1' } as any);
+
+      const setKeys = mockCache.set.mock.calls.map((c: any[]) => c[0]);
+      expect(setKeys).toContain('gdd|t1|d1');
+      // The thin and full draw responses are DIFFERENT documents — sharing a key would serve one
+      // client the other's payload.
+      expect(setKeys).toContain('gdd|t1|d1|s');
+      expect(setKeys).toContain('gsd|t1|s1');
+    });
+
+    it('GRANULARITY: a change in one structure spares the other tiers that did not change', async () => {
+      // The whole justification for the structure tier — it saves no compute, only invalidation blast
+      // radius. If this does not hold, the tier is not worth having.
+      await mockController.drawData({ tournamentId: 't1', drawId: 'd1' } as any);
+      await mockController.drawData({ tournamentId: 't1', drawId: 'd2' } as any);
+      await mockController.structureData({ tournamentId: 't1', drawId: 'd1', structureId: 's1' } as any);
+      await mockController.structureData({ tournamentId: 't1', drawId: 'd1', structureId: 's2' } as any);
+      // Tournament-scoped keys must be in the side-table too, or "they still go" proves nothing.
+      await mockController.tournamentMatchUps({ params: { tournamentId: 't1' } } as any);
+      await mockController.tournamentParticipants({ params: { tournamentId: 't1' } } as any);
+      await mockController.getMatchUps({ tournamentId: 't1' } as any);
+      jest.clearAllMocks();
+
+      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+        success: true,
+        publicNotices: [],
+        evictedEventKeys: ['gsd|t1|s1', 'gdd|t1|d1', 'gdd|t1|d1|s'],
+      });
+      const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
+      await mockController.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, mockReq);
+
+      const deleted = mockCache.del.mock.calls.map((c: any[]) => c[0]);
+      // untouched siblings survive
+      expect(deleted).not.toContain('gsd|t1|s2');
+      expect(deleted).not.toContain('gdd|t1|d2');
+      // tournament-scoped keys still go — they aggregate across entities
+      for (const k of ['gtm|t1', 'gmr|t1', 'gtp|t1']) expect(deleted).toContain(k);
+    });
+
+    it('FAIL-SAFE: sweeps every tier when no targeted eviction was reported', async () => {
+      await mockController.drawData({ tournamentId: 't1', drawId: 'd1' } as any);
+      await mockController.structureData({ tournamentId: 't1', drawId: 'd1', structureId: 's1' } as any);
+      jest.clearAllMocks();
+
+      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+        success: true,
+        publicNotices: [],
+        evictedEventKeys: [],
+      });
+      const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
+      await mockController.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, mockReq);
+
+      const deleted = mockCache.del.mock.calls.map((c: any[]) => c[0]);
+      expect(deleted).toContain('gdd|t1|d1');
+      expect(deleted).toContain('gsd|t1|s1');
+    });
+
     it('deletes tracked keys on scoreMatchUp success', async () => {
       await populateCacheForTid(mockController, 't1');
 
@@ -503,9 +558,7 @@ describe('FactoryController', () => {
       await mockController.scoreMatchUp(sms as any, {} as any);
 
       const deletedKeys = mockCache.del.mock.calls.map((c: any[]) => c[0]).sort();
-      expect(deletedKeys).toEqual(
-        ['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|ms', 'gtm|t1', 'gtp|t1'].sort(),
-      );
+      expect(deletedKeys).toEqual(['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|ms', 'gtm|t1', 'gtp|t1'].sort());
     });
 
     it('does not delete cache keys when the mutation fails', async () => {

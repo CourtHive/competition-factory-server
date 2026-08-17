@@ -16,15 +16,18 @@ The interesting parts are the two that are easy to get wrong: **how much a write
 Every cached read is stored under a `<prefix>|<tournamentId>[|<...>]` key. Segment `[1]` is always the
 tournament id — that is what makes per-tournament invalidation possible.
 
-| Key | Endpoint | Scope |
-| --- | --- | --- |
-| `gti\|<tid>` | `GET /factory/tournamentinfo/:tid` | tournament |
-| `gti\|<tid>\|<flags>` | `POST /factory/tournamentinfo` | tournament, per flag combination |
-| `ged\|<tid>\|<eid>` | `POST /factory/eventdata` | **one event** |
-| `gtm\|<tid>` | `POST /factory/scheduledmatchups` | tournament |
-| `gtp\|<tid>` | `POST /factory/participants` | tournament |
-| `gmr\|<tid>` | `POST /factory/matchups` | tournament |
-| `gac\|<tid>` | `GET /factory/assistant-context/:tid` | tournament |
+| Key                    | Endpoint                                                   | Scope                            |
+| ---------------------- | ---------------------------------------------------------- | -------------------------------- |
+| `gti\|<tid>`           | `GET /factory/tournamentinfo/:tid`                         | tournament                       |
+| `gti\|<tid>\|<flags>`  | `POST /factory/tournamentinfo`                             | tournament, per flag combination |
+| `ged\|<tid>\|<eid>`    | `POST /factory/eventdata`                                  | **one event**                    |
+| `gdd\|<tid>\|<did>`    | `POST /factory/drawdata`                                   | **one draw**                     |
+| `gdd\|<tid>\|<did>\|s` | `POST /factory/drawdata` with `structuresProfile: 'STUBS'` | **one draw**, thin               |
+| `gsd\|<tid>\|<sid>`    | `POST /factory/structuredata`                              | **one structure**                |
+| `gtm\|<tid>`           | `POST /factory/scheduledmatchups`                          | tournament                       |
+| `gtp\|<tid>`           | `POST /factory/participants`                               | tournament                       |
+| `gmr\|<tid>`           | `POST /factory/matchups`                                   | tournament                       |
+| `gac\|<tid>`           | `GET /factory/assistant-context/:tid`                      | tournament                       |
 
 `cacheFx(key, fx, params)` is the single wrapper: on a hit it returns the stored value stamped
 `_cached: true`; on a miss it calls `fx`, and stores the result only when there is no `error`.
@@ -32,7 +35,7 @@ tournament id — that is what makes per-tournament invalidation possible.
 Because `cache-manager` has no prefix-delete primitive, the controller keeps a **side-table** of every key
 it has issued per tournament. That table is capped at 200 keys per tournament with FIFO eviction, so a
 client polling many flag-variant combinations cannot grow it without bound. A key evicted from the
-*tracking* set is not iterate-evicted on the next mutation; it ages out via the TTL instead.
+_tracking_ set is not iterate-evicted on the next mutation; it ages out via the TTL instead.
 
 ## Invalidation happens at two layers
 
@@ -42,23 +45,26 @@ Factory notices fire during the mutation. Handlers evict what they can attribute
 
 - `clearCache(tournamentId)` evicts the **tournament-scoped** shapes — `gti|`, `gtm|`, `gac|`, `gtp|`,
   `gmr|`. These aggregate across events, so any write can change them.
-- `evictEventData(tournamentId, eventId)` evicts **one** `ged|<tid>|<eid>` key, and records that a
-  targeted eviction happened. Used by `MODIFY_POSITION_ASSIGNMENTS`, `MODIFY_DRAW_DEFINITION`,
-  `PUBLISH_EVENT` and `UNPUBLISH_EVENT`.
+- `evictEventData` / `evictDrawData` / `evictStructureData` evict **one** entity key each and record
+  that a targeted eviction happened. `evictDrawData` evicts **both** `structuresProfile` variants —
+  they are separate documents, and sparing the thin one would serve a stale structure list.
 
-`clearCache` deliberately does **not** touch `ged|` keys — per-event payloads belong to the topics that
-know which event changed.
+`clearCache` deliberately does **not** touch per-entity keys — those belong to the topics that know
+which entity changed.
 
-> **Where a score gets its eventId.** `MODIFY_MATCHUP`'s payload is only
-> `{ matchUp, tournamentId, context }` — factory has the `eventId` but does not emit it on that topic.
-> `MODIFY_DRAW_DEFINITION` *does* carry it and fires on the same mutation whenever a `drawDefinition` is
-> present, which is what lets a score evict precisely its own event with no factory change.
+> **Where the identity comes from.** As of factory **6.27.0** `MODIFY_MATCHUP` carries `eventId`,
+> `drawId` and `structureId` on the envelope. Before that it was only
+> `{ matchUp, tournamentId, context }`, and a score had to evict via `MODIFY_DRAW_DEFINITION` — a
+> sibling topic that happened to fire on the same mutation. The notice-identity work
+> (`Mentat/planning/FACTORY_NOTICE_IDENTITY_AUDIT.md`) is what makes structure-grain eviction possible
+> at all: without `structureId` on the topic that describes a score, there is nothing to evict against.
 
 ### Layer 2 — the controller (`invalidateTournamentCache`)
 
 After a successful write the controller sweeps the side-table. It **narrows** when the mutation reported
-targeted evictions: per-event `ged|` keys not named in that list are **spared**, while every
-tournament-scoped key still goes.
+targeted evictions: per-**entity** keys (`ged|`, `gdd|`, `gsd|`) not named in that list are **spared**,
+while every tournament-scoped key still goes — those aggregate across entities, so any write can move
+them.
 
 **Fail-safe:** narrowing happens only when at least one targeted eviction was reported. An empty list
 means no notice carried an eventId, so the controller falls back to the original tournament-wide sweep.
@@ -71,15 +77,40 @@ Spared keys are written back into the side-table so a later write can still find
 Measured on a Grand-Slam-shaped tournament (5 events, 635 matchUps — see
 `Mentat/tools/slam-scale-bench`):
 
-| | |
-| --- | --- |
-| Cached event payloads, all 5 events | **3.26 MB** |
-| The entire `tournamentRecord` they derive from | 0.82 MB |
-| `getEventData` for all 5 events | ~92 ms |
+|                                                |             |
+| ---------------------------------------------- | ----------- |
+| Cached event payloads, all 5 events            | **3.26 MB** |
+| The entire `tournamentRecord` they derive from | 0.82 MB     |
+| `getEventData` for all 5 events                | ~92 ms      |
 
 `getEventData` denormalizes participants into every matchUp side, so the cached payload is **four times
 larger than the record it is built from**. Before narrowing, one score discarded all of it — including
 four events that had not changed.
+
+## Decomposed tiers — event → draw → structure
+
+`POST /factory/eventdata` returns every draw with every structure. A client that wants one bracket pays
+for all of them, and any change anywhere discards the lot. The `drawdata` and `structuredata` endpoints
+let a client fetch what it is actually rendering.
+
+**Be precise about what this buys, because it is not what it looks like.** The narrower endpoints do
+**not** skip factory compute — measured, every draw is a single structure group, so `getStructureData`
+assembles the same work `getDrawData` does. The gain is entirely in the other two dimensions:
+
+|                           | Event tier             | Draw tier | Structure tier |
+| ------------------------- | ---------------------- | --------- | -------------- |
+| Response size             | whole event            | one draw  | one structure  |
+| Invalidation blast radius | all draws in the event | one draw  | one structure  |
+| Factory compute           | —                      | —         | **the same**   |
+
+So the tiers are worth having for **payload** and **eviction granularity**, not for CPU. A score in one
+structure now leaves its siblings' cached payloads intact; before, it discarded the entire event.
+
+`structuresProfile: 'STUBS'` on `drawdata` returns draw metadata without structures — a draw list, for
+navigation, at a fraction of the size. It is a distinct cache key, never a variant of the same one.
+
+**Additive only.** `eventdata` is unchanged in shape and default behaviour. ClubSpark runs the existing
+pattern at scale for USTA and ITA; these are new routes alongside it, not a migration.
 
 ## `warmCache` — opt-in re-seeding
 
@@ -97,10 +128,10 @@ POST /factory
 **Default is `false`, and that default is deliberate.** Building the payload is exactly the cost the
 normal path avoids. Turn it on when a reader is imminent; leave it off otherwise.
 
-| Publish shape | `warmCache` | Why |
-| --- | --- | --- |
-| Draw released, crowd about to look | **on** | the miss is user-visible |
-| Draft / administrative / bulk republish | **off** | no reader is coming; the build is waste |
+| Publish shape                           | `warmCache` | Why                                     |
+| --------------------------------------- | ----------- | --------------------------------------- |
+| Draw released, crowd about to look      | **on**      | the miss is user-visible                |
+| Draft / administrative / bulk republish | **off**     | no reader is coming; the build is waste |
 
 Mechanics, and the reasons behind them:
 
@@ -133,3 +164,6 @@ no-flags route.
 2. Read through `cacheFx`, which handles hit/miss, the TTL and side-table tracking.
 3. Decide the scope. Tournament-wide? Add it to `clearCache`. Narrower than that? Evict it from the
    topic handler that knows the identifying id, and record the eviction so the controller can spare it.
+4. **Add the prefix to the `perEntity` test in `invalidateTournamentCache`.** A per-entity key that is
+   not listed there is swept on every write — correct, but it throws away the granularity that was the
+   reason for adding the endpoint.
