@@ -40,6 +40,15 @@ import { User } from '../account/auth/decorators/user.decorator';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { FactoryService } from './factory.service';
 
+/**
+ * Cache-key prefixes scoped to ONE entity rather than the whole tournament. These are the only keys
+ * eligible to be spared when a mutation reports targeted evictions.
+ *
+ * Single list on purpose: a tier registered in one place and forgotten in the other is silently
+ * either over-swept (loses the granularity it was added for) or under-swept (serves stale).
+ */
+const PER_ENTITY_PREFIXES = ['ged|', 'gdd|', 'gsd|'] as const;
+
 @UseGuards(RolesGuard)
 @Controller('factory')
 export class FactoryController {
@@ -125,6 +134,7 @@ export class FactoryController {
     tournamentIds: readonly string[],
     evictedEventKeys?: readonly string[],
     warmedEventKeys?: readonly string[],
+    unnarrowablePrefixes?: readonly string[],
   ): void {
     // Per-event `ged|<tid>|<eid>` payloads are the bulk of this cache — measured at 3.26 MB across a
     // Grand-Slam-shaped tournament's five events, four times the tournamentRecord they derive from
@@ -141,6 +151,10 @@ export class FactoryController {
     // so without this the sweep would delete exactly the payload the caller just paid to rebuild.
     const warmed = new Set(warmedEventKeys ?? []);
     const narrow = evicted.size > 0;
+    // A tier whose handlers could not attribute a change is swept wholesale. Without this, a change
+    // the handlers saw but could not target looks identical to no change at all, and the key is
+    // spared — stale for the full TTL. See FactoryRequestContext.unnarrowablePrefixes.
+    const unnarrowable = new Set(unnarrowablePrefixes ?? []);
     for (const tid of tournamentIds) {
       if (!tid || typeof tid !== 'string') continue;
       const keys = this.cacheKeysByTournament.get(tid);
@@ -153,7 +167,8 @@ export class FactoryController {
         }
         // A per-ENTITY key (event, draw, structure) is spared only when the handlers already evicted
         // the ones that changed. Tournament-scoped keys always go — they aggregate across entities.
-        const perEntity = key.startsWith('ged|') || key.startsWith('gdd|') || key.startsWith('gsd|');
+        const prefix = PER_ENTITY_PREFIXES.find((p) => key.startsWith(p));
+        const perEntity = !!prefix && !unnarrowable.has(prefix);
         if (narrow && perEntity && !evicted.has(key)) {
           retained.add(key);
           continue;
@@ -322,7 +337,12 @@ export class FactoryController {
       };
       this.broadcastService.broadcastMutation(payload);
       this.broadcastService.broadcastPublicNotices(payload, publicNotices);
-      this.invalidateTournamentCache(payload.tournamentIds, result?.evictedEventKeys);
+      this.invalidateTournamentCache(
+        payload.tournamentIds,
+        result?.evictedEventKeys,
+        undefined,
+        result?.unnarrowablePrefixes,
+      );
     }
     return result;
   }
@@ -354,7 +374,12 @@ export class FactoryController {
       const { publicNotices } = result;
       this.broadcastService.broadcastMutation(eqd);
       this.broadcastService.broadcastPublicNotices(eqd, publicNotices);
-      this.invalidateTournamentCache(eqd.tournamentIds ?? [], result?.evictedEventKeys, result?.warmedEventKeys);
+      this.invalidateTournamentCache(
+        eqd.tournamentIds ?? [],
+        result?.evictedEventKeys,
+        result?.warmedEventKeys,
+        result?.unnarrowablePrefixes,
+      );
     }
     return result;
   }

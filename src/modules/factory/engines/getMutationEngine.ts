@@ -77,7 +77,11 @@ const evictKey = (key: string) => {
 };
 
 const evictEventData = (tournamentId, eventId) => {
-  if (!tournamentId || !eventId) return;
+  if (!tournamentId) return;
+  if (!eventId) {
+    getRequestContext().unnarrowablePrefixes?.add('ged|');
+    return;
+  }
   evictKey(`ged|${tournamentId}|${eventId}`);
 };
 
@@ -86,14 +90,28 @@ const evictEventData = (tournamentId, eventId) => {
  * so both must go — sparing the thin one would serve a stale structure list.
  */
 const evictDrawData = (tournamentId, drawId) => {
-  if (!tournamentId || !drawId) return;
+  if (!tournamentId) return;
+  if (!drawId) {
+    getRequestContext().unnarrowablePrefixes?.add('gdd|');
+    return;
+  }
   evictKey(`gdd|${tournamentId}|${drawId}`);
   evictKey(`gdd|${tournamentId}|${drawId}|s`);
 };
 
-/** Evict the STRUCTURE tier. */
+/**
+ * Evict the STRUCTURE tier.
+ *
+ * A missing `structureId` is NOT a no-op: it means something changed at structure grain that we
+ * cannot attribute, so the controller must not spare `gsd|` keys. Returning quietly here is what
+ * turned "invalidate less" into "serve stale".
+ */
 const evictStructureData = (tournamentId, structureId) => {
-  if (!tournamentId || !structureId) return;
+  if (!tournamentId) return;
+  if (!structureId) {
+    getRequestContext().unnarrowablePrefixes?.add('gsd|');
+    return;
+  }
   evictKey(`gsd|${tournamentId}|${structureId}`);
 };
 
@@ -328,11 +346,15 @@ export const subscriptionHandlers = {
   },
   [topicConstants.MODIFY_DRAW_DEFINITION]: (params) => {
     recordDraw(requestDeltaBuffer(), params);
-    // `modifyDrawNotice` carries eventId, and `modifyMatchUpNotice` fires it alongside every
-    // MODIFY_MATCHUP that has a drawDefinition — so this is where a SCORE gets its per-event
-    // eviction. MODIFY_MATCHUP's own payload is only { matchUp, tournamentId, context } and cannot
-    // target. Evicting here keeps the score path precise without a factory change.
-    for (const item of params ?? []) evictEventData(item?.tournamentId, item?.eventId);
+    // `modifyDrawNotice` carries eventId, and fires alongside every MODIFY_MATCHUP that has a
+    // drawDefinition — so this is where a SCORE gets its per-event eviction. MODIFY_MATCHUP does not
+    // carry an eventId of its own on every path, so evicting here keeps the score path precise.
+    for (const item of params ?? []) {
+      evictEventData(item?.tournamentId, item?.eventId);
+      // The drawId is nested — this topic has no top-level one. Covers draw-shape changes that never
+      // emit a MODIFY_MATCHUP (structure edits, seeding), which would otherwise leave `gdd|` stale.
+      evictDrawData(item?.tournamentId, item?.drawDefinition?.drawId);
+    }
   },
   [topicConstants.ADD_PARTICIPANTS]: (params) => {
     recordParticipants(requestDeltaBuffer(), params);

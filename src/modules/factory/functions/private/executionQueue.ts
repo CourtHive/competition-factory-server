@@ -39,6 +39,10 @@ export async function executionQueue(
     // so the controller can skip its blanket per-event sweep — and, when EMPTY, deliberately fall
     // back to it. See FactoryRequestContext.evictedEventKeys.
     const evictedEventKeys = new Set<string>();
+    // Prefixes whose narrowing cannot be trusted this request — see
+    // FactoryRequestContext.unnarrowablePrefixes. Returned alongside the evicted keys so the
+    // controller can sweep exactly those tiers instead of sparing them.
+    const unnarrowablePrefixes = new Set<string>();
     // Collect cache keys to clear AFTER save to avoid race condition
     // where an HTTP read repopulates the cache with stale data between
     // cache-clear (during mutation) and save (after mutation).
@@ -67,6 +71,7 @@ export async function executionQueue(
       publicNotices,
       deltaBuffer,
       evictedEventKeys,
+      unnarrowablePrefixes,
       services: {
         ...services,
         cacheManager: deferredClearCache,
@@ -243,7 +248,13 @@ export async function executionQueue(
         })
       : [];
 
-    return { ...mutationResult, publicNotices, evictedEventKeys: [...evictedEventKeys], warmedEventKeys };
+    return {
+      ...mutationResult,
+      publicNotices,
+      evictedEventKeys: [...evictedEventKeys],
+      unnarrowablePrefixes: [...unnarrowablePrefixes],
+      warmedEventKeys,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     Logger.error(`executionQueue exception for tournaments [${tournamentIds.join(', ')}]: ${message}`);

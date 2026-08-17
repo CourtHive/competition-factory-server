@@ -533,6 +533,35 @@ describe('FactoryController', () => {
       for (const k of ['gtm|t1', 'gmr|t1', 'gtp|t1']) expect(deleted).toContain(k);
     });
 
+    it('FAIL-SAFE: an UNATTRIBUTABLE change sweeps that tier even though other tiers narrowed', async () => {
+      // The bug this guards. `MODIFY_MATCHUP` declares a `structureId` but 57 of factory's 61
+      // modifyMatchUpNotice call sites never pass one — every score path included. The handler
+      // evicted nothing for the structure tier and said nothing about it, so the controller could
+      // not distinguish "no structure changed" from "a structure changed and we could not name it",
+      // and SPARED the key. A score served a stale structure payload for the full TTL.
+      await mockController.drawData({ tournamentId: 't1', drawId: 'd1' } as any);
+      await mockController.structureData({ tournamentId: 't1', drawId: 'd1', structureId: 's1' } as any);
+      await mockController.structureData({ tournamentId: 't1', drawId: 'd1', structureId: 's2' } as any);
+      jest.clearAllMocks();
+
+      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+        success: true,
+        publicNotices: [],
+        // draw tier attributed; structure tier could not be
+        evictedEventKeys: ['gdd|t1|d1', 'gdd|t1|d1|s'],
+        unnarrowablePrefixes: ['gsd|'],
+      });
+      const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
+      await mockController.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, mockReq);
+
+      const deleted = mockCache.del.mock.calls.map((c: any[]) => c[0]);
+      // the unattributable tier goes wholesale — coarse, but never stale
+      expect(deleted).toContain('gsd|t1|s1');
+      expect(deleted).toContain('gsd|t1|s2');
+      // ...while the tier that DID attribute keeps its granularity
+      expect(deleted).toContain('gdd|t1|d1');
+    });
+
     it('FAIL-SAFE: sweeps every tier when no targeted eviction was reported', async () => {
       await mockController.drawData({ tournamentId: 't1', drawId: 'd1' } as any);
       await mockController.structureData({ tournamentId: 't1', drawId: 'd1', structureId: 's1' } as any);
