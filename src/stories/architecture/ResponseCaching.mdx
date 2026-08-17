@@ -52,8 +52,11 @@ Factory notices fire during the mutation. Handlers evict what they can attribute
 `clearCache` deliberately does **not** touch per-entity keys — those belong to the topics that know
 which entity changed.
 
-> **Where the identity comes from.** As of factory **6.27.0** `MODIFY_MATCHUP` carries `eventId`,
-> `drawId` and `structureId` on the envelope. Before that it was only
+> **Where the identity comes from — and where it stops.** As of factory **6.27.0** `MODIFY_MATCHUP`
+> declares `eventId`, `drawId` and `structureId` on its envelope. **`structureId` is declared but not
+> populated:** 57 of factory's 61 `modifyMatchUpNotice` call sites never pass one, every score path
+> included. So the structure tier currently cannot be targeted from a score, and falls back to a
+> wholesale sweep (see _Unattributable changes_ below). `drawId` and `eventId` are populated. Before that it was only
 > `{ matchUp, tournamentId, context }`, and a score had to evict via `MODIFY_DRAW_DEFINITION` — a
 > sibling topic that happened to fire on the same mutation. The notice-identity work
 > (`Mentat/planning/FACTORY_NOTICE_IDENTITY_AUDIT.md`) is what makes structure-grain eviction possible
@@ -66,9 +69,28 @@ targeted evictions: per-**entity** keys (`ged|`, `gdd|`, `gsd|`) not named in th
 while every tournament-scoped key still goes — those aggregate across entities, so any write can move
 them.
 
-**Fail-safe:** narrowing happens only when at least one targeted eviction was reported. An empty list
-means no notice carried an eventId, so the controller falls back to the original tournament-wide sweep.
-_Invalidate less_ must never silently become _serve stale_.
+**Fail-safe, one:** narrowing happens only when at least one targeted eviction was reported. An empty
+list means no notice carried an eventId, so the controller falls back to the original tournament-wide
+sweep. _Invalidate less_ must never silently become _serve stale_.
+
+**Fail-safe, two — unattributable changes.** The first fail-safe is not enough on its own, and the gap
+is subtle enough that it shipped once. A handler that sees a change it _cannot name_ — a
+`MODIFY_MATCHUP` with no `structureId` — used to evict nothing and say nothing. To the controller that
+is indistinguishable from _nothing changed at that grain_, so the key was **spared** and the tier served
+stale data for the full TTL, even though the other tiers narrowed correctly and the request looked
+healthy.
+
+So the eviction helpers now report the prefixes they could not attribute, via
+`FactoryRequestContext.unnarrowablePrefixes`, and the controller sweeps those tiers wholesale. Coarse,
+but never stale.
+
+| Handler sees                     | Records           | Controller                          |
+| -------------------------------- | ----------------- | ----------------------------------- |
+| change **with** the entity id    | the exact key     | spares every other key in that tier |
+| change **without** the entity id | the tier's prefix | sweeps that whole tier              |
+| no change at that grain          | nothing           | spares the tier                     |
+
+The middle row is the one that did not exist before.
 
 Spared keys are written back into the side-table so a later write can still find and evict them.
 
@@ -164,6 +186,8 @@ no-flags route.
 2. Read through `cacheFx`, which handles hit/miss, the TTL and side-table tracking.
 3. Decide the scope. Tournament-wide? Add it to `clearCache`. Narrower than that? Evict it from the
    topic handler that knows the identifying id, and record the eviction so the controller can spare it.
-4. **Add the prefix to the `perEntity` test in `invalidateTournamentCache`.** A per-entity key that is
-   not listed there is swept on every write — correct, but it throws away the granularity that was the
-   reason for adding the endpoint.
+4. **Add the prefix to `PER_ENTITY_PREFIXES`.** A per-entity key not listed there is swept on every
+   write — correct, but it throws away the granularity that was the reason for adding the endpoint.
+5. **Make the evicting helper report when it cannot attribute a change**, rather than returning early.
+   A silent skip reads as "nothing changed" and the key gets spared. This is the failure that shipped
+   in #906 and was caught in review, not by CI.

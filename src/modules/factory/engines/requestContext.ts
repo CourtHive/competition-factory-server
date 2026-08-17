@@ -31,6 +31,18 @@ export type FactoryRequestContext = {
    * nothing here and gets the old, broader behaviour rather than leaving stale event data.
    */
   evictedEventKeys?: Set<string>;
+
+  /**
+   * Cache-key prefixes whose per-entity narrowing CANNOT be trusted this request, because a notice
+   * that changed something at that grain did not carry the id needed to target it.
+   *
+   * This exists because a silent skip is indistinguishable from "nothing changed". `MODIFY_MATCHUP`
+   * declares a `structureId` on its envelope but 57 of factory's 61 `modifyMatchUpNotice` call sites
+   * never pass one — including every score path. Evicting nothing and then letting the controller
+   * SPARE `gsd|` keys served a stale structure payload for the full TTL. Recording the prefix here
+   * makes the controller sweep that tier instead, which is coarse but correct.
+   */
+  unnarrowablePrefixes?: Set<string>;
 };
 
 const asyncLocalStorage = new AsyncLocalStorage<FactoryRequestContext>();
