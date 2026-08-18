@@ -670,3 +670,117 @@ describe('FactoryController', () => {
     });
   });
 });
+
+/**
+ * participantsVersion handshake at the CFS boundary.
+ *
+ * Participants are 52%-78.6% of an event payload and the same 412 KB block is byte-identical across
+ * every event of a tournament (measured: 3,342 KB -> 1,281 KB, 61.7%). The handshake lets a caller
+ * prove it already holds them.
+ *
+ * The load-bearing decision is WHERE the omission happens. Splitting the cache key by version would
+ * multiply entries and, worse, store the participants-less variant — which served to a caller holding
+ * no version renders every bracket side TBD. So the cache holds ONE full payload per event and the
+ * controller strips participants on the way out.
+ */
+describe('FactoryController eventdata — participantsVersion', () => {
+  let mockController: FactoryController;
+
+  const cachedPayload: any = {
+    success: true,
+    eventData: { eventInfo: { eventId: 'e1' } },
+    participants: [{ participantId: 'p1' }, { participantId: 'p2' }],
+    participantsVersion: 'p1-2-abc123',
+  };
+
+  const mockService = {
+    getEventData: jest.fn().mockResolvedValue(cachedPayload),
+  } as unknown as FactoryService;
+
+  const mockBroadcast = {
+    broadcastMutation: jest.fn(),
+    broadcastPublicNotices: jest.fn(),
+  } as unknown as TournamentBroadcastService;
+
+  const mockCache = {
+    get: jest.fn().mockResolvedValue(undefined),
+    set: jest.fn(),
+    del: jest.fn().mockResolvedValue(undefined),
+  } as unknown as any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (mockService.getEventData as jest.Mock).mockResolvedValue(cachedPayload);
+    mockCache.get.mockResolvedValue(undefined);
+    mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+  });
+
+  it('includes participants when the caller supplies no version', async () => {
+    const result: any = await mockController.eventData({ tournamentId: 't1', eventId: 'e1' } as any);
+    expect(result.participants).toHaveLength(2);
+    expect(result.participantsVersion).toEqual('p1-2-abc123');
+  });
+
+  it('omits participants on an EXACT version match, keeping the rest intact', async () => {
+    const result: any = await mockController.eventData({
+      tournamentId: 't1',
+      eventId: 'e1',
+      participantsVersion: 'p1-2-abc123',
+    } as any);
+
+    expect(result.participants).toBeUndefined();
+    // the stamp still rides, so the caller can detect a later change
+    expect(result.participantsVersion).toEqual('p1-2-abc123');
+    expect(result.eventData).toBeDefined();
+    expect(result.success).toEqual(true);
+  });
+
+  it.each([
+    ['a stale version', 'p1-2-STALE'],
+    ['a malformed version', 'nonsense'],
+    ['an empty string', ''],
+  ])('INCLUDES participants on %s — the safe direction', async (_label, supplied) => {
+    const result: any = await mockController.eventData({
+      tournamentId: 't1',
+      eventId: 'e1',
+      participantsVersion: supplied,
+    } as any);
+    expect(result.participants).toHaveLength(2);
+  });
+
+  it('NEVER caches the participants-less variant', async () => {
+    // The trap this design exists to avoid: an omitted payload in the cache would be served to the
+    // next caller, who holds no version, and blank every bracket side.
+    await mockController.eventData({
+      tournamentId: 't1',
+      eventId: 'e1',
+      participantsVersion: 'p1-2-abc123',
+    } as any);
+
+    const stored = mockCache.set.mock.calls.map((call: any[]) => call[1]);
+    expect(stored.length).toBeGreaterThan(0);
+    for (const value of stored) expect(value.participants).toHaveLength(2);
+  });
+
+  it('does not mutate the cached object — a second caller still gets participants', async () => {
+    // The cached value is shared. Deleting the key in place would poison it for everyone.
+    await mockController.eventData({
+      tournamentId: 't1',
+      eventId: 'e1',
+      participantsVersion: 'p1-2-abc123',
+    } as any);
+    expect(cachedPayload.participants).toHaveLength(2);
+
+    const second: any = await mockController.eventData({ tournamentId: 't1', eventId: 'e1' } as any);
+    expect(second.participants).toHaveLength(2);
+  });
+
+  it('uses ONE cache key regardless of the version supplied', async () => {
+    await mockController.eventData({ tournamentId: 't1', eventId: 'e1' } as any);
+    await mockController.eventData({ tournamentId: 't1', eventId: 'e1', participantsVersion: 'p1-2-abc123' } as any);
+    await mockController.eventData({ tournamentId: 't1', eventId: 'e1', participantsVersion: 'other' } as any);
+
+    const keys = new Set(mockCache.set.mock.calls.map((call: any[]) => call[0]));
+    expect([...keys]).toEqual(['ged|t1|e1']);
+  });
+});
