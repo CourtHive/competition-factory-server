@@ -69,7 +69,6 @@ function getInstanceState(): ImplemtationGlobalStateTypes {
 
   implicitContextCount += 1;
   if (implicitContextCount === 1 || implicitContextCount % 100 === 0) {
-     
     console.warn(
       `[asyncGlobalState] factory engine state accessed outside runWithInstanceState() ` +
         `(${implicitContextCount} so far) — an implicit per-context state was created. ` +
@@ -223,13 +222,32 @@ function addNotice({ topic, payload, key }, isGlobalSubscription?: boolean) {
   if (!instanceState.disableNotifications) instanceState.modified = true;
   if (instanceState.disableNotifications || (!instanceState.subscriptions[topic] && !isGlobalSubscription)) return;
 
+  let outgoing = payload;
+
   if (key) {
-    instanceState.notices = instanceState.notices.filter((notice) => !(notice.topic === topic && notice.key === key));
+    const retained: any[] = [];
+    for (const notice of instanceState.notices) {
+      if (notice.topic === topic && notice.key === key) {
+        // Superseded — but its identity is still true of this key, so do not discard it. A later
+        // emission often knows LESS: measured in factory, eight consecutive emissions for one drawId
+        // carried eventId + tournamentId and the final one carried neither, so the delivered notice
+        // was the only unroutable one in the batch. On the server that costs cache granularity
+        // directly — an unattributable notice forces a tournament-wide sweep.
+        //
+        // Deliberately factory's helper, NOT a local copy: this provider reimplements the notice
+        // buffer for per-request async isolation, and a second implementation of an identical rule is
+        // how the two silently diverge.
+        outgoing = globalState.preserveNoticeIdentity(outgoing, notice.payload);
+      } else {
+        retained.push(notice);
+      }
+    }
+    instanceState.notices = retained;
   }
   // NOTE: when backend does not recognize undefined for updates
   // params = undefinedToNull(params) // => see object.js utils
 
-  instanceState.notices.push({ topic, payload, key });
+  instanceState.notices.push({ topic, payload: outgoing, key });
 
   return { ...SUCCESS };
 }

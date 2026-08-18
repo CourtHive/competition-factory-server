@@ -170,3 +170,110 @@ describe('asyncGlobalState per-context isolation', () => {
     expect(result).toEqual(['IMPLICIT']);
   });
 });
+
+/**
+ * Keyed notices coalesce: a later notice with the same topic+key replaces the earlier one. That is
+ * intentional — one notice per entity per mutation. Replacing WHOLESALE was not: a later emission
+ * often knows LESS, and it used to destroy identity the system already had.
+ *
+ * Measured in factory on one generated draw — eight consecutive emissions carried eventId and
+ * tournamentId, the final one carried neither, and the final one is what a subscriber received. On the
+ * server that directly costs cache granularity: an unattributable notice forces a tournament-wide
+ * sweep instead of a per-event eviction.
+ *
+ * This provider hand-implements the same buffer as factory's `syncGlobalState`, so the behaviour has
+ * to be asserted here too — fixing only factory would leave the SERVER path, the one that actually
+ * drives invalidation, on the old behaviour.
+ */
+describe('asyncGlobalState — keyed notice de-dup preserves identity', () => {
+  it('a later notice missing identity inherits it from the one it supersedes', async () => {
+    await asyncGlobalState.runWithInstanceState(async () => {
+      asyncGlobalState.setSubscriptions({ subscriptions: { modifyDrawDefinition: () => undefined } });
+
+      asyncGlobalState.addNotice({
+        topic: 'modifyDrawDefinition',
+        payload: { tournamentId: 't1', eventId: 'e1', drawDefinition: { drawId: 'd1', v: 1 } },
+        key: 'd1',
+      });
+      asyncGlobalState.addNotice({
+        topic: 'modifyDrawDefinition',
+        payload: { drawDefinition: { drawId: 'd1', v: 2 } },
+        key: 'd1',
+      });
+
+      const notices = asyncGlobalState.getNotices({ topic: 'modifyDrawDefinition' });
+      expect(notices).toHaveLength(1); // coalescing still happens
+      expect(notices[0].drawDefinition.v).toEqual(2); // last writer still wins for the ENTITY
+      expect(notices[0].eventId).toEqual('e1'); // ...but identity survives
+      expect(notices[0].tournamentId).toEqual('t1');
+    });
+  });
+
+  it('never overwrites identity the later notice supplied itself', async () => {
+    await asyncGlobalState.runWithInstanceState(async () => {
+      asyncGlobalState.setSubscriptions({ subscriptions: { modifyDrawDefinition: () => undefined } });
+
+      asyncGlobalState.addNotice({ topic: 'modifyDrawDefinition', payload: { eventId: 'OLD' }, key: 'd1' });
+      asyncGlobalState.addNotice({ topic: 'modifyDrawDefinition', payload: { eventId: 'NEW' }, key: 'd1' });
+
+      expect(asyncGlobalState.getNotices({ topic: 'modifyDrawDefinition' })[0].eventId).toEqual('NEW');
+    });
+  });
+
+  it('does not bleed identity between different keys', async () => {
+    await asyncGlobalState.runWithInstanceState(async () => {
+      asyncGlobalState.setSubscriptions({ subscriptions: { modifyDrawDefinition: () => undefined } });
+
+      asyncGlobalState.addNotice({ topic: 'modifyDrawDefinition', payload: { eventId: 'e1' }, key: 'd1' });
+      asyncGlobalState.addNotice({ topic: 'modifyDrawDefinition', payload: {}, key: 'd2' });
+
+      const notices = asyncGlobalState.getNotices({ topic: 'modifyDrawDefinition' });
+      expect(notices).toHaveLength(2);
+      expect(notices.filter((n: any) => n.eventId === 'e1')).toHaveLength(1);
+    });
+  });
+
+  it('preserves the full identity field set, including sanctioning origin', async () => {
+    // origin* has been on the wire since factory 6.27.0; dropping it would lose the ability to
+    // attribute a change to the sanctioning owner, which is the whole point of carrying it.
+    await asyncGlobalState.runWithInstanceState(async () => {
+      asyncGlobalState.setSubscriptions({ subscriptions: { modifyMatchUp: () => undefined } });
+
+      asyncGlobalState.addNotice({
+        topic: 'modifyMatchUp',
+        payload: {
+          tournamentId: 't1',
+          eventId: 'e1',
+          drawId: 'd1',
+          structureId: 's1',
+          originOrganisationId: 'o1',
+          originTournamentId: 'ot1',
+          originEventId: 'oe1',
+          originDrawId: 'od1',
+          matchUp: { matchUpId: 'm1' },
+        },
+        key: 'm1',
+      });
+      asyncGlobalState.addNotice({
+        topic: 'modifyMatchUp',
+        payload: { matchUp: { matchUpId: 'm1', scored: true } },
+        key: 'm1',
+      });
+
+      const [notice] = asyncGlobalState.getNotices({ topic: 'modifyMatchUp' });
+      for (const field of [
+        'tournamentId',
+        'eventId',
+        'drawId',
+        'structureId',
+        'originOrganisationId',
+        'originTournamentId',
+        'originEventId',
+        'originDrawId',
+      ]) {
+        expect({ field, value: notice[field] }).toEqual({ field, value: expect.any(String) });
+      }
+      expect(notice.matchUp.scored).toEqual(true);
+    });
+  });
+});
