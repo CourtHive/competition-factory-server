@@ -233,8 +233,30 @@ export class FactoryController {
   @Public()
   @Post('eventdata')
   async eventData(@Body() ged: GetEventDataDto) {
+    // Key deliberately does NOT include participantsVersion. Splitting the key by version would
+    // multiply entries per distinct client version AND store the participants-less variant — and a
+    // cached omitted payload served to a caller holding no version blanks every bracket side to TBD.
+    //
+    // The cache therefore holds ONE full payload per event, and omission happens below, after the
+    // read. Cache the expensive thing; make the cheap thing conditional.
     const key = `ged|${ged.tournamentId}|${ged.eventId}`;
-    return await this.cacheFx(key, (params) => this.factoryService.getEventData(params), ged);
+    const result: any = await this.cacheFx(key, (params) => this.factoryService.getEventData(params), ged);
+
+    // Participants are 52%-78.6% of this payload and identical across every event of a tournament.
+    // Omit ONLY on an exact match — the caller proves what it holds rather than asserting it, so a
+    // mismatch costs bytes that were not needed instead of rendering a blank draw.
+    const clientHoldsCurrentSet =
+      !!ged.participantsVersion &&
+      !!result?.participantsVersion &&
+      ged.participantsVersion === result.participantsVersion;
+
+    if (!clientHoldsCurrentSet) return result;
+
+    // Shallow COPY, never a mutation: this object is the cached one, shared with every other caller.
+    // Deleting the key in place would poison the cache and blank the next caller's draw.
+    const withoutParticipants = { ...result };
+    delete withoutParticipants.participants;
+    return withoutParticipants;
   }
 
   /**
