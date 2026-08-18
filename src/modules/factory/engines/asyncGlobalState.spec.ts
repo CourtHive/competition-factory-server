@@ -277,3 +277,26 @@ describe('asyncGlobalState — keyed notice de-dup preserves identity', () => {
     });
   });
 });
+
+/**
+ * Anti-duplication guard, mirroring the one in factory's noticeIdentityPreservation test.
+ *
+ * Factory's guard is repo-local, so it cannot see this file. Without an equivalent here, nothing stops
+ * this provider re-growing its own copy of the merge — which is exactly how it diverged the first
+ * time: the whole notice buffer was hand-copied from factory, flaw included.
+ */
+describe('asyncGlobalState — no local copy of the identity merge', () => {
+  it("de-dups via factory's exported helper, never a local reimplementation", async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const src = fs.readFileSync(path.resolve(__dirname, 'asyncGlobalState.ts'), 'utf8');
+
+    // it de-duplicates by key...
+    expect(src).toMatch(/notice\.topic === topic && notice\.key === key/);
+    // ...so it must route through the shared helper
+    expect(src).toContain('globalState.preserveNoticeIdentity');
+    // and must NOT carry its own field list or merge function
+    expect(src).not.toContain('NOTICE_IDENTITY_FIELDS =');
+    expect(src).not.toMatch(/function preserveIdentity|function preserveNoticeIdentity/);
+  });
+});
