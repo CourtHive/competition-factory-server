@@ -1,5 +1,42 @@
 # Changelog
 
+## [2.26.0](https://github.com/CourtHive/competition-factory-server/compare/v2.25.0...v2.26.0) (2026-08-18)
+
+
+### Features
+
+* **cache:** opt-in warmCache re-seeds evicted event payloads ([#895](https://github.com/CourtHive/competition-factory-server/issues/895)) ([c24c454](https://github.com/CourtHive/competition-factory-server/commit/c24c454e7338efca8f35d557e09d61269bdd0dca))
+* **factory:** add draw and structure data endpoints with per-tier cache eviction ([#906](https://github.com/CourtHive/competition-factory-server/issues/906)) ([e0d485f](https://github.com/CourtHive/competition-factory-server/commit/e0d485fb1d9d7fca272aa2024731ec694e6f4b79))
+* **factory:** project a snapshot and take the lock on wholesale record saves ([#901](https://github.com/CourtHive/competition-factory-server/issues/901)) ([404f0bb](https://github.com/CourtHive/competition-factory-server/commit/404f0bb0654a81422ab5012b7d2049107abeff3a))
+* **registrations:** carry the registration-reserved participantId at accept ([#890](https://github.com/CourtHive/competition-factory-server/issues/890)) ([e7e3260](https://github.com/CourtHive/competition-factory-server/commit/e7e326017f0a1a67f0b7f831e490ddd81df8f77e))
+* **registrations:** stamp a foreign sanctioning body's participant id at accept ([#891](https://github.com/CourtHive/competition-factory-server/issues/891)) ([133bd96](https://github.com/CourtHive/competition-factory-server/commit/133bd96d0575580e1d0555203ca6d9c764a11355))
+* **registrations:** stamp foreign ids onto participants already in the record ([#892](https://github.com/CourtHive/competition-factory-server/issues/892)) ([93ca13b](https://github.com/CourtHive/competition-factory-server/commit/93ca13bb390bb9ede1f14da4aff1cbe773cce5b9))
+* **storage:** add owner_epoch fencing and per-tournament load telemetry ([#900](https://github.com/CourtHive/competition-factory-server/issues/900)) ([b59d730](https://github.com/CourtHive/competition-factory-server/commit/b59d73042527c29054baa2533d7569415b4b4be8))
+
+
+### Bug Fixes
+
+* **cache:** warm the cache on the websocket path, not just http ([#897](https://github.com/CourtHive/competition-factory-server/issues/897)) ([408941d](https://github.com/CourtHive/competition-factory-server/commit/408941d6bd2fd2891b8c4e99863291fa24b4f728))
+* **deps:** update @courthive/i18n to 0.4.7 ([3b330bd](https://github.com/CourtHive/competition-factory-server/commit/3b330bd0e6cc7a526b1cd721419d95480da80c2d))
+* **deps:** update @courthive/i18n to 0.4.8 ([#910](https://github.com/CourtHive/competition-factory-server/issues/910)) ([dd8cb12](https://github.com/CourtHive/competition-factory-server/commit/dd8cb12042b1d6307bd90c26cba0679ff3d273ef))
+* **deps:** update tods-competition-factory to 6.27.0 ([24e6a2b](https://github.com/CourtHive/competition-factory-server/commit/24e6a2b990d30eef2a16bc6033d52728aeabbe60))
+* **deps:** update tods-competition-factory to 6.28.0 ([3d733dd](https://github.com/CourtHive/competition-factory-server/commit/3d733ddb6e0c4709dee0cc9958bdf7e65e752e5d))
+* **deps:** update tods-competition-factory to 6.28.1 ([caf6710](https://github.com/CourtHive/competition-factory-server/commit/caf67108675553630c442bfe50241a88e2ee03d7))
+* **factory:** stop losing read-model deltas on non-socket mutation paths ([b59d730](https://github.com/CourtHive/competition-factory-server/commit/b59d73042527c29054baa2533d7569415b4b4be8))
+* **factory:** sweep cache tiers whose changes cannot be attributed ([#907](https://github.com/CourtHive/competition-factory-server/issues/907)) ([4ee6bf3](https://github.com/CourtHive/competition-factory-server/commit/4ee6bf32ab6b8ad4b7f96b62f1ce4baa1416bf1b))
+* **projection:** scope every read-model delete and update by tournament_id ([#888](https://github.com/CourtHive/competition-factory-server/issues/888)) ([04b3ca2](https://github.com/CourtHive/competition-factory-server/commit/04b3ca2bb283a8be575f7e75eadc929e64e355fa))
+* **tests:** serialise the suite — parallel workers share one Postgres ([#894](https://github.com/CourtHive/competition-factory-server/issues/894)) ([620f78e](https://github.com/CourtHive/competition-factory-server/commit/620f78e37755f59a248c7257bd950c834bace8ab))
+
+
+### Performance
+
+* **cache:** evict only the affected event's cached payload ([#893](https://github.com/CourtHive/competition-factory-server/issues/893)) ([3ef81a2](https://github.com/CourtHive/competition-factory-server/commit/3ef81a2cd7fc414cb79438486d5f5bea3d8a6ee2))
+
+
+### Documentation
+
+* **cache:** document the response cache, narrowing and warmCache ([#896](https://github.com/CourtHive/competition-factory-server/issues/896)) ([22e4044](https://github.com/CourtHive/competition-factory-server/commit/22e4044bfe64763c25ebb67d91b593665fd3c8d4))
+
 ## [2.25.0](https://github.com/CourtHive/competition-factory-server/compare/v2.24.2...v2.25.0) (2026-08-15)
 
 
