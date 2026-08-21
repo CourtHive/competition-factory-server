@@ -110,6 +110,28 @@ describe('resolvePublicParticipantPolicy', () => {
     }
   });
 
+  it('opens person.sex for a provider whose provisioner enabled it — the ITA case', async () => {
+    // The requirement CA stated: the ITA privacy policy need only open person.sex.
+    // Both blocks, because the ITA corpus is TEAM duals with PAIR collections, so
+    // most individuals are reached through `individualParticipants`.
+    const policy = await resolvePublicParticipantPolicy({
+      tournamentRecord: record(),
+      providerStorage: storageWith({ sex: true }),
+    });
+    for (const person of personBlocks(policy)) expect(person.sex).toBe(true);
+  });
+
+  it('opens ONLY sex — enabling it must not widen anything else', async () => {
+    // Guards the difference between "open one attribute" and "relax the policy".
+    const policy = await resolvePublicParticipantPolicy({
+      tournamentRecord: record(),
+      providerStorage: storageWith({ sex: true }),
+    });
+    const strict = publicParticipantPrivacyPolicy();
+    for (const person of personBlocks(strict)) person.sex = true;
+    expect(policy).toEqual(strict);
+  });
+
   it('never mutates the shared factory fixture', async () => {
     // The defect this whole area exists to prevent: the first public request used
     // to widen POLICY_PRIVACY_DEFAULT in place for the life of the process.

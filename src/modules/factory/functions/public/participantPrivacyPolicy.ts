@@ -118,7 +118,7 @@ export function buildParticipantPrivacyPolicy(privacy?: ProviderParticipantPriva
     for (const person of personBlocks) person.addresses = { city: true, state: true };
   }
 
-  if ((privacy as any)?.sex) {
+  if (privacy?.sex) {
     for (const person of personBlocks) person.sex = true;
   }
 
