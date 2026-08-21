@@ -590,7 +590,11 @@ export class FactoryService {
     tournamentId: string;
     eventId: string;
   }) {
-    return await publicQueries.getEventData({ hydrateParticipants, tournamentId, eventId }, this.tournamentStorage);
+    return await publicQueries.getEventData(
+      { hydrateParticipants, tournamentId, eventId },
+      this.tournamentStorage,
+      this.providerStorage,
+    );
   }
 
   async getDrawData({
@@ -602,7 +606,11 @@ export class FactoryService {
     tournamentId: string;
     drawId: string;
   }) {
-    return await publicQueries.getDrawData({ structuresProfile, tournamentId, drawId }, this.tournamentStorage);
+    return await publicQueries.getDrawData(
+      { structuresProfile, tournamentId, drawId },
+      this.tournamentStorage,
+      this.providerStorage,
+    );
   }
 
   async getStructureData({
@@ -614,11 +622,15 @@ export class FactoryService {
     structureId: string;
     drawId: string;
   }) {
-    return await publicQueries.getStructureData({ tournamentId, structureId, drawId }, this.tournamentStorage);
+    return await publicQueries.getStructureData(
+      { tournamentId, structureId, drawId },
+      this.tournamentStorage,
+      this.providerStorage,
+    );
   }
 
   async getScheduleMatchUps({ params }) {
-    return await publicQueries.getCompetitionScheduleMatchUps(params, this.tournamentStorage);
+    return await publicQueries.getCompetitionScheduleMatchUps(params, this.tournamentStorage, this.providerStorage);
   }
 
   async getParticipants({ params }) {

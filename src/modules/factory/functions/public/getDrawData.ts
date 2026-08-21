@@ -1,7 +1,7 @@
 import { queryGovernor, Tournament } from 'tods-competition-factory';
 
-import { findEventForDraw, publicParticipantPrivacyPolicy } from './participantPrivacyPolicy';
-import type { ITournamentStorage } from 'src/storage/interfaces';
+import { findEventForDraw, resolvePublicParticipantPolicy } from './participantPrivacyPolicy';
+import type { ITournamentStorage, IProviderStorage } from 'src/storage/interfaces';
 
 /**
  * One draw's data — the draw tier of the payload decomposition
@@ -13,7 +13,11 @@ import type { ITournamentStorage } from 'src/storage/interfaces';
  *
  * `structuresProfile: 'STUBS'` narrows further — cheap per-structure metadata with no `roundMatchUps`.
  */
-export async function getDrawData(params: any, storage: ITournamentStorage) {
+export async function getDrawData(
+  params: any,
+  storage: ITournamentStorage,
+  providerStorage?: IProviderStorage,
+) {
   if (!params?.tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
   if (!params?.drawId) return { error: 'MISSING_DRAW_ID' };
 
@@ -31,7 +35,7 @@ export async function getDrawData(params: any, storage: ITournamentStorage) {
   // whether the draw is published — see `findEventForDraw`.
   const event = findEventForDraw(tournamentRecord, params.drawId);
 
-  const policyDefinitions = publicParticipantPrivacyPolicy();
+  const policyDefinitions = await resolvePublicParticipantPolicy({ tournamentRecord, providerStorage });
 
   return queryGovernor.getDrawData({
     participantsProfile: {

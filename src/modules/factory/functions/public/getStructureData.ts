@@ -1,7 +1,7 @@
 import { queryGovernor, Tournament } from 'tods-competition-factory';
 
-import { findEventForDraw, publicParticipantPrivacyPolicy } from './participantPrivacyPolicy';
-import type { ITournamentStorage } from 'src/storage/interfaces';
+import { findEventForDraw, resolvePublicParticipantPolicy } from './participantPrivacyPolicy';
+import type { ITournamentStorage, IProviderStorage } from 'src/storage/interfaces';
 
 /**
  * One structure's data — the drill-in tier.
@@ -17,7 +17,11 @@ import type { ITournamentStorage } from 'src/storage/interfaces';
  * Privacy policy and participant profile are identical to the event and draw routes by construction:
  * a public reader must not see more through a narrower route.
  */
-export async function getStructureData(params: any, storage: ITournamentStorage) {
+export async function getStructureData(
+  params: any,
+  storage: ITournamentStorage,
+  providerStorage?: IProviderStorage,
+) {
   if (!params?.tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
   if (!params?.drawId) return { error: 'MISSING_DRAW_ID' };
   if (!params?.structureId) return { error: 'MISSING_STRUCTURE_ID' };
@@ -36,7 +40,7 @@ export async function getStructureData(params: any, storage: ITournamentStorage)
   // whether the draw is published — see `findEventForDraw`.
   const event = findEventForDraw(tournamentRecord, params.drawId);
 
-  const policyDefinitions = publicParticipantPrivacyPolicy();
+  const policyDefinitions = await resolvePublicParticipantPolicy({ tournamentRecord, providerStorage });
 
   return queryGovernor.getStructureData({
     participantsProfile: {
