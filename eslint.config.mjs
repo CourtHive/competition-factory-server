@@ -40,6 +40,20 @@ export default [
       'no-empty': 'warn',
       'no-prototype-builtins': 'off',
       'preserve-caught-error': 'off',
+      // Ban `JSON.parse(JSON.stringify(x))` as a deep-copy idiom — it silently drops `undefined`,
+      // functions, `Date`/`Map`/`Set` and throws on cycles. It was the idiom in `public/getParticipants.ts`
+      // for copying the shared privacy-policy fixture, beside three routes that copied nothing at all and
+      // mutated that fixture in place. Machine-enforced because prose could not hold it. Mirrors the rule
+      // in factory's eslint.config.mjs; keep the two in step.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.object.name='JSON'][callee.property.name='parse'] > CallExpression[callee.object.name='JSON'][callee.property.name='stringify']",
+          message:
+            'Use structuredClone() to deep-copy — JSON.parse(JSON.stringify(x)) drops undefined/functions/Date/Map/Set and throws on cycles. For tournamentRecords use tools.makeDeepCopy, which carries factory extension semantics.',
+        },
+      ],
     },
   },
   {

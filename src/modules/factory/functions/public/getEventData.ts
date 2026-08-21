@@ -1,17 +1,13 @@
-import { queryGovernor, fixtures, Tournament } from 'tods-competition-factory';
+import { queryGovernor, Tournament } from 'tods-competition-factory';
 
+import { publicParticipantPrivacyPolicy } from './participantPrivacyPolicy';
 import type { ITournamentStorage } from 'src/storage/interfaces';
 
 export async function getEventData(params: any, storage: ITournamentStorage) {
   if (!params.tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
   const findResult = await storage.findTournamentRecord({ tournamentId: params.tournamentId });
   if (findResult.error) return findResult;
-  const policyDefinitions = fixtures.policies.POLICY_PRIVACY_DEFAULT as any;
-  policyDefinitions.participant.participant.person.sex = true;
-  policyDefinitions.participant.participant.rankings = true;
-  policyDefinitions.participant.participant.seedings = true;
-  policyDefinitions.participant.participant.ratings = true;
-  policyDefinitions.participant.participant.teams = true;
+  const policyDefinitions = publicParticipantPrivacyPolicy();
   const infoResult = queryGovernor.getEventData({
     participantsProfile: {
       convertExtensions: true,

@@ -1,5 +1,6 @@
-import { queryGovernor, fixtures, Tournament } from 'tods-competition-factory';
+import { queryGovernor, Tournament } from 'tods-competition-factory';
 
+import { findEventForDraw, publicParticipantPrivacyPolicy } from './participantPrivacyPolicy';
 import type { ITournamentStorage } from 'src/storage/interfaces';
 
 /**
@@ -25,18 +26,17 @@ export async function getStructureData(params: any, storage: ITournamentStorage)
   if (findResult.error) return findResult;
   const tournamentRecord = findResult.tournamentRecord as Tournament;
 
-  const { drawDefinition, event } = queryGovernor.findDrawDefinition({
+  const { drawDefinition } = queryGovernor.findDrawDefinition({
     drawId: params.drawId,
     tournamentRecord,
   }) as any;
   if (!drawDefinition) return { error: 'DRAW_DEFINITION_NOT_FOUND' };
 
-  const policyDefinitions = fixtures.policies.POLICY_PRIVACY_DEFAULT as any;
-  policyDefinitions.participant.participant.person.sex = true;
-  policyDefinitions.participant.participant.rankings = true;
-  policyDefinitions.participant.participant.seedings = true;
-  policyDefinitions.participant.participant.ratings = true;
-  policyDefinitions.participant.participant.teams = true;
+  // `publicFindDrawDefinition` returns no `event`, and `usePublishState: true` needs one to decide
+  // whether the draw is published — see `findEventForDraw`.
+  const event = findEventForDraw(tournamentRecord, params.drawId);
+
+  const policyDefinitions = publicParticipantPrivacyPolicy();
 
   return queryGovernor.getStructureData({
     participantsProfile: {

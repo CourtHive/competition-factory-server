@@ -1,7 +1,8 @@
-import { fixtures, queryGovernor, factoryConstants } from 'tods-competition-factory';
+import { queryGovernor, factoryConstants } from 'tods-competition-factory';
 
 import { computeEffectiveConfig, type ProviderParticipantPrivacy } from '@courthive/provider-config';
 import type { ITournamentStorage, IProviderStorage } from 'src/storage/interfaces';
+import { publicParticipantPrivacyPolicy } from './participantPrivacyPolicy';
 import { SUCCESS } from 'src/common/constants/app';
 
 const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PARTICIPANT;
@@ -16,7 +17,9 @@ const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PAR
  * template).
  */
 function buildParticipantPrivacyPolicy(privacy?: ProviderParticipantPrivacy) {
-  const policy = JSON.parse(JSON.stringify(fixtures.policies.POLICY_PRIVACY_DEFAULT));
+  // A variant, so it must be built on a COPY. `publicParticipantPrivacyPolicy()` returns one; this
+  // used `JSON.parse(JSON.stringify(...))`, which is the idiom being retired ecosystem-wide.
+  const policy = publicParticipantPrivacyPolicy();
 
   if (privacy?.cityState) {
     const allowedAddressFields = { city: true, state: true };
