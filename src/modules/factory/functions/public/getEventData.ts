@@ -1,13 +1,18 @@
 import { queryGovernor, Tournament } from 'tods-competition-factory';
 
-import { publicParticipantPrivacyPolicy } from './participantPrivacyPolicy';
-import type { ITournamentStorage } from 'src/storage/interfaces';
+import { resolvePublicParticipantPolicy } from './participantPrivacyPolicy';
+import type { ITournamentStorage, IProviderStorage } from 'src/storage/interfaces';
 
-export async function getEventData(params: any, storage: ITournamentStorage) {
+export async function getEventData(
+  params: any,
+  storage: ITournamentStorage,
+  providerStorage?: IProviderStorage,
+) {
   if (!params.tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
   const findResult = await storage.findTournamentRecord({ tournamentId: params.tournamentId });
   if (findResult.error) return findResult;
-  const policyDefinitions = publicParticipantPrivacyPolicy();
+  const tournamentRecord = findResult.tournamentRecord as Tournament;
+  const policyDefinitions = await resolvePublicParticipantPolicy({ tournamentRecord, providerStorage });
   const infoResult = queryGovernor.getEventData({
     participantsProfile: {
       convertExtensions: true,
@@ -16,7 +21,7 @@ export async function getEventData(params: any, storage: ITournamentStorage) {
       withISO2: true,
       withIOC: true,
     },
-    tournamentRecord: findResult.tournamentRecord as Tournament,
+    tournamentRecord,
     hydrateParticipants: params?.hydrateParticipants,
     contextProfile: { withCompetitiveness: true },
     includePositionAssignments: true,

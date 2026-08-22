@@ -1,7 +1,7 @@
 import { queryGovernor } from 'tods-competition-factory';
 
-import { publicParticipantPrivacyPolicy } from './participantPrivacyPolicy';
-import type { ITournamentStorage } from 'src/storage/interfaces';
+import { resolvePublicParticipantPolicy } from './participantPrivacyPolicy';
+import type { ITournamentStorage, IProviderStorage } from 'src/storage/interfaces';
 import { SUCCESS } from 'src/common/constants/app';
 
 /**
@@ -12,7 +12,11 @@ import { SUCCESS } from 'src/common/constants/app';
  * `getTournamentMatchUps` began filtering at the emission boundary, so this route's response is only
  * as private as the factory build it runs against.
  */
-export async function getCompetitionScheduleMatchUps(params, storage: ITournamentStorage) {
+export async function getCompetitionScheduleMatchUps(
+  params,
+  storage: ITournamentStorage,
+  providerStorage?: IProviderStorage,
+) {
   const { tournamentId, ...opts } = params ?? {};
   if (!tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
 
@@ -22,7 +26,13 @@ export async function getCompetitionScheduleMatchUps(params, storage: ITournamen
   const tournamentRecords = findResult.tournamentRecords;
 
   const matchUpsResult = queryGovernor.competitionScheduleMatchUps({
-    policyDefinitions: publicParticipantPrivacyPolicy(),
+    policyDefinitions: await resolvePublicParticipantPolicy({
+      // Competition scope: several records may be requested. Resolve against the
+      // FIRST — they share a provider in every current caller — and fail closed to
+      // the default if that record is absent.
+      tournamentRecord: Object.values(tournamentRecords ?? {})[0],
+      providerStorage,
+    }),
     courtCompletedMatchUps: opts?.courtCompletedMatchUps,
     hydrateParticipants: opts?.hydrateParticipants,
     contextFilters: opts?.contextFilters,
