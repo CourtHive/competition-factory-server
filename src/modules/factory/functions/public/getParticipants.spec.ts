@@ -82,6 +82,101 @@ function buildProviderStorage(participantPrivacy?: { cityState?: boolean }): IPr
   };
 }
 
+const AUDIENCE_TID = 'test-public-participants-audience';
+const STAFF_ID = 'staff-official-1';
+const GROUP_ID = 'group-coach-stable-1';
+const ROLELESS_ID = 'roleless-legacy-1';
+
+/**
+ * A record carrying every population the public route has to decide about: competitors, a staff
+ * INDIVIDUAL, a role-bearing GROUP, and a role-LESS individual.
+ *
+ * The role-less one is authored directly onto the record because `addParticipant` refuses a
+ * participant with no role (`MISSING_PARTICIPANT_ROLE`) — which is exactly why records like it exist
+ * only from before that guard, and exactly why they must not be filtered out.
+ */
+function buildTournamentWithMixedPopulation() {
+  const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+    tournamentAttributes: { tournamentId: AUDIENCE_TID },
+    eventProfiles: [{ eventName: 'Singles', drawProfiles: [{ drawSize: 4 }] }],
+    participantsProfile: { participantsCount: 4 },
+  });
+
+  const competitors = (tournamentRecord.participants ?? []).filter(
+    (p: any) => p.participantType === 'INDIVIDUAL',
+  );
+
+  tournamentRecord.participants.push({
+    person: { standardGivenName: 'Rhea', standardFamilyName: 'Umpire', personId: 'person-staff-1' },
+    participantName: 'Rhea Umpire',
+    participantType: 'INDIVIDUAL',
+    participantRole: 'OFFICIAL',
+    participantId: STAFF_ID,
+  });
+
+  tournamentRecord.participants.push({
+    individualParticipantIds: competitors.slice(0, 2).map((p: any) => p.participantId),
+    participantName: 'Coach Ramirez stable',
+    participantType: 'GROUP',
+    participantRole: 'COACH',
+    participantId: GROUP_ID,
+  });
+
+  tournamentRecord.participants.push({
+    person: { standardGivenName: 'Legacy', standardFamilyName: 'Record', personId: 'person-legacy-1' },
+    participantName: 'Legacy Record',
+    participantType: 'INDIVIDUAL',
+    participantId: ROLELESS_ID,
+    // participantRole deliberately absent
+  });
+
+  tournamentEngine.setState(tournamentRecord);
+  tournamentEngine.publishParticipants();
+  return tournamentEngine.getTournament().tournamentRecord;
+}
+
+describe('public getParticipants — only competitors are public', () => {
+  let record: any;
+  let ids: string[];
+
+  beforeAll(async () => {
+    record = buildTournamentWithMixedPopulation();
+    const result: any = await getParticipants({ tournamentId: AUDIENCE_TID }, buildTournamentStorage(record));
+    ids = result.participants.map((p: any) => p.participantId);
+  });
+
+  it('has all four populations on the record — the control, without which the rest is vacuous', () => {
+    const onRecord = record.participants.map((p: any) => p.participantId);
+    expect(onRecord).toEqual(expect.arrayContaining([STAFF_ID, GROUP_ID, ROLELESS_ID]));
+    expect(record.participants.some((p: any) => p.participantRole === 'COMPETITOR')).toBe(true);
+  });
+
+  it('EXCLUDES a staff individual', () => {
+    // D8: staff belong in tournamentInfo.tournamentContacts, never in the participants payload.
+    expect(ids).not.toContain(STAFF_ID);
+  });
+
+  it('EXCLUDES a GROUP, which would otherwise publish its member list', () => {
+    // Downstream this rendered as a person — courthive-public's Players tab, courthive-arena's roster.
+    expect(ids).not.toContain(GROUP_ID);
+  });
+
+  it('KEEPS a participant carrying no participantRole at all', () => {
+    // The falsification of the trap. `participantRoles: [COMPETITOR]` — the fix as originally written
+    // in the plan — is an allow-list that drops this participant, silently shrinking the published
+    // list for older tournaments. This assertion fails against that fix and passes against this one.
+    expect(ids).toContain(ROLELESS_ID);
+  });
+
+  it('KEEPS competitors', () => {
+    const competitorIds = record.participants
+      .filter((p: any) => p.participantType === 'INDIVIDUAL' && p.participantRole === 'COMPETITOR')
+      .map((p: any) => p.participantId);
+    expect(competitorIds.length).toBeGreaterThan(0);
+    expect(ids).toEqual(expect.arrayContaining(competitorIds));
+  });
+});
+
 describe('public getParticipants — provider participantPrivacy cap', () => {
   let record: any;
 
