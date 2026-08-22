@@ -49,6 +49,13 @@ coverage
 
 # Local
 .env
+# Backups the deploy/env tooling leaves behind (.env.bak-YYYYMMDD-HHMM). Untracked
+# and unignored, one of these silently blocked `bump-factory-consumers.sh` — its
+# preflight aborts the WHOLE ecosystem fan-out on any repo with a dirty tree, and a
+# stray env backup counts.
+.env.bak*
+.env.save
+.env.orig
 dist
 build
 .webpack
