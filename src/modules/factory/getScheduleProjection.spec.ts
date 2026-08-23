@@ -58,7 +58,10 @@ describe('FactoryService.getScheduleProjection — coordination view', () => {
     });
     // peer fetch (ungated storage)
     service.tournamentStorageService = { fetchTournamentRecords: async () => ({ tournamentRecords: peers }) };
-    service.assignmentsService = { getAssignedTournamentIds: async () => new Set() };
+    service.assignmentsService = {
+      getAssignedTournamentIds: async () => new Set(),
+      getAssignedRoles: async () => new Map(),
+    };
     return service;
   }
 

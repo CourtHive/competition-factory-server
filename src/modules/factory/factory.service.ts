@@ -251,10 +251,10 @@ export class FactoryService {
     const context = ctxFetch.tournamentRecords?.[contextId];
     if (!context) return { error: 'User not allowed' };
 
-    const assignedIds = userContext
-      ? await this.assignmentsService.getAssignedTournamentIds(userContext.userId)
-      : new Set<string>();
-    if (!canMutateTournament(context, userContext, assignedIds)) return { error: 'User not allowed' };
+    const assignedRoles = userContext
+      ? await this.assignmentsService.getAssignedRoles(userContext.userId)
+      : new Map<string, string>();
+    if (!canMutateTournament(context, userContext, assignedRoles)) return { error: 'User not allowed' };
 
     // Peers come from the context's SERVER-STORED links (set via the access-controlled linkTournaments
     // mutation) — the caller can't inject arbitrary ids to widen what they see.
@@ -268,7 +268,7 @@ export class FactoryService {
 
     const scheduleCells: any[] = [];
     for (const peerId of Object.keys(peerRecords)) {
-      const access = canMutateTournament(peerRecords[peerId], userContext, assignedIds) ? 'author' : 'view';
+      const access = canMutateTournament(peerRecords[peerId], userContext, assignedRoles) ? 'author' : 'view';
       const projection: any = queryGovernor.getScheduleProjection({ tournamentRecord: peerRecords[peerId], venueIds });
       // `author` cells carry the peer's tournamentName so the client can label which of the
       // caller's OWN linked tournaments holds a court. Deliberately NOT added to `view` cells:
@@ -435,9 +435,9 @@ export class FactoryService {
 
     // Per-tournament mutation gate
     if (userContext) {
-      const assignedIds = await this.assignmentsService.getAssignedTournamentIds(userContext.userId);
+      const assignedRoles = await this.assignmentsService.getAssignedRoles(userContext.userId);
       for (const tid of Object.keys(tournamentRecords)) {
-        if (!canMutateTournament(tournamentRecords[tid], userContext, assignedIds)) {
+        if (!canMutateTournament(tournamentRecords[tid], userContext, assignedRoles)) {
           return { error: `User not allowed to modify tournament ${tid}` };
         }
       }

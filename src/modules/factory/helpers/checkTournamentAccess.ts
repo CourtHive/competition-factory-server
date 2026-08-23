@@ -81,17 +81,74 @@ export function canViewTournament(
 }
 
 /**
+ * Methods a SCORER-assigned user may execute.
+ *
+ * Deliberately minimal. TMX's scoring path emits exactly one method —
+ * `setMatchUpStatus` (`TMX/src/services/transitions/scoreMatchUp.ts`) — so this
+ * covers score entry without granting the scheduling and draw surface that the
+ * same schedule-cell menus sit beside. Widening this set is a policy decision:
+ * change it here, not at a call site.
+ */
+export const SCORER_ALLOWED_METHODS: ReadonlySet<string> = new Set(['setMatchUpStatus']);
+
+/**
+ * Classify an `assignment_role` value into what it may mutate.
+ *
+ * `full` deliberately covers DIRECTOR, ASSISTANT **and any unrecognised value**.
+ * The column is `NOT NULL DEFAULT 'DIRECTOR'` and typed `| string`, so an
+ * unknown value predates this classification and must keep its existing
+ * behaviour — narrowing it here would silently revoke access that was working.
+ * Only the two roles whose names already promise a restriction are enforced.
+ */
+export function classifyAssignmentRole(role: string | undefined): 'full' | 'scorer' | 'none' {
+  const normalized = String(role ?? '').toUpperCase();
+  if (normalized === 'OBSERVER') return 'none';
+  if (normalized === 'SCORER') return 'scorer';
+  return 'full';
+}
+
+/**
  * Can this user mutate (save / execute methods against) this tournament?
  *
- * Phase 0: same rules as view. Phase 1 will add assignment_role-based
- * method classification (OBSERVER cannot mutate, SCORER limited, etc.).
+ * Viewing is a precondition, then the **assignment role governs** — but only
+ * when access is assignment-derived. A SUPER_ADMIN, provisioner-owner,
+ * PROVIDER_ADMIN or the tournament's creator reaches this tournament without an
+ * assignment row, so an unrelated `SCORER` row must not downgrade them.
+ *
+ * `requestedMethods` is required for a SCORER to be granted anything: an empty
+ * list means "may this user mutate at all", and the honest answer for a scorer
+ * is no.
+ *
+ * @param assignedRoles - tournamentId → assignment_role, from
+ *   `AssignmentsService.getAssignedRoles()`. Pass an empty Map when assignments
+ *   have not been loaded.
  */
 export function canMutateTournament(
   tournament: any,
   userContext: UserContext | undefined,
-  assignedTournamentIds: Set<string> = new Set(),
+  assignedRoles: Map<string, string> = new Map(),
+  requestedMethods: string[] = [],
 ): boolean {
-  return canViewTournament(tournament, userContext, assignedTournamentIds);
+  if (!canViewTournament(tournament, userContext, new Set(assignedRoles.keys()))) return false;
+  if (!isTournamentAccessScopingEnabled()) return true;
+  if (!userContext || userContext.isSuperAdmin) return true;
+
+  const providerId = getTournamentProviderId(tournament);
+  if (!providerId) return true; // Unscoped tournament (demo/sandbox).
+  if (userContext.provisionerProviderIds?.includes(providerId)) return true;
+  if (userContext.providerRoles[providerId] === PROVIDER_ADMIN) return true;
+
+  const createdBy = getCreatedByUserId(tournament);
+  if (createdBy && createdBy === userContext.userId) return true;
+
+  // Access is assignment-derived from here on, so the assignment role governs.
+  const tournamentId = tournament?.tournamentId;
+  const classification = classifyAssignmentRole(tournamentId ? assignedRoles.get(tournamentId) : undefined);
+  if (classification === 'none') return false;
+  if (classification === 'scorer') {
+    return requestedMethods.length > 0 && requestedMethods.every((method) => SCORER_ALLOWED_METHODS.has(method));
+  }
+  return true;
 }
 
 /**

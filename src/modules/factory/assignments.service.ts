@@ -106,13 +106,24 @@ export class AssignmentsService {
 
   /** Resolve the set of tournament IDs a user has been explicitly granted access to. */
   async getAssignedTournamentIds(userId: string, providerId?: string): Promise<Set<string>> {
+    return new Set((await this.getAssignedRoles(userId, providerId)).keys());
+  }
+
+  /**
+   * Resolve tournamentId → `assignment_role` for a user's explicit grants.
+   *
+   * Mutation gates MUST use this rather than `getAssignedTournamentIds`: the id
+   * set alone cannot distinguish a SCORER from a DIRECTOR, which is precisely
+   * how granting SCORER used to confer full mutation rights.
+   */
+  async getAssignedRoles(userId: string, providerId?: string): Promise<Map<string, string>> {
     try {
       const rows = await this.assignmentStorage.findByUserId(userId, providerId);
-      return new Set(rows.map((r) => r.tournamentId));
+      return new Map(rows.map((r) => [r.tournamentId, r.assignmentRole]));
     } catch {
-      // LevelDB stub throws — graceful fallback to empty set so
+      // LevelDB stub throws — graceful fallback to an empty map so
       // callers in the gateway don't crash on non-Postgres deployments
-      return new Set();
+      return new Map();
     }
   }
 }

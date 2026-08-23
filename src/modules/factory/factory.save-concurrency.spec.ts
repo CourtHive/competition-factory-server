@@ -44,7 +44,10 @@ function makeService({ onSave }: { onSave?: () => Promise<void> } = {}) {
     tournamentStorageService,
     snapshotProjection as any,
     new MutationServicesService(outbox, { record: jest.fn(), isEnabled: false } as any) as any,
-    { getAssignedTournamentIds: jest.fn().mockResolvedValue([]) } as any,
+    {
+      getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set()),
+      getAssignedRoles: jest.fn().mockResolvedValue(new Map()),
+    } as any,
     {} as any,
     {} as any,
     {} as any,

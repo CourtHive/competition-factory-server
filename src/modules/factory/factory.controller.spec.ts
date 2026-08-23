@@ -1,5 +1,6 @@
 import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
 import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
+import { MutationAuthorizationService } from './mutation-authorization.service';
 import { AssignmentsService } from './assignments.service';
 import { FactoryController } from './factory.controller';
 import { SnapshotProjectionService } from './projection/snapshot-projection.service';
@@ -19,6 +20,11 @@ const tournamentId = testTournamentId(__filename);
 import { ConfigService } from '@nestjs/config';
 
 import { seededRng } from 'src/tests/helpers/seededRng';
+
+// These specs cover caching and service binding, not authorization. A gate that
+// always allows keeps them testing what they are about; the gate itself is
+// covered by mutation-authorization.service.spec.ts.
+const permissiveMutationAuth = () => ({ gate: jest.fn().mockResolvedValue(null) }) as any;
 
 const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
 
@@ -42,7 +48,13 @@ describe('FactoryController', () => {
         TelemetryModule,
         MutationServicesModule,
       ],
-      providers: [FactoryService, AssignmentsService, ConfigService, SnapshotProjectionService],
+      providers: [
+        FactoryService,
+        AssignmentsService,
+        MutationAuthorizationService,
+        ConfigService,
+        SnapshotProjectionService,
+      ],
       controllers: [FactoryController],
     }).compile();
 
@@ -108,7 +120,7 @@ describe('FactoryController', () => {
     } as unknown as any;
 
     beforeEach(() => {
-      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
       jest.clearAllMocks();
     });
 
@@ -177,7 +189,7 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
 
       const eqd = {
         tournamentIds: ['t1'],
@@ -194,7 +206,7 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
 
       const eqd = { tournamentIds: ['t1'], methods: [{ method: 'setMatchUpStatus', params: {} }] };
       const mockReq = {
@@ -218,7 +230,7 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
 
       const eqd = { tournamentIds: ['t1'], methods: [] };
       const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined, user: { email: 'd@e.com' } };
@@ -233,7 +245,7 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: jest.fn().mockResolvedValue({ error: 'something failed' }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
 
       const eqd = {
         tournamentIds: ['t1'],
@@ -251,7 +263,7 @@ describe('FactoryController', () => {
       const mockService = {
         score: jest.fn().mockResolvedValue({ success: true, publicNotices }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
 
       const sms = { tournamentId: 't1', matchUpId: 'm1', drawId: 'd1' };
       await mockController.scoreMatchUp(sms as any, {} as any);
@@ -264,7 +276,7 @@ describe('FactoryController', () => {
       const mockService = {
         score: jest.fn().mockResolvedValue({ error: 'invalid score' }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
 
       const sms = { tournamentId: 't1', matchUpId: 'm1', drawId: 'd1' };
       await mockController.scoreMatchUp(sms as any, {} as any);
@@ -320,7 +332,7 @@ describe('FactoryController', () => {
 
     beforeEach(() => {
       jest.clearAllMocks();
-      mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
     });
 
     it('tracks every cache key issued for a tournament and deletes them all on executionQueue', async () => {
@@ -595,7 +607,7 @@ describe('FactoryController', () => {
         ...mockService,
         executionQueue: jest.fn().mockResolvedValue({ error: 'fail' }),
       } as unknown as FactoryService;
-      const failingController = new FactoryController(failingService, mockBroadcast, mockCache);
+      const failingController = new FactoryController(failingService, mockBroadcast, permissiveMutationAuth(), mockCache);
       await populateCacheForTid(failingController, 't1');
 
       const eqd = { tournamentIds: ['t1'], methods: [] };
@@ -712,7 +724,7 @@ describe('FactoryController eventdata — participantsVersion', () => {
     jest.clearAllMocks();
     (mockService.getEventData as jest.Mock).mockResolvedValue(cachedPayload);
     mockCache.get.mockResolvedValue(undefined);
-    mockController = new FactoryController(mockService, mockBroadcast, mockCache);
+    mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
   });
 
   it('includes participants when the caller supplies no version', async () => {
@@ -782,5 +794,51 @@ describe('FactoryController eventdata — participantsVersion', () => {
 
     const keys = new Set(mockCache.set.mock.calls.map((call: any[]) => call[0]));
     expect([...keys]).toEqual(['ged|t1|e1']);
+  });
+});
+
+// D-1: the REST executionQueue route previously applied NO authorization beyond
+// @Roles([CLIENT, SUPER_ADMIN]) — no per-tournament access check and no provider
+// permission gate — while the socket transport applied both. Any authenticated
+// CLIENT could post the same `methods` array over HTTP and bypass every
+// provider restriction. These tests fail against that pre-fix controller.
+describe('FactoryController.executionQueue — authorization gate', () => {
+  const mockBroadcast: any = { broadcastMutation: jest.fn(), broadcastPublicNotices: jest.fn() };
+  const mockCache: any = { get: jest.fn(), set: jest.fn(), del: jest.fn().mockResolvedValue(undefined) };
+  const eqd: any = { tournamentIds: ['t1'], methods: [{ method: 'addEvent', params: {} }] };
+  const req: any = { user: { email: 'u@example.com' }, headers: {}, provisioner: undefined, auditSource: undefined };
+
+  function controllerWithGate(denial: string | null) {
+    const service: any = { executionQueue: jest.fn().mockResolvedValue({ success: true }) };
+    const gate = { gate: jest.fn().mockResolvedValue(denial) } as any;
+    return { controller: new FactoryController(service, mockBroadcast, gate, mockCache), service, gate };
+  }
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('rejects with 403 and never reaches the engine when the gate denies', async () => {
+    const { controller, service } = controllerWithGate('Action not permitted: addEvent');
+    await expect(controller.executionQueue(eqd, req, undefined)).rejects.toThrow('Action not permitted: addEvent');
+    expect(service.executionQueue).not.toHaveBeenCalled();
+  });
+
+  it('proceeds to the engine when the gate allows', async () => {
+    const { controller, service } = controllerWithGate(null);
+    await controller.executionQueue(eqd, req, undefined);
+    expect(service.executionQueue).toHaveBeenCalled();
+  });
+
+  it('passes the payload method names and tournament ids to the gate', async () => {
+    const { controller, gate } = controllerWithGate(null);
+    await controller.executionQueue(eqd, req, undefined);
+    expect(gate.gate).toHaveBeenCalledWith(
+      expect.objectContaining({ tournamentIds: ['t1'], requestedMethods: ['addEvent'] }),
+    );
+  });
+
+  it('falls back to the singular tournamentId when tournamentIds is absent', async () => {
+    const { controller, gate } = controllerWithGate(null);
+    await controller.executionQueue({ tournamentId: 't9', methods: [] } as any, req, undefined);
+    expect(gate.gate).toHaveBeenCalledWith(expect.objectContaining({ tournamentIds: ['t9'] }));
   });
 });

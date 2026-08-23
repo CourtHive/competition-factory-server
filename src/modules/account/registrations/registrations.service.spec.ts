@@ -43,6 +43,7 @@ describe('RegistrationsService', () => {
     };
     assignmentsService = {
       getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set<string>()),
+      getAssignedRoles: jest.fn().mockResolvedValue(new Map<string, string>()),
     };
     auditService = {
       recordMutation: jest.fn().mockResolvedValue(undefined),
