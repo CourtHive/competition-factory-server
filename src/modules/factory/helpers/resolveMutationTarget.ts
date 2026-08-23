@@ -13,7 +13,7 @@
  * stall, and a per-mutation full scan of a large tournament would be exactly the
  * kind of cost architectural standard A7 exists to prevent.
  */
-import type { MutationTarget, ScopeKey } from './grantScope';
+import type { ScopeTarget } from './grantScope';
 
 type Method = { method?: string; params?: any };
 
@@ -26,16 +26,16 @@ function matchUpIdOf(params: any): string | undefined {
  * Attributes derivable from the params alone — no record traversal.
  * Covers the id dimensions, which is what most grants will use.
  */
-export function targetFromParams(method: Method): MutationTarget {
+export function targetFromParams(method: Method): ScopeTarget {
   const params = method?.params ?? {};
   return {
-    matchUpIds: matchUpIdOf(params),
-    drawIds: params.drawId,
-    eventIds: params.eventId,
-    structureIds: params.structureId,
-    venueIds: params.venueId,
-    courtIds: params.courtId,
-    scheduledDates: params.scheduledDate ?? params.date,
+    matchUpId: matchUpIdOf(params),
+    drawId: params.drawId,
+    eventId: params.eventId,
+    structureId: params.structureId,
+    venueId: params.venueId,
+    courtId: params.courtId,
+    scheduledDate: params.scheduledDate ?? params.date,
   };
 }
 
@@ -48,15 +48,15 @@ export function targetFromParams(method: Method): MutationTarget {
  * tournament to find one.
  */
 export function enrichTargetFromRecord(
-  target: MutationTarget,
+  target: ScopeTarget,
   tournament: any,
-  needed: ScopeKey[],
-): MutationTarget {
-  const wantsSchedule = needed.includes('courtIds') || needed.includes('scheduledDates');
-  const wantsStructure = needed.includes('structureIds') || needed.includes('eventIds');
+  needed: (keyof ScopeTarget)[],
+): ScopeTarget {
+  const wantsSchedule = needed.includes('courtId') || needed.includes('scheduledDate');
+  const wantsStructure = needed.includes('structureId') || needed.includes('eventId');
   if (!wantsSchedule && !wantsStructure) return target;
 
-  const matchUpId = target.matchUpIds;
+  const matchUpId = target.matchUpId;
   if (!matchUpId) return target;
 
   for (const event of tournament?.events ?? []) {
@@ -66,11 +66,11 @@ export function enrichTargetFromRecord(
         if (!found) continue;
         return {
           ...target,
-          eventIds: target.eventIds ?? event.eventId,
-          drawIds: target.drawIds ?? drawDefinition.drawId,
-          structureIds: target.structureIds ?? found.structureId,
-          courtIds: target.courtIds ?? found.matchUp?.schedule?.courtId,
-          scheduledDates: target.scheduledDates ?? found.matchUp?.schedule?.scheduledDate,
+          eventId: target.eventId ?? event.eventId,
+          drawId: target.drawId ?? drawDefinition.drawId,
+          structureId: target.structureId ?? found.structureId,
+          courtId: target.courtId ?? found.matchUp?.schedule?.courtId,
+          scheduledDate: target.scheduledDate ?? found.matchUp?.schedule?.scheduledDate,
         };
       }
     }
