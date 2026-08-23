@@ -39,6 +39,7 @@ import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { User } from '../account/auth/decorators/user.decorator';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { MutationAuthorizationService } from './mutation-authorization.service';
+import { GrantsService } from './grants.service';
 import { FactoryService } from './factory.service';
 
 /**
@@ -57,6 +58,7 @@ export class FactoryController {
     private readonly factoryService: FactoryService,
     private readonly broadcastService: TournamentBroadcastService,
     private readonly mutationAuthorization: MutationAuthorizationService,
+    private readonly grantsService: GrantsService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
@@ -369,6 +371,21 @@ export class FactoryController {
       );
     }
     return result;
+  }
+
+  /**
+   * The caller's own live scoped grants on a tournament.
+   *
+   * Lets the client shape its UI to what the server would actually permit —
+   * a Court-7 recorder should see which matchUps they may score rather than
+   * discovering it on refusal. Returns the caller's rows only.
+   */
+  @Post('my-grants')
+  @Roles([CLIENT, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  async myGrants(@Body() body: { tournamentId: string }, @UserCtx() userContext?: UserContext) {
+    const grants = await this.grantsService.forCaller(body?.tournamentId, userContext);
+    return { grants };
   }
 
   @Post()

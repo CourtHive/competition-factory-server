@@ -1,5 +1,6 @@
 import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
 import { MutationAuthorizationService } from './mutation-authorization.service';
+import { GrantsService } from './grants.service';
 import { AssignmentsService } from './assignments.service';
 import { FactoryController } from './factory.controller';
 import { SnapshotProjectionService } from './projection/snapshot-projection.service';
@@ -36,6 +37,7 @@ describe('AppService', () => {
         FactoryService,
         AssignmentsService,
         MutationAuthorizationService,
+        GrantsService,
         ConfigService,
         SnapshotProjectionService,
       ],

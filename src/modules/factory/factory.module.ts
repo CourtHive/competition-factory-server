@@ -5,6 +5,7 @@ import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
 import { AssignmentsController } from './assignments.controller';
 import { MutationAuthorizationService } from './mutation-authorization.service';
 import { AssignmentsService } from './assignments.service';
+import { GrantsService } from './grants.service';
 import { FactoryController } from './factory.controller';
 import { AuditModule } from '../audit/audit.module';
 import { ConfigsModule } from 'src/config/config.module';
@@ -17,12 +18,13 @@ import { Module } from '@nestjs/common';
     FactoryService,
     AssignmentsService,
     MutationAuthorizationService,
+    GrantsService,
     ConfigService,
     ProjectionRebuildService,
     SnapshotProjectionService,
   ],
   controllers: [FactoryController, AssignmentsController, AdminProjectionController],
-  exports: [FactoryService, AssignmentsService, MutationAuthorizationService, ProjectionRebuildService, SnapshotProjectionService],
+  exports: [FactoryService, AssignmentsService, MutationAuthorizationService, GrantsService, ProjectionRebuildService, SnapshotProjectionService],
   imports: [ConfigsModule, BroadcastModule, AuditModule],
 })
 export class FactoryModule {}
