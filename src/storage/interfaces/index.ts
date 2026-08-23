@@ -13,6 +13,7 @@ export {
   type IAssignmentStorage,
   type TournamentAssignmentRow,
 } from './assignment-storage.interface';
+export { GRANT_STORAGE, type IGrantStorage, type TournamentGrantRow } from './grant-storage.interface';
 export {
   AUDIT_STORAGE,
   type IAuditStorage,
