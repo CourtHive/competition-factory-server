@@ -399,6 +399,7 @@ export class FactoryController {
       userContext,
       tournamentIds,
       requestedMethods,
+      methods: eqd?.methods ?? [],
       actor: req.user?.email ?? req.user?.userId,
     });
     if (denial) throw new ForbiddenException(denial);

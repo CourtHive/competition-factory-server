@@ -104,7 +104,7 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     assignmentsService,
     // Real gate over the same mocks — mirrors the production shape (A1) so the
     // gateway is exercised against the authorization path it actually uses.
-    new MutationAuthorizationService(providerStorage, tournamentStorageService, assignmentsService),
+    new MutationAuthorizationService(providerStorage, { findForSubject: async () => [] } as any, tournamentStorageService, assignmentsService),
     usersService,
     auditService,
   );

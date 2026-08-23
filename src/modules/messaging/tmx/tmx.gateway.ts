@@ -271,6 +271,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
         userContext,
         tournamentIds: payload.tournamentIds ?? [],
         requestedMethods,
+        methods: payload?.methods ?? [],
         actor: userId,
       });
       if (denial) {

@@ -13,6 +13,7 @@ import { PROJECTION_OUTBOX_STORAGE } from './interfaces/projection-outbox-storag
 import { CHAT_STORAGE } from './interfaces/chat-storage.interface';
 import { TOURNAMENT_STORAGE } from './interfaces/tournament-storage.interface';
 import { ASSIGNMENT_STORAGE } from './interfaces/assignment-storage.interface';
+import { GRANT_STORAGE } from './interfaces/grant-storage.interface';
 import { AUTH_CODE_STORAGE } from './interfaces/auth-code-storage.interface';
 import { PROVIDER_STORAGE } from './interfaces/provider-storage.interface';
 import { TOPOLOGY_STORAGE } from './interfaces/topology-storage.interface';
@@ -38,6 +39,7 @@ import { PostgresProjectionOutboxStorage } from './postgres/postgres-projection-
 import { PostgresChatStorage } from './postgres/postgres-chat.storage';
 import { PostgresTournamentStorage } from './postgres/postgres-tournament.storage';
 import { PostgresAssignmentStorage } from './postgres/postgres-assignment.storage';
+import { PostgresGrantStorage } from './postgres/postgres-grant.storage';
 import { PostgresProviderStorage } from './postgres/postgres-provider.storage';
 import { PostgresTopologyStorage } from './postgres/postgres-topology.storage';
 import { PostgresProviderCatalogStorage } from './postgres/postgres-provider-catalog.storage';
@@ -88,6 +90,7 @@ const calendarStorageProvider = makeStorageProvider(CALENDAR_STORAGE, PostgresCa
 const authCodeStorageProvider = makeStorageProvider(AUTH_CODE_STORAGE, PostgresAuthCodeStorage);
 const userProviderStorageProvider = makeStorageProvider(USER_PROVIDER_STORAGE, PostgresUserProviderStorage);
 const assignmentStorageProvider = makeStorageProvider(ASSIGNMENT_STORAGE, PostgresAssignmentStorage);
+const grantStorageProvider = makeStorageProvider(GRANT_STORAGE, PostgresGrantStorage);
 const auditStorageProvider = makeStorageProvider(AUDIT_STORAGE, PostgresAuditStorage);
 const provisionerStorageProvider = makeStorageProvider(PROVISIONER_STORAGE, PostgresProvisionerStorage);
 const provisionerApiKeyStorageProvider = makeStorageProvider(PROVISIONER_API_KEY_STORAGE, PostgresProvisionerApiKeyStorage);
@@ -118,6 +121,7 @@ const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_ST
     authCodeStorageProvider,
     userProviderStorageProvider,
     assignmentStorageProvider,
+    grantStorageProvider,
     auditStorageProvider,
     provisionerStorageProvider,
     provisionerApiKeyStorageProvider,
@@ -145,6 +149,7 @@ const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_ST
     AUTH_CODE_STORAGE,
     USER_PROVIDER_STORAGE,
     ASSIGNMENT_STORAGE,
+    GRANT_STORAGE,
     AUDIT_STORAGE,
     PROVISIONER_STORAGE,
     PROVISIONER_API_KEY_STORAGE,
