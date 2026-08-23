@@ -22,11 +22,33 @@
  * would create a circular module dependency. Its own DI deps come from the
  * @Global StorageModule.
  */
-import { computeEffectiveConfig, isMutationAllowed } from '@courthive/provider-config';
+import { MUTATION_PERMISSIONS, computeEffectiveConfig, isMutationAllowed } from '@courthive/provider-config';
 import { enrichTargetFromRecord, targetFromParams } from './helpers/resolveMutationTarget';
 import { isTargetInScope, isWithinWindow, requiredTargetKeys } from './helpers/grantScope';
 import { canMutateTournament } from './helpers/checkTournamentAccess';
 import { GRANT_STORAGE, type IGrantStorage } from 'src/storage/interfaces';
+
+/** A grant capability that covers every method — a full grant narrowed only by scope. */
+export const GRANT_CAPABILITY_ALL = '*';
+
+/**
+ * Does a grant's capability cover this mutation?
+ *
+ * Capabilities are stored as `ProviderPermissions` keys (`canEnterScores`),
+ * which is what `MUTATION_PERMISSIONS` already maps methods onto — so the two
+ * vocabularies cannot drift.
+ *
+ * A method with no entry in that map is covered ONLY by an explicit `*` grant.
+ * Every method TMX emits is mapped as of provider-config 0.16.0, so an unmapped
+ * method reaching a grant-holder is something new and unclassified, and the safe
+ * reading of "I cannot tell what capability this needs" is to refuse. This bites
+ * nobody who holds no grants, because the whole check is skipped for them.
+ */
+export function grantCoversMethod(capability: string | undefined, method: string): boolean {
+  if (capability === GRANT_CAPABILITY_ALL) return true;
+  if (!capability) return false;
+  return MUTATION_PERMISSIONS[method] === capability;
+}
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
 import { AssignmentsService } from './assignments.service';
@@ -134,14 +156,23 @@ export class MutationAuthorizationService {
     if (!live.length) return { method: methods[0]?.method ?? 'unknown', dimension: 'time window' };
 
     for (const method of methods) {
+      const methodName = method?.method ?? 'unknown';
+
+      // A grant names a capability, not just a place. Holding a Court-7
+      // `canEnterScores` grant is permission to SCORE on Court 7 — it is not
+      // permission to do anything else there. Narrow to the grants that cover
+      // this method before asking about scope.
+      const applicable = live.filter((grant) => grantCoversMethod(grant.capability, methodName));
+      if (!applicable.length) return { method: methodName, dimension: 'capability' };
+
       let target = targetFromParams(method);
-      const needed = live.flatMap((grant) => requiredTargetKeys(grant.scope));
+      const needed = applicable.flatMap((grant) => requiredTargetKeys(grant.scope));
       if (needed.length) target = enrichTargetFromRecord(target, tournament, needed);
 
-      const covered = live.some((grant) => isTargetInScope(grant.scope, target));
+      const covered = applicable.some((grant) => isTargetInScope(grant.scope, target));
       if (!covered) {
-        const dimension = requiredTargetKeys(live[0].scope)[0] ?? 'scope';
-        return { method: method?.method ?? 'unknown', dimension };
+        const dimension = requiredTargetKeys(applicable[0].scope)[0] ?? 'scope';
+        return { method: methodName, dimension };
       }
     }
     return null;

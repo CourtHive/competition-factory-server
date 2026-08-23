@@ -1,4 +1,4 @@
-import { MutationAuthorizationService } from './mutation-authorization.service';
+import { GRANT_CAPABILITY_ALL, MutationAuthorizationService, grantCoversMethod } from './mutation-authorization.service';
 import { CREATED_BY_USER_ID } from './helpers/checkTournamentAccess';
 
 // Scoping must be ON for the per-tournament gate to have anything to say.
@@ -139,7 +139,7 @@ describe('MutationAuthorizationService.gate — scoped grants', () => {
   // The capability a global boolean cannot express: canEnterScores is on for
   // both of these, and only the court tells them apart.
   describe('a Court-7 recorder', () => {
-    const courtSeven = [{ grantId: 'g1', scope: { courtIds: ['court-7'] }, capability: 'enterScores' }];
+    const courtSeven = [{ grantId: 'g1', scope: { courtIds: ['court-7'] }, capability: 'canEnterScores' }];
 
     it('may score on Court 7', async () => {
       const { service } = build({ assignmentRole: 'DIRECTOR', grants: courtSeven });
@@ -188,7 +188,7 @@ describe('MutationAuthorizationService.gate — scoped grants', () => {
 
   it('refuses an expired grant even on a covered court', async () => {
     const expired = [
-      { grantId: 'g1', scope: { courtIds: ['court-7'] }, capability: 'enterScores', notAfter: '2000-01-01T00:00:00Z' },
+      { grantId: 'g1', scope: { courtIds: ['court-7'] }, capability: 'canEnterScores', notAfter: '2000-01-01T00:00:00Z' },
     ];
     const { service } = build({ assignmentRole: 'DIRECTOR', grants: expired });
     const denial = await service.gate({
@@ -201,7 +201,7 @@ describe('MutationAuthorizationService.gate — scoped grants', () => {
   });
 
   it('does not constrain a super-admin', async () => {
-    const { service } = build({ grants: [{ grantId: 'g1', scope: { courtIds: ['court-7'] }, capability: 'enterScores' }] });
+    const { service } = build({ grants: [{ grantId: 'g1', scope: { courtIds: ['court-7'] }, capability: 'canEnterScores' }] });
     const denial = await service.gate({
       userContext: superAdmin,
       tournamentIds: [TID],
@@ -214,7 +214,7 @@ describe('MutationAuthorizationService.gate — scoped grants', () => {
   it('a tournament-wide grant restricts nothing', async () => {
     const { service } = build({
       assignmentRole: 'DIRECTOR',
-      grants: [{ grantId: 'g1', scope: {}, capability: 'enterScores' }],
+      grants: [{ grantId: 'g1', scope: {}, capability: 'canEnterScores' }],
     });
     const denial = await service.gate({
       userContext: director,
@@ -235,5 +235,93 @@ describe('MutationAuthorizationService.gate — scoped grants', () => {
       methods: score('centre-match'),
     });
     expect(denial).toBeNull();
+  });
+});
+
+describe('grantCoversMethod', () => {
+  it('matches a capability against the shared mutation map', () => {
+    expect(grantCoversMethod('canEnterScores', 'setMatchUpStatus')).toBe(true);
+    expect(grantCoversMethod('canCreateEvents', 'addEvent')).toBe(true);
+  });
+
+  it('does not let a scoring grant authorize structural work', () => {
+    expect(grantCoversMethod('canEnterScores', 'addEvent')).toBe(false);
+    expect(grantCoversMethod('canEnterScores', 'addDrawDefinition')).toBe(false);
+  });
+
+  it('honors the wildcard for a full grant narrowed only by scope', () => {
+    expect(grantCoversMethod(GRANT_CAPABILITY_ALL, 'addEvent')).toBe(true);
+    expect(grantCoversMethod(GRANT_CAPABILITY_ALL, 'setMatchUpStatus')).toBe(true);
+  });
+
+  it('refuses an unmapped method and a missing capability', () => {
+    expect(grantCoversMethod('canEnterScores', 'someBrandNewMethod')).toBe(false);
+    expect(grantCoversMethod(undefined, 'setMatchUpStatus')).toBe(false);
+  });
+});
+
+describe('MutationAuthorizationService.gate — grant capability', () => {
+  const courtSevenScoring = [
+    { grantId: 'g1', scope: { courtIds: ['court-7'] }, capability: 'canEnterScores' },
+  ];
+
+  // The defect this closes: before capability was enforced, a Court-7 scoring
+  // grant scoped ANY mutation to Court 7 rather than permitting only scoring.
+  it('refuses a structural mutation to a scoring-only grant holder', async () => {
+    const { service } = build({ assignmentRole: 'DIRECTOR', grants: courtSevenScoring });
+    const denial = await service.gate({
+      userContext: director,
+      tournamentIds: [TID],
+      requestedMethods: ['addEvent'],
+      methods: [{ method: 'addEvent', params: {} }],
+    });
+    expect(denial).toBe('Not authorized for this capability');
+  });
+
+  it('still permits the scoring it was granted', async () => {
+    const { service } = build({ assignmentRole: 'DIRECTOR', grants: courtSevenScoring });
+    const denial = await service.gate({
+      userContext: director,
+      tournamentIds: [TID],
+      requestedMethods: ['setMatchUpStatus'],
+      methods: [{ method: 'setMatchUpStatus', params: { matchUpId: 'court7-match', drawId: 'd1' } }],
+    });
+    expect(denial).toBeNull();
+  });
+
+  it('lets a wildcard grant do structural work, still narrowed by scope', async () => {
+    const wildcard = [{ grantId: 'g1', scope: { courtIds: ['court-7'] }, capability: '*' }];
+    const { service } = build({ assignmentRole: 'DIRECTOR', grants: wildcard });
+    const denial = await service.gate({
+      userContext: director,
+      tournamentIds: [TID],
+      requestedMethods: ['setMatchUpStatus'],
+      methods: [{ method: 'setMatchUpStatus', params: { matchUpId: 'court7-match', drawId: 'd1' } }],
+    });
+    expect(denial).toBeNull();
+  });
+
+  it('combines two grants — score anywhere, schedule only on Court 7', async () => {
+    const combined = [
+      { grantId: 'g1', scope: {}, capability: 'canEnterScores' },
+      { grantId: 'g2', scope: { courtIds: ['court-7'] }, capability: 'canModifySchedule' },
+    ];
+    const { service } = build({ assignmentRole: 'DIRECTOR', grants: combined });
+
+    const scoringCentre = await service.gate({
+      userContext: director,
+      tournamentIds: [TID],
+      requestedMethods: ['setMatchUpStatus'],
+      methods: [{ method: 'setMatchUpStatus', params: { matchUpId: 'centre-match', drawId: 'd1' } }],
+    });
+    expect(scoringCentre).toBeNull(); // scoring is unscoped
+
+    const schedulingCentre = await service.gate({
+      userContext: director,
+      tournamentIds: [TID],
+      requestedMethods: ['addMatchUpScheduleItems'],
+      methods: [{ method: 'addMatchUpScheduleItems', params: { matchUpId: 'centre-match', drawId: 'd1' } }],
+    });
+    expect(schedulingCentre).toBeTruthy(); // scheduling is Court-7 only
   });
 });
