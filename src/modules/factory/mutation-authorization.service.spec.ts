@@ -160,7 +160,7 @@ describe('MutationAuthorizationService.gate — scoped grants', () => {
         requestedMethods: ['setMatchUpStatus'],
         methods: score('centre-match'),
       });
-      expect(denial).toBe('Not authorized for this courtIds');
+      expect(denial).toBe('Not authorized for this court');
     });
 
     it('may NOT score a matchUp with no court — unknown is not permission', async () => {
