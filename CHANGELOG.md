@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.27.0](https://github.com/CourtHive/competition-factory-server/compare/v2.26.0...v2.27.0) (2026-08-23)
+
+
+### Features
+
+* **factory:** forward participantsVersion so the payload saving is reachable ([#914](https://github.com/CourtHive/competition-factory-server/issues/914)) ([79ceea2](https://github.com/CourtHive/competition-factory-server/commit/79ceea20ecc68641daf7e2b3185f0bbaca27a973))
+
+
+### Bug Fixes
+
+* **deps:** update audit-worker to tods-competition-factory 6.29.1 ([58c3d07](https://github.com/CourtHive/competition-factory-server/commit/58c3d0715ac4d5d868b79ef709897bddb8a9926c))
+* **deps:** update tods-competition-factory to 6.29.0 ([6e198d6](https://github.com/CourtHive/competition-factory-server/commit/6e198d691c0f4a38a5b5f6ddc43d906175e229bb))
+* **deps:** update tods-competition-factory to 6.29.1 ([9eeab61](https://github.com/CourtHive/competition-factory-server/commit/9eeab6191839fa0e314f3e4ab34e967cc83c38df))
+* **deps:** update tods-competition-factory to 6.30.0 ([53e2383](https://github.com/CourtHive/competition-factory-server/commit/53e238399254d3103ee71449f5fdda7b152fceba))
+* **notices:** preserve identity across keyed notice de-dup on the server path ([#911](https://github.com/CourtHive/competition-factory-server/issues/911)) ([c2713f8](https://github.com/CourtHive/competition-factory-server/commit/c2713f88749d86ae70a624f0843581d5797220b6))
+* **public:** one privacy resolver for all five public routes ([#916](https://github.com/CourtHive/competition-factory-server/issues/916)) ([b55b7f3](https://github.com/CourtHive/competition-factory-server/commit/b55b7f3f0569acd814ec682e498e360f9355b6da))
+* **public:** serve only competitors from the public participants route ([#917](https://github.com/CourtHive/competition-factory-server/issues/917)) ([8f381ce](https://github.com/CourtHive/competition-factory-server/commit/8f381ce37e91674e0c2a5a6c8fd02a623ae295c9))
+* **public:** stop mutating the shared privacy fixture; gate draw routes honestly ([5cdf381](https://github.com/CourtHive/competition-factory-server/commit/5cdf381c661a55d86bdef2574f02b5b05192dbfd))
+
 ## [2.26.0](https://github.com/CourtHive/competition-factory-server/compare/v2.25.0...v2.26.0) (2026-08-18)
 
 
