@@ -3,6 +3,7 @@ import { ProjectionRebuildService } from './projection/projection-rebuild.servic
 import { AdminProjectionController } from './admin-projection.controller';
 import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
 import { AssignmentsController } from './assignments.controller';
+import { MutationAuthorizationService } from './mutation-authorization.service';
 import { AssignmentsService } from './assignments.service';
 import { FactoryController } from './factory.controller';
 import { AuditModule } from '../audit/audit.module';
@@ -12,9 +13,16 @@ import { ConfigService } from '@nestjs/config';
 import { Module } from '@nestjs/common';
 
 @Module({
-  providers: [FactoryService, AssignmentsService, ConfigService, ProjectionRebuildService, SnapshotProjectionService],
+  providers: [
+    FactoryService,
+    AssignmentsService,
+    MutationAuthorizationService,
+    ConfigService,
+    ProjectionRebuildService,
+    SnapshotProjectionService,
+  ],
   controllers: [FactoryController, AssignmentsController, AdminProjectionController],
-  exports: [FactoryService, AssignmentsService, ProjectionRebuildService, SnapshotProjectionService],
+  exports: [FactoryService, AssignmentsService, MutationAuthorizationService, ProjectionRebuildService, SnapshotProjectionService],
   imports: [ConfigsModule, BroadcastModule, AuditModule],
 })
 export class FactoryModule {}

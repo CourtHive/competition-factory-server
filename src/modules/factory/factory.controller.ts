@@ -38,6 +38,7 @@ import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { User } from '../account/auth/decorators/user.decorator';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
+import { MutationAuthorizationService } from './mutation-authorization.service';
 import { FactoryService } from './factory.service';
 
 /**
@@ -55,6 +56,7 @@ export class FactoryController {
   constructor(
     private readonly factoryService: FactoryService,
     private readonly broadcastService: TournamentBroadcastService,
+    private readonly mutationAuthorization: MutationAuthorizationService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
@@ -372,7 +374,11 @@ export class FactoryController {
   @Post()
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  async executionQueue(@Body() eqd: ExecutionQueueDto, @Req() req: any) {
+  async executionQueue(
+    @Body() eqd: ExecutionQueueDto,
+    @Req() req: any,
+    @UserCtx() userContext?: UserContext,
+  ) {
     // Thread provisioner context so executionQueue can stamp tournament ownership
     const provisioner = req.provisioner
       ? { provisionerId: req.provisioner.provisionerId, providerId: req.headers?.['x-provider-id'] }
@@ -383,6 +389,20 @@ export class FactoryController {
     // path stamps it; this path previously did not). userId is only assigned
     // when present: audit_log.user_id is UUID-typed, so an email fallback would
     // crash the INSERT — the email belongs in userEmail.
+    // Per-tournament access + provider-permission gate. The socket transport
+    // applies these in TmxGateway; this route previously applied NEITHER, so a
+    // CLIENT could post the same `methods` array over HTTP and bypass both.
+    // Same gate, one implementation (A10).
+    const requestedMethods: string[] = (eqd?.methods ?? []).map((m: any) => m?.method).filter(Boolean);
+    const tournamentIds: string[] = eqd?.tournamentIds ?? (eqd?.tournamentId ? [eqd.tournamentId] : []);
+    const denial = await this.mutationAuthorization.gate({
+      userContext,
+      tournamentIds,
+      requestedMethods,
+      actor: req.user?.email ?? req.user?.userId,
+    });
+    if (denial) throw new ForbiddenException(denial);
+
     const verifiedUser = req.user;
     const payload: any = { ...eqd, provisioner, auditSource: req.auditSource };
     if (verifiedUser?.email) payload.userEmail = verifiedUser.email;

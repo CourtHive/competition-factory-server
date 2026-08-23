@@ -1,4 +1,5 @@
 import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
+import { MutationAuthorizationService } from './mutation-authorization.service';
 import { AssignmentsService } from './assignments.service';
 import { FactoryController } from './factory.controller';
 import { SnapshotProjectionService } from './projection/snapshot-projection.service';
@@ -31,7 +32,13 @@ describe('AppService', () => {
         TelemetryModule,
         MutationServicesModule,
       ],
-      providers: [FactoryService, AssignmentsService, ConfigService, SnapshotProjectionService],
+      providers: [
+        FactoryService,
+        AssignmentsService,
+        MutationAuthorizationService,
+        ConfigService,
+        SnapshotProjectionService,
+      ],
       controllers: [FactoryController],
     }).compile();
   });

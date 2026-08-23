@@ -37,7 +37,10 @@ describe('AvailabilityPullService', () => {
     jest.clearAllMocks();
     mockCanMutate.mockReturnValue(true);
     tournamentStorageService = { findTournamentRecord: jest.fn().mockResolvedValue({ tournamentRecord: seededRecord() }) };
-    assignmentsService = { getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set<string>()) };
+    assignmentsService = {
+      getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set<string>()),
+      getAssignedRoles: jest.fn().mockResolvedValue(new Map<string, string>()),
+    };
     auditService = { recordMutation: jest.fn() };
     declarationsClient = { getAvailability: jest.fn(), isDisabled: jest.fn().mockReturnValue(false) };
     service = new AvailabilityPullService(tournamentStorageService, assignmentsService, auditService, declarationsClient);

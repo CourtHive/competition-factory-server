@@ -133,7 +133,7 @@ describe('checkTournamentAccess (flag ON via jest.mock)', () => {
   });
 
   describe('canMutateTournament', () => {
-    it('Phase 0: same rules as canViewTournament', () => {
+    it('viewing remains a precondition', () => {
       let result: any = canMutateTournament(makeTournament('prov-1'), providerAdmin);
       expect(result).toBe(true);
 
@@ -145,6 +145,71 @@ describe('checkTournamentAccess (flag ON via jest.mock)', () => {
 
       result = canMutateTournament(makeTournament('prov-1', 'other'), director);
       expect(result).toBe(false);
+    });
+
+    // The assignment_role classification. Before this landed, `canMutateTournament`
+    // simply returned `canViewTournament`, so EVERY assertion below that expects
+    // `false` would have returned `true` — granting SCORER conferred DIRECTOR.
+    describe('assignment_role governs assignment-derived access', () => {
+      // Owned by someone else, so `director` reaches it only via the assignment row.
+      const assigned = makeTournament('prov-1', 'someone-else');
+      const roles = (role: string) => new Map([[assigned.tournamentId, role]]);
+
+      it('DIRECTOR assignment mutates anything', () => {
+        expect(canMutateTournament(assigned, director, roles('DIRECTOR'), ['addEvent'])).toBe(true);
+      });
+
+      it('ASSISTANT is not narrowed (deferred to the preset work)', () => {
+        expect(canMutateTournament(assigned, director, roles('ASSISTANT'), ['addEvent'])).toBe(true);
+      });
+
+      it('OBSERVER cannot mutate, even a scoring method', () => {
+        expect(canMutateTournament(assigned, director, roles('OBSERVER'), ['setMatchUpStatus'])).toBe(false);
+        expect(canMutateTournament(assigned, director, roles('OBSERVER'), ['addEvent'])).toBe(false);
+      });
+
+      it('SCORER may score', () => {
+        expect(canMutateTournament(assigned, director, roles('SCORER'), ['setMatchUpStatus'])).toBe(true);
+      });
+
+      it('SCORER may NOT create draws, schedule, or delete', () => {
+        for (const method of ['addDrawDefinition', 'bulkScheduleMatchUps', 'deleteEvents', 'addParticipants']) {
+          expect(canMutateTournament(assigned, director, roles('SCORER'), [method])).toBe(false);
+        }
+      });
+
+      it('SCORER is denied a mixed batch that smuggles a non-scoring method', () => {
+        const batch = ['setMatchUpStatus', 'bulkScheduleMatchUps'];
+        expect(canMutateTournament(assigned, director, roles('SCORER'), batch)).toBe(false);
+      });
+
+      it('SCORER is denied when no methods are supplied — "may you mutate at all" is no', () => {
+        expect(canMutateTournament(assigned, director, roles('SCORER'), [])).toBe(false);
+        expect(canMutateTournament(assigned, director, roles('SCORER'))).toBe(false);
+      });
+
+      it('an unrecognised role keeps its pre-existing full access rather than silently losing it', () => {
+        expect(canMutateTournament(assigned, director, roles('CUSTOM_LEGACY_ROLE'), ['addEvent'])).toBe(true);
+      });
+
+      it('role matching is case-insensitive', () => {
+        expect(canMutateTournament(assigned, director, roles('scorer'), ['addEvent'])).toBe(false);
+        expect(canMutateTournament(assigned, director, roles('observer'), ['setMatchUpStatus'])).toBe(false);
+      });
+
+      it('a SCORER row does NOT downgrade access that is not assignment-derived', () => {
+        // PROVIDER_ADMIN reaches every tournament at the provider without an
+        // assignment; a stray SCORER row must not narrow them.
+        expect(canMutateTournament(assigned, providerAdmin, roles('SCORER'), ['addEvent'])).toBe(true);
+
+        // Nor the creator of the tournament.
+        const owned = makeTournament('prov-1', 'user-uuid-1');
+        const ownedScorer = new Map([[owned.tournamentId, 'SCORER']]);
+        expect(canMutateTournament(owned, director, ownedScorer, ['addEvent'])).toBe(true);
+
+        // Nor a super-admin.
+        expect(canMutateTournament(assigned, superAdmin, roles('OBSERVER'), ['addEvent'])).toBe(true);
+      });
     });
   });
 

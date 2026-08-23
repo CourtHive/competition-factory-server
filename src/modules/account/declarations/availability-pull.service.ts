@@ -80,8 +80,8 @@ export class AvailabilityPullService {
     if (!tournamentId) throw new BadRequestException('tournamentId is required');
     const { tournamentRecord } = await this.tournamentStorageService.findTournamentRecord({ tournamentId });
     if (!tournamentRecord) throw new BadRequestException('Tournament not found');
-    const assignedTournamentIds = await this.assignmentsService.getAssignedTournamentIds(userContext.userId);
-    if (!canMutateTournament(tournamentRecord, userContext, assignedTournamentIds)) {
+    const assignedRoles = await this.assignmentsService.getAssignedRoles(userContext.userId);
+    if (!canMutateTournament(tournamentRecord, userContext, assignedRoles)) {
       throw new ForbiddenException('Not authorised to pull availability for this tournament');
     }
     return { tournamentRecord };

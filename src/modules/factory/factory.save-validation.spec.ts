@@ -35,7 +35,10 @@ function makeFactoryService(overrides: { tournamentStorageService?: any; pgPool?
       saveTournamentRecords: jest.fn().mockResolvedValue({ success: true }),
     };
   const pgPool = overrides.pgPool ?? {};
-  const assignmentsService: any = { getAssignedTournamentIds: jest.fn().mockResolvedValue([]) };
+  const assignmentsService: any = {
+    getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set()),
+    getAssignedRoles: jest.fn().mockResolvedValue(new Map()),
+  };
   const auditService: any = {};
   const tournamentStorage: any = {};
   const tournamentProvisionerStorage: any = {};

@@ -9,7 +9,10 @@ const SUPER_ADMIN_USER = { roles: ['superadmin'] };
 
 function makeService(storageImpl: (params: any) => Promise<any>) {
   const tournamentStorageService = { fetchTournamentUpdatedAt: jest.fn(storageImpl) };
-  const assignmentsService = { getAssignedTournamentIds: jest.fn().mockResolvedValue([]) };
+  const assignmentsService = {
+    getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set()),
+    getAssignedRoles: jest.fn().mockResolvedValue(new Map()),
+  };
   const mutationServices: any = new MutationServicesService({ isEnabled: false, enqueue: jest.fn() } as any, {
     record: jest.fn(),
     isEnabled: false,

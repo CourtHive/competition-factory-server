@@ -1,9 +1,9 @@
-import { computeEffectiveConfig, isMutationAllowed } from '@courthive/provider-config';
 import { TournamentBroadcastService } from '../broadcast/tournament-broadcast.service';
-import { canViewTournament, canMutateTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
+import { canViewTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { buildUserContext } from 'src/modules/account/auth/helpers/buildUserContext';
 import { MutationServicesService } from 'src/modules/mutation-services/mutation-services.service';
+import { MutationAuthorizationService } from 'src/modules/factory/mutation-authorization.service';
 import { AssignmentsService } from 'src/modules/factory/assignments.service';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
@@ -113,6 +113,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     private readonly mutationServices: MutationServicesService,
     private readonly broadcastService: TournamentBroadcastService,
     private readonly assignmentsService: AssignmentsService,
+    private readonly mutationAuthorization: MutationAuthorizationService,
     private readonly usersService: UsersService,
     private readonly auditService: AuditService,
   ) {}
@@ -266,13 +267,12 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       // string if any gate rejects, or null when all tournaments pass.
       const userContext = await this.resolveUserContext(client);
       const requestedMethods: string[] = (payload?.methods ?? []).map((m: any) => m?.method).filter(Boolean);
-      const denial = await this.gatePerTournament(
+      const denial = await this.mutationAuthorization.gate({
         userContext,
-        payload.tournamentIds ?? [],
+        tournamentIds: payload.tournamentIds ?? [],
         requestedMethods,
-        userId,
-        methods,
-      );
+        actor: userId,
+      });
       if (denial) {
         client.emit('ack', { ackId, error: denial });
         return;
@@ -548,64 +548,6 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       result.push({ tournamentId, count: members.length, members });
     }
     return result;
-  }
-
-  /**
-   * Defense-in-depth gates applied before a mutation reaches `executionQueue`:
-   *   1. canMutateTournament (per-tournament access)
-   *   2. provider permission map (MUTATION_PERMISSIONS in the tournament's
-   *      owning provider's effective config)
-   *
-   * Super-admins bypass both. Returns the denial reason as a string when
-   * any tournament rejects, or `null` when all clear.
-   */
-  private async gatePerTournament(
-    userContext: any,
-    tournamentIds: string[],
-    requestedMethods: string[],
-    userId: string,
-    methods: string,
-  ): Promise<string | null> {
-    if (!userContext || !tournamentIds.length) return null;
-
-    const assignedIds = await this.assignmentsService.getAssignedTournamentIds(userContext.userId);
-    for (const tid of tournamentIds) {
-      const result: any = await this.tournamentStorageService.fetchTournamentRecords({ tournamentId: tid });
-      const tournament = result?.tournamentRecords?.[tid];
-      if (!tournament) continue;
-
-      if (!canMutateTournament(tournament, userContext, assignedIds)) {
-        this.logger.warn(`[executionQueue] mutation denied for ${userId}: ${methods} on ${tid}`);
-        return 'Not authorized to modify this tournament';
-      }
-
-      if (userContext.isSuperAdmin || !requestedMethods.length) continue;
-      const blocked = await this.checkProviderPermissionGate(tournament, requestedMethods);
-      if (blocked) {
-        this.logger.warn(
-          `[executionQueue] provider permission denied for ${userId}: ${blocked.method} on ${tid} (provider ${blocked.providerId})`,
-        );
-        return `Action not permitted: ${blocked.method}`;
-      }
-    }
-    return null;
-  }
-
-  /** Returns the first method blocked by the owning provider's permissions, or null. */
-  private async checkProviderPermissionGate(
-    tournament: any,
-    requestedMethods: string[],
-  ): Promise<{ method: string; providerId: string } | null> {
-    const providerId = tournament?.parentOrganisation?.organisationId;
-    if (!providerId) return null;
-    const provider: any = await this.providerStorage.getProvider(providerId);
-    const effective = computeEffectiveConfig(
-      provider?.providerConfigCaps ?? {},
-      provider?.providerConfigSettings ?? {},
-    );
-    const permissions = effective.permissions ?? {};
-    const method = requestedMethods.find((m) => !isMutationAllowed(m, permissions));
-    return method ? { method, providerId } : null;
   }
 
   // ── User context resolution for WebSocket handlers ──

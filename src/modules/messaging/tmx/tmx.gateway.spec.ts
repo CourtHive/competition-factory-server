@@ -1,3 +1,4 @@
+import { MutationAuthorizationService } from 'src/modules/factory/mutation-authorization.service';
 import { MutationServicesService } from 'src/modules/mutation-services/mutation-services.service';
 import { TmxGateway, TOURNAMENT_ROOM_PREFIX } from './tmx.gateway';
 import { tmxMessages } from './tmxMessages';
@@ -63,7 +64,10 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     fetchTournamentRecords: jest.fn().mockResolvedValue({ tournamentRecords: {} }),
   };
   const broadcastService: any = { setTmxServer: jest.fn(), broadcastMutation: jest.fn(), broadcastPublicNotices: jest.fn() };
-  const assignmentsService: any = { getAssignedTournamentIds: jest.fn().mockResolvedValue([]) };
+  const assignmentsService: any = {
+    getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set()),
+    getAssignedRoles: jest.fn().mockResolvedValue(new Map()),
+  };
   const usersService: any = { findOne: jest.fn().mockResolvedValue(null) };
   const cacheManager: any = { get: jest.fn(), set: jest.fn(), del: jest.fn() };
   const userProviderStorage: any = { findByEmail: jest.fn().mockResolvedValue([]) };
@@ -98,6 +102,9 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     } as any),
     broadcastService,
     assignmentsService,
+    // Real gate over the same mocks — mirrors the production shape (A1) so the
+    // gateway is exercised against the authorization path it actually uses.
+    new MutationAuthorizationService(providerStorage, tournamentStorageService, assignmentsService),
     usersService,
     auditService,
   );
