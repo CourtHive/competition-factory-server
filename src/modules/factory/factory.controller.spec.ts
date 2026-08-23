@@ -1,6 +1,7 @@
 import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
 import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
 import { MutationAuthorizationService } from './mutation-authorization.service';
+import { GrantsService } from './grants.service';
 import { AssignmentsService } from './assignments.service';
 import { FactoryController } from './factory.controller';
 import { SnapshotProjectionService } from './projection/snapshot-projection.service';
@@ -25,6 +26,8 @@ import { seededRng } from 'src/tests/helpers/seededRng';
 // always allows keeps them testing what they are about; the gate itself is
 // covered by mutation-authorization.service.spec.ts.
 const permissiveMutationAuth = () => ({ gate: jest.fn().mockResolvedValue(null) }) as any;
+// No scoped grants — the unrestricted case these specs are written against.
+const stubGrants = () => ({ forCaller: jest.fn().mockResolvedValue([]) }) as any;
 
 const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
 
@@ -52,6 +55,7 @@ describe('FactoryController', () => {
         FactoryService,
         AssignmentsService,
         MutationAuthorizationService,
+        GrantsService,
         ConfigService,
         SnapshotProjectionService,
       ],
@@ -120,7 +124,7 @@ describe('FactoryController', () => {
     } as unknown as any;
 
     beforeEach(() => {
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
       jest.clearAllMocks();
     });
 
@@ -189,7 +193,7 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
 
       const eqd = {
         tournamentIds: ['t1'],
@@ -206,7 +210,7 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
 
       const eqd = { tournamentIds: ['t1'], methods: [{ method: 'setMatchUpStatus', params: {} }] };
       const mockReq = {
@@ -230,7 +234,7 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
 
       const eqd = { tournamentIds: ['t1'], methods: [] };
       const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined, user: { email: 'd@e.com' } };
@@ -245,7 +249,7 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: jest.fn().mockResolvedValue({ error: 'something failed' }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
 
       const eqd = {
         tournamentIds: ['t1'],
@@ -263,7 +267,7 @@ describe('FactoryController', () => {
       const mockService = {
         score: jest.fn().mockResolvedValue({ success: true, publicNotices }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
 
       const sms = { tournamentId: 't1', matchUpId: 'm1', drawId: 'd1' };
       await mockController.scoreMatchUp(sms as any, {} as any);
@@ -276,7 +280,7 @@ describe('FactoryController', () => {
       const mockService = {
         score: jest.fn().mockResolvedValue({ error: 'invalid score' }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
 
       const sms = { tournamentId: 't1', matchUpId: 'm1', drawId: 'd1' };
       await mockController.scoreMatchUp(sms as any, {} as any);
@@ -332,7 +336,7 @@ describe('FactoryController', () => {
 
     beforeEach(() => {
       jest.clearAllMocks();
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
     });
 
     it('tracks every cache key issued for a tournament and deletes them all on executionQueue', async () => {
@@ -607,7 +611,7 @@ describe('FactoryController', () => {
         ...mockService,
         executionQueue: jest.fn().mockResolvedValue({ error: 'fail' }),
       } as unknown as FactoryService;
-      const failingController = new FactoryController(failingService, mockBroadcast, permissiveMutationAuth(), mockCache);
+      const failingController = new FactoryController(failingService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
       await populateCacheForTid(failingController, 't1');
 
       const eqd = { tournamentIds: ['t1'], methods: [] };
@@ -724,7 +728,7 @@ describe('FactoryController eventdata — participantsVersion', () => {
     jest.clearAllMocks();
     (mockService.getEventData as jest.Mock).mockResolvedValue(cachedPayload);
     mockCache.get.mockResolvedValue(undefined);
-    mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), mockCache);
+    mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
   });
 
   it('includes participants when the caller supplies no version', async () => {
@@ -811,7 +815,7 @@ describe('FactoryController.executionQueue — authorization gate', () => {
   function controllerWithGate(denial: string | null) {
     const service: any = { executionQueue: jest.fn().mockResolvedValue({ success: true }) };
     const gate = { gate: jest.fn().mockResolvedValue(denial) } as any;
-    return { controller: new FactoryController(service, mockBroadcast, gate, mockCache), service, gate };
+    return { controller: new FactoryController(service, mockBroadcast, gate, stubGrants(), mockCache), service, gate };
   }
 
   beforeEach(() => jest.clearAllMocks());
