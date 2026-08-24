@@ -24,7 +24,14 @@
  */
 import { computeEffectiveConfig, isMutationAllowed } from '@courthive/provider-config';
 import { enrichTargetFromRecord, targetFromParams } from './helpers/resolveMutationTarget';
-import { GRANT_CAPABILITY_ALL, grantCoversMethod, isTargetInScope, isWithinWindow, requiredTargetFields } from './helpers/grantScope';
+import {
+  GRANT_CAPABILITY_ALL,
+  grantCoversMethod,
+  isTargetInScope,
+  isWithinWindow,
+  requiredTargetFields,
+} from './helpers/grantScope';
+import { windowDenialReason } from './helpers/grantWindowDenial';
 import { canMutateTournament } from './helpers/checkTournamentAccess';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { GRANT_STORAGE, type IGrantStorage } from 'src/storage/interfaces';
@@ -82,7 +89,13 @@ export class MutationAuthorizationService {
    * clear. Super-admins bypass the provider-permission gate (but not the
    * per-tournament gate, which returns early for them anyway).
    */
-  async gate({ userContext, tournamentIds, requestedMethods, methods, actor }: MutationGateParams): Promise<string | null> {
+  async gate({
+    userContext,
+    tournamentIds,
+    requestedMethods,
+    methods,
+    actor,
+  }: MutationGateParams): Promise<string | null> {
     if (!userContext || !tournamentIds.length) return null;
 
     const assignedRoles = await this.assignmentsService.getAssignedRoles(userContext.userId);
@@ -100,10 +113,8 @@ export class MutationAuthorizationService {
 
       const outOfScope = await this.checkGrantScope(tournament, userContext, methods ?? []);
       if (outOfScope) {
-        this.logger.warn(
-          `[executionQueue] out of granted scope for ${actor}: ${outOfScope.method} on ${tid}`,
-        );
-        return `Not authorized for this ${outOfScope.dimension}`;
+        this.logger.warn(`[executionQueue] out of granted scope for ${actor}: ${outOfScope.method} on ${tid}`);
+        return outOfScope.reason ?? `Not authorized for this ${outOfScope.dimension}`;
       }
 
       if (userContext.isSuperAdmin || !requestedMethods.length) continue;
@@ -133,7 +144,7 @@ export class MutationAuthorizationService {
     tournament: any,
     userContext: any,
     methods: { method?: string; params?: any }[],
-  ): Promise<{ method: string; dimension: string } | null> {
+  ): Promise<{ method: string; dimension: string; reason?: string } | null> {
     if (userContext.isSuperAdmin || !methods.length) return null;
     const tournamentId = tournament?.tournamentId;
     if (!tournamentId || !userContext.userId) return null;
@@ -149,7 +160,16 @@ export class MutationAuthorizationService {
     if (!grants.length) return null; // no scoped grants → unrestricted here
 
     const live = grants.filter((grant) => isWithinWindow(grant));
-    if (!live.length) return { method: methods[0]?.method ?? 'unknown', dimension: 'time window' };
+    if (!live.length) {
+      // Every grant is outside its window, so the subject can do NOTHING here —
+      // see grantWindowDenial.ts for why that stays and why the sentence has to
+      // name the instant rather than the dimension.
+      return {
+        method: methods[0]?.method ?? 'unknown',
+        dimension: 'time window',
+        reason: windowDenialReason(grants),
+      };
+    }
 
     for (const method of methods) {
       const methodName = method?.method ?? 'unknown';

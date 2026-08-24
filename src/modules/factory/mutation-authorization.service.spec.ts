@@ -1,4 +1,8 @@
-import { GRANT_CAPABILITY_ALL, MutationAuthorizationService, grantCoversMethod } from './mutation-authorization.service';
+import {
+  GRANT_CAPABILITY_ALL,
+  MutationAuthorizationService,
+  grantCoversMethod,
+} from './mutation-authorization.service';
 import { CREATED_BY_USER_ID } from './helpers/checkTournamentAccess';
 
 // Scoping must be ON for the per-tournament gate to have anything to say.
@@ -37,7 +41,11 @@ function makeTournament(createdByUserId = 'someone-else') {
   };
 }
 
-function build({ assignmentRole, permissions, grants = [] }: { assignmentRole?: string; permissions?: any; grants?: any[] } = {}) {
+function build({
+  assignmentRole,
+  permissions,
+  grants = [],
+}: { assignmentRole?: string; permissions?: any; grants?: any[] } = {}) {
   const providerStorage: any = {
     getProvider: jest.fn().mockResolvedValue({
       providerConfigCaps: {},
@@ -51,7 +59,12 @@ function build({ assignmentRole, permissions, grants = [] }: { assignmentRole?: 
   const assignmentsService: any = {
     getAssignedRoles: jest.fn().mockResolvedValue(assignmentRole ? new Map([[TID, assignmentRole]]) : new Map()),
   };
-  const service = new MutationAuthorizationService(providerStorage, grantStorage, tournamentStorageService, assignmentsService);
+  const service = new MutationAuthorizationService(
+    providerStorage,
+    grantStorage,
+    tournamentStorageService,
+    assignmentsService,
+  );
   return { service, providerStorage, tournamentStorageService, assignmentsService, grantStorage };
 }
 
@@ -116,7 +129,9 @@ describe('MutationAuthorizationService.gate', () => {
 
   it('is a no-op without a userContext or without tournamentIds', async () => {
     const { service, tournamentStorageService } = build();
-    expect(await service.gate({ userContext: undefined, tournamentIds: [TID], requestedMethods: ['addEvent'] })).toBeNull();
+    expect(
+      await service.gate({ userContext: undefined, tournamentIds: [TID], requestedMethods: ['addEvent'] }),
+    ).toBeNull();
     expect(await service.gate({ userContext: director, tournamentIds: [], requestedMethods: ['addEvent'] })).toBeNull();
     expect(tournamentStorageService.fetchTournamentRecords).not.toHaveBeenCalled();
   });
@@ -188,7 +203,12 @@ describe('MutationAuthorizationService.gate — scoped grants', () => {
 
   it('refuses an expired grant even on a covered court', async () => {
     const expired = [
-      { grantId: 'g1', scope: { courtIds: ['court-7'] }, capability: 'canEnterScores', notAfter: '2000-01-01T00:00:00Z' },
+      {
+        grantId: 'g1',
+        scope: { courtIds: ['court-7'] },
+        capability: 'canEnterScores',
+        notAfter: '2000-01-01T00:00:00Z',
+      },
     ];
     const { service } = build({ assignmentRole: 'DIRECTOR', grants: expired });
     const denial = await service.gate({
@@ -197,11 +217,36 @@ describe('MutationAuthorizationService.gate — scoped grants', () => {
       requestedMethods: ['setMatchUpStatus'],
       methods: score('court7-match'),
     });
-    expect(denial).toBe('Not authorized for this time window');
+    // The message deliberately CHANGED (2026-08-24): the dimension alone told the
+    // subject nothing they could act on, and this branch denies them everything on
+    // the tournament rather than merely narrowing them. It now names the instant.
+    expect(denial).toContain('ended at 2000-01-01T00:00:00.000Z');
+    expect(denial).toContain('extend or remove');
+  });
+
+  it('names an upcoming start rather than an expiry when the grant is not yet live', async () => {
+    const notYet = [
+      {
+        grantId: 'g1',
+        scope: { courtIds: ['court-7'] },
+        capability: 'canEnterScores',
+        notBefore: '2999-01-01T00:00:00Z',
+      },
+    ];
+    const { service } = build({ assignmentRole: 'DIRECTOR', grants: notYet });
+    const denial = await service.gate({
+      userContext: director,
+      tournamentIds: [TID],
+      requestedMethods: ['setMatchUpStatus'],
+      methods: score('court7-match'),
+    });
+    expect(denial).toContain('starts at 2999-01-01T00:00:00.000Z');
   });
 
   it('does not constrain a super-admin', async () => {
-    const { service } = build({ grants: [{ grantId: 'g1', scope: { courtIds: ['court-7'] }, capability: 'canEnterScores' }] });
+    const { service } = build({
+      grants: [{ grantId: 'g1', scope: { courtIds: ['court-7'] }, capability: 'canEnterScores' }],
+    });
     const denial = await service.gate({
       userContext: superAdmin,
       tournamentIds: [TID],
@@ -261,9 +306,7 @@ describe('grantCoversMethod', () => {
 });
 
 describe('MutationAuthorizationService.gate — grant capability', () => {
-  const courtSevenScoring = [
-    { grantId: 'g1', scope: { courtIds: ['court-7'] }, capability: 'canEnterScores' },
-  ];
+  const courtSevenScoring = [{ grantId: 'g1', scope: { courtIds: ['court-7'] }, capability: 'canEnterScores' }];
 
   // The defect this closes: before capability was enforced, a Court-7 scoring
   // grant scoped ANY mutation to Court 7 rather than permitting only scoring.
