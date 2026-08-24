@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.28.0](https://github.com/CourtHive/competition-factory-server/compare/v2.27.0...v2.28.0) (2026-08-23)
+
+
+### Features
+
+* **auth:** expose the caller's own scoped grants ([#923](https://github.com/CourtHive/competition-factory-server/issues/923)) ([2c17ad9](https://github.com/CourtHive/competition-factory-server/commit/2c17ad9f98eefadb29cc4529d0bdb93323853731))
+* **auth:** scoped, time-bounded capability grants ([#921](https://github.com/CourtHive/competition-factory-server/issues/921)) ([863ecee](https://github.com/CourtHive/competition-factory-server/commit/863eceee428713ee805911fc08aa7686f343ebeb))
+
+
+### Bug Fixes
+
+* **auth:** a grant's capability now bounds what it authorizes ([#922](https://github.com/CourtHive/competition-factory-server/issues/922)) ([962d790](https://github.com/CourtHive/competition-factory-server/commit/962d7906176d81840ab531927d590575191732f1))
+* **auth:** close three mutation-authorization defects ([#919](https://github.com/CourtHive/competition-factory-server/issues/919)) ([bd6c3ea](https://github.com/CourtHive/competition-factory-server/commit/bd6c3eaaf334803a1bd019ea9d0214278f1f3582))
+* **deps:** update @courthive/provider-config to 0.17.0 ([e0eb5c9](https://github.com/CourtHive/competition-factory-server/commit/e0eb5c91cec13dda98246a5b654234426812f446))
+
 ## [2.27.0](https://github.com/CourtHive/competition-factory-server/compare/v2.26.0...v2.27.0) (2026-08-23)
 
 
