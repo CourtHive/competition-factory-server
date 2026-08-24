@@ -40,6 +40,12 @@ export class PostgresGrantStorage implements IGrantStorage {
     return result.rows.map(toRow);
   }
 
+  async findById(grantId: string): Promise<TournamentGrantRow | null> {
+    const result = await this.pool.query(`SELECT ${COLUMNS} FROM tournament_grants WHERE grant_id = $1`, [grantId]);
+    const row = result.rows[0];
+    return row ? toRow(row) : null;
+  }
+
   async create(row: Omit<TournamentGrantRow, 'grantId' | 'grantedAt'>): Promise<{ grantId: string }> {
     const result = await this.pool.query(
       `INSERT INTO tournament_grants
@@ -66,10 +72,10 @@ export class PostgresGrantStorage implements IGrantStorage {
   }
 
   async revokeForSubject(userId: string, tournamentId: string): Promise<{ revoked: number }> {
-    const result = await this.pool.query(
-      `DELETE FROM tournament_grants WHERE user_id = $1 AND tournament_id = $2`,
-      [userId, tournamentId],
-    );
+    const result = await this.pool.query(`DELETE FROM tournament_grants WHERE user_id = $1 AND tournament_id = $2`, [
+      userId,
+      tournamentId,
+    ]);
     return { revoked: result.rowCount ?? 0 };
   }
 }

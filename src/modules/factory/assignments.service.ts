@@ -9,7 +9,8 @@ import {
   USER_STORAGE,
   type IUserStorage,
 } from 'src/storage/interfaces';
-import { PROVIDER_ADMIN } from 'src/common/constants/roles';
+import { INSUFFICIENT_PERMISSIONS, isProviderAdminFor } from './helpers/providerAdmin';
+
 import type { UserContext } from '../account/auth/decorators/user-context.decorator';
 
 @Injectable()
@@ -38,8 +39,8 @@ export class AssignmentsService {
     const { tournamentId, userEmail, providerId, role } = params;
 
     // Grantor must be PROVIDER_ADMIN for this provider or SUPER_ADMIN
-    if (!grantor.isSuperAdmin && grantor.providerRoles[providerId] !== PROVIDER_ADMIN) {
-      return { error: 'Insufficient permissions — must be PROVIDER_ADMIN or SUPER_ADMIN' };
+    if (!isProviderAdminFor(grantor, providerId)) {
+      return { error: INSUFFICIENT_PERMISSIONS };
     }
 
     // Resolve grantee's userId from email
@@ -72,8 +73,8 @@ export class AssignmentsService {
   async revoke(params: { tournamentId: string; userEmail: string; providerId: string }, grantor: UserContext) {
     const { tournamentId, userEmail, providerId } = params;
 
-    if (!grantor.isSuperAdmin && grantor.providerRoles[providerId] !== PROVIDER_ADMIN) {
-      return { error: 'Insufficient permissions — must be PROVIDER_ADMIN or SUPER_ADMIN' };
+    if (!isProviderAdminFor(grantor, providerId)) {
+      return { error: INSUFFICIENT_PERMISSIONS };
     }
 
     const grantee = await this.userStorage.findOne(userEmail);
@@ -90,7 +91,7 @@ export class AssignmentsService {
   async eligibleUsers(params: { providerId: string }, grantor: UserContext) {
     const { providerId } = params;
 
-    if (!grantor.isSuperAdmin && grantor.providerRoles[providerId] !== PROVIDER_ADMIN) {
+    if (!isProviderAdminFor(grantor, providerId)) {
       return { error: 'Insufficient permissions' };
     }
 
