@@ -16,6 +16,14 @@ export interface IGrantStorage {
   /** All grants on a tournament — the manage-access UI. */
   findByTournamentId(tournamentId: string): Promise<TournamentGrantRow[]>;
 
+  /**
+   * One grant by id — the revoke path.
+   *
+   * Revocation authorizes against the grant's OWN provider rather than one the
+   * caller names, so the row has to be read before the decision is made.
+   */
+  findById(grantId: string): Promise<TournamentGrantRow | null>;
+
   create(row: Omit<TournamentGrantRow, 'grantId' | 'grantedAt'>): Promise<{ grantId: string }>;
 
   revoke(grantId: string): Promise<{ success: boolean }>;
