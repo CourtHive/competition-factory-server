@@ -11,6 +11,11 @@
  *   node src/scripts/create-intennse-provider.mjs --dry-run  # show payload, no write
  *   node src/scripts/create-intennse-provider.mjs --force    # also overwrite name/abbr
  *
+ * Targets the provider whose abbreviation is any of NTNS / INTENNSE — prod's real row is
+ * NTNS ("INTENNSE Tennis"), local dev seeds INTENNSE. Override with INTENNSE_ABBR /
+ * INTENNSE_NAME. If more than one matches it refuses rather than guessing, and it creates
+ * only when none matches, so it can no longer duplicate the provider it meant to update.
+ *
  * Branding source: intennse.com live design system — green-black canvas
  * (#020504), forest surfaces (#183029), signature "rad-green" accent
  * (#e0e722), "Area" display type + "Space Mono" numerics. The theme-aware
@@ -27,8 +32,16 @@ const args = minimist(process.argv.slice(2), {
   boolean: ['dry-run', 'force'],
 });
 
-const ABBR = 'INTENNSE';
-const NAME = 'INTENNSE';
+// The real INTENNSE provider is abbreviated **NTNS**, not INTENNSE — prod is
+// `b3407edd-b9df-450c-b45d-fd0bca5a7e62` / NTNS / "INTENNSE Tennis". This script previously
+// looked up `organisation_abbreviation = 'INTENNSE'`, found nothing in prod, fell through to the
+// create branch and INSERTed a **duplicate** provider under a fresh UUID rather than updating the
+// real one. So we match a set of candidate abbreviations and only ever create when none matches.
+const CANONICAL_ABBR = process.env.INTENNSE_ABBR || 'NTNS';
+const CANONICAL_NAME = process.env.INTENNSE_NAME || 'INTENNSE Tennis';
+// Legacy and local rows may still carry the bare 'INTENNSE' abbreviation (local dev seeds
+// 4309c1ab-… that way), so match those too and UPDATE them instead of duplicating.
+const LOOKUP_ABBRS = [...new Set([CANONICAL_ABBR, 'NTNS', 'INTENNSE'])];
 
 const RAD_GREEN = '#e0e722';
 const FOREST = '#183029';
@@ -85,9 +98,22 @@ async function main() {
     const existing = await pool.query(
       `SELECT provider_id, organisation_abbreviation, organisation_name, data
        FROM providers
-       WHERE organisation_abbreviation = $1`,
-      [ABBR],
+       WHERE organisation_abbreviation = ANY($1)`,
+      [LOOKUP_ABBRS],
     );
+
+    // More than one match means the duplicate this script used to create already exists (or a
+    // second org legitimately shares an abbreviation). Either way, guessing which to brand would
+    // be worse than stopping — reconcile by hand.
+    if (existing.rows.length > 1) {
+      console.error(`Ambiguous: ${existing.rows.length} providers match ${LOOKUP_ABBRS.join(' / ')}:`);
+      for (const r of existing.rows) {
+        console.error(`  ${r.provider_id}  ${r.organisation_abbreviation}  ${r.organisation_name}`);
+      }
+      console.error('\nRefusing to guess which is canonical. Merge or remove the extras, then re-run.');
+      process.exitCode = 1;
+      return;
+    }
 
     if (existing.rows.length > 0) {
       const row = existing.rows[0];
@@ -103,8 +129,20 @@ async function main() {
         providerConfigCaps: newCaps,
       };
 
-      console.log(`Provider "${ABBR}" already exists — providerId: ${providerId}`);
+      console.log(
+        `Provider "${row.organisation_abbreviation}" (${row.organisation_name}) already exists — providerId: ${providerId}`,
+      );
       console.log(`Will update providerConfigCaps.branding with the INTENNSE theme.`);
+
+      // `calendars` is keyed by organisation_abbreviation, so renaming the abbreviation orphans the
+      // provider's calendar until it is re-keyed. Only --force does it, and it says so first.
+      if (args.force && row.organisation_abbreviation !== CANONICAL_ABBR) {
+        console.warn(
+          `\n⚠ --force will rename the abbreviation ${row.organisation_abbreviation} → ${CANONICAL_ABBR}.` +
+            `\n  \`calendars\` is keyed by abbreviation — re-key the calendar row too or this provider's` +
+            `\n  tournaments stop resolving. Drop --force if you only meant to update branding.`,
+        );
+      }
 
       if (args['dry-run']) {
         console.log('\n--dry-run: showing payload, NOT writing.');
@@ -119,23 +157,23 @@ async function main() {
                 organisation_abbreviation = CASE WHEN $3::boolean THEN $5 ELSE organisation_abbreviation END,
                 updated_at = NOW()
           WHERE provider_id = $1`,
-        [providerId, JSON.stringify(newData), !!args.force, NAME, ABBR],
+        [providerId, JSON.stringify(newData), !!args.force, CANONICAL_NAME, CANONICAL_ABBR],
       );
       console.log(`\n✔ Updated INTENNSE provider branding.`);
       console.log(`  providerId: ${providerId}`);
       return;
     }
 
-    // Brand-new INTENNSE provider.
+    // Brand-new INTENNSE provider — only reached when NO candidate abbreviation matched.
     const providerId = randomUUID();
     const data = {
       organisationId: providerId,
-      organisationAbbreviation: ABBR,
-      organisationName: NAME,
+      organisationAbbreviation: CANONICAL_ABBR,
+      organisationName: CANONICAL_NAME,
       providerConfigCaps: { branding: INTENNSE_BRANDING },
     };
 
-    console.log(`Provider "${ABBR}" does not exist — will create.`);
+    console.log(`No provider matches ${LOOKUP_ABBRS.join(' / ')} — will create "${CANONICAL_ABBR}".`);
     console.log(`  providerId: ${providerId}`);
 
     if (args['dry-run']) {
@@ -147,7 +185,7 @@ async function main() {
     await pool.query(
       `INSERT INTO providers (provider_id, organisation_abbreviation, organisation_name, data)
        VALUES ($1, $2, $3, $4)`,
-      [providerId, ABBR, NAME, JSON.stringify(data)],
+      [providerId, CANONICAL_ABBR, CANONICAL_NAME, JSON.stringify(data)],
     );
     console.log(`\n✔ Created INTENNSE provider.`);
     console.log(`  providerId: ${providerId}`);
