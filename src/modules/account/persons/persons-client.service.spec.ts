@@ -70,6 +70,54 @@ describe('PersonsClient', () => {
     fetchSpy.mockRestore();
   });
 
+  // courthive-persons requires `X-Service-Token` on every route except /health
+  // (its punch-list C2 fix). Every call site must carry it — including the SSE
+  // stream, which is the one that is easy to forget because it is opened in a
+  // background loop rather than by an explicit caller.
+  describe('X-Service-Token', () => {
+    afterEach(() => {
+      delete process.env.PERSONS_SERVICE_TOKEN;
+    });
+
+    it('sends the header on resolve', async () => {
+      process.env.PERSONS_SERVICE_TOKEN = 'sekrit';
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse({ status: 'minted', personId: 'p-9' }));
+      await client.resolve({});
+      expect(fetchSpy.mock.calls[0][1].headers['X-Service-Token']).toBe('sekrit');
+    });
+
+    it('sends the header on getById', async () => {
+      process.env.PERSONS_SERVICE_TOKEN = 'sekrit';
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse({ person: {}, aliases: [] }));
+      await client.getById('p-9');
+      expect(fetchSpy.mock.calls[0][1].headers['X-Service-Token']).toBe('sekrit');
+    });
+
+    it('sends the header when opening the SSE stream', async () => {
+      process.env.PERSONS_SERVICE_TOKEN = 'sekrit';
+      fetchSpy.mockRejectedValueOnce(new Error('stop here'));
+      const c = new PersonsClient(storage, gateway);
+      await expect((c as any).openStream()).rejects.toThrow('stop here');
+      expect(fetchSpy.mock.calls[0][1].headers['X-Service-Token']).toBe('sekrit');
+      expect(fetchSpy.mock.calls[0][1].headers.Accept).toBe('text/event-stream');
+    });
+
+    it('omits the header entirely when the secret is unset, rather than sending an empty one', async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse({ status: 'minted', personId: 'p-9' }));
+      await client.resolve({});
+      expect(fetchSpy.mock.calls[0][1].headers).not.toHaveProperty('X-Service-Token');
+    });
+
+    it('reads the secret at call time so rotation does not need a restart', async () => {
+      fetchSpy.mockResolvedValue(mockFetchResponse({ status: 'minted', personId: 'p-9' }));
+      await client.resolve({});
+      expect(fetchSpy.mock.calls[0][1].headers).not.toHaveProperty('X-Service-Token');
+      process.env.PERSONS_SERVICE_TOKEN = 'rotated';
+      await client.resolve({});
+      expect(fetchSpy.mock.calls[1][1].headers['X-Service-Token']).toBe('rotated');
+    });
+  });
+
   describe('resolve', () => {
     it('POSTs the fragment to /persons/resolve and returns the parsed result', async () => {
       fetchSpy.mockResolvedValueOnce(

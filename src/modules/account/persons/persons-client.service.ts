@@ -31,6 +31,25 @@ import { consumeSseStream } from './sse-parser';
 const DEFAULT_PERSONS_BASE_URL = 'http://localhost:3100';
 
 /**
+ * Shared secret presented to courthive-persons as `X-Service-Token`.
+ *
+ * persons requires it on every route except /health (its punch-list C2 fix).
+ * Read at call time rather than cached in the constructor so the secret can be
+ * rotated by restarting persons and updating this process's env without a
+ * strict restart-ordering dance between the two.
+ *
+ * Sending nothing when it is unset is correct and deliberate: this header is
+ * additive for a persons that does not yet enforce it, which is what makes the
+ * rollout orderable — consumers can ship first and be redeployed with the
+ * secret before persons starts rejecting. It does NOT make this client
+ * fail-open; persons is the thing doing the authorizing, and it fails closed.
+ */
+function serviceTokenHeaders(): Record<string, string> {
+  const token = process.env.PERSONS_SERVICE_TOKEN;
+  return token ? { 'X-Service-Token': token } : {};
+}
+
+/**
  * Initial reconnect delay after a transient SSE failure. Doubles on each
  * subsequent failure up to RECONNECT_MAX_DELAY_MS. Restores to the
  * initial value on a successful (re-)connection.
@@ -140,7 +159,7 @@ export class PersonsClient implements OnApplicationBootstrap, OnApplicationShutd
   async resolve(fragment: PersonFragmentInput): Promise<ResolveResult> {
     const res = await fetch(`${this.baseUrl}/persons/resolve`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...serviceTokenHeaders() },
       body: JSON.stringify(fragment),
     });
     if (!res.ok) {
@@ -150,7 +169,9 @@ export class PersonsClient implements OnApplicationBootstrap, OnApplicationShutd
   }
 
   async getById(personId: string): Promise<PersonWithAliases | null> {
-    const res = await fetch(`${this.baseUrl}/persons/${encodeURIComponent(personId)}`);
+    const res = await fetch(`${this.baseUrl}/persons/${encodeURIComponent(personId)}`, {
+      headers: serviceTokenHeaders(),
+    });
     if (res.status === 404) return null;
     if (!res.ok) {
       throw new Error(`persons getById failed: HTTP ${res.status}`);
@@ -226,7 +247,7 @@ export class PersonsClient implements OnApplicationBootstrap, OnApplicationShutd
     const url = new URL(`${this.baseUrl}/persons/events`);
     if (this.lastEventAt) url.searchParams.set('since', this.lastEventAt);
     const res = await fetch(url, {
-      headers: { Accept: 'text/event-stream' },
+      headers: { Accept: 'text/event-stream', ...serviceTokenHeaders() },
       signal: this.controller.signal,
     });
     if (!res.ok) {
