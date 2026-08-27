@@ -125,38 +125,74 @@ describe('AuthService', () => {
     const hash = (p: string) => bcrypt.hash(p, 10);
 
     it('allows a super-admin', async () => {
-      mockUsersService.findOne.mockResolvedValue({ email: 'sa@test.com', userId: 'u1', password: await hash('pw'), roles: ['superadmin'] });
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'sa@test.com',
+        userId: 'u1',
+        password: await hash('pw'),
+        roles: ['superadmin'],
+      });
       await expect(authService.canAccessApiDocs('sa@test.com', 'pw')).resolves.toBe(true);
     });
 
     it('allows a provisioner-role user', async () => {
-      mockUsersService.findOne.mockResolvedValue({ email: 'pv@test.com', userId: 'u1', password: await hash('pw'), roles: ['provisioner'] });
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'pv@test.com',
+        userId: 'u1',
+        password: await hash('pw'),
+        roles: ['provisioner'],
+      });
       await expect(authService.canAccessApiDocs('pv@test.com', 'pw')).resolves.toBe(true);
     });
 
     it('allows a PROVIDER_ADMIN of some provider', async () => {
-      mockUsersService.findOne.mockResolvedValue({ email: 'pa@test.com', userId: 'u1', password: await hash('pw'), roles: ['client'] });
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'pa@test.com',
+        userId: 'u1',
+        password: await hash('pw'),
+        roles: ['client'],
+      });
       mockUserProviderStorage.findByUserId.mockResolvedValue([{ providerId: 'p1', providerRole: 'PROVIDER_ADMIN' }]);
       await expect(authService.canAccessApiDocs('pa@test.com', 'pw')).resolves.toBe(true);
     });
 
     it('allows a legacy admin via the admin → PROVIDER_ADMIN shim', async () => {
-      mockUsersService.findOne.mockResolvedValue({ email: 'la@test.com', userId: 'u1', password: await hash('pw'), roles: ['admin'], providerId: 'p1' });
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'la@test.com',
+        userId: 'u1',
+        password: await hash('pw'),
+        roles: ['admin'],
+        providerId: 'p1',
+      });
       await expect(authService.canAccessApiDocs('la@test.com', 'pw')).resolves.toBe(true);
     });
 
     it('rejects a client-only user', async () => {
-      mockUsersService.findOne.mockResolvedValue({ email: 'cl@test.com', userId: 'u1', password: await hash('pw'), roles: ['client'] });
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'cl@test.com',
+        userId: 'u1',
+        password: await hash('pw'),
+        roles: ['client'],
+      });
       await expect(authService.canAccessApiDocs('cl@test.com', 'pw')).resolves.toBe(false);
     });
 
     it('rejects a wrong password', async () => {
-      mockUsersService.findOne.mockResolvedValue({ email: 'sa@test.com', userId: 'u1', password: await hash('pw'), roles: ['superadmin'] });
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'sa@test.com',
+        userId: 'u1',
+        password: await hash('pw'),
+        roles: ['superadmin'],
+      });
       await expect(authService.canAccessApiDocs('sa@test.com', 'nope')).resolves.toBe(false);
     });
 
     it('rejects an SSO-only (passwordless) account', async () => {
-      mockUsersService.findOne.mockResolvedValue({ email: 'sso@test.com', userId: 'u1', password: '', roles: ['superadmin'] });
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'sso@test.com',
+        userId: 'u1',
+        password: '',
+        roles: ['superadmin'],
+      });
       await expect(authService.canAccessApiDocs('sso@test.com', 'pw')).resolves.toBe(false);
     });
 
@@ -218,7 +254,10 @@ describe('AuthService', () => {
 
     it('updates lastAccess for both user and provider on successful login', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'la@test.com', password: 'pass', roles: ['admin'], providerId: 'p1',
+        email: 'la@test.com',
+        password: 'pass',
+        roles: ['admin'],
+        providerId: 'p1',
       });
       mockProviderStorage.getProvider.mockResolvedValue({ organisationName: 'O' });
 
@@ -232,7 +271,10 @@ describe('AuthService', () => {
 
     it('logs (but does not throw) when updateLastAccess fails', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'fail@test.com', password: 'pass', roles: ['client'], providerId: 'p1',
+        email: 'fail@test.com',
+        password: 'pass',
+        roles: ['client'],
+        providerId: 'p1',
       });
       mockProviderStorage.getProvider.mockResolvedValue({});
       mockUserStorage.updateLastAccess.mockRejectedValueOnce(new Error('db down'));
@@ -260,14 +302,107 @@ describe('AuthService', () => {
         roles: ['client'],
       });
       mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
-        { userId: 'u-1', providerId: 'prov-ION', providerRole: 'PROVIDER_ADMIN', organisationName: 'ION', organisationAbbreviation: 'ION' },
-        { userId: 'u-1', providerId: 'prov-BOBOCA', providerRole: 'PROVIDER_ADMIN', organisationName: 'Battle of Boca', organisationAbbreviation: 'BOBOCA' },
+        {
+          userId: 'u-1',
+          providerId: 'prov-ION',
+          providerRole: 'PROVIDER_ADMIN',
+          organisationName: 'ION',
+          organisationAbbreviation: 'ION',
+        },
+        {
+          userId: 'u-1',
+          providerId: 'prov-BOBOCA',
+          providerRole: 'PROVIDER_ADMIN',
+          organisationName: 'Battle of Boca',
+          organisationAbbreviation: 'BOBOCA',
+        },
       ]);
       const result: any = await authService.signIn('multi@test.com', 'secret');
       const decoded = await jwtService.verifyAsync(result.token);
       expect(decoded.providerAssociations).toHaveLength(2);
       expect(decoded.providerAssociations[0].organisationAbbreviation).toBe('ION');
       expect(decoded.lastSelectedProviderId).toBe('prov-BOBOCA');
+    });
+
+    // The admin "Add User" flow writes a user_providers association but NOT users.provider_id, so
+    // these users log in with a NULL column. TMX reads the `providerId` CLAIM (getLoginState()
+    // returns the decoded JWT) and only stamps parentOrganisation / calls sendTournament when it is
+    // truthy — so a NULL claim silently confines new tournaments to IndexedDB. The claim must carry
+    // the same effective home already used for `provider` and `providerIds`.
+    it('derives the providerId claim from a sole association when users.provider_id is NULL', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-home',
+        email: 'nohome@test.com',
+        password: 'secret',
+        providerId: null,
+        roles: ['client'],
+      });
+      mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
+        {
+          userId: 'u-home',
+          providerId: 'prov-ONLY',
+          providerRole: 'PROVIDER_ADMIN',
+          organisationName: 'Only Org',
+          organisationAbbreviation: 'ONLY',
+        },
+      ]);
+      const result: any = await authService.signIn('nohome@test.com', 'secret');
+      const decoded = await jwtService.verifyAsync(result.token);
+      expect(decoded.providerId).toBe('prov-ONLY');
+    });
+
+    // The counterpart the derivation must NOT overreach on: with several associations there is no
+    // single defensible home, so the claim stays null and TMX falls through to its provider switcher.
+    it('leaves the providerId claim null when several associations and no explicit home', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-multi',
+        email: 'ambiguous@test.com',
+        password: 'secret',
+        providerId: null,
+        roles: ['client'],
+      });
+      mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
+        {
+          userId: 'u-multi',
+          providerId: 'prov-A',
+          providerRole: 'DIRECTOR',
+          organisationName: 'A',
+          organisationAbbreviation: 'A',
+        },
+        {
+          userId: 'u-multi',
+          providerId: 'prov-B',
+          providerRole: 'DIRECTOR',
+          organisationName: 'B',
+          organisationAbbreviation: 'B',
+        },
+      ]);
+      const result: any = await authService.signIn('ambiguous@test.com', 'secret');
+      const decoded = await jwtService.verifyAsync(result.token);
+      expect(decoded.providerId ?? null).toBeNull();
+    });
+
+    // An explicit home must keep winning over the sole-association fallback.
+    it('keeps an explicit users.provider_id over the association fallback', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-explicit',
+        email: 'explicit@test.com',
+        password: 'secret',
+        providerId: 'prov-EXPLICIT',
+        roles: ['client'],
+      });
+      mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
+        {
+          userId: 'u-explicit',
+          providerId: 'prov-OTHER',
+          providerRole: 'DIRECTOR',
+          organisationName: 'Other',
+          organisationAbbreviation: 'OTHER',
+        },
+      ]);
+      const result: any = await authService.signIn('explicit@test.com', 'secret');
+      const decoded = await jwtService.verifyAsync(result.token);
+      expect(decoded.providerId).toBe('prov-EXPLICIT');
     });
 
     it('nullifies lastSelectedProviderId when it is no longer a current association', async () => {
@@ -280,7 +415,13 @@ describe('AuthService', () => {
         roles: ['client'],
       });
       mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
-        { userId: 'u-2', providerId: 'prov-ION', providerRole: 'PROVIDER_ADMIN', organisationName: 'ION', organisationAbbreviation: 'ION' },
+        {
+          userId: 'u-2',
+          providerId: 'prov-ION',
+          providerRole: 'PROVIDER_ADMIN',
+          organisationName: 'ION',
+          organisationAbbreviation: 'ION',
+        },
       ]);
       const result: any = await authService.signIn('stale@test.com', 'secret');
       const decoded = await jwtService.verifyAsync(result.token);
@@ -296,8 +437,20 @@ describe('AuthService', () => {
         roles: ['client'],
       });
       mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
-        { userId: 'u-pids', providerId: 'prov-ION', providerRole: 'PROVIDER_ADMIN', organisationName: 'ION', organisationAbbreviation: 'ION' },
-        { userId: 'u-pids', providerId: 'prov-BOBOCA', providerRole: 'DIRECTOR', organisationName: 'Battle of Boca', organisationAbbreviation: 'BOBOCA' },
+        {
+          userId: 'u-pids',
+          providerId: 'prov-ION',
+          providerRole: 'PROVIDER_ADMIN',
+          organisationName: 'ION',
+          organisationAbbreviation: 'ION',
+        },
+        {
+          userId: 'u-pids',
+          providerId: 'prov-BOBOCA',
+          providerRole: 'DIRECTOR',
+          organisationName: 'Battle of Boca',
+          organisationAbbreviation: 'BOBOCA',
+        },
       ]);
       const result: any = await authService.signIn('pids@test.com', 'secret');
       const decoded = await jwtService.verifyAsync(result.token);
@@ -313,9 +466,18 @@ describe('AuthService', () => {
         roles: ['client', 'admin'],
       });
       mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
-        { userId: 'u-null-home', providerId: 'prov-INTENNSE', providerRole: 'PROVIDER_ADMIN', organisationName: 'INTENNSE Tennis', organisationAbbreviation: 'NTNS' },
+        {
+          userId: 'u-null-home',
+          providerId: 'prov-INTENNSE',
+          providerRole: 'PROVIDER_ADMIN',
+          organisationName: 'INTENNSE Tennis',
+          organisationAbbreviation: 'NTNS',
+        },
       ]);
-      mockProviderStorage.getProvider.mockResolvedValue({ organisationName: 'INTENNSE Tennis', organisationAbbreviation: 'NTNS' });
+      mockProviderStorage.getProvider.mockResolvedValue({
+        organisationName: 'INTENNSE Tennis',
+        organisationAbbreviation: 'NTNS',
+      });
 
       const result: any = await authService.signIn('null-home@test.com', 'secret');
       const decoded = await jwtService.verifyAsync(result.token);
@@ -341,8 +503,20 @@ describe('AuthService', () => {
         roles: ['client'],
       });
       mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
-        { userId: 'u-multi-null', providerId: 'prov-A', providerRole: 'PROVIDER_ADMIN', organisationName: 'A', organisationAbbreviation: 'A' },
-        { userId: 'u-multi-null', providerId: 'prov-B', providerRole: 'PROVIDER_ADMIN', organisationName: 'B', organisationAbbreviation: 'B' },
+        {
+          userId: 'u-multi-null',
+          providerId: 'prov-A',
+          providerRole: 'PROVIDER_ADMIN',
+          organisationName: 'A',
+          organisationAbbreviation: 'A',
+        },
+        {
+          userId: 'u-multi-null',
+          providerId: 'prov-B',
+          providerRole: 'PROVIDER_ADMIN',
+          organisationName: 'B',
+          organisationAbbreviation: 'B',
+        },
       ]);
       const result: any = await authService.signIn('multi-null@test.com', 'secret');
       const decoded = await jwtService.verifyAsync(result.token);
@@ -480,10 +654,7 @@ describe('AuthService', () => {
     it('throws Conflict when the email already exists', async () => {
       mockUsersService.findOne.mockResolvedValue({ email: 'existing@test.com', userId: 'u-existing' });
       await expect(
-        authService.adminCreateUser(
-          { email: 'existing@test.com', providerId: 'p-1' },
-          superAdminCtx,
-        ),
+        authService.adminCreateUser({ email: 'existing@test.com', providerId: 'p-1' }, superAdminCtx),
       ).rejects.toMatchObject({ status: 409 });
     });
 
@@ -648,9 +819,7 @@ describe('AuthService', () => {
     });
 
     it('throws UnauthorizedException when the token is malformed', async () => {
-      await expect(authService.completeFirstLogin('not-a-jwt', 'newPass')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(authService.completeFirstLogin('not-a-jwt', 'newPass')).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException when the token purpose is not first-login', async () => {
@@ -658,9 +827,7 @@ describe('AuthService', () => {
         { email: 'fresh@test.com', purpose: 'something-else' },
         { expiresIn: '5m' },
       );
-      await expect(
-        authService.completeFirstLogin(wrongPurposeToken, 'newPass'),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(authService.completeFirstLogin(wrongPurposeToken, 'newPass')).rejects.toThrow(UnauthorizedException);
     });
 
     it('clears the flag, sets the password, and returns a full session token', async () => {
@@ -766,19 +933,12 @@ describe('AuthService', () => {
     });
 
     it('throws UnauthorizedException when the token is malformed', async () => {
-      await expect(authService.resetPassword('not-a-jwt', 'newPass')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(authService.resetPassword('not-a-jwt', 'newPass')).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException for a token without the password-reset purpose', async () => {
-      const wrong = await jwtService.signAsync(
-        { userId: 'u-1', purpose: 'something-else' },
-        { expiresIn: '5m' },
-      );
-      await expect(authService.resetPassword(wrong, 'newPass')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      const wrong = await jwtService.signAsync({ userId: 'u-1', purpose: 'something-else' }, { expiresIn: '5m' });
+      await expect(authService.resetPassword(wrong, 'newPass')).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException when the user no longer exists', async () => {
@@ -787,9 +947,7 @@ describe('AuthService', () => {
         { expiresIn: '1h' },
       );
       mockUserStorage.findByUserId.mockResolvedValue(null);
-      await expect(authService.resetPassword(token, 'newPass')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(authService.resetPassword(token, 'newPass')).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws ForbiddenException when the user changed their contact_email after the token was issued', async () => {
@@ -925,13 +1083,19 @@ describe('AuthService', () => {
 
     it('writes generic field updates via userStorage.update and strips password from response', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'user@test.com', userId: 'u-1', password: 'h', roles: ['client'],
-      });
-      const result: any = await authService.modifyUser({
         email: 'user@test.com',
-        roles: ['client', 'admin'],
-        firstName: 'Alice',
-      }, superAdminEditor);
+        userId: 'u-1',
+        password: 'h',
+        roles: ['client'],
+      });
+      const result: any = await authService.modifyUser(
+        {
+          email: 'user@test.com',
+          roles: ['client', 'admin'],
+          firstName: 'Alice',
+        },
+        superAdminEditor,
+      );
       expect(mockUserStorage.update).toHaveBeenCalledWith(
         'user@test.com',
         expect.objectContaining({ roles: ['client', 'admin'], firstName: 'Alice' }),
@@ -942,13 +1106,19 @@ describe('AuthService', () => {
 
     it('routes a changed contactEmail through setContactEmail, not the generic update blob', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'user@test.com', userId: 'u-1', password: 'h',
-        contactEmail: 'old@example.com', emailVerifiedAt: '2026-05-22T00:00:00Z',
-      });
-      const result: any = await authService.modifyUser({
         email: 'user@test.com',
-        contactEmail: 'new@example.com',
-      }, superAdminEditor);
+        userId: 'u-1',
+        password: 'h',
+        contactEmail: 'old@example.com',
+        emailVerifiedAt: '2026-05-22T00:00:00Z',
+      });
+      const result: any = await authService.modifyUser(
+        {
+          email: 'user@test.com',
+          contactEmail: 'new@example.com',
+        },
+        superAdminEditor,
+      );
       expect(mockUserStorage.setContactEmail).toHaveBeenCalledWith('u-1', 'new@example.com');
       expect(result.user.contactEmail).toBe('new@example.com');
       expect(result.user.emailVerifiedAt).toBeNull();
@@ -956,13 +1126,19 @@ describe('AuthService', () => {
 
     it('fires verification mail via IdentityService when contactEmail changes', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'user@test.com', userId: 'u-1', password: 'h',
-        contactEmail: 'old@example.com', firstName: 'Alice',
-      });
-      await authService.modifyUser({
         email: 'user@test.com',
-        contactEmail: 'new@example.com',
-      }, superAdminEditor);
+        userId: 'u-1',
+        password: 'h',
+        contactEmail: 'old@example.com',
+        firstName: 'Alice',
+      });
+      await authService.modifyUser(
+        {
+          email: 'user@test.com',
+          contactEmail: 'new@example.com',
+        },
+        superAdminEditor,
+      );
       expect(mockIdentityService.resendVerification).toHaveBeenCalledWith({
         userId: 'u-1',
         email: 'user@test.com',
@@ -972,7 +1148,9 @@ describe('AuthService', () => {
 
     it('does NOT fire verification mail when contactEmail is cleared (empty)', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'user@test.com', userId: 'u-1', password: 'h',
+        email: 'user@test.com',
+        userId: 'u-1',
+        password: 'h',
         contactEmail: 'old@example.com',
       });
       await authService.modifyUser({ email: 'user@test.com', contactEmail: '' }, superAdminEditor);
@@ -982,13 +1160,18 @@ describe('AuthService', () => {
 
     it('records a CONTACT_EMAIL_CHANGED audit event when contactEmail changes', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'user@test.com', userId: 'u-1', password: 'h',
+        email: 'user@test.com',
+        userId: 'u-1',
+        password: 'h',
         contactEmail: 'old@example.com',
       });
-      await authService.modifyUser({
-        email: 'user@test.com',
-        contactEmail: 'new@example.com',
-      }, superAdminEditor);
+      await authService.modifyUser(
+        {
+          email: 'user@test.com',
+          contactEmail: 'new@example.com',
+        },
+        superAdminEditor,
+      );
       expect(mockAuditService.recordContactEmailChanged).toHaveBeenCalledWith({
         targetUserId: 'u-1',
         targetEmail: 'user@test.com',
@@ -1002,46 +1185,65 @@ describe('AuthService', () => {
 
     it('does NOT record an audit event when contactEmail is unchanged', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'user@test.com', userId: 'u-1', password: 'h',
+        email: 'user@test.com',
+        userId: 'u-1',
+        password: 'h',
         contactEmail: 'same@example.com',
       });
-      await authService.modifyUser({
-        email: 'user@test.com',
-        contactEmail: 'same@example.com',
-      }, superAdminEditor);
+      await authService.modifyUser(
+        {
+          email: 'user@test.com',
+          contactEmail: 'same@example.com',
+        },
+        superAdminEditor,
+      );
       expect(mockAuditService.recordContactEmailChanged).not.toHaveBeenCalled();
     });
 
     it('swallows verification mail failures so the modify still succeeds', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'user@test.com', userId: 'u-1', password: 'h',
+        email: 'user@test.com',
+        userId: 'u-1',
+        password: 'h',
         contactEmail: 'old@example.com',
       });
       mockIdentityService.resendVerification.mockRejectedValueOnce(new Error('SMTP down'));
-      const result: any = await authService.modifyUser({
-        email: 'user@test.com',
-        contactEmail: 'new@example.com',
-      }, superAdminEditor);
+      const result: any = await authService.modifyUser(
+        {
+          email: 'user@test.com',
+          contactEmail: 'new@example.com',
+        },
+        superAdminEditor,
+      );
       expect(result.success).toBe(true);
       expect(mockUserStorage.setContactEmail).toHaveBeenCalled();
     });
 
     it('treats a case-only contactEmail change as a no-op (preserves verified status)', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'user@test.com', userId: 'u-1', password: 'h',
-        contactEmail: 'Mixed@Example.com', emailVerifiedAt: '2026-05-22T00:00:00Z',
-      });
-      await authService.modifyUser({
         email: 'user@test.com',
-        contactEmail: 'mixed@example.com',
-      }, superAdminEditor);
+        userId: 'u-1',
+        password: 'h',
+        contactEmail: 'Mixed@Example.com',
+        emailVerifiedAt: '2026-05-22T00:00:00Z',
+      });
+      await authService.modifyUser(
+        {
+          email: 'user@test.com',
+          contactEmail: 'mixed@example.com',
+        },
+        superAdminEditor,
+      );
       expect(mockUserStorage.setContactEmail).not.toHaveBeenCalled();
     });
 
     it('does not touch contact_email when the field is omitted', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'user@test.com', userId: 'u-1', password: 'h',
-        contactEmail: 'old@example.com', emailVerifiedAt: '2026-05-22T00:00:00Z',
+        email: 'user@test.com',
+        userId: 'u-1',
+        password: 'h',
+        contactEmail: 'old@example.com',
+        emailVerifiedAt: '2026-05-22T00:00:00Z',
       });
       await authService.modifyUser({ email: 'user@test.com', firstName: 'Alice' }, superAdminEditor);
       expect(mockUserStorage.setContactEmail).not.toHaveBeenCalled();
@@ -1049,13 +1251,18 @@ describe('AuthService', () => {
 
     it('rejects a malformed contactEmail without writing anything', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'user@test.com', userId: 'u-1', password: 'h',
+        email: 'user@test.com',
+        userId: 'u-1',
+        password: 'h',
         contactEmail: 'old@example.com',
       });
-      const result: any = await authService.modifyUser({
-        email: 'user@test.com',
-        contactEmail: 'not-an-email',
-      }, superAdminEditor);
+      const result: any = await authService.modifyUser(
+        {
+          email: 'user@test.com',
+          contactEmail: 'not-an-email',
+        },
+        superAdminEditor,
+      );
       expect(result.error).toContain('not a valid email');
       expect(mockUserStorage.setContactEmail).not.toHaveBeenCalled();
       expect(mockUserStorage.update).not.toHaveBeenCalled();
@@ -1069,12 +1276,18 @@ describe('AuthService', () => {
     // the row was found; only the write path was case-mismatched.
     it('normalizes a mixed-case email so userStorage.update matches the canonical row', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'user@test.com', userId: 'u-1', password: 'h', roles: ['client'],
+        email: 'user@test.com',
+        userId: 'u-1',
+        password: 'h',
+        roles: ['client'],
       });
-      await authService.modifyUser({
-        email: 'User@TEST.com',
-        roles: ['client', 'admin'],
-      }, superAdminEditor);
+      await authService.modifyUser(
+        {
+          email: 'User@TEST.com',
+          roles: ['client', 'admin'],
+        },
+        superAdminEditor,
+      );
       expect(mockUserStorage.update).toHaveBeenCalledWith(
         'user@test.com',
         expect.objectContaining({ roles: ['client', 'admin'] }),
@@ -1083,16 +1296,19 @@ describe('AuthService', () => {
 
     it('trims surrounding whitespace from email before writing', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        email: 'user@test.com', userId: 'u-1', password: 'h', roles: ['client'],
+        email: 'user@test.com',
+        userId: 'u-1',
+        password: 'h',
+        roles: ['client'],
       });
-      await authService.modifyUser({
-        email: '  user@test.com  ',
-        roles: ['client', 'admin'],
-      }, superAdminEditor);
-      expect(mockUserStorage.update).toHaveBeenCalledWith(
-        'user@test.com',
-        expect.anything(),
+      await authService.modifyUser(
+        {
+          email: '  user@test.com  ',
+          roles: ['client', 'admin'],
+        },
+        superAdminEditor,
       );
+      expect(mockUserStorage.update).toHaveBeenCalledWith('user@test.com', expect.anything());
     });
 
     describe('authorization', () => {
@@ -1109,7 +1325,10 @@ describe('AuthService', () => {
 
       it('allows a PROVIDER_ADMIN to modify a target who is in their provider', async () => {
         mockUsersService.findOne.mockResolvedValue({
-          email: 'target@test.com', userId: 'u-t', password: 'h', roles: ['client'],
+          email: 'target@test.com',
+          userId: 'u-t',
+          password: 'h',
+          roles: ['client'],
         });
         mockUserProviderStorage.findByUserId.mockResolvedValue([
           { userId: 'u-t', providerId: 'p-1', providerRole: 'DIRECTOR' },
@@ -1123,7 +1342,10 @@ describe('AuthService', () => {
 
       it('rejects a PROVIDER_ADMIN modifying a target with no overlapping providers', async () => {
         mockUsersService.findOne.mockResolvedValue({
-          email: 'target@test.com', userId: 'u-t', password: 'h', roles: ['client'],
+          email: 'target@test.com',
+          userId: 'u-t',
+          password: 'h',
+          roles: ['client'],
         });
         mockUserProviderStorage.findByUserId.mockResolvedValue([
           { userId: 'u-t', providerId: 'p-other', providerRole: 'DIRECTOR' },
@@ -1135,7 +1357,10 @@ describe('AuthService', () => {
 
       it('rejects a PROVIDER_ADMIN modifying a user with no provider associations', async () => {
         mockUsersService.findOne.mockResolvedValue({
-          email: 'target@test.com', userId: 'u-t', password: 'h', roles: ['client'],
+          email: 'target@test.com',
+          userId: 'u-t',
+          password: 'h',
+          roles: ['client'],
         });
         mockUserProviderStorage.findByUserId.mockResolvedValue([]);
         await expect(
@@ -1145,7 +1370,10 @@ describe('AuthService', () => {
 
       it('rejects a PROVIDER_ADMIN granting `superadmin` role', async () => {
         mockUsersService.findOne.mockResolvedValue({
-          email: 'target@test.com', userId: 'u-t', password: 'h', roles: ['client'],
+          email: 'target@test.com',
+          userId: 'u-t',
+          password: 'h',
+          roles: ['client'],
         });
         mockUserProviderStorage.findByUserId.mockResolvedValue([
           { userId: 'u-t', providerId: 'p-1', providerRole: 'DIRECTOR' },
@@ -1160,31 +1388,31 @@ describe('AuthService', () => {
 
       it('rejects a PROVIDER_ADMIN granting `provisioner` role', async () => {
         mockUsersService.findOne.mockResolvedValue({
-          email: 'target@test.com', userId: 'u-t', password: 'h', roles: ['client'],
+          email: 'target@test.com',
+          userId: 'u-t',
+          password: 'h',
+          roles: ['client'],
         });
         mockUserProviderStorage.findByUserId.mockResolvedValue([
           { userId: 'u-t', providerId: 'p-1', providerRole: 'DIRECTOR' },
         ]);
         await expect(
-          authService.modifyUser(
-            { email: 'target@test.com', roles: ['provisioner'] },
-            providerAdminEditor('p-1'),
-          ),
+          authService.modifyUser({ email: 'target@test.com', roles: ['provisioner'] }, providerAdminEditor('p-1')),
         ).rejects.toMatchObject({ status: 403 });
       });
 
       it('rejects a PROVIDER_ADMIN granting `developer` role', async () => {
         mockUsersService.findOne.mockResolvedValue({
-          email: 'target@test.com', userId: 'u-t', password: 'h', roles: ['client'],
+          email: 'target@test.com',
+          userId: 'u-t',
+          password: 'h',
+          roles: ['client'],
         });
         mockUserProviderStorage.findByUserId.mockResolvedValue([
           { userId: 'u-t', providerId: 'p-1', providerRole: 'DIRECTOR' },
         ]);
         await expect(
-          authService.modifyUser(
-            { email: 'target@test.com', roles: ['developer'] },
-            providerAdminEditor('p-1'),
-          ),
+          authService.modifyUser({ email: 'target@test.com', roles: ['developer'] }, providerAdminEditor('p-1')),
         ).rejects.toMatchObject({ status: 403 });
       });
 
@@ -1193,7 +1421,10 @@ describe('AuthService', () => {
         // the modal without removing it should pass the escalation check
         // because the role isn't being newly granted.
         mockUsersService.findOne.mockResolvedValue({
-          email: 'target@test.com', userId: 'u-t', password: 'h', roles: ['client', 'developer'],
+          email: 'target@test.com',
+          userId: 'u-t',
+          password: 'h',
+          roles: ['client', 'developer'],
         });
         mockUserProviderStorage.findByUserId.mockResolvedValue([
           { userId: 'u-t', providerId: 'p-1', providerRole: 'DIRECTOR' },
@@ -1207,7 +1438,10 @@ describe('AuthService', () => {
 
       it('allows a SUPER_ADMIN to grant any role (escalation guard does not apply)', async () => {
         mockUsersService.findOne.mockResolvedValue({
-          email: 'target@test.com', userId: 'u-t', password: 'h', roles: ['client'],
+          email: 'target@test.com',
+          userId: 'u-t',
+          password: 'h',
+          roles: ['client'],
         });
         const result: any = await authService.modifyUser(
           { email: 'target@test.com', roles: ['client', 'superadmin'] },
@@ -1264,10 +1498,7 @@ describe('AuthService', () => {
         password: 'old-hash',
       });
       await authService.adminResetPassword('Target@TEST.com', 'newpw', superAdminCtx);
-      expect(mockUserStorage.update).toHaveBeenCalledWith(
-        'target@test.com',
-        expect.anything(),
-      );
+      expect(mockUserStorage.update).toHaveBeenCalledWith('target@test.com', expect.anything());
     });
 
     it('allows a PROVIDER_ADMIN at one of the target user\u2019s providers', async () => {
@@ -1348,18 +1579,14 @@ describe('AuthService', () => {
 
     it('throws 401 when user is not found', async () => {
       mockUsersService.findOne.mockResolvedValue(null);
-      await expect(
-        authService.changePassword('missing@test.com', 'old', 'new'),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(authService.changePassword('missing@test.com', 'old', 'new')).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws 401 when current password is wrong', async () => {
       const hashed = await bcrypt.hash('correct', 10);
       mockUsersService.findOne.mockResolvedValue({ email: 'user@test.com', password: hashed });
 
-      await expect(
-        authService.changePassword('user@test.com', 'wrong', 'new'),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(authService.changePassword('user@test.com', 'wrong', 'new')).rejects.toThrow(UnauthorizedException);
     });
 
     it('writes the new password when current password matches', async () => {
@@ -1383,7 +1610,10 @@ describe('AuthService', () => {
   describe('session tokens (access + refresh)', () => {
     it('signIn issues a 4h access token plus a refresh token', async () => {
       mockUsersService.findOne.mockResolvedValue({
-        userId: 'u-1', email: 'a@test.com', password: 'secret', roles: ['client'],
+        userId: 'u-1',
+        email: 'a@test.com',
+        password: 'secret',
+        roles: ['client'],
       });
       const result: any = await authService.signIn('a@test.com', 'secret', 'jest-agent');
       expect(result.token).toBeDefined();
@@ -1395,10 +1625,15 @@ describe('AuthService', () => {
 
     it('refreshSession rotates the token and re-issues a 4h access token', async () => {
       mockRefreshTokenService.rotate.mockResolvedValue({
-        userId: 'u-1', email: 'a@test.com', refreshToken: 'rtok_next',
+        userId: 'u-1',
+        email: 'a@test.com',
+        refreshToken: 'rtok_next',
       });
       mockUsersService.findOne.mockResolvedValue({
-        userId: 'u-1', email: 'a@test.com', password: 'x', roles: ['client'],
+        userId: 'u-1',
+        email: 'a@test.com',
+        password: 'x',
+        roles: ['client'],
       });
       const result: any = await authService.refreshSession('rtok_old', 'jest-agent');
       expect(mockRefreshTokenService.rotate).toHaveBeenCalledWith('rtok_old', 'jest-agent');
@@ -1410,7 +1645,9 @@ describe('AuthService', () => {
 
     it('refreshSession throws when the user no longer exists', async () => {
       mockRefreshTokenService.rotate.mockResolvedValue({
-        userId: 'u-x', email: 'gone@test.com', refreshToken: 'rtok_next',
+        userId: 'u-x',
+        email: 'gone@test.com',
+        refreshToken: 'rtok_next',
       });
       mockUsersService.findOne.mockResolvedValue(null);
       await expect(authService.refreshSession('rtok_old')).rejects.toThrow(UnauthorizedException);
@@ -1434,7 +1671,9 @@ describe('AuthService', () => {
         { expiresIn: '1h' },
       );
       mockUserStorage.findByUserId.mockResolvedValue({
-        userId: 'u-1', contactEmail: 'alice@example.com', emailVerifiedAt: '2026-05-22T00:00:00Z',
+        userId: 'u-1',
+        contactEmail: 'alice@example.com',
+        emailVerifiedAt: '2026-05-22T00:00:00Z',
       });
       await authService.resetPassword(token, 'new-password');
       expect(mockRefreshTokenService.revokeAllForUser).toHaveBeenCalledWith('u-1');
@@ -1530,7 +1769,12 @@ describe('AuthService', () => {
 
     it('consumeMagicLink issues an access + refresh session on a valid code', async () => {
       mockAuthCodeStorage.consumeAccessCode.mockResolvedValue('a@test.com');
-      mockUsersService.findOne.mockResolvedValue({ userId: 'u-1', email: 'a@test.com', password: 'h', roles: ['client'] });
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-1',
+        email: 'a@test.com',
+        password: 'h',
+        roles: ['client'],
+      });
       const result: any = await authService.consumeMagicLink('mlk_ok', 'jest-agent');
       expect(mockAuthCodeStorage.consumeAccessCode).toHaveBeenCalledWith('mlk_ok');
       expect(result.token).toBeDefined();
