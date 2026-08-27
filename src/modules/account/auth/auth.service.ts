@@ -1,4 +1,12 @@
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { VALID_GLOBAL_ROLES, VALID_PROVIDER_ROLES } from 'src/common/constants/roles';
 import { computeEffectiveConfig } from '@courthive/provider-config';
 import { IdentityService } from '../identity/identity.service';
@@ -73,12 +81,18 @@ function parseDurationToMinutes(duration: string): number {
   const value = Number(match[1]);
   const unit = match[2].toLowerCase();
   switch (unit) {
-    case 's': return Math.max(1, Math.round(value / 60));
-    case 'm': return value;
-    case 'h': return value * 60;
-    case 'd': return value * 60 * 24;
-    case 'w': return value * 60 * 24 * 7;
-    default:  return 60;
+    case 's':
+      return Math.max(1, Math.round(value / 60));
+    case 'm':
+      return value;
+    case 'h':
+      return value * 60;
+    case 'd':
+      return value * 60 * 24;
+    case 'w':
+      return value * 60 * 24 * 7;
+    default:
+      return 60;
   }
 }
 
@@ -91,9 +105,7 @@ const RESTRICTED_GRANT_ROLES = new Set<string>([SUPER_ADMIN, PROVISIONER_ROLE, '
 function assertNoPrivilegeEscalation(incomingRoles: unknown, currentRoles: unknown): void {
   if (!Array.isArray(incomingRoles)) return;
   const current: string[] = Array.isArray(currentRoles) ? (currentRoles as string[]) : [];
-  const escalations = (incomingRoles as string[]).filter(
-    (r) => RESTRICTED_GRANT_ROLES.has(r) && !current.includes(r),
-  );
+  const escalations = (incomingRoles as string[]).filter((r) => RESTRICTED_GRANT_ROLES.has(r) && !current.includes(r));
   if (escalations.length) {
     throw new ForbiddenException(`Only SUPER_ADMIN may grant role(s): ${escalations.join(', ')}`);
   }
@@ -175,7 +187,8 @@ export class AuthService {
     // full session is issued. Return a short-lived limited token whose
     // sole purpose is to authenticate the /auth/complete-first-login call.
     if (user.mustChangePassword) {
-      const limitedToken = await signJwt(this.jwtService, 
+      const limitedToken = await signJwt(
+        this.jwtService,
         { email: user.email, purpose: 'first-login-password-change' },
         { expiresIn: '5m' },
       );
@@ -244,7 +257,17 @@ export class AuthService {
     // and rely on TMX's provider switcher.
     const effectiveHomeProviderId =
       user.providerId ?? (associations.length === 1 ? associations[0].providerId : undefined);
+    // The `providerId` CLAIM must carry the effective home, not the raw column. `userDetails`
+    // spreads `user`, so without this it stays whatever `users.provider_id` holds — and the admin
+    // "Add User" flow creates the user_providers association WITHOUT setting that column, so every
+    // user created that way ships a NULL claim while `userDetails.provider` (derived just below
+    // from the same value) is populated. TMX reads the claim: `getLoginState()` returns the decoded
+    // JWT, and `editTournamentDrawer` only stamps `parentOrganisation` and calls `sendTournament()`
+    // when `state.providerId` is truthy. A NULL claim therefore means a new tournament is saved to
+    // IndexedDB and never reaches the server — silently, with no error anywhere. Deriving the claim
+    // here keeps it consistent with `provider` and `providerIds`, which already use this value.
     if (effectiveHomeProviderId) {
+      userDetails.providerId = effectiveHomeProviderId;
       const provider = await this.providerStorage.getProvider(effectiveHomeProviderId);
       userDetails.provider = provider;
       // Two-tier provider config: compute effective shape (caps ∩ settings)
@@ -323,10 +346,7 @@ export class AuthService {
    * Centralised so signIn, refreshSession, magic-link consume, and HiveID
    * flows mint identical-shape tokens.
    */
-  async signAccessToken(
-    payload: any,
-    aud: AudienceClaimValue | AudienceClaimValue[] = 'admin',
-  ): Promise<string> {
+  async signAccessToken(payload: any, aud: AudienceClaimValue | AudienceClaimValue[] = 'admin'): Promise<string> {
     return signJwt(this.jwtService, { ...payload, aud }, { expiresIn: ACCESS_TOKEN_TTL });
   }
 
@@ -391,8 +411,7 @@ export class AuthService {
     if (!trimmed) return { ok: true };
     try {
       const user = await this.userStorage.findByContactEmail(trimmed);
-      const eligible =
-        user && user.emailVerifiedAt && user.userId && user.contactEmail && user.email && user.password;
+      const eligible = user && user.emailVerifiedAt && user.userId && user.contactEmail && user.email && user.password;
       if (eligible) {
         const code = MAGIC_LINK_PREFIX + randomBytes(32).toString('base64url');
         const expiresAt = new Date(Date.now() + MAGIC_LINK_TTL_MS).toISOString();
@@ -478,11 +497,7 @@ export class AuthService {
    * Super admins bypass the association check — impersonation is by
    * design out-of-band of their own associations. Pass `null` to clear.
    */
-  async updateLastSelectedProvider(
-    email: string,
-    providerId: string | null,
-    options?: { isSuperAdmin?: boolean },
-  ) {
+  async updateLastSelectedProvider(email: string, providerId: string | null, options?: { isSuperAdmin?: boolean }) {
     if (!email) return { error: 'Authentication required' };
     if (providerId !== null && !options?.isSuperAdmin) {
       const user = await this.usersService.findOne(email);
@@ -507,9 +522,15 @@ export class AuthService {
    */
   private async issueAndSendResetEmail(
     user: { userId: string; contactEmail: string; firstName?: string },
-    opts: { expiresIn: string; template: 'password-reset-request' | 'admin-created-account'; subject: string; tag: string },
+    opts: {
+      expiresIn: string;
+      template: 'password-reset-request' | 'admin-created-account';
+      subject: string;
+      tag: string;
+    },
   ): Promise<void> {
-    const token = await signJwt(this.jwtService, 
+    const token = await signJwt(
+      this.jwtService,
       { userId: user.userId, contactEmail: user.contactEmail, purpose: PASSWORD_RESET_PURPOSE },
       { expiresIn: opts.expiresIn as any },
     );
@@ -564,9 +585,7 @@ export class AuthService {
         );
         Logger.log(`Sent password-reset mail to ${user.contactEmail} for user ${user.userId}`);
       } else {
-        Logger.verbose(
-          `forgotPassword: no eligible recipient for "${trimmed}" (verified=${!!user?.emailVerifiedAt})`,
-        );
+        Logger.verbose(`forgotPassword: no eligible recipient for "${trimmed}" (verified=${!!user?.emailVerifiedAt})`);
       }
     } catch (err) {
       // Log loudly so we can spot misdelivery / template bugs, but never
@@ -638,9 +657,7 @@ export class AuthService {
       try {
         await this.userStorage.markEmailVerified(user.userId);
       } catch (err) {
-        Logger.warn(
-          `Failed to stamp email_verified_at after reset for ${user.userId}: ${(err as Error).message}`,
-        );
+        Logger.warn(`Failed to stamp email_verified_at after reset for ${user.userId}: ${(err as Error).message}`);
       }
     }
 
@@ -659,9 +676,7 @@ export class AuthService {
           tag: 'password-reset-confirmation',
         })
         .catch((err) => {
-          Logger.warn(
-            `Failed to send password-reset confirmation to ${user.contactEmail}: ${(err as Error).message}`,
-          );
+          Logger.warn(`Failed to send password-reset confirmation to ${user.contactEmail}: ${(err as Error).message}`);
         });
     }
 
@@ -707,8 +722,7 @@ export class AuthService {
       return { error: `Invalid role(s): ${invalidRoles.join(', ')}` };
     }
 
-    const providerRole: string =
-      body?.providerRole === 'PROVIDER_ADMIN' ? 'PROVIDER_ADMIN' : 'DIRECTOR';
+    const providerRole: string = body?.providerRole === 'PROVIDER_ADMIN' ? 'PROVIDER_ADMIN' : 'DIRECTOR';
 
     const providerId = body?.providerId?.trim() || undefined;
     const editorContext = editor?.userContext;
@@ -763,9 +777,7 @@ export class AuthService {
       try {
         await this.userProviderStorage.upsert({ userId, providerId, providerRole });
       } catch (err) {
-        Logger.warn(
-          `Failed to upsert user_providers row for ${email}: ${(err as Error).message}`,
-        );
+        Logger.warn(`Failed to upsert user_providers row for ${email}: ${(err as Error).message}`);
       }
     }
 
@@ -798,9 +810,7 @@ export class AuthService {
       } catch (err) {
         // Fall through to the clipboard path so admin onboarding never
         // gets stuck on a transient mail failure. Log loudly so we notice.
-        Logger.warn(
-          `adminCreateUser email-onboard fell back to clipboard for ${email}: ${(err as Error).message}`,
-        );
+        Logger.warn(`adminCreateUser email-onboard fell back to clipboard for ${email}: ${(err as Error).message}`);
       }
     }
 
@@ -884,9 +894,7 @@ export class AuthService {
       // Walk the target's provider associations until we find one the
       // editor has authority over. Pure SUPER_ADMIN short-circuits above.
       const targetUserId = user.userId ?? user.user_id;
-      const targetRows = targetUserId
-        ? await this.userProviderStorage.findByUserId(targetUserId)
-        : [];
+      const targetRows = targetUserId ? await this.userProviderStorage.findByUserId(targetUserId) : [];
       let allowed = false;
       for (const row of targetRows) {
         try {
@@ -904,9 +912,7 @@ export class AuthService {
         }
       }
       if (!allowed) {
-        throw new ForbiddenException(
-          'Not authorised to reset this user\u2019s password',
-        );
+        throw new ForbiddenException('Not authorised to reset this user\u2019s password');
       }
     }
 
@@ -926,7 +932,10 @@ export class AuthService {
       });
 
       this.refreshTokenService.revokeAllForUser(targetUserId).catch((err: any) => {
-        Logger.warn(`revokeAllForUser(${targetUserId}) after admin reset failed: ${err?.message ?? err}`, AuthService.name);
+        Logger.warn(
+          `revokeAllForUser(${targetUserId}) after admin reset failed: ${err?.message ?? err}`,
+          AuthService.name,
+        );
       });
     }
     return { ...SUCCESS, password };
@@ -1068,9 +1077,7 @@ export class AuthService {
     editor?: { userContext?: UserContext; provisionerIds?: string[]; isProvisioner?: boolean },
   ): Promise<void> {
     const targetUserId = user.userId ?? user.user_id;
-    const targetRows = targetUserId
-      ? await this.userProviderStorage.findByUserId(targetUserId)
-      : [];
+    const targetRows = targetUserId ? await this.userProviderStorage.findByUserId(targetUserId) : [];
     for (const row of targetRows) {
       try {
         await assertProviderEditor({
@@ -1095,10 +1102,7 @@ export class AuthService {
    * not look like an RFC-shaped address. Empty string is treated as
    * "clear contact_email" — caller hands it to setContactEmail unchanged.
    */
-  private resolveContactEmailChange(
-    user: any,
-    incoming: string | undefined,
-  ): string | null | 'invalid' {
+  private resolveContactEmailChange(user: any, incoming: string | undefined): string | null | 'invalid' {
     if (incoming === undefined) return null;
     const trimmed = (incoming ?? '').trim();
     const current = (user.contactEmail ?? user.contact_email ?? '').trim();
