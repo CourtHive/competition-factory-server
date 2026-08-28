@@ -29,6 +29,7 @@ describe('FactoryController — eventdata payload tiers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     service = {
+      getDrawData: jest.fn().mockResolvedValue(mockResult),
       getEventData: jest.fn().mockResolvedValue(mockResult),
       executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
     } as unknown as FactoryService;
@@ -79,6 +80,53 @@ describe('FactoryController — eventdata payload tiers', () => {
     // ADDITIVE: a caller that sends nothing must reach the factory with no drawsProfile at all, so
     // the factory's own FULL default applies rather than a value this layer invented.
     expect(Object.keys(calls[1][0])).not.toContain('drawsProfile');
+  });
+
+  it('REGRESSION: hydrateParticipants gets its own EVENT key — it was a live TBD bug', async () => {
+    // Not symmetry. hydrateParticipants changes this payload by ~40% (131,728 -> 78,595 bytes on a
+    // doubles fixture), courthive-public sends `false`, and GetEventDataDto DEFAULTS it to `true`.
+    // Sharing one key meant a caller that omitted the field and lost the 3-minute cache race got
+    // sides whose `participant` is a 55-byte stub with no person data — every side renders TBD.
+    await controller.eventData({ tournamentId: 't1', eventId: 'e1', hydrateParticipants: true } as any);
+    await controller.eventData({ tournamentId: 't1', eventId: 'e1', hydrateParticipants: false } as any);
+
+    const setKeys = cache.set.mock.calls.map((c: any[]) => c[0]);
+    expect(setKeys).toContain('ged|t1|e1');
+    expect(setKeys).toContain('ged|t1|e1|n');
+  });
+
+  it('an omitted hydrateParticipants keeps the bare key — the shape every earlier caller produced', async () => {
+    await controller.eventData({ tournamentId: 't1', eventId: 'e1' } as any);
+
+    expect(cache.set.mock.calls.map((c: any[]) => c[0])).toEqual(['ged|t1|e1']);
+  });
+
+  it('STUBS collapses onto |s regardless of hydrateParticipants — it has no sides to hydrate', async () => {
+    // Three variants, not four. Minting `|s|n` would split a key for a distinction the payload cannot
+    // express, doubling stub entries and halving their hit rate for nothing.
+    await controller.eventData({ tournamentId: 't1', eventId: 'e1', drawsProfile: 'STUBS' } as any);
+    await controller.eventData({
+      tournamentId: 't1',
+      eventId: 'e1',
+      hydrateParticipants: false,
+      drawsProfile: 'STUBS',
+    } as any);
+
+    expect(cache.set.mock.calls.map((c: any[]) => c[0])).toEqual(['ged|t1|e1|s', 'ged|t1|e1|s']);
+  });
+
+  it('DRAW tier: hydrateParticipants gets its own key and reaches the service', async () => {
+    await controller.drawData({ tournamentId: 't1', drawId: 'd1' } as any);
+    await controller.drawData({ tournamentId: 't1', drawId: 'd1', hydrateParticipants: false } as any);
+
+    const setKeys = cache.set.mock.calls.map((c: any[]) => c[0]);
+    expect(setKeys).toContain('gdd|t1|d1');
+    expect(setKeys).toContain('gdd|t1|d1|n');
+
+    const calls = (service.getDrawData as jest.Mock).mock.calls;
+    expect(calls[1][0].hydrateParticipants).toBe(false);
+    // ADDITIVE: an omitted flag must not invent a value on the way through.
+    expect(Object.keys(calls[0][0])).not.toContain('hydrateParticipants');
   });
 
   it('EVICTION: a stale thin payload is the fail-open direction, so both variants go', async () => {

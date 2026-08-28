@@ -90,6 +90,7 @@ const evictEventData = (tournamentId, eventId) => {
   }
   evictKey(`ged|${tournamentId}|${eventId}`);
   evictKey(`ged|${tournamentId}|${eventId}|s`);
+  evictKey(`ged|${tournamentId}|${eventId}|n`);
 };
 
 /**
@@ -104,6 +105,7 @@ const evictDrawData = (tournamentId, drawId) => {
   }
   evictKey(`gdd|${tournamentId}|${drawId}`);
   evictKey(`gdd|${tournamentId}|${drawId}|s`);
+  evictKey(`gdd|${tournamentId}|${drawId}|n`);
 };
 
 /**

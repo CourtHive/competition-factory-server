@@ -78,9 +78,11 @@ describe('getMutationEngine — cache eviction attribution', () => {
     // EXACT match, so emitting one and not the other leaves the thin payload stale for the full TTL —
     // visible ONLY to stub callers, which is what makes it the kind of bug nobody reports.
     expect(evicted).toContain('ged|t1|e1|s');
+    expect(evicted).toContain('ged|t1|e1|n');
     // this topic has no top-level drawId; reading only `item.drawId` silently evicted nothing
     expect(evicted).toContain('gdd|t1|d1');
     expect(evicted).toContain('gdd|t1|d1|s');
+    expect(evicted).toContain('gdd|t1|d1|n');
     expect(unnarrowable).toEqual([]);
   });
 

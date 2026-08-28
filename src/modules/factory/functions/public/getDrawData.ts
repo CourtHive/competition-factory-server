@@ -47,6 +47,9 @@ export async function getDrawData(
     },
     contextProfile: { withCompetitiveness: true },
     structuresProfile: params?.structuresProfile,
+    // Strictly NARROWING — it can only remove participant detail, never add it, so it cannot widen
+    // what a public reader sees through this route relative to the event route.
+    hydrateParticipants: params?.hydrateParticipants,
     includePositionAssignments: true,
     allParticipantResults: true,
     usePublishState: true,
