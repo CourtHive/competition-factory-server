@@ -27,6 +27,9 @@ export async function getEventData(
     includePositionAssignments: true,
     allParticipantResults: true,
     eventId: params.eventId,
+    // Undefined leaves the factory's own FULL default in place; an unknown value is rejected there
+    // rather than silently falling through to FULL.
+    ...(params.drawsProfile !== undefined && { drawsProfile: params.drawsProfile }),
     usePublishState: true,
     pressureRating: true,
     refreshResults: true,

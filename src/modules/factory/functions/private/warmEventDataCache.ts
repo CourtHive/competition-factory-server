@@ -52,8 +52,14 @@ export async function warmEventDataCache({
   const warmed: string[] = [];
 
   for (const key of evictedEventKeys) {
-    const [prefix, tournamentId, eventId] = key.split('|');
+    const [prefix, tournamentId, eventId, profile] = key.split('|');
     if (prefix !== 'ged' || !tournamentId || !eventId) continue;
+    // Skip the `drawsProfile: 'STUBS'` variant (`ged|<tid>|<eid>|s`). The rebuild below is a FULL
+    // payload, so seeding it under the thin key would pin the ~600 KB document where a ~600 BYTE one
+    // belongs — served silently for the whole TTL to every caller asking for stubs. Not warmed rather
+    // than warmed correctly on purpose: a stub rebuild is cheap enough that a cache miss costs
+    // nothing, and one seeding path is what keeps a seeded entry byte-identical to a read entry.
+    if (profile) continue;
 
     const result: any = await publicQueries.getEventData({ tournamentId, eventId }, storage);
     // A failed rebuild must not be cached — that would pin an error response for the whole TTL.

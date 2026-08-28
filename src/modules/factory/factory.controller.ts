@@ -39,6 +39,7 @@ import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { User } from '../account/auth/decorators/user.decorator';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { MutationAuthorizationService } from './mutation-authorization.service';
+import { PayloadProfileEnum } from 'tods-competition-factory';
 import { GrantsService } from './grants.service';
 import { FactoryService } from './factory.service';
 
@@ -50,6 +51,23 @@ import { FactoryService } from './factory.service';
  * either over-swept (loses the granularity it was added for) or under-swept (serves stale).
  */
 const PER_ENTITY_PREFIXES = ['ged|', 'gdd|', 'gsd|'] as const;
+
+/**
+ * Cache-key suffix for the payload-shape variants of one entity.
+ *
+ * A variant is a DIFFERENT DOCUMENT, not a filtered view of one, so it needs its own entry — sharing
+ * a key serves whichever shape happened to be built first to every caller of the others.
+ *
+ * THREE variants, not four. `STUBS` carries no `roundMatchUps` and therefore no sides, so hydration
+ * cannot change it; a stub request collapses onto `|s` whatever it says about participants.
+ *
+ * `|n` is reached ONLY by an explicit `hydrateParticipants: false`. Undefined must map to the bare
+ * key, because that is what every caller before this existed produced.
+ */
+function payloadVariant({ profile, hydrateParticipants }: { profile?: string; hydrateParticipants?: boolean }): string {
+  if (profile === PayloadProfileEnum.STUBS) return '|s';
+  return hydrateParticipants === false ? '|n' : '';
+}
 
 @UseGuards(RolesGuard)
 @Controller('factory')
@@ -243,7 +261,20 @@ export class FactoryController {
     //
     // The cache therefore holds ONE full payload per event, and omission happens below, after the
     // read. Cache the expensive thing; make the cheap thing conditional.
-    const key = `ged|${ged.tournamentId}|${ged.eventId}`;
+    //
+    // `drawsProfile: 'STUBS'` IS part of the key, exactly as it is on `drawdata`: the thin and full
+    // responses are different documents and must not share an entry, or a client asking for one would
+    // receive the other. Note this is the opposite call from participantsVersion above — that one is a
+    // strip applied to a single cached document; this one selects which document gets built.
+    //
+    // `hydrateParticipants` is part of the key too, and NOT for symmetry — it was a live defect. It
+    // changes this payload by ~40%, courthive-public sends `false`, and the DTO DEFAULTS it to `true`.
+    // So a caller that omitted the field and lost the 3-minute cache race was served sides whose
+    // `participant` is a 55-byte stub with no person data — every bracket side renders TBD.
+    const key = `ged|${ged.tournamentId}|${ged.eventId}${payloadVariant({
+      hydrateParticipants: ged.hydrateParticipants,
+      profile: ged.drawsProfile,
+    })}`;
     const result: any = await this.cacheFx(key, (params) => this.factoryService.getEventData(params), ged);
 
     // Participants are 52%-78.6% of this payload and identical across every event of a tournament.
@@ -267,14 +298,16 @@ export class FactoryController {
    * Draw tier of the payload decomposition. Its OWN cache key, so a change in one draw does not evict
    * another's cached payload — cache granularity is invalidation granularity.
    *
-   * `structuresProfile: 'STUBS'` is part of the key: the thin and full responses are different
-   * documents and must not share an entry, or a client asking for one would receive the other.
+   * `structuresProfile` AND `hydrateParticipants` are both part of the key: each selects a different
+   * document, and sharing an entry would serve a client asking for one the other's payload.
    */
   @Public()
   @Post('drawdata')
   async drawData(@Body() gdd: GetDrawDataDto) {
-    const profile = gdd.structuresProfile === 'STUBS' ? '|s' : '';
-    const key = `gdd|${gdd.tournamentId}|${gdd.drawId}${profile}`;
+    const key = `gdd|${gdd.tournamentId}|${gdd.drawId}${payloadVariant({
+      hydrateParticipants: gdd.hydrateParticipants,
+      profile: gdd.structuresProfile,
+    })}`;
     return await this.cacheFx(key, (params) => this.factoryService.getDrawData(params), gdd);
   }
 
