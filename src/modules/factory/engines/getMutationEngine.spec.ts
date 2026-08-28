@@ -74,8 +74,13 @@ describe('getMutationEngine — cache eviction attribution', () => {
     ]);
 
     expect(evicted).toContain('ged|t1|e1');
+    // BOTH drawsProfile variants of the event tier. The controller spares a per-entity key only on an
+    // EXACT match, so emitting one and not the other leaves the thin payload stale for the full TTL —
+    // visible ONLY to stub callers, which is what makes it the kind of bug nobody reports.
+    expect(evicted).toContain('ged|t1|e1|s');
     // this topic has no top-level drawId; reading only `item.drawId` silently evicted nothing
     expect(evicted).toContain('gdd|t1|d1');
+    expect(evicted).toContain('gdd|t1|d1|s');
     expect(unnarrowable).toEqual([]);
   });
 

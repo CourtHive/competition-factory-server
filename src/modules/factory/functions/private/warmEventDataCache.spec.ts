@@ -63,6 +63,21 @@ describe('warmEventDataCache', () => {
     expect(warmed).toEqual([]);
   });
 
+  it('SKIPS the drawsProfile STUBS variant rather than seeding it with a FULL payload', async () => {
+    // The rebuild here is always a FULL payload (one seeding path, deliberately). Seeding it under
+    // `ged|t1|e1|s` would pin the ~600 KB document where a ~600 BYTE one belongs, and serve it to
+    // every stub caller for the whole TTL — the same class of bug as caching a participants-less
+    // payload, inverted. Not warmed rather than warmed correctly: a stub rebuild is cheap.
+    const warmed = await warmEventDataCache({
+      evictedEventKeys: ['ged|t1|e1', 'ged|t1|e1|s'],
+      cacheManager,
+      storage,
+    });
+
+    expect(warmed).toEqual(['ged|t1|e1']);
+    expect(cacheManager.set.mock.calls.map((c: any[]) => c[0])).not.toContain('ged|t1|e1|s');
+  });
+
   it('registers the seeded key when a tracker is supplied, and works without one', async () => {
     const trackKey = jest.fn();
     await warmEventDataCache({ evictedEventKeys: ['ged|t1|e1'], cacheManager, storage, trackKey });

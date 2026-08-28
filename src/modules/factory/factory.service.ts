@@ -584,14 +584,16 @@ export class FactoryService {
   async getEventData({
     hydrateParticipants,
     tournamentId,
+    drawsProfile,
     eventId,
   }: {
     hydrateParticipants?: boolean;
     tournamentId: string;
+    drawsProfile?: string;
     eventId: string;
   }) {
     return await publicQueries.getEventData(
-      { hydrateParticipants, tournamentId, eventId },
+      { hydrateParticipants, tournamentId, drawsProfile, eventId },
       this.tournamentStorage,
       this.providerStorage,
     );

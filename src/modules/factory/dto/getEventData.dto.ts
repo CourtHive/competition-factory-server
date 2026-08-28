@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class GetEventDataDto {
   @ApiProperty()
@@ -20,4 +20,21 @@ export class GetEventDataDto {
    */
   @ApiProperty({ required: false })
   participantsVersion?: string;
+
+  /**
+   * How much of each draw to return — `'FULL'` (default) or `'STUBS'`.
+   *
+   * `STUBS` replaces every draw's structures/roundMatchUps with a stub carrying `drawId`, `drawName`,
+   * `drawType`, `display`, `drawGenerated`, `drawCompleted` and `drawPublished` — the draw list a
+   * client needs to render navigation, without the brackets behind it.
+   *
+   * Enablement only as of 2026-08-28: factory has supported this since the G2 payload-decomposition
+   * work but it was unreachable over HTTP, because this DTO had no field for it and the service
+   * dropped it. No consumer sends it yet.
+   *
+   * An unknown value is rejected by the factory rather than falling through to FULL — a typo must not
+   * quietly return the payload the caller was explicitly trying to avoid.
+   */
+  @ApiPropertyOptional({ enum: ['FULL', 'STUBS'] })
+  drawsProfile?: string;
 }

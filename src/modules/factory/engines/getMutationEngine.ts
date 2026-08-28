@@ -76,6 +76,12 @@ const evictKey = (key: string) => {
   getRequestContext().evictedEventKeys?.add(key);
 };
 
+/**
+ * Evict the EVENT tier. Both `drawsProfile` variants are separate documents under separate keys, so
+ * both must go — the controller spares a per-entity key only on an EXACT `evicted.has(key)` match, so
+ * omitting the thin one would serve a stale draw list for the full TTL. Same reasoning as
+ * `evictDrawData` below.
+ */
 const evictEventData = (tournamentId, eventId) => {
   if (!tournamentId) return;
   if (!eventId) {
@@ -83,6 +89,7 @@ const evictEventData = (tournamentId, eventId) => {
     return;
   }
   evictKey(`ged|${tournamentId}|${eventId}`);
+  evictKey(`ged|${tournamentId}|${eventId}|s`);
 };
 
 /**

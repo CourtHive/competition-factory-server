@@ -39,6 +39,7 @@ import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { User } from '../account/auth/decorators/user.decorator';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { MutationAuthorizationService } from './mutation-authorization.service';
+import { PayloadProfileEnum } from 'tods-competition-factory';
 import { GrantsService } from './grants.service';
 import { FactoryService } from './factory.service';
 
@@ -243,7 +244,13 @@ export class FactoryController {
     //
     // The cache therefore holds ONE full payload per event, and omission happens below, after the
     // read. Cache the expensive thing; make the cheap thing conditional.
-    const key = `ged|${ged.tournamentId}|${ged.eventId}`;
+    //
+    // `drawsProfile: 'STUBS'` IS part of the key, exactly as it is on `drawdata`: the thin and full
+    // responses are different documents and must not share an entry, or a client asking for one would
+    // receive the other. Note this is the opposite call from participantsVersion above — that one is a
+    // strip applied to a single cached document; this one selects which document gets built.
+    const profile = ged.drawsProfile === PayloadProfileEnum.STUBS ? '|s' : '';
+    const key = `ged|${ged.tournamentId}|${ged.eventId}${profile}`;
     const result: any = await this.cacheFx(key, (params) => this.factoryService.getEventData(params), ged);
 
     // Participants are 52%-78.6% of this payload and identical across every event of a tournament.
