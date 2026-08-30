@@ -11,7 +11,7 @@ describe('SanctioningClient', () => {
     process.env.AMS_BASE_URL = orig.url;
     process.env.AMS_SERVICE_TOKEN = orig.tok;
     process.env.AMS_DISABLED = orig.dis;
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('returns null when disabled (=disabled base url)', async () => {
@@ -28,7 +28,7 @@ describe('SanctioningClient', () => {
     process.env.AMS_BASE_URL = 'http://localhost:3130';
     process.env.AMS_SERVICE_TOKEN = 'tok-1';
     const record = { sanctioningId: 'sanc-1', status: 'APPROVED', proposal: {} };
-    const fetchSpy = jest
+    const fetchSpy = vi
       .spyOn(global as any, 'fetch')
       .mockResolvedValue({ ok: true, status: 200, json: async () => record });
     const res = await new SanctioningClient().getRecordByTournamentId('t-1');
@@ -40,13 +40,13 @@ describe('SanctioningClient', () => {
 
   it('returns null on 404', async () => {
     process.env.AMS_BASE_URL = 'http://localhost:3130';
-    jest.spyOn(global as any, 'fetch').mockResolvedValue({ ok: false, status: 404 });
+    vi.spyOn(global as any, 'fetch').mockResolvedValue({ ok: false, status: 404 });
     expect(await new SanctioningClient().getRecordByTournamentId('t-1')).toBeNull();
   });
 
   it('throws on other non-ok status', async () => {
     process.env.AMS_BASE_URL = 'http://localhost:3130';
-    jest.spyOn(global as any, 'fetch').mockResolvedValue({ ok: false, status: 500 });
+    vi.spyOn(global as any, 'fetch').mockResolvedValue({ ok: false, status: 500 });
     await expect(new SanctioningClient().getRecordByTournamentId('t-1')).rejects.toThrow(/HTTP 500/);
   });
 });

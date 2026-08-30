@@ -2,11 +2,11 @@ import { PostgresProvisionerStorage } from './postgres-provisioner.storage';
 import { IProvisionerStorage } from '../interfaces/provisioner-storage.interface';
 
 function makeMockPool() {
-  return { query: jest.fn(), connect: jest.fn() };
+  return { query: vi.fn(), connect: vi.fn() };
 }
 
 function makeMockClient() {
-  return { query: jest.fn(), release: jest.fn() };
+  return { query: vi.fn(), release: vi.fn() };
 }
 
 describe('PostgresProvisionerStorage', () => {

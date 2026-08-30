@@ -1,17 +1,18 @@
 import { mkdtemp, rm, writeFile, mkdir } from 'fs/promises';
+import type { Mocked } from 'vitest';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { PolicySeedLoader } from './policy-seed-loader.service';
 import { IPolicyStorage } from 'src/storage/interfaces/policy-storage.interface';
 
-function makeMockStorage(): jest.Mocked<IPolicyStorage> {
+function makeMockStorage(): Mocked<IPolicyStorage> {
   return {
-    savePolicy: jest.fn(),
-    getPolicy: jest.fn(),
-    findById: jest.fn(),
-    listPolicies: jest.fn(),
-    deletePolicy: jest.fn(),
+    savePolicy: vi.fn(),
+    getPolicy: vi.fn(),
+    findById: vi.fn(),
+    listPolicies: vi.fn(),
+    deletePolicy: vi.fn(),
   };
 }
 
@@ -41,7 +42,7 @@ const validSeed = {
 };
 
 describe('PolicySeedLoader', () => {
-  let storage: jest.Mocked<IPolicyStorage>;
+  let storage: Mocked<IPolicyStorage>;
   let loader: PolicySeedLoader;
 
   beforeEach(() => {

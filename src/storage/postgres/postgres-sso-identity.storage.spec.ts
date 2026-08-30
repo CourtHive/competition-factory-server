@@ -2,7 +2,7 @@ import { PostgresSsoIdentityStorage } from './postgres-sso-identity.storage';
 import { ISsoIdentityStorage } from '../interfaces/sso-identity-storage.interface';
 
 function makeMockPool() {
-  return { query: jest.fn() };
+  return { query: vi.fn() };
 }
 
 describe('PostgresSsoIdentityStorage', () => {

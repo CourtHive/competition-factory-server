@@ -7,7 +7,7 @@
 // cryptic per-suite "Cannot find module './core/AdapterRegistry'" load failure.
 // Fail fast here with an actionable message instead. CI builds courthive-ingest
 // before the server, so this only trips during concurrent local dev builds.
-module.exports = async function setup() {
+export default async function setup() {
   try {
     await import('courthive-ingest');
   } catch (err: any) {

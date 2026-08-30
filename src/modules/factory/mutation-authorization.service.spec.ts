@@ -6,7 +6,7 @@ import {
 import { CREATED_BY_USER_ID } from './helpers/checkTournamentAccess';
 
 // Scoping must be ON for the per-tournament gate to have anything to say.
-jest.mock('src/common/constants/feature-flags', () => ({
+vi.mock('src/common/constants/feature-flags', () => ({
   isTournamentAccessScopingEnabled: () => true,
 }));
 
@@ -47,17 +47,17 @@ function build({
   grants = [],
 }: { assignmentRole?: string; permissions?: any; grants?: any[] } = {}) {
   const providerStorage: any = {
-    getProvider: jest.fn().mockResolvedValue({
+    getProvider: vi.fn().mockResolvedValue({
       providerConfigCaps: {},
       providerConfigSettings: permissions ? { permissions } : {},
     }),
   };
   const tournamentStorageService: any = {
-    fetchTournamentRecords: jest.fn().mockResolvedValue({ tournamentRecords: { [TID]: makeTournament() } }),
+    fetchTournamentRecords: vi.fn().mockResolvedValue({ tournamentRecords: { [TID]: makeTournament() } }),
   };
-  const grantStorage: any = { findForSubject: jest.fn().mockResolvedValue(grants) };
+  const grantStorage: any = { findForSubject: vi.fn().mockResolvedValue(grants) };
   const assignmentsService: any = {
-    getAssignedRoles: jest.fn().mockResolvedValue(assignmentRole ? new Map([[TID, assignmentRole]]) : new Map()),
+    getAssignedRoles: vi.fn().mockResolvedValue(assignmentRole ? new Map([[TID, assignmentRole]]) : new Map()),
   };
   const service = new MutationAuthorizationService(
     providerStorage,

@@ -1,6 +1,7 @@
 import { MutationAuthorizationService } from 'src/modules/factory/mutation-authorization.service';
 import { MutationServicesService } from 'src/modules/mutation-services/mutation-services.service';
 import { TmxGateway, TOURNAMENT_ROOM_PREFIX } from './tmx.gateway';
+import type { Mock, MockInstance } from 'vitest';
 import { tmxMessages } from './tmxMessages';
 import { Logger } from '@nestjs/common';
 
@@ -14,10 +15,10 @@ interface MockSocket {
   id: string;
   data: any;
   rooms: Set<string>;
-  join: jest.Mock;
-  leave: jest.Mock;
-  emit: jest.Mock;
-  to: jest.Mock;
+  join: Mock;
+  leave: Mock;
+  emit: Mock;
+  to: Mock;
 }
 
 function makeSocket(overrides: Partial<{ id: string; user: any }> = {}): MockSocket {
@@ -26,10 +27,10 @@ function makeSocket(overrides: Partial<{ id: string; user: any }> = {}): MockSoc
     data: { user: overrides.user, tournamentJoinedAt: {} },
     rooms: new Set(),
     handshake: { headers: {} },
-    join: jest.fn(async (room: string) => { s.rooms.add(room); }),
-    leave: jest.fn(async (room: string) => { s.rooms.delete(room); }),
-    emit: jest.fn(),
-    to: jest.fn().mockReturnValue({ emit: jest.fn() }),
+    join: vi.fn(async (room: string) => { s.rooms.add(room); }),
+    leave: vi.fn(async (room: string) => { s.rooms.delete(room); }),
+    emit: vi.fn(),
+    to: vi.fn().mockReturnValue({ emit: vi.fn() }),
   };
   return s as MockSocket;
 }
@@ -46,42 +47,42 @@ function makeMockServer(socketsByRoom: Record<string, MockSocket[]>) {
     in: (room: string) => ({
       fetchSockets: async () => socketsByRoom[room] ?? [],
     }),
-    to: jest.fn().mockReturnValue({ emit: jest.fn() }),
+    to: vi.fn().mockReturnValue({ emit: vi.fn() }),
   } as any;
 }
 
 function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
-  const userStorage = opts.userStorage ?? { updateLastAccess: jest.fn().mockResolvedValue(undefined) };
+  const userStorage = opts.userStorage ?? { updateLastAccess: vi.fn().mockResolvedValue(undefined) };
   const providerStorage = opts.providerStorage ?? {
-    updateLastAccess: jest.fn().mockResolvedValue(undefined),
-    updateLastAccessByTournament: jest.fn().mockResolvedValue(undefined),
-    getProvider: jest.fn(),
-    getProviders: jest.fn(),
-    setProvider: jest.fn(),
-    removeProvider: jest.fn(),
+    updateLastAccess: vi.fn().mockResolvedValue(undefined),
+    updateLastAccessByTournament: vi.fn().mockResolvedValue(undefined),
+    getProvider: vi.fn(),
+    getProviders: vi.fn(),
+    setProvider: vi.fn(),
+    removeProvider: vi.fn(),
   };
   const tournamentStorageService: any = {
-    fetchTournamentRecords: jest.fn().mockResolvedValue({ tournamentRecords: {} }),
+    fetchTournamentRecords: vi.fn().mockResolvedValue({ tournamentRecords: {} }),
   };
-  const broadcastService: any = { setTmxServer: jest.fn(), broadcastMutation: jest.fn(), broadcastPublicNotices: jest.fn() };
+  const broadcastService: any = { setTmxServer: vi.fn(), broadcastMutation: vi.fn(), broadcastPublicNotices: vi.fn() };
   const assignmentsService: any = {
-    getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set()),
-    getAssignedRoles: jest.fn().mockResolvedValue(new Map()),
+    getAssignedTournamentIds: vi.fn().mockResolvedValue(new Set()),
+    getAssignedRoles: vi.fn().mockResolvedValue(new Map()),
   };
-  const usersService: any = { findOne: jest.fn().mockResolvedValue(null) };
-  const cacheManager: any = { get: jest.fn(), set: jest.fn(), del: jest.fn() };
-  const userProviderStorage: any = { findByEmail: jest.fn().mockResolvedValue([]) };
-  const userProvisionerStorage: any = { findProvisionerIdsByUser: jest.fn().mockResolvedValue([]) };
-  const provisionerProviderStorage: any = { findByProvisioner: jest.fn().mockResolvedValue([]) };
-  const auditService: any = { recordMutation: jest.fn().mockResolvedValue(undefined) };
+  const usersService: any = { findOne: vi.fn().mockResolvedValue(null) };
+  const cacheManager: any = { get: vi.fn(), set: vi.fn(), del: vi.fn() };
+  const userProviderStorage: any = { findByEmail: vi.fn().mockResolvedValue([]) };
+  const userProvisionerStorage: any = { findProvisionerIdsByUser: vi.fn().mockResolvedValue([]) };
+  const provisionerProviderStorage: any = { findByProvisioner: vi.fn().mockResolvedValue([]) };
+  const auditService: any = { recordMutation: vi.fn().mockResolvedValue(undefined) };
   const chatStorage: any = {
-    appendMessage: jest.fn().mockResolvedValue({
+    appendMessage: vi.fn().mockResolvedValue({
       record: { seq: 1, tournamentId: 't', userName: 'u', message: 'm', isAdmin: false, createdAt: new Date(0).toISOString() },
     }),
-    recentMessages: jest.fn().mockResolvedValue({ records: [] }),
-    messagesSince: jest.fn().mockResolvedValue({ records: [] }),
-    adminMessagesBefore: jest.fn().mockResolvedValue({ records: [] }),
-    pruneOlderThan: jest.fn().mockResolvedValue({ deleted: 0 }),
+    recentMessages: vi.fn().mockResolvedValue({ records: [] }),
+    messagesSince: vi.fn().mockResolvedValue({ records: [] }),
+    adminMessagesBefore: vi.fn().mockResolvedValue({ records: [] }),
+    pruneOlderThan: vi.fn().mockResolvedValue({ deleted: 0 }),
   };
 
   const gateway = new TmxGateway(
@@ -96,8 +97,8 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     // Real builder over disabled collaborators — mirrors the production shape
     // (A1) so the gateway is exercised against the same bag it will receive in
     // prod, rather than against a stub that could drift from it.
-    new MutationServicesService({ isEnabled: false, enqueue: jest.fn() } as any, {
-      record: jest.fn(),
+    new MutationServicesService({ isEnabled: false, enqueue: vi.fn() } as any, {
+      record: vi.fn(),
       isEnabled: false,
     } as any),
     broadcastService,
@@ -118,7 +119,7 @@ describe('TmxGateway chat persistence', () => {
       record: { seq: 42, tournamentId: 't1', userName: 'u', message: 'hi', isAdmin: false, clientMsgId: 'c1', createdAt: new Date(1000).toISOString() },
     });
     const socket = makeSocket();
-    const relay = { emit: jest.fn() };
+    const relay = { emit: vi.fn() };
     socket.to.mockReturnValue(relay);
     gateway.server = makeMockServer({});
 
@@ -283,16 +284,16 @@ describe('TmxGateway.joinTournament', () => {
   });
 
   it('logs (but does not throw) when lastAccess update fails', async () => {
-    const userStorage = { updateLastAccess: jest.fn().mockRejectedValue(new Error('db down')) };
+    const userStorage = { updateLastAccess: vi.fn().mockRejectedValue(new Error('db down')) };
     const providerStorage = {
-      updateLastAccess: jest.fn(),
-      updateLastAccessByTournament: jest.fn().mockRejectedValue(new Error('db down')),
-      getProvider: jest.fn(), getProviders: jest.fn(), setProvider: jest.fn(), removeProvider: jest.fn(),
+      updateLastAccess: vi.fn(),
+      updateLastAccessByTournament: vi.fn().mockRejectedValue(new Error('db down')),
+      getProvider: vi.fn(), getProviders: vi.fn(), setProvider: vi.fn(), removeProvider: vi.fn(),
     };
     const { gateway } = buildGateway({ userStorage, providerStorage });
     const socket = makeSocket({ user: { email: 'me@test.com', providerId: 'prov-1' } });
     gateway.server = makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] });
-    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
 
     await gateway.joinTournament({ tournamentId: 't1' }, socket as any);
     await Promise.resolve();
@@ -349,7 +350,7 @@ describe('TmxGateway.getActiveRoomPresence', () => {
 });
 
 describe('TmxGateway executionQueue identity stamping', () => {
-  let spy: jest.SpyInstance;
+  let spy: MockInstance;
   afterEach(() => spy?.mockRestore());
 
   // Empty tournamentIds makes gatePerTournament pass unconditionally, so these
@@ -357,7 +358,7 @@ describe('TmxGateway executionQueue identity stamping', () => {
   // what messageHandler forwards to the downstream executionQueue handler.
   async function capturePayload(user: any, payload: any) {
     const { gateway } = buildGateway();
-    spy = jest.spyOn(tmxMessages, 'executionQueue').mockResolvedValue({} as any);
+    spy = vi.spyOn(tmxMessages, 'executionQueue').mockResolvedValue({} as any);
     const socket = makeSocket({ user });
     gateway.server = makeMockServer({});
     await gateway.messageHandler({ type: 'executionQueue', payload }, socket as any);

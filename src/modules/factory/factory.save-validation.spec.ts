@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import type { Mock } from 'vitest';
 
 import { SnapshotProjectionService } from './projection/snapshot-projection.service';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
@@ -6,11 +7,11 @@ import { insertPendingSave } from './helpers/pendingSaves';
 import { FactoryService } from './factory.service';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
 
-jest.mock('./helpers/pendingSaves', () => ({
-  insertPendingSave: jest.fn().mockResolvedValue(undefined),
-  getPendingSaveStatus: jest.fn(),
-  getPendingSaveData: jest.fn(),
-  updatePendingSaveStatus: jest.fn(),
+vi.mock('./helpers/pendingSaves', () => ({
+  insertPendingSave: vi.fn().mockResolvedValue(undefined),
+  getPendingSaveStatus: vi.fn(),
+  getPendingSaveData: vi.fn(),
+  updatePendingSaveStatus: vi.fn(),
 }));
 
 const SUPER_ADMIN_USER = { roles: [SUPER_ADMIN], email: 'sa@test.com', userId: 'u-1' };
@@ -32,12 +33,12 @@ function makeInvalidRecord() {
 function makeFactoryService(overrides: { tournamentStorageService?: any; pgPool?: any } = {}) {
   const tournamentStorageService =
     overrides.tournamentStorageService ?? {
-      saveTournamentRecords: jest.fn().mockResolvedValue({ success: true }),
+      saveTournamentRecords: vi.fn().mockResolvedValue({ success: true }),
     };
   const pgPool = overrides.pgPool ?? {};
   const assignmentsService: any = {
-    getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set()),
-    getAssignedRoles: jest.fn().mockResolvedValue(new Map()),
+    getAssignedTournamentIds: vi.fn().mockResolvedValue(new Set()),
+    getAssignedRoles: vi.fn().mockResolvedValue(new Map()),
   };
   const auditService: any = {};
   const tournamentStorage: any = {};
@@ -46,12 +47,12 @@ function makeFactoryService(overrides: { tournamentStorageService?: any; pgPool?
 
   // Disabled outbox — enqueueSnapshots short-circuits, so these validation tests
   // exercise the save path without a projection dependency.
-  const snapshotProjection: any = new SnapshotProjectionService({ isEnabled: false, enqueue: jest.fn() } as any);
+  const snapshotProjection: any = new SnapshotProjectionService({ isEnabled: false, enqueue: vi.fn() } as any);
 
   // Real builder over disabled collaborators — mirrors the production bag shape
   // (A1) rather than a stub that could drift from it.
-  const mutationServices: any = new MutationServicesService({ isEnabled: false, enqueue: jest.fn() } as any, {
-    record: jest.fn(),
+  const mutationServices: any = new MutationServicesService({ isEnabled: false, enqueue: vi.fn() } as any, {
+    record: vi.fn(),
     isEnabled: false,
   } as any);
 
@@ -71,7 +72,7 @@ function makeFactoryService(overrides: { tournamentStorageService?: any; pgPool?
 
 describe('FactoryService.saveTournamentRecords L2 validation gate', () => {
   beforeEach(() => {
-    (insertPendingSave as jest.Mock).mockClear();
+    (insertPendingSave as Mock).mockClear();
     delete process.env.FACTORY_SAVE_VALIDATION_THRESHOLD_BYTES;
   });
 
@@ -123,7 +124,7 @@ describe('FactoryService.saveTournamentRecords L2 validation gate', () => {
     expect(result.success).toBe(true);
     expect(tournamentStorageService.saveTournamentRecords).toHaveBeenCalledTimes(1);
     expect(insertPendingSave).toHaveBeenCalledTimes(1);
-    const call = (insertPendingSave as jest.Mock).mock.calls[0][1];
+    const call = (insertPendingSave as Mock).mock.calls[0][1];
     expect(call.tournamentId).toBe('t-1');
     expect(call.validationLevel).toBe('L2');
   });

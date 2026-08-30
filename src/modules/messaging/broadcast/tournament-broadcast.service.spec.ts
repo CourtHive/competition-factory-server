@@ -2,34 +2,35 @@ import { TournamentBroadcastService } from './tournament-broadcast.service';
 import { ProjectorService } from 'src/modules/projectors/projector.service';
 import { PublicGateway } from '../public/public.gateway';
 import { topicConstants } from 'tods-competition-factory';
+import type { Mock } from 'vitest';
 
 describe('TournamentBroadcastService', () => {
   let service: TournamentBroadcastService;
-  let publicGateway: { broadcastPublicUpdate: jest.Mock; broadcastLiveScore: jest.Mock };
-  let projectorService: { projectMatchUpFinalized: jest.Mock };
-  let mockServer: { to: jest.Mock; in: jest.Mock };
-  let mockSocket: { id: string; to: jest.Mock };
+  let publicGateway: { broadcastPublicUpdate: Mock; broadcastLiveScore: Mock };
+  let projectorService: { projectMatchUpFinalized: Mock };
+  let mockServer: { to: Mock; in: Mock };
+  let mockSocket: { id: string; to: Mock };
 
   beforeEach(() => {
-    publicGateway = { broadcastPublicUpdate: jest.fn(), broadcastLiveScore: jest.fn() };
-    projectorService = { projectMatchUpFinalized: jest.fn() };
+    publicGateway = { broadcastPublicUpdate: vi.fn(), broadcastLiveScore: vi.fn() };
+    projectorService = { projectMatchUpFinalized: vi.fn() };
     service = new TournamentBroadcastService(
       publicGateway as unknown as PublicGateway,
       projectorService as unknown as ProjectorService,
     );
 
     // Mock Socket.IO server — server.to(room).emit() and server.in(room).fetchSockets()
-    const emitFn = jest.fn();
+    const emitFn = vi.fn();
     mockServer = {
-      to: jest.fn().mockReturnValue({ emit: emitFn }),
-      in: jest.fn().mockReturnValue({ fetchSockets: jest.fn().mockResolvedValue([]) }),
+      to: vi.fn().mockReturnValue({ emit: emitFn }),
+      in: vi.fn().mockReturnValue({ fetchSockets: vi.fn().mockResolvedValue([]) }),
     };
 
     // Mock sender socket — sender.to(room).emit() excludes sender
-    const senderEmitFn = jest.fn();
+    const senderEmitFn = vi.fn();
     mockSocket = {
       id: 'sender-socket-id',
-      to: jest.fn().mockReturnValue({ emit: senderEmitFn }),
+      to: vi.fn().mockReturnValue({ emit: senderEmitFn }),
     };
 
     service.setTmxServer(mockServer as any);

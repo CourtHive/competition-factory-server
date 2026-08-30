@@ -1,18 +1,24 @@
+import type { Mock } from 'vitest';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 
 import { AvailabilityPullService } from './availability-pull.service';
 
-jest.mock('../../factory/functions/private/executionQueue', () => ({
-  executionQueue: jest.fn(),
+vi.mock('../../factory/functions/private/executionQueue', () => ({
+  executionQueue: vi.fn(),
 }));
-jest.mock('../../factory/helpers/checkTournamentAccess', () => ({
-  canMutateTournament: jest.fn(),
+vi.mock('../../factory/helpers/checkTournamentAccess', () => ({
+  canMutateTournament: vi.fn(),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { executionQueue: mockExecutionQueue } = require('../../factory/functions/private/executionQueue');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { canMutateTournament: mockCanMutate } = require('../../factory/helpers/checkTournamentAccess');
+// vi.mock is hoisted above the imports, so these imports receive the mocks. jest needed
+// require() here because its module registry was populated after the import bindings.
+import { canMutateTournament } from '../../factory/helpers/checkTournamentAccess';
+import { executionQueue } from '../../factory/functions/private/executionQueue';
+
+// The imports above resolve to the vi.mock factories at runtime; the casts tell the type
+// system that. jest's require() returned `any`, which hid this.
+const mockExecutionQueue = executionQueue as unknown as Mock;
+const mockCanMutate = canMutateTournament as unknown as Mock;
 
 const USER_CONTEXT: any = { userId: 'u1', email: 'director@example.com', providerRoles: {}, providerIds: ['PROV1'] };
 const TOURNAMENT_ID = 't1';
@@ -34,15 +40,15 @@ describe('AvailabilityPullService', () => {
   let declarationsClient: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockCanMutate.mockReturnValue(true);
-    tournamentStorageService = { findTournamentRecord: jest.fn().mockResolvedValue({ tournamentRecord: seededRecord() }) };
+    tournamentStorageService = { findTournamentRecord: vi.fn().mockResolvedValue({ tournamentRecord: seededRecord() }) };
     assignmentsService = {
-      getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set<string>()),
-      getAssignedRoles: jest.fn().mockResolvedValue(new Map<string, string>()),
+      getAssignedTournamentIds: vi.fn().mockResolvedValue(new Set<string>()),
+      getAssignedRoles: vi.fn().mockResolvedValue(new Map<string, string>()),
     };
-    auditService = { recordMutation: jest.fn() };
-    declarationsClient = { getAvailability: jest.fn(), isDisabled: jest.fn().mockReturnValue(false) };
+    auditService = { recordMutation: vi.fn() };
+    declarationsClient = { getAvailability: vi.fn(), isDisabled: vi.fn().mockReturnValue(false) };
     service = new AvailabilityPullService(tournamentStorageService, assignmentsService, auditService, declarationsClient);
   });
 

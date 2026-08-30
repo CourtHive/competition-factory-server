@@ -1,4 +1,5 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import type { Mocked } from 'vitest';
 
 import { PoliciesService } from './policies.service';
 import { IPolicyStorage, PolicyRecord } from 'src/storage/interfaces/policy-storage.interface';
@@ -6,13 +7,13 @@ import { UserContext } from '../account/auth/decorators/user-context.decorator';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
 import { policyRegistry } from './factory-bridge';
 
-function makeMockStorage(): jest.Mocked<IPolicyStorage> {
+function makeMockStorage(): Mocked<IPolicyStorage> {
   return {
-    savePolicy: jest.fn(),
-    getPolicy: jest.fn(),
-    findById: jest.fn(),
-    listPolicies: jest.fn(),
-    deletePolicy: jest.fn(),
+    savePolicy: vi.fn(),
+    getPolicy: vi.fn(),
+    findById: vi.fn(),
+    listPolicies: vi.fn(),
+    deletePolicy: vi.fn(),
   };
 }
 
@@ -46,7 +47,7 @@ function makeCtx(overrides: Partial<UserContext> = {}): UserContext {
 }
 
 describe('PoliciesService', () => {
-  let storage: jest.Mocked<IPolicyStorage>;
+  let storage: Mocked<IPolicyStorage>;
   let service: PoliciesService;
 
   beforeEach(() => {

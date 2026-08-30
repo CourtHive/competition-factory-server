@@ -4,11 +4,11 @@ import { withTournamentLock } from 'src/services/tournamentMutex';
 import { FactoryService } from './factory.service';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
 
-jest.mock('./helpers/pendingSaves', () => ({
-  insertPendingSave: jest.fn().mockResolvedValue(undefined),
-  getPendingSaveStatus: jest.fn(),
-  getPendingSaveData: jest.fn(),
-  updatePendingSaveStatus: jest.fn(),
+vi.mock('./helpers/pendingSaves', () => ({
+  insertPendingSave: vi.fn().mockResolvedValue(undefined),
+  getPendingSaveStatus: vi.fn(),
+  getPendingSaveData: vi.fn(),
+  updatePendingSaveStatus: vi.fn(),
 }));
 
 const USER = { roles: [SUPER_ADMIN], email: 'sa@test.com', userId: 'u-1' };
@@ -23,7 +23,7 @@ const record = (tournamentId = 't-1') => ({
 function makeService({ onSave }: { onSave?: () => Promise<void> } = {}) {
   const saveOrder: string[] = [];
   const tournamentStorageService: any = {
-    saveTournamentRecords: jest.fn(async () => {
+    saveTournamentRecords: vi.fn(async () => {
       saveOrder.push('save:start');
       if (onSave) await onSave();
       saveOrder.push('save:end');
@@ -31,9 +31,9 @@ function makeService({ onSave }: { onSave?: () => Promise<void> } = {}) {
     }),
   };
 
-  const outbox: any = { isEnabled: true, enqueue: jest.fn().mockResolvedValue(undefined) };
+  const outbox: any = { isEnabled: true, enqueue: vi.fn().mockResolvedValue(undefined) };
   const snapshotProjection = new SnapshotProjectionService(outbox);
-  const enqueueSnapshots = jest
+  const enqueueSnapshots = vi
     .spyOn(snapshotProjection, 'enqueueSnapshots')
     .mockImplementation(async () => {
       saveOrder.push('project');
@@ -43,10 +43,10 @@ function makeService({ onSave }: { onSave?: () => Promise<void> } = {}) {
   const svc = new FactoryService(
     tournamentStorageService,
     snapshotProjection as any,
-    new MutationServicesService(outbox, { record: jest.fn(), isEnabled: false } as any) as any,
+    new MutationServicesService(outbox, { record: vi.fn(), isEnabled: false } as any) as any,
     {
-      getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set()),
-      getAssignedRoles: jest.fn().mockResolvedValue(new Map()),
+      getAssignedTournamentIds: vi.fn().mockResolvedValue(new Set()),
+      getAssignedRoles: vi.fn().mockResolvedValue(new Map()),
     } as any,
     {} as any,
     {} as any,

@@ -16,7 +16,7 @@ function decode(token: string): Record<string, any> {
 describe('SplitTokenSigner', () => {
   afterEach(() => {
     process.env = { ...savedEnv };
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('local mode (HIVEID_BASE_URL unset)', () => {
@@ -44,7 +44,7 @@ describe('SplitTokenSigner', () => {
 
     it('does not call fetch in local mode', async () => {
       const jwt = new JwtService({ secret: 'test-secret', signOptions: { expiresIn: '1d' } });
-      const fetchSpy = jest.spyOn(globalThis, 'fetch' as any);
+      const fetchSpy = vi.spyOn(globalThis, 'fetch' as any);
       await new SplitTokenSigner().mint(jwt, { claims: { sub: 'u' }, audience: 'admin', expiresInSeconds: 60 });
       expect(fetchSpy).not.toHaveBeenCalled();
     });
@@ -58,7 +58,7 @@ describe('SplitTokenSigner', () => {
 
     it('is remote and POSTs the mint request with the service token, returning the IdP token', async () => {
       const jwt = new JwtService({ secret: 'test-secret' });
-      const fetchSpy = jest
+      const fetchSpy = vi
         .spyOn(globalThis, 'fetch' as any)
         .mockResolvedValue({ ok: true, json: async () => ({ token: 'idp.signed.token' }) } as any);
 
@@ -80,7 +80,7 @@ describe('SplitTokenSigner', () => {
 
     it('fails closed when the IdP rejects (non-2xx) — never falls back to a local key', async () => {
       const jwt = new JwtService({ secret: 'test-secret' });
-      jest.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: false, status: 503 } as any);
+      vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: false, status: 503 } as any);
       await expect(
         new SplitTokenSigner().mint(jwt, { claims: { sub: 'u' }, audience: 'score', expiresInSeconds: 60 }),
       ).rejects.toThrow('token signer unavailable');
@@ -88,7 +88,7 @@ describe('SplitTokenSigner', () => {
 
     it('fails closed when the IdP is unreachable', async () => {
       const jwt = new JwtService({ secret: 'test-secret' });
-      jest.spyOn(globalThis, 'fetch' as any).mockRejectedValue(new Error('ECONNREFUSED'));
+      vi.spyOn(globalThis, 'fetch' as any).mockRejectedValue(new Error('ECONNREFUSED'));
       await expect(
         new SplitTokenSigner().mint(jwt, { claims: { sub: 'u' }, audience: 'score', expiresInSeconds: 60 }),
       ).rejects.toThrow('token signer unavailable');
@@ -96,7 +96,7 @@ describe('SplitTokenSigner', () => {
 
     it('fails closed when the IdP returns no token', async () => {
       const jwt = new JwtService({ secret: 'test-secret' });
-      jest.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: true, json: async () => ({}) } as any);
+      vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue({ ok: true, json: async () => ({}) } as any);
       await expect(
         new SplitTokenSigner().mint(jwt, { claims: { sub: 'u' }, audience: 'score', expiresInSeconds: 60 }),
       ).rejects.toThrow('token signer unavailable');

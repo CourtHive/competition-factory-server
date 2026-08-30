@@ -1,4 +1,5 @@
 import { DeclarationsClient } from './declarations-client.service';
+import type { Mock } from 'vitest';
 
 function jsonResponse(body: unknown, ok = true, status = 200): any {
   return { ok, status, json: async () => body };
@@ -6,17 +7,17 @@ function jsonResponse(body: unknown, ok = true, status = 200): any {
 
 describe('DeclarationsClient registrations', () => {
   const OLD_ENV = process.env;
-  let fetchMock: jest.Mock;
+  let fetchMock: Mock;
 
   beforeEach(() => {
     process.env = { ...OLD_ENV, DECLARATIONS_BASE_URL: 'http://declarations.test', DECLARATIONS_SERVICE_TOKEN: 'svc-token', DECLARATIONS_DISABLED: 'false' };
-    fetchMock = jest.fn();
+    fetchMock = vi.fn();
     (globalThis as any).fetch = fetchMock;
   });
 
   afterEach(() => {
     process.env = OLD_ENV;
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('lists registrations for a tournament scoped to its provider, with the service token', async () => {

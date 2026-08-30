@@ -27,7 +27,7 @@
  * added, it must set the variable back to `false` for its own process rather than removing
  * this file.
  *
- * Registered via jest `setupFiles` in package.json (runs once per test file, before the app
+ * Registered via vitest `setupFiles` in vitest.config.mts (runs once per test file, before the app
  * module is imported).
  */
 process.env.DISABLE_HTTP_THROTTLE = 'true';

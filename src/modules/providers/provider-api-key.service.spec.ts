@@ -11,15 +11,15 @@ describe('ProviderApiKeyService', () => {
 
   beforeEach(() => {
     apiKeyStorage = {
-      create: jest.fn(),
-      listByProvider: jest.fn(),
-      revoke: jest.fn(),
+      create: vi.fn(),
+      listByProvider: vi.fn(),
+      revoke: vi.fn(),
     };
     providerStorage = {
-      getProvider: jest.fn(),
+      getProvider: vi.fn(),
     };
     auditService = {
-      recordMutation: jest.fn().mockResolvedValue(undefined),
+      recordMutation: vi.fn().mockResolvedValue(undefined),
     };
     service = new ProviderApiKeyService(apiKeyStorage, providerStorage, auditService);
   });

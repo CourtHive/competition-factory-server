@@ -3,9 +3,9 @@ import { RelayConfig } from '../relay/relay.config';
 
 // Minimal mock of TournamentStorageService
 const mockStorageService = {
-  saveTournamentRecord: jest.fn(),
-  findTournamentRecord: jest.fn(),
-  listTournamentIds: jest.fn(),
+  saveTournamentRecord: vi.fn(),
+  findTournamentRecord: vi.fn(),
+  listTournamentIds: vi.fn(),
 };
 
 // Capture fetch calls
@@ -21,7 +21,7 @@ describe('TournamentSyncService', () => {
     process.env.UPSTREAM_API_KEY = 'test-key-123';
     config = new RelayConfig();
     service = new TournamentSyncService(mockStorageService as any, config);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -40,7 +40,7 @@ describe('TournamentSyncService', () => {
     });
 
     it('lists tournaments from upstream', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ success: true, tournamentIds: ['t1', 't2'] }),
       });
@@ -57,14 +57,14 @@ describe('TournamentSyncService', () => {
     });
 
     it('returns error on upstream HTTP failure', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 });
 
       let result: any = await service.listRemoteTournaments();
       expect(result.error).toContain('503');
     });
 
     it('returns error on network failure', async () => {
-      global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
 
       let result: any = await service.listRemoteTournaments();
       expect(result.error).toContain('ECONNREFUSED');
@@ -88,7 +88,7 @@ describe('TournamentSyncService', () => {
     });
 
     it('pulls and saves a tournament record', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ success: true, tournamentRecord: mockRecord }),
       });
@@ -103,7 +103,7 @@ describe('TournamentSyncService', () => {
     });
 
     it('tracks sync status after successful pull', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ success: true, tournamentRecord: mockRecord }),
       });
@@ -118,7 +118,7 @@ describe('TournamentSyncService', () => {
     });
 
     it('returns error when upstream returns error', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ error: 'Tournament not found' }),
       });
@@ -129,7 +129,7 @@ describe('TournamentSyncService', () => {
     });
 
     it('returns error when local save fails', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ success: true, tournamentRecord: mockRecord }),
       });
@@ -146,7 +146,7 @@ describe('TournamentSyncService', () => {
     });
 
     it('accumulates status across multiple pulls', async () => {
-      global.fetch = jest.fn().mockResolvedValue({
+      global.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () =>
           Promise.resolve({

@@ -5,7 +5,7 @@ function makeRes() {
 }
 
 function makeNext() {
-  return jest.fn();
+  return vi.fn();
 }
 
 describe('ProviderApiKeyMiddleware', () => {
@@ -14,8 +14,8 @@ describe('ProviderApiKeyMiddleware', () => {
 
   beforeEach(() => {
     apiKeyStorage = {
-      findByKeyHash: jest.fn(),
-      updateLastUsed: jest.fn().mockResolvedValue(undefined),
+      findByKeyHash: vi.fn(),
+      updateLastUsed: vi.fn().mockResolvedValue(undefined),
     };
     mw = new ProviderApiKeyMiddleware(apiKeyStorage);
   });

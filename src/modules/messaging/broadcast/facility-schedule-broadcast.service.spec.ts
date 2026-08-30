@@ -2,6 +2,7 @@ import { TournamentBroadcastService } from './tournament-broadcast.service';
 import { ProjectorService } from 'src/modules/projectors/projector.service';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { PublicGateway } from '../public/public.gateway';
+import type { Mock } from 'vitest';
 
 /**
  * facilityScheduleChanged fan-out — the event-driven reserved-cell liveness path.
@@ -15,9 +16,9 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
   const FLAG = 'ENABLE_FACILITY_SCHEDULE_BROADCAST';
   let originalFlag: string | undefined;
 
-  let publicGateway: { broadcastPublicUpdate: jest.Mock; broadcastLiveScore: jest.Mock };
-  let projectorService: { projectMatchUpFinalized: jest.Mock };
-  let storage: { fetchTournamentRecords: jest.Mock };
+  let publicGateway: { broadcastPublicUpdate: Mock; broadcastLiveScore: Mock };
+  let projectorService: { projectMatchUpFinalized: Mock };
+  let storage: { fetchTournamentRecords: Mock };
   let emitCalls: Array<{ room: string; event: string; data: any }>;
   let mockServer: any;
 
@@ -40,19 +41,19 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
   beforeEach(() => {
     originalFlag = process.env[FLAG];
     process.env[FLAG] = 'true';
-    jest.useFakeTimers();
+    vi.useFakeTimers();
 
-    publicGateway = { broadcastPublicUpdate: jest.fn(), broadcastLiveScore: jest.fn() };
-    projectorService = { projectMatchUpFinalized: jest.fn() };
+    publicGateway = { broadcastPublicUpdate: vi.fn(), broadcastLiveScore: vi.fn() };
+    projectorService = { projectMatchUpFinalized: vi.fn() };
     storage = {
-      fetchTournamentRecords: jest.fn(async ({ tournamentId }: any) => ({
+      fetchTournamentRecords: vi.fn(async ({ tournamentId }: any) => ({
         tournamentRecords: { [tournamentId]: records[tournamentId] },
       })),
     };
     emitCalls = [];
     mockServer = {
-      to: jest.fn((room: string) => ({ emit: (event: string, data: any) => emitCalls.push({ room, event, data }) })),
-      in: jest.fn(() => ({ fetchSockets: jest.fn().mockResolvedValue([]) })),
+      to: vi.fn((room: string) => ({ emit: (event: string, data: any) => emitCalls.push({ room, event, data }) })),
+      in: vi.fn(() => ({ fetchSockets: vi.fn().mockResolvedValue([]) })),
     };
 
     for (const key of Object.keys(records)) delete records[key];
@@ -60,8 +61,8 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
     if (originalFlag === undefined) delete process.env[FLAG];
     else process.env[FLAG] = originalFlag;
   });
@@ -77,7 +78,7 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
     await service.broadcastMutation(scheduleMutation());
 
     expect(facilityEmits()).toHaveLength(0); // not until the debounce fires
-    await jest.runOnlyPendingTimersAsync();
+    await vi.runOnlyPendingTimersAsync();
 
     const emits = facilityEmits();
     expect(emits).toHaveLength(1);
@@ -95,7 +96,7 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
       tournamentIds: ['ctx'],
       methods: [{ method: 'setMatchUpStatus', params: { matchUpId: 'm1' } }],
     });
-    await jest.runOnlyPendingTimersAsync();
+    await vi.runOnlyPendingTimersAsync();
 
     expect(facilityEmits()).toHaveLength(0);
     expect(storage.fetchTournamentRecords).not.toHaveBeenCalled();
@@ -106,7 +107,7 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
     await service.broadcastMutation(scheduleMutation());
     await service.broadcastMutation(scheduleMutation());
     await service.broadcastMutation(scheduleMutation());
-    await jest.runOnlyPendingTimersAsync();
+    await vi.runOnlyPendingTimersAsync();
 
     expect(storage.fetchTournamentRecords).toHaveBeenCalledTimes(1);
     expect(facilityEmits()).toHaveLength(1);
@@ -116,9 +117,9 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
     const service = buildService();
     await service.broadcastMutation(scheduleMutation());
 
-    await jest.advanceTimersByTimeAsync(499);
+    await vi.advanceTimersByTimeAsync(499);
     expect(facilityEmits()).toHaveLength(0);
-    await jest.advanceTimersByTimeAsync(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(facilityEmits()).toHaveLength(1);
   });
 
@@ -126,7 +127,7 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
     process.env[FLAG] = 'false';
     const service = buildService(); // reads the flag at construction
     await service.broadcastMutation(scheduleMutation());
-    await jest.runOnlyPendingTimersAsync();
+    await vi.runOnlyPendingTimersAsync();
 
     expect(facilityEmits()).toHaveLength(0);
   });
@@ -141,7 +142,7 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
       tournamentIds: ['ctx', 'gone'],
       methods: [{ method: 'unlinkTournaments', params: {} }],
     });
-    await jest.runOnlyPendingTimersAsync();
+    await vi.runOnlyPendingTimersAsync();
 
     const rooms = facilityEmits().map((e) => e.room).sort();
     expect(rooms).toEqual(['tournament:ctx', 'tournament:gone']);
@@ -151,7 +152,7 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
     records['ctx'] = { tournamentId: 'ctx', linkedTournamentIds: ['ctx'], venues: [{ venueId: 'v1' }] };
     const service = buildService();
     await service.broadcastMutation(scheduleMutation());
-    await jest.runOnlyPendingTimersAsync();
+    await vi.runOnlyPendingTimersAsync();
 
     expect(facilityEmits()).toHaveLength(0);
   });
@@ -162,7 +163,7 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
       tournamentIds: ['ctx'],
       methods: [{ method: 'proAutoSchedule', params: {} }], // schedule-affecting, no venueId
     });
-    await jest.runOnlyPendingTimersAsync();
+    await vi.runOnlyPendingTimersAsync();
 
     const emits = facilityEmits();
     expect(emits).toHaveLength(1);

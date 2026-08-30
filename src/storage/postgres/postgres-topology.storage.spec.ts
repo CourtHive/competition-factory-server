@@ -2,7 +2,7 @@ import { PostgresTopologyStorage } from './postgres-topology.storage';
 import { ITopologyStorage } from '../interfaces/topology-storage.interface';
 
 function makeMockPool() {
-  return { query: jest.fn() };
+  return { query: vi.fn() };
 }
 
 const NOW = new Date('2026-05-01');

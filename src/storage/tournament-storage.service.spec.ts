@@ -37,22 +37,22 @@ describe('TournamentStorageService — delete safeguards', () => {
 
   beforeEach(() => {
     tournamentStorage = {
-      findTournamentRecord: jest.fn(),
-      archiveTournamentRecord: jest.fn().mockResolvedValue({ success: true }),
-      removeTournamentRecords: jest.fn().mockResolvedValue({ success: true, removed: 1 }),
-      saveTournamentRecord: jest.fn().mockResolvedValue({ success: true }),
+      findTournamentRecord: vi.fn(),
+      archiveTournamentRecord: vi.fn().mockResolvedValue({ success: true }),
+      removeTournamentRecords: vi.fn().mockResolvedValue({ success: true, removed: 1 }),
+      saveTournamentRecord: vi.fn().mockResolvedValue({ success: true }),
     };
-    providerStorage = { getProvider: jest.fn().mockResolvedValue({ organisationAbbreviation: 'BOBOCA' }) };
+    providerStorage = { getProvider: vi.fn().mockResolvedValue({ organisationAbbreviation: 'BOBOCA' }) };
     calendarStorage = {
-      getCalendar: jest
+      getCalendar: vi
         .fn()
         .mockResolvedValue({ provider: { organisationAbbreviation: 'BOBOCA' }, tournaments: [{ tournamentId: TID }] }),
-      setCalendar: jest.fn().mockResolvedValue({ success: true }),
-      listCalendars: jest.fn().mockResolvedValue([]),
+      setCalendar: vi.fn().mockResolvedValue({ success: true }),
+      listCalendars: vi.fn().mockResolvedValue([]),
     };
     service = new TournamentStorageService(tournamentStorage, providerStorage, calendarStorage, {
       isEnabled: false,
-      enqueue: jest.fn(),
+      enqueue: vi.fn(),
     } as any);
   });
 
@@ -149,16 +149,16 @@ describe('TournamentStorageService — detach-on-move (save side-effect)', () =>
   let calendarStorage: any;
 
   beforeEach(() => {
-    tournamentStorage = { saveTournamentRecord: jest.fn().mockResolvedValue({ success: true }) };
-    providerStorage = { getProvider: jest.fn().mockResolvedValue({ organisationAbbreviation: 'BOBOCA' }) };
+    tournamentStorage = { saveTournamentRecord: vi.fn().mockResolvedValue({ success: true }) };
+    providerStorage = { getProvider: vi.fn().mockResolvedValue({ organisationAbbreviation: 'BOBOCA' }) };
     calendarStorage = {
-      getCalendar: jest.fn().mockResolvedValue({ provider: { organisationAbbreviation: 'BOBOCA' }, tournaments: [] }),
-      setCalendar: jest.fn().mockResolvedValue({ success: true }),
-      listCalendars: jest.fn().mockResolvedValue([]),
+      getCalendar: vi.fn().mockResolvedValue({ provider: { organisationAbbreviation: 'BOBOCA' }, tournaments: [] }),
+      setCalendar: vi.fn().mockResolvedValue({ success: true }),
+      listCalendars: vi.fn().mockResolvedValue([]),
     };
     service = new TournamentStorageService(tournamentStorage, providerStorage, calendarStorage, {
       isEnabled: false,
-      enqueue: jest.fn(),
+      enqueue: vi.fn(),
     } as any);
   });
 

@@ -9,11 +9,11 @@
  *
  * Setting the global log levels to an empty set suppresses ALL output while
  * leaving `Logger.prototype` methods callable — so the specs that
- * `jest.spyOn(Logger.prototype, …)` still observe their calls; only the write
+ * `vi.spyOn(Logger.prototype, …)` still observe their calls; only the write
  * to stdout/stderr is skipped (isLevelEnabled short-circuits). To see logs
  * while debugging a single spec, comment this file out of `setupFiles`.
  *
- * Registered via jest `setupFiles` in package.json (runs once per test file).
+ * Registered via vitest `setupFiles` in vitest.config.mts (runs once per test file).
  */
 import { Logger } from '@nestjs/common';
 

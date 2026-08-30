@@ -18,13 +18,13 @@ describe('ProviderLifecycleService', () => {
 
   beforeEach(() => {
     mockProviderStorage = {
-      getProvider: jest.fn().mockResolvedValue(providerRow),
+      getProvider: vi.fn().mockResolvedValue(providerRow),
     };
     mockArchiveStorage = {
-      insert: jest.fn().mockResolvedValue({ archiveId: 'arch-123' }),
+      insert: vi.fn().mockResolvedValue({ archiveId: 'arch-123' }),
     };
     mockCleanupService = {
-      getCounts: jest.fn().mockResolvedValue({
+      getCounts: vi.fn().mockResolvedValue({
         tournaments: 5,
         userAssociations: 2,
         provisionerAssociations: 0,
@@ -37,7 +37,7 @@ describe('ProviderLifecycleService', () => {
         policies: 0,
         auditLogRows: 42,
       }),
-      wipe: jest.fn().mockResolvedValue({
+      wipe: vi.fn().mockResolvedValue({
         tournaments: 5,
         userAssociations: 2,
         provisionerAssociations: 0,
@@ -52,7 +52,7 @@ describe('ProviderLifecycleService', () => {
       }),
     };
     mockArchiveService = {
-      writeArchive: jest.fn().mockResolvedValue({
+      writeArchive: vi.fn().mockResolvedValue({
         archivePath: '/tmp/archives/TESTORG-2026-05-22T17-00-00-000Z',
         manifestSha256: 'abc123',
         tournamentCount: 5,

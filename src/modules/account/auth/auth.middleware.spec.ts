@@ -1,11 +1,12 @@
 import { AuthMiddleware } from './auth.middleware';
+import type { Mock } from 'vitest';
 
 // The middleware verifies tokens via the neutral verifyJwt (no longer the MOVE
 // AuthService.decode), so we mock the function. verifyJwtMock stands in for the
 // former AuthService.decode — same behavioral assertions.
-jest.mock('src/common/auth/verifyJwt', () => ({ verifyJwt: jest.fn() }));
+vi.mock('src/common/auth/verifyJwt', () => ({ verifyJwt: vi.fn() }));
 import { verifyJwt } from 'src/common/auth/verifyJwt';
-const verifyJwtMock = verifyJwt as jest.Mock;
+const verifyJwtMock = verifyJwt as Mock;
 
 describe('AuthMiddleware', () => {
   let middleware: AuthMiddleware;
@@ -15,13 +16,13 @@ describe('AuthMiddleware', () => {
   beforeEach(() => {
     verifyJwtMock.mockReset();
     mockUsersService = {
-      findOne: jest.fn(),
+      findOne: vi.fn(),
     };
     mockUserProviderStorage = {
-      findByUserId: jest.fn().mockResolvedValue([]),
+      findByUserId: vi.fn().mockResolvedValue([]),
     };
-    const mockUserProvisionerStorage: any = { findProvisionerIdsByUser: jest.fn().mockResolvedValue([]) };
-    const mockProvisionerProviderStorage: any = { findByProvisioner: jest.fn().mockResolvedValue([]) };
+    const mockUserProvisionerStorage: any = { findProvisionerIdsByUser: vi.fn().mockResolvedValue([]) };
+    const mockProvisionerProviderStorage: any = { findByProvisioner: vi.fn().mockResolvedValue([]) };
     middleware = new AuthMiddleware(
       {} as any, // JwtService — unused; verifyJwt is mocked
       mockUsersService,
@@ -33,7 +34,7 @@ describe('AuthMiddleware', () => {
 
   it('calls next immediately for empty baseUrl', async () => {
     const req: any = { baseUrl: '', headers: {} };
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
     expect(next).toHaveBeenCalled();
     expect(verifyJwtMock).not.toHaveBeenCalled();
@@ -41,7 +42,7 @@ describe('AuthMiddleware', () => {
 
   it('calls next without setting user when no authorization header', async () => {
     const req: any = { baseUrl: '/api', headers: {} };
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
     expect(next).toHaveBeenCalled();
     expect(req.user).toBeUndefined();
@@ -56,7 +57,7 @@ describe('AuthMiddleware', () => {
     ]);
 
     const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer valid.token' } };
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
 
     expect(verifyJwtMock).toHaveBeenCalledWith(expect.anything(), 'valid.token');
@@ -77,7 +78,7 @@ describe('AuthMiddleware', () => {
     mockUserProviderStorage.findByUserId.mockRejectedValue(new Error('requires Postgres'));
 
     const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer valid.token' } };
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
 
     expect(req.userContext).toBeDefined();
@@ -95,7 +96,7 @@ describe('AuthMiddleware', () => {
     ]);
 
     const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer valid.token' } };
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
 
     expect(req.userContext.providerRoles).toEqual({
@@ -124,7 +125,7 @@ describe('AuthMiddleware', () => {
     ]);
 
     const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer valid.token' } };
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
 
     expect(req.userContext.providerRoles).toEqual({ 'prov-home': 'PROVIDER_ADMIN' });
@@ -134,7 +135,7 @@ describe('AuthMiddleware', () => {
     verifyJwtMock.mockRejectedValue(new Error('Invalid token'));
 
     const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer bad.token' } };
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
 
     expect(next).toHaveBeenCalled();
@@ -145,7 +146,7 @@ describe('AuthMiddleware', () => {
     verifyJwtMock.mockResolvedValue({ email: null });
 
     const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer token' } };
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
 
     expect(next).toHaveBeenCalled();
@@ -154,7 +155,7 @@ describe('AuthMiddleware', () => {
 
   it('handles authorization header with no token part', async () => {
     const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer' } };
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
 
     expect(next).toHaveBeenCalled();
@@ -168,7 +169,7 @@ describe('AuthMiddleware', () => {
     mockUsersService.findOne.mockResolvedValue(user);
 
     const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer hiveid.token' } };
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
 
     expect(req.user).toBe(user);
@@ -186,7 +187,7 @@ describe('AuthMiddleware', () => {
     ]);
 
     const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer dual.token' } };
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
 
     expect(req.userContext).toBeDefined();

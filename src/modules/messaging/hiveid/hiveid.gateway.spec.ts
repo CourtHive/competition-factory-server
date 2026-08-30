@@ -57,8 +57,8 @@ describe('HiveIDGateway', () => {
 
   describe('broadcastPersonUpdate', () => {
     it('emits personUpdate to the person room', () => {
-      const emit = jest.fn();
-      const to = jest.fn().mockReturnValue({ emit });
+      const emit = vi.fn();
+      const to = vi.fn().mockReturnValue({ emit });
       (gateway as any).server = { to };
       gateway.broadcastPersonUpdate('p-1', { type: 'refresh' });
       expect(to).toHaveBeenCalledWith('hiveid:person:p-1');
@@ -66,8 +66,8 @@ describe('HiveIDGateway', () => {
     });
 
     it('no-ops on missing personId or payload', () => {
-      const emit = jest.fn();
-      const to = jest.fn().mockReturnValue({ emit });
+      const emit = vi.fn();
+      const to = vi.fn().mockReturnValue({ emit });
       (gateway as any).server = { to };
       gateway.broadcastPersonUpdate('', { type: 'refresh' });
       gateway.broadcastPersonUpdate('p-1', undefined);

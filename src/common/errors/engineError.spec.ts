@@ -53,7 +53,7 @@ describe('checkEngineError', () => {
   });
 
   it('logs the info disambiguator so out-of-range and malformed dates differ in the log', () => {
-    const spy = jest.spyOn(Logger, 'error').mockImplementation(() => undefined);
+    const spy = vi.spyOn(Logger, 'error').mockImplementation(() => undefined);
     const result = {
       success: false,
       error: { message: 'Invalid Date', code: 'ERR_INVALID_DATE' },
@@ -69,7 +69,7 @@ describe('checkEngineError', () => {
   });
 
   it('omits the info segment when the error result carries no info', () => {
-    const spy = jest.spyOn(Logger, 'error').mockImplementation(() => undefined);
+    const spy = vi.spyOn(Logger, 'error').mockImplementation(() => undefined);
     const result = {
       success: false,
       error: { message: 'Invalid Date', code: 'ERR_INVALID_DATE' },

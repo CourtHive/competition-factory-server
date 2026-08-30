@@ -18,8 +18,8 @@ function servicesKeysReadByExecutionQueue(): string[] {
 }
 
 function makeService() {
-  const projectionOutbox: any = { isEnabled: false, enqueue: jest.fn() };
-  const loadProfile: any = { record: jest.fn(), isEnabled: false };
+  const projectionOutbox: any = { isEnabled: false, enqueue: vi.fn() };
+  const loadProfile: any = { record: vi.fn(), isEnabled: false };
   return new MutationServicesService(projectionOutbox, loadProfile);
 }
 
@@ -82,7 +82,7 @@ describe('executionQueue services bag — divergence guard', () => {
     const service = makeService();
 
     const bare = Object.keys(service.build()).sort();
-    const withRequest = Object.keys(service.build({ cacheManager: {}, trackCacheKey: jest.fn() })).sort();
+    const withRequest = Object.keys(service.build({ cacheManager: {}, trackCacheKey: vi.fn() })).sort();
 
     const requestScoped = new Set<string>(REQUEST_SCOPED_SERVICE_KEYS);
     expect(withRequest.filter((k) => !requestScoped.has(k))).toEqual(bare.filter((k) => !requestScoped.has(k)));
