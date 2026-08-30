@@ -1,6 +1,16 @@
 import { queryGovernor } from 'tods-competition-factory';
 import { FactoryService } from './factory.service';
 
+// The factory's published ESM build exposes `queryGovernor` as a module export whose properties
+// are not configurable, so vi.spyOn cannot redefine them — jest's CommonJS exports could, which is
+// why this only shows up post-migration, and only against the PUBLISHED package (a link:../factory
+// override resolves differently and hides it). Re-export a shallow copy so the spy has a mutable
+// target; FactoryService imports the same mocked module, so it calls through that copy.
+vi.mock('tods-competition-factory', async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  return { ...actual, queryGovernor: { ...actual.queryGovernor } };
+});
+
 // Access is mocked so the coordination-view author/view split is deterministic without a real
 // access-scoping env: a tournamentId containing "view" is not authorable.
 vi.mock('./helpers/checkTournamentAccess', () => ({
