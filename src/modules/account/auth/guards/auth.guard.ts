@@ -15,6 +15,15 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // This is a global APP_GUARD, and everything below reads an HTTP request. Under Nest 11
+    // gateway-level guards ran first, so a WebSocket message never reached here; Nest 12 runs
+    // global guards ahead of them, and `switchToHttp().getRequest()` returns undefined for a WS
+    // context — which surfaced as `Cannot read properties of undefined (reading 'authorization')`
+    // and took down executionQueue over the /tmx socket. Socket auth is TmxGateway's SocketGuard;
+    // defer to it. Same shape as HttpThrottlerGuard.
+
+    if (context.getType() !== 'http') return true;
+
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
