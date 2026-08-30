@@ -1,4 +1,19 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "dist", "build", "test", "admin-client", "audit-worker", "e2e", "score-relay", "**/*spec.ts"]
+  // Mirrors tsconfig.json's exclude and adds the build-only entries. The vitest configs
+  // are ESM tooling using import.meta, which "module": "commonjs" cannot represent — they
+  // are excluded in tsconfig.json for the same reason, and both lists must carry them.
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "test",
+    "admin-client",
+    "audit-worker",
+    "e2e",
+    "score-relay",
+    "**/*spec.ts",
+    "vitest.config.mts",
+    "vitest.unit.config.mts"
+  ]
 }
