@@ -10,7 +10,7 @@ import {
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
 import { UserContext } from '../account/auth/decorators/user-context.decorator';
 import { SavePolicyDto } from './dto/save-policy.dto';
-import { policyRegistry } from './factory-bridge';
+import { policyRegistry } from 'tods-competition-factory';
 import { validatePolicyForSave } from './policy-validator';
 
 const PUBLIC_VISIBILITIES: PolicyVisibility[] = ['SHARED_DEMO', 'TEMPLATE_REF'];

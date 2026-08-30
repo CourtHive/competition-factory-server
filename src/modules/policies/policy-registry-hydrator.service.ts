@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 
 import { IPolicyStorage, POLICY_STORAGE } from 'src/storage/interfaces/policy-storage.interface';
-import { policyRegistry } from './factory-bridge';
+import { policyRegistry } from 'tods-competition-factory';
 
 /**
  * Hydrates the embedded factory engine's policyRegistry from the policies

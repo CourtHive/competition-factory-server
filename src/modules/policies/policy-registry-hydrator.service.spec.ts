@@ -1,6 +1,6 @@
 import { PolicyRegistryHydrator } from './policy-registry-hydrator.service';
 import { IPolicyStorage, PolicyRecord } from 'src/storage/interfaces/policy-storage.interface';
-import { policyRegistry } from './factory-bridge';
+import { policyRegistry } from 'tods-competition-factory';
 import type { Mocked } from 'vitest';
 
 function makeMockStorage(policies: PolicyRecord[]): Mocked<IPolicyStorage> {

@@ -5,7 +5,7 @@ import { PoliciesService } from './policies.service';
 import { IPolicyStorage, PolicyRecord } from 'src/storage/interfaces/policy-storage.interface';
 import { UserContext } from '../account/auth/decorators/user-context.decorator';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
-import { policyRegistry } from './factory-bridge';
+import { policyRegistry } from 'tods-competition-factory';
 
 function makeMockStorage(): Mocked<IPolicyStorage> {
   return {
