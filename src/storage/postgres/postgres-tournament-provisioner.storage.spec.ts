@@ -2,7 +2,7 @@ import { PostgresTournamentProvisionerStorage } from './postgres-tournament-prov
 import { ITournamentProvisionerStorage } from '../interfaces/tournament-provisioner-storage.interface';
 
 function makeMockPool() {
-  return { query: jest.fn() };
+  return { query: vi.fn() };
 }
 
 describe('PostgresTournamentProvisionerStorage', () => {

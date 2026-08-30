@@ -1,6 +1,7 @@
 import { Logger, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtService } from '@nestjs/jwt';
+import type { Mock } from 'vitest';
 import bcrypt from 'bcryptjs';
 
 describe('AuthService', () => {
@@ -22,86 +23,86 @@ describe('AuthService', () => {
     jwtService = new JwtService({ secret: 'test-secret' });
 
     mockUsersService = {
-      findOne: jest.fn(),
-      findAll: jest.fn(),
-      create: jest.fn(),
-      remove: jest.fn(),
+      findOne: vi.fn(),
+      findAll: vi.fn(),
+      create: vi.fn(),
+      remove: vi.fn(),
     };
 
     mockEmailService = {
-      sendTemplated: jest.fn().mockResolvedValue({ id: 'msg-123' }),
+      sendTemplated: vi.fn().mockResolvedValue({ id: 'msg-123' }),
     };
 
     mockConfigService = {
-      get: jest.fn().mockReturnValue({ baseUrl: 'https://nest.test.example' }),
+      get: vi.fn().mockReturnValue({ baseUrl: 'https://nest.test.example' }),
     };
 
     mockProviderStorage = {
-      getProvider: jest.fn(),
-      updateLastAccess: jest.fn().mockResolvedValue(undefined),
+      getProvider: vi.fn(),
+      updateLastAccess: vi.fn().mockResolvedValue(undefined),
     };
 
     mockUserStorage = {
-      update: jest.fn(),
-      updateLastAccess: jest.fn().mockResolvedValue(undefined),
-      updateLastSelectedProviderId: jest.fn().mockResolvedValue({ success: true }),
-      completeFirstLogin: jest.fn().mockResolvedValue({ success: true }),
-      findByContactEmail: jest.fn().mockResolvedValue(null),
-      findByUserId: jest.fn().mockResolvedValue(null),
-      setPasswordByUserId: jest.fn().mockResolvedValue({ success: true }),
-      setContactEmail: jest.fn().mockResolvedValue({ success: true }),
-      markEmailVerified: jest.fn().mockResolvedValue({ success: true }),
+      update: vi.fn(),
+      updateLastAccess: vi.fn().mockResolvedValue(undefined),
+      updateLastSelectedProviderId: vi.fn().mockResolvedValue({ success: true }),
+      completeFirstLogin: vi.fn().mockResolvedValue({ success: true }),
+      findByContactEmail: vi.fn().mockResolvedValue(null),
+      findByUserId: vi.fn().mockResolvedValue(null),
+      setPasswordByUserId: vi.fn().mockResolvedValue({ success: true }),
+      setContactEmail: vi.fn().mockResolvedValue({ success: true }),
+      markEmailVerified: vi.fn().mockResolvedValue({ success: true }),
     };
 
     const mockUserProvisionerStorage = {
-      findProvisionerIdsByUser: jest.fn().mockResolvedValue([]),
-      findUsersByProvisioner: jest.fn().mockResolvedValue([]),
-      associate: jest.fn().mockResolvedValue({ success: true }),
-      disassociate: jest.fn().mockResolvedValue({ success: true }),
+      findProvisionerIdsByUser: vi.fn().mockResolvedValue([]),
+      findUsersByProvisioner: vi.fn().mockResolvedValue([]),
+      associate: vi.fn().mockResolvedValue({ success: true }),
+      disassociate: vi.fn().mockResolvedValue({ success: true }),
     };
 
     mockUserProviderStorage = {
-      findByUserId: jest.fn().mockResolvedValue([]),
-      findByUserIdEnriched: jest.fn().mockResolvedValue([]),
-      findByEmail: jest.fn().mockResolvedValue([]),
-      findByProviderId: jest.fn().mockResolvedValue([]),
-      findOne: jest.fn().mockResolvedValue(null),
-      upsert: jest.fn().mockResolvedValue({ success: true }),
-      remove: jest.fn().mockResolvedValue({ success: true }),
+      findByUserId: vi.fn().mockResolvedValue([]),
+      findByUserIdEnriched: vi.fn().mockResolvedValue([]),
+      findByEmail: vi.fn().mockResolvedValue([]),
+      findByProviderId: vi.fn().mockResolvedValue([]),
+      findOne: vi.fn().mockResolvedValue(null),
+      upsert: vi.fn().mockResolvedValue({ success: true }),
+      remove: vi.fn().mockResolvedValue({ success: true }),
     };
 
     mockProvisionerProviderStorage = {
-      findByProvisioner: jest.fn().mockResolvedValue([]),
-      findByProvider: jest.fn().mockResolvedValue([]),
-      getRelationship: jest.fn().mockResolvedValue(null),
-      associate: jest.fn(),
-      updateRelationship: jest.fn(),
-      disassociate: jest.fn(),
+      findByProvisioner: vi.fn().mockResolvedValue([]),
+      findByProvider: vi.fn().mockResolvedValue([]),
+      getRelationship: vi.fn().mockResolvedValue(null),
+      associate: vi.fn(),
+      updateRelationship: vi.fn(),
+      disassociate: vi.fn(),
     };
 
     mockRefreshTokenService = {
-      issue: jest.fn().mockResolvedValue('rtok_test'),
-      rotate: jest.fn(),
-      revoke: jest.fn().mockResolvedValue(undefined),
-      revokeAllForUser: jest.fn().mockResolvedValue(undefined),
+      issue: vi.fn().mockResolvedValue('rtok_test'),
+      rotate: vi.fn(),
+      revoke: vi.fn().mockResolvedValue(undefined),
+      revokeAllForUser: vi.fn().mockResolvedValue(undefined),
     };
 
     mockAuthCodeStorage = {
-      setAccessCode: jest.fn().mockResolvedValue({ success: true }),
-      consumeAccessCode: jest.fn(),
+      setAccessCode: vi.fn().mockResolvedValue({ success: true }),
+      consumeAccessCode: vi.fn(),
     };
 
     mockIdentityService = {
-      setContactEmail: jest.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
-      resendVerification: jest.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
-      adminResendVerification: jest.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
-      verifyEmailToken: jest.fn().mockResolvedValue({ success: true, contactEmail: 'a@b.c' }),
+      setContactEmail: vi.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
+      resendVerification: vi.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
+      adminResendVerification: vi.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
+      verifyEmailToken: vi.fn().mockResolvedValue({ success: true, contactEmail: 'a@b.c' }),
     };
 
     mockAuditService = {
-      recordContactEmailChanged: jest.fn().mockResolvedValue(undefined),
-      recordContactEmailVerified: jest.fn().mockResolvedValue(undefined),
-      recordPasswordReset: jest.fn().mockResolvedValue(undefined),
+      recordContactEmailChanged: vi.fn().mockResolvedValue(undefined),
+      recordContactEmailVerified: vi.fn().mockResolvedValue(undefined),
+      recordPasswordReset: vi.fn().mockResolvedValue(undefined),
     };
 
     authService = new AuthService(
@@ -279,7 +280,7 @@ describe('AuthService', () => {
       mockProviderStorage.getProvider.mockResolvedValue({});
       mockUserStorage.updateLastAccess.mockRejectedValueOnce(new Error('db down'));
       mockProviderStorage.updateLastAccess.mockRejectedValueOnce(new Error('db down'));
-      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+      const warnSpy = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
 
       const result: any = await authService.signIn('fail@test.com', 'pass');
       // both .catch handlers run on the next microtask — flush a few times
@@ -673,7 +674,7 @@ describe('AuthService', () => {
       expect(typeof result.password).toBe('string');
       expect(result.password.length).toBe(12);
       // create() was called with the same password and mustChangePassword=true
-      const createCall = (mockUsersService.create as jest.Mock).mock.calls[0][0];
+      const createCall = (mockUsersService.create as Mock).mock.calls[0][0];
       expect(createCall.password).toBe(result.password);
       expect(createCall.mustChangePassword).toBe(true);
     });
@@ -690,7 +691,7 @@ describe('AuthService', () => {
       );
 
       expect(result.password).toBe('admin-chose-this');
-      const createCall = (mockUsersService.create as jest.Mock).mock.calls[0][0];
+      const createCall = (mockUsersService.create as Mock).mock.calls[0][0];
       expect(createCall.password).toBe('admin-chose-this');
     });
 
@@ -792,7 +793,7 @@ describe('AuthService', () => {
         .mockResolvedValueOnce({ userId: 'u-new', email: 'new@test.com' });
       mockUsersService.create.mockResolvedValue({ email: 'new@test.com' });
       mockEmailService.sendTemplated.mockRejectedValueOnce(new Error('SMTP down'));
-      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+      const warnSpy = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
 
       const result: any = await authService.adminCreateUser(
         { email: 'new@test.com', contactEmail: 'real@example.com', providerId: 'p-1' },
@@ -902,7 +903,7 @@ describe('AuthService', () => {
           data: expect.objectContaining({ firstName: 'Alice' }),
         }),
       );
-      const sendCall = (mockEmailService.sendTemplated as jest.Mock).mock.calls[0][0];
+      const sendCall = (mockEmailService.sendTemplated as Mock).mock.calls[0][0];
       expect(sendCall.data.resetUrl).toMatch(/^https:\/\/nest\.test\.example\/admin\/#\/reset-password\//);
     });
 
@@ -913,7 +914,7 @@ describe('AuthService', () => {
         emailVerifiedAt: '2026-05-22T00:00:00Z',
       });
       mockEmailService.sendTemplated.mockRejectedValueOnce(new Error('SMTP down'));
-      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+      const warnSpy = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
       const result: any = await authService.forgotPassword('alice@example.com');
       expect(result).toEqual({ ok: true });
       expect(warnSpy).toHaveBeenCalled();
@@ -1602,7 +1603,7 @@ describe('AuthService', () => {
         'user@test.com',
         expect.objectContaining({ password: expect.any(String) }),
       );
-      const updateCall = (mockUserStorage.update as jest.Mock).mock.calls[0];
+      const updateCall = (mockUserStorage.update as Mock).mock.calls[0];
       expect(updateCall[1].password).not.toBe(hashed);
     });
   });
@@ -1744,7 +1745,7 @@ describe('AuthService', () => {
     it('still returns { ok: true } when the email send fails (no enumeration leak)', async () => {
       mockUserStorage.findByContactEmail.mockResolvedValue(verifiedUser());
       mockEmailService.sendTemplated.mockRejectedValueOnce(new Error('SMTP down'));
-      const warnSpy = jest.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+      const warnSpy = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
       const result: any = await authService.requestMagicLink('contact@test.com');
       expect(result).toEqual({ ok: true });
       expect(warnSpy).toHaveBeenCalled();

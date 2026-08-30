@@ -20,7 +20,7 @@ export default [
       },
       globals: {
         ...globals.node,
-        ...globals.jest,
+        ...globals.vitest,
         ...globals.es2021,
       },
     },

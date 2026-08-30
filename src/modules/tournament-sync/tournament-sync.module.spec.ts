@@ -25,7 +25,7 @@ import { TournamentSyncModule } from './tournament-sync.module';
 
 const ORIGINAL = { ...process.env };
 
-// `jest.replaceProperty` is not usable here: the module factory reads
+// A scoped env replacement is not usable here: the module factory reads
 // `process.env` during `forRoot()`, and each case needs a different environment
 // established BEFORE that call.
 afterEach(() => {

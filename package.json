@@ -35,11 +35,11 @@
     "lint:fix": "eslint src --fix --cache",
     "lint:report": "eslint src & eslint --cache src -f json > eslint-report.json",
     "boundary:check": "node scripts/check-account-boundary.mjs",
-    "test": "jest",
-    "test:unit": "jest --testPathIgnorePatterns \"/node_modules/\" \"/e2e/\" \"<rootDir>/.claude/\" \"\\\\.e2e\\\\.spec\\\\.ts$\" \"src/modules/factory/factory.controller.spec.ts\" \"src/modules/providers/providers.service.spec.ts\"",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/jest/bin/jest --runInBand",
+    "test": "vitest run",
+    "test:unit": "vitest run --config vitest.unit.config.mts",
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage",
+    "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "check-types": "tsc --noEmit",
     "admin:list": "node src/scripts/admin-user.mjs list",
     "admin:create": "node src/scripts/admin-user.mjs create",
@@ -100,19 +100,18 @@
     "@swc/cli": "0.8.1",
     "@swc/core": "1.16.1",
     "@types/express": "5.0.6",
-    "@types/jest": "30.0.0",
     "@types/node": "25.9.5",
     "@types/pg": "^8.16.0",
     "@types/supertest": "7.2.1",
     "@typescript-eslint/eslint-plugin": "8.68.0",
     "@typescript-eslint/parser": "8.68.0",
+    "@vitest/coverage-v8": "^4.1.11",
     "eslint": "10.9.1",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.6",
     "eslint-plugin-sonarjs": "^4.0.2",
     "globals": "^17.0.0",
     "husky": "^9.0.11",
-    "jest": "30.4.2",
     "lint-staged": "17.3.0",
     "prettier": "3.9.6",
     "rimraf": "^6.0.0",
@@ -121,58 +120,14 @@
     "source-map-support": "0.5.21",
     "storybook": "^10.2.17",
     "supertest": "7.2.2",
-    "ts-jest": "29.4.12",
     "ts-loader": "9.6.2",
-    "ts-node": "10.9.2",
-    "tsconfig-paths": "4.2.0",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "unplugin-swc": "^1.5.11",
+    "vitest": "^4.1.11"
   },
   "lint-staged": {
     "*.{js,ts}": "eslint --cache --fix",
     "*": "prettier --ignore-unknown --write",
     "**/*.ts": "tsc --noEmit"
-  },
-  "jest": {
-    "globalSetup": "./src/tests/config/setup.ts",
-    "globalTeardown": "./src/tests/config/teardown.ts",
-    "moduleDirectories": [
-      "node_modules",
-      "src"
-    ],
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "modulePathIgnorePatterns": [
-      "<rootDir>/.claude/"
-    ],
-    "modulePaths": [
-      "<rootDir>"
-    ],
-    "rootDir": "./",
-    "setupFiles": [
-      "dotenv/config",
-      "./src/tests/config/disable-throttle.ts",
-      "./src/tests/config/silence-logger.ts"
-    ],
-    "setupFilesAfterEnv": [
-      "./src/tests/config/silence-logger-after-env.ts"
-    ],
-    "testPathIgnorePatterns": [
-      "/node_modules/",
-      "/e2e/",
-      "<rootDir>/.claude/"
-    ],
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.ts$": "ts-jest"
-    },
-    "collectCoverageFrom": [
-      "**/*.(t|j)s"
-    ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node",
-    "maxWorkers": 1
   }
 }

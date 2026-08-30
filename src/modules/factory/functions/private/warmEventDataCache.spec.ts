@@ -1,19 +1,20 @@
 import { warmEventDataCache, CACHE_TTL_MS } from './warmEventDataCache';
 import { publicQueries } from 'src/modules/factory/functions/public';
+import type { Mock } from 'vitest';
 
-jest.mock('src/modules/factory/functions/public', () => ({
-  publicQueries: { getEventData: jest.fn() },
+vi.mock('src/modules/factory/functions/public', () => ({
+  publicQueries: { getEventData: vi.fn() },
 }));
 
-const getEventData = publicQueries.getEventData as jest.Mock;
+const getEventData = publicQueries.getEventData as Mock;
 
 describe('warmEventDataCache', () => {
   const storage = {} as any;
-  let cacheManager: { set: jest.Mock };
+  let cacheManager: { set: Mock };
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    cacheManager = { set: jest.fn() };
+    vi.clearAllMocks();
+    cacheManager = { set: vi.fn() };
     getEventData.mockResolvedValue({ success: true, eventData: { eventInfo: {} }, participants: [] });
   });
 
@@ -79,7 +80,7 @@ describe('warmEventDataCache', () => {
   });
 
   it('registers the seeded key when a tracker is supplied, and works without one', async () => {
-    const trackKey = jest.fn();
+    const trackKey = vi.fn();
     await warmEventDataCache({ evictedEventKeys: ['ged|t1|e1'], cacheManager, storage, trackKey });
     expect(trackKey).toHaveBeenCalledWith('ged|t1|e1');
 

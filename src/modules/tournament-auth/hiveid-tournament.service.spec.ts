@@ -13,10 +13,10 @@ describe('HiveIDTournamentService', () => {
 
   beforeEach(() => {
     mockUserStorage = {
-      getPersonLink: jest.fn().mockResolvedValue(null),
+      getPersonLink: vi.fn().mockResolvedValue(null),
     };
     mockTournamentStorageService = {
-      findTournamentRecord: jest.fn().mockResolvedValue({ tournamentRecord: null }),
+      findTournamentRecord: vi.fn().mockResolvedValue({ tournamentRecord: null }),
     };
     mockAuditService = {};
 

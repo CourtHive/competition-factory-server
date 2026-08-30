@@ -1,14 +1,15 @@
 import { PolicyRegistryHydrator } from './policy-registry-hydrator.service';
 import { IPolicyStorage, PolicyRecord } from 'src/storage/interfaces/policy-storage.interface';
 import { policyRegistry } from './factory-bridge';
+import type { Mocked } from 'vitest';
 
-function makeMockStorage(policies: PolicyRecord[]): jest.Mocked<IPolicyStorage> {
+function makeMockStorage(policies: PolicyRecord[]): Mocked<IPolicyStorage> {
   return {
-    savePolicy: jest.fn(),
-    getPolicy: jest.fn(),
-    findById: jest.fn(),
-    listPolicies: jest.fn().mockResolvedValue({ policies }),
-    deletePolicy: jest.fn(),
+    savePolicy: vi.fn(),
+    getPolicy: vi.fn(),
+    findById: vi.fn(),
+    listPolicies: vi.fn().mockResolvedValue({ policies }),
+    deletePolicy: vi.fn(),
   };
 }
 

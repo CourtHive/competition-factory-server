@@ -2,7 +2,7 @@ import { PostgresProvisionerApiKeyStorage } from './postgres-provisioner-api-key
 import { IProvisionerApiKeyStorage } from '../interfaces/provisioner-api-key-storage.interface';
 
 function makeMockPool() {
-  return { query: jest.fn() };
+  return { query: vi.fn() };
 }
 
 describe('PostgresProvisionerApiKeyStorage', () => {

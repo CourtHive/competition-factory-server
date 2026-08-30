@@ -2,6 +2,7 @@ import { TournamentBroadcastService } from '../messaging/broadcast/tournament-br
 import { MutationAuthorizationService } from './mutation-authorization.service';
 import { FactoryController } from './factory.controller';
 import { FactoryService } from './factory.service';
+import type { Mock } from 'vitest';
 
 /**
  * `drawsProfile` on `POST /factory/eventdata` — the thin-eventData tier of the payload decomposition.
@@ -16,8 +17,8 @@ import { FactoryService } from './factory.service';
  */
 
 // These specs cover cache keying, not authorization — an always-allow gate keeps them about one thing.
-const permissiveMutationAuth = () => ({ gate: jest.fn().mockResolvedValue(null) }) as any;
-const stubGrants = () => ({ forCaller: jest.fn().mockResolvedValue([]) }) as any;
+const permissiveMutationAuth = () => ({ gate: vi.fn().mockResolvedValue(null) }) as any;
+const stubGrants = () => ({ forCaller: vi.fn().mockResolvedValue([]) }) as any;
 
 describe('FactoryController — eventdata payload tiers', () => {
   let controller: FactoryController;
@@ -27,20 +28,20 @@ describe('FactoryController — eventdata payload tiers', () => {
   const mockResult = { success: true };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     service = {
-      getDrawData: jest.fn().mockResolvedValue(mockResult),
-      getEventData: jest.fn().mockResolvedValue(mockResult),
-      executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
+      getDrawData: vi.fn().mockResolvedValue(mockResult),
+      getEventData: vi.fn().mockResolvedValue(mockResult),
+      executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
     } as unknown as FactoryService;
     const broadcast = {
-      broadcastMutation: jest.fn(),
-      broadcastPublicNotices: jest.fn(),
+      broadcastMutation: vi.fn(),
+      broadcastPublicNotices: vi.fn(),
     } as unknown as TournamentBroadcastService;
     cache = {
-      get: jest.fn().mockResolvedValue(undefined),
-      set: jest.fn(),
-      del: jest.fn().mockResolvedValue(undefined),
+      get: vi.fn().mockResolvedValue(undefined),
+      set: vi.fn(),
+      del: vi.fn().mockResolvedValue(undefined),
     };
     controller = new FactoryController(
       service,
@@ -75,7 +76,7 @@ describe('FactoryController — eventdata payload tiers', () => {
     await controller.eventData({ tournamentId: 't1', eventId: 'e1', drawsProfile: 'STUBS' } as any);
     await controller.eventData({ tournamentId: 't1', eventId: 'e2' } as any);
 
-    const calls = (service.getEventData as jest.Mock).mock.calls;
+    const calls = (service.getEventData as Mock).mock.calls;
     expect(calls[0][0].drawsProfile).toBe('STUBS');
     // ADDITIVE: a caller that sends nothing must reach the factory with no drawsProfile at all, so
     // the factory's own FULL default applies rather than a value this layer invented.
@@ -123,7 +124,7 @@ describe('FactoryController — eventdata payload tiers', () => {
     expect(setKeys).toContain('gdd|t1|d1');
     expect(setKeys).toContain('gdd|t1|d1|n');
 
-    const calls = (service.getDrawData as jest.Mock).mock.calls;
+    const calls = (service.getDrawData as Mock).mock.calls;
     expect(calls[1][0].hydrateParticipants).toBe(false);
     // ADDITIVE: an omitted flag must not invent a value on the way through.
     expect(Object.keys(calls[0][0])).not.toContain('hydrateParticipants');
@@ -137,7 +138,7 @@ describe('FactoryController — eventdata payload tiers', () => {
     await controller.eventData({ tournamentId: 't1', eventId: 'e1', drawsProfile: 'STUBS' } as any);
     cache.del.mockClear();
 
-    (service.executionQueue as jest.Mock).mockResolvedValueOnce({
+    (service.executionQueue as Mock).mockResolvedValueOnce({
       evictedEventKeys: ['ged|t1|e1', 'ged|t1|e1|s'],
       tournamentIds: ['t1'],
       success: true,
@@ -159,7 +160,7 @@ describe('FactoryController — eventdata payload tiers', () => {
     await controller.eventData({ tournamentId: 't1', eventId: 'e2', drawsProfile: 'STUBS' } as any);
     cache.del.mockClear();
 
-    (service.executionQueue as jest.Mock).mockResolvedValueOnce({
+    (service.executionQueue as Mock).mockResolvedValueOnce({
       evictedEventKeys: ['ged|t1|e1', 'ged|t1|e1|s'],
       tournamentIds: ['t1'],
       success: true,

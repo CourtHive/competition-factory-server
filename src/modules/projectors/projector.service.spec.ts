@@ -1,3 +1,4 @@
+import type { Mock, MockInstance } from 'vitest';
 import { Logger } from '@nestjs/common';
 
 import { ConsumerRegistryService } from './consumer-registry.service';
@@ -6,15 +7,15 @@ import { ProjectorService } from './projector.service';
 describe('ProjectorService', () => {
   let registry: ConsumerRegistryService;
   let projector: ProjectorService;
-  let fetchMock: jest.Mock;
+  let fetchMock: Mock;
 
   // Registry emits consumer-registration lines at log level; these specs
   // assert on dispatch behaviour, not log output, so silence the noise.
-  let logSpy: jest.SpyInstance;
-  let warnSpy: jest.SpyInstance;
+  let logSpy: MockInstance;
+  let warnSpy: MockInstance;
   beforeAll(() => {
-    logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
-    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    logSpy = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });
   afterAll(() => {
     logSpy.mockRestore();
@@ -24,13 +25,13 @@ describe('ProjectorService', () => {
   beforeEach(() => {
     registry = new ConsumerRegistryService();
     projector = new ProjectorService(registry);
-    fetchMock = jest.fn(async () => ({ ok: true, status: 200 }) as any);
+    fetchMock = vi.fn(async () => ({ ok: true, status: 200 }) as any);
     (globalThis as any).fetch = fetchMock;
   });
 
   afterEach(() => {
     delete (globalThis as any).fetch;
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('projectMatchUpFinalized (Phase 3 slice 6 — crowd writes)', () => {

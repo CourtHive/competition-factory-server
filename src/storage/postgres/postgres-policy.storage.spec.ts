@@ -2,7 +2,7 @@ import { PostgresPolicyStorage } from './postgres-policy.storage';
 import { IPolicyStorage } from '../interfaces/policy-storage.interface';
 
 function makeMockPool() {
-  return { query: jest.fn() };
+  return { query: vi.fn() };
 }
 
 function row(overrides: any = {}) {

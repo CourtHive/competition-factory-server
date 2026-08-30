@@ -2,7 +2,7 @@ import { GrantsService } from './grants.service';
 
 function build(rows: any[] | Error) {
   const grantStorage: any = {
-    findForSubject: rows instanceof Error ? jest.fn().mockRejectedValue(rows) : jest.fn().mockResolvedValue(rows),
+    findForSubject: rows instanceof Error ? vi.fn().mockRejectedValue(rows) : vi.fn().mockResolvedValue(rows),
   };
   return { service: new GrantsService(grantStorage, {} as any, {} as any, {} as any), grantStorage };
 }
@@ -54,24 +54,24 @@ const TOURNAMENT_WITH_PROVIDER = {
 
 function buildWritable(overrides: any = {}) {
   const grantStorage: any = {
-    findForSubject: jest.fn().mockResolvedValue([]),
-    findByTournamentId: jest.fn().mockResolvedValue([]),
-    findById: jest.fn().mockResolvedValue(null),
-    create: jest.fn().mockResolvedValue({ grantId: 'g-new' }),
-    revoke: jest.fn().mockResolvedValue({ success: true }),
+    findForSubject: vi.fn().mockResolvedValue([]),
+    findByTournamentId: vi.fn().mockResolvedValue([]),
+    findById: vi.fn().mockResolvedValue(null),
+    create: vi.fn().mockResolvedValue({ grantId: 'g-new' }),
+    revoke: vi.fn().mockResolvedValue({ success: true }),
     ...overrides.grantStorage,
   };
   const userProviderStorage: any = {
-    findOne: jest.fn().mockResolvedValue({ userId: 'u2', providerId: 'P1', providerRole: 'DIRECTOR' }),
-    findByProviderId: jest.fn().mockResolvedValue([{ userId: 'u2', email: 'vol@example.com' }]),
+    findOne: vi.fn().mockResolvedValue({ userId: 'u2', providerId: 'P1', providerRole: 'DIRECTOR' }),
+    findByProviderId: vi.fn().mockResolvedValue([{ userId: 'u2', email: 'vol@example.com' }]),
     ...overrides.userProviderStorage,
   };
   const userStorage: any = {
-    findOne: jest.fn().mockResolvedValue({ userId: 'u2', email: 'vol@example.com' }),
+    findOne: vi.fn().mockResolvedValue({ userId: 'u2', email: 'vol@example.com' }),
     ...overrides.userStorage,
   };
   const tournamentStorageService: any = {
-    fetchTournamentRecords: jest.fn().mockResolvedValue(overrides.records ?? TOURNAMENT_WITH_PROVIDER),
+    fetchTournamentRecords: vi.fn().mockResolvedValue(overrides.records ?? TOURNAMENT_WITH_PROVIDER),
   };
   const service = new GrantsService(grantStorage, userProviderStorage, userStorage, tournamentStorageService);
   return { service, grantStorage, userProviderStorage, userStorage, tournamentStorageService };
@@ -189,7 +189,7 @@ describe('GrantsService.create', () => {
 
   it('refuses a grantee who is not associated with the provider', async () => {
     const { service, grantStorage } = buildWritable({
-      userProviderStorage: { findOne: jest.fn().mockResolvedValue(null) },
+      userProviderStorage: { findOne: vi.fn().mockResolvedValue(null) },
     });
     expect(((await service.create(validGrant, providerAdmin)) as any).error).toMatch(
       /not associated with this provider/,
@@ -198,7 +198,7 @@ describe('GrantsService.create', () => {
   });
 
   it('refuses an unknown grantee', async () => {
-    const { service, grantStorage } = buildWritable({ userStorage: { findOne: jest.fn().mockResolvedValue(null) } });
+    const { service, grantStorage } = buildWritable({ userStorage: { findOne: vi.fn().mockResolvedValue(null) } });
     expect(((await service.create(validGrant, providerAdmin)) as any).error).toBe('User not found');
     expect(grantStorage.create).not.toHaveBeenCalled();
   });
@@ -221,7 +221,7 @@ describe('GrantsService.revoke', () => {
 
   it('revokes when the caller administers the grant own provider', async () => {
     const { service, grantStorage } = buildWritable({
-      grantStorage: { findById: jest.fn().mockResolvedValue(row) },
+      grantStorage: { findById: vi.fn().mockResolvedValue(row) },
     });
     expect(await service.revoke(GRANT_ID, providerAdmin)).toEqual({ success: true });
     expect(grantStorage.revoke).toHaveBeenCalledWith(GRANT_ID);
@@ -231,7 +231,7 @@ describe('GrantsService.revoke', () => {
   // provider does not reach this grant.
   it('refuses an admin of a different provider', async () => {
     const { service, grantStorage } = buildWritable({
-      grantStorage: { findById: jest.fn().mockResolvedValue(row) },
+      grantStorage: { findById: vi.fn().mockResolvedValue(row) },
     });
     expect(((await service.revoke(GRANT_ID, otherProviderAdmin)) as any).error).toMatch(/Insufficient permissions/);
     expect(grantStorage.revoke).not.toHaveBeenCalled();
@@ -266,7 +266,7 @@ describe('GrantsService.listForTournament', () => {
   ];
 
   it('returns the grants with grantee emails and a live flag', async () => {
-    const { service } = buildWritable({ grantStorage: { findByTournamentId: jest.fn().mockResolvedValue(rows) } });
+    const { service } = buildWritable({ grantStorage: { findByTournamentId: vi.fn().mockResolvedValue(rows) } });
     const result: any = await service.listForTournament('t1', providerAdmin);
 
     expect(result.success).toBe(true);

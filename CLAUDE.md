@@ -86,7 +86,10 @@ Client (Socket.IO) -> TmxGateway.messageHandler()
 
 - **Package manager**: pnpm only
 - **Module system**: CommonJS (NestJS convention)
-- **Testing**: Jest with ts-jest transform; specs use `*.spec.ts` suffix
+- **Testing**: Vitest (`vitest.config.mts`), transformed through `unplugin-swc` so Nest
+  decorator metadata survives; specs use `*.spec.ts` suffix. Spec files run serially
+  (`fileParallelism: false`) because the suite shares one Postgres — see
+  `src/tests/config/teardown.ts`.
 - **`noImplicitAny`**: false in tsconfig
 - **`@typescript-eslint/no-explicit-any`**: OFF -- `any` is used extensively
 - **Mutations**: Always use `mutationRequest`/`executionQueue` -- never call factory mutations directly

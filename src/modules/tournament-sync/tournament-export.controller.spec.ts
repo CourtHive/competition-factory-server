@@ -4,8 +4,8 @@ import { TournamentExportController } from './tournament-export.controller';
 import { RelayConfig } from '../relay/relay.config';
 
 const mockStorageService = {
-  findTournamentRecord: jest.fn(),
-  listTournamentIds: jest.fn(),
+  findTournamentRecord: vi.fn(),
+  listTournamentIds: vi.fn(),
 };
 
 describe('TournamentExportController', () => {
@@ -16,7 +16,7 @@ describe('TournamentExportController', () => {
     process.env.UPSTREAM_API_KEY = 'secret-key-abc';
     const config = new RelayConfig();
     controller = new TournamentExportController(mockStorageService as any, config);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {

@@ -1,4 +1,5 @@
 import { sanctioningEngine, tournamentEngine } from 'tods-competition-factory';
+import type { Mock, MockInstance } from 'vitest';
 
 /**
  * The existing-participant stamp rides on factory `addParticipantOtherId`, which is merged
@@ -17,12 +18,17 @@ import {
 
 import { RegistrationsService } from './registrations.service';
 
-jest.mock('../../factory/functions/private/executionQueue', () => ({
-  executionQueue: jest.fn(),
+vi.mock('../../factory/functions/private/executionQueue', () => ({
+  executionQueue: vi.fn(),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { executionQueue: mockExecutionQueue } = require('../../factory/functions/private/executionQueue');
+// vi.mock is hoisted above the imports, so this import receives the mock. jest needed a
+// require() here because its module registry was populated after the import bindings.
+import { executionQueue } from '../../factory/functions/private/executionQueue';
+
+// The import above resolves to the vi.mock factory at runtime; the cast tells the type
+// system that. jest's require() returned `any`, which hid this.
+const mockExecutionQueue = executionQueue as unknown as Mock;
 
 describe('RegistrationsService', () => {
   let service: RegistrationsService;
@@ -36,29 +42,29 @@ describe('RegistrationsService', () => {
   const NOW = new Date('2026-06-01T12:00:00Z');
 
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(NOW);
+    vi.useFakeTimers().setSystemTime(NOW);
     tournamentStorageService = {
-      findTournamentRecord: jest.fn(),
-      saveTournamentRecord: jest.fn().mockResolvedValue({ success: true }),
+      findTournamentRecord: vi.fn(),
+      saveTournamentRecord: vi.fn().mockResolvedValue({ success: true }),
     };
     assignmentsService = {
-      getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set<string>()),
-      getAssignedRoles: jest.fn().mockResolvedValue(new Map<string, string>()),
+      getAssignedTournamentIds: vi.fn().mockResolvedValue(new Set<string>()),
+      getAssignedRoles: vi.fn().mockResolvedValue(new Map<string, string>()),
     };
     auditService = {
-      recordMutation: jest.fn().mockResolvedValue(undefined),
+      recordMutation: vi.fn().mockResolvedValue(undefined),
     };
     declarationsClient = {
-      getRegistration: jest.fn(),
-      listRegistrations: jest.fn().mockResolvedValue([]),
-      getPairStatus: jest.fn().mockResolvedValue(null),
-      transitionRegistration: jest.fn().mockResolvedValue({ status: 'ACCEPTED' }),
+      getRegistration: vi.fn(),
+      listRegistrations: vi.fn().mockResolvedValue([]),
+      getPairStatus: vi.fn().mockResolvedValue(null),
+      transitionRegistration: vi.fn().mockResolvedValue({ status: 'ACCEPTED' }),
     };
     personsClient = {
-      getById: jest.fn().mockResolvedValue(null),
+      getById: vi.fn().mockResolvedValue(null),
     };
     sanctioningClient = {
-      getRecordByTournamentId: jest.fn().mockResolvedValue(null),
+      getRecordByTournamentId: vi.fn().mockResolvedValue(null),
     };
     service = new RegistrationsService(
       tournamentStorageService,
@@ -71,7 +77,7 @@ describe('RegistrationsService', () => {
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   describe('admin surface (Phase 2-B)', () => {
@@ -366,7 +372,7 @@ describe('RegistrationsService', () => {
       });
 
       it('drops + warns on a registered event that resolves to neither eventId nor name', async () => {
-        const warnSpy = jest.spyOn((service as any).logger, 'warn').mockImplementation(() => undefined);
+        const warnSpy = vi.spyOn((service as any).logger, 'warn').mockImplementation(() => undefined);
         declarationsClient.getRegistration.mockResolvedValue(
           declarationsReg({ payload: { eventIds: ['e-1', 'ghost-event'], applicant: { givenName: 'Jane', familyName: 'Doe' } } }),
         );
@@ -391,7 +397,7 @@ describe('RegistrationsService', () => {
         governingBodyId: 'prov-1',
         proposal: { tournamentId: 't-1', events: [{ eventId: 'e-1', eventName: "Men's Singles" }] },
       };
-      let activateSpy: jest.SpyInstance;
+      let activateSpy: MockInstance;
 
       beforeEach(() => {
         declarationsClient.getRegistration.mockResolvedValue({
@@ -404,15 +410,15 @@ describe('RegistrationsService', () => {
           updatedAt: '2026-06-01T00:00:00Z',
         });
         // Keep the sanctioningEngine singleton untouched — only assert it's invoked.
-        activateSpy = jest
+        activateSpy = vi
           .spyOn(sanctioningEngine as any, 'activateFromSanctioning')
           .mockReturnValue({ tournamentRecord: baseTournament });
-        jest.spyOn(sanctioningEngine as any, 'reset').mockImplementation(() => undefined);
-        jest.spyOn(sanctioningEngine as any, 'setState').mockImplementation(() => undefined);
-        jest.spyOn(sanctioningEngine as any, 'setActiveSanctioningId').mockImplementation(() => undefined);
+        vi.spyOn(sanctioningEngine as any, 'reset').mockImplementation(() => undefined);
+        vi.spyOn(sanctioningEngine as any, 'setState').mockImplementation(() => undefined);
+        vi.spyOn(sanctioningEngine as any, 'setActiveSanctioningId').mockImplementation(() => undefined);
       });
 
-      afterEach(() => jest.restoreAllMocks());
+      afterEach(() => vi.restoreAllMocks());
 
       it('skips activation when the tournamentRecord already exists', async () => {
         tournamentStorageService.findTournamentRecord.mockResolvedValue({ tournamentRecord: baseTournament });

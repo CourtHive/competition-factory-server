@@ -13,7 +13,7 @@ import { JwtService } from '@nestjs/jwt';
 import { SplitTokenSigner } from 'src/services/split-token-signer.service';
 import { TrackerTokenService } from './tracker-token.service';
 
-jest.mock('src/common/constants/feature-flags', () => ({
+vi.mock('src/common/constants/feature-flags', () => ({
   isTournamentAccessScopingEnabled: () => true,
 }));
 
@@ -57,12 +57,12 @@ describe('TrackerTokenService', () => {
       signOptions: { expiresIn: '1d' },
     });
     mockTournamentStorage = {
-      fetchTournamentRecords: jest.fn().mockResolvedValue({
+      fetchTournamentRecords: vi.fn().mockResolvedValue({
         tournamentRecords: { [TOURNAMENT_ID]: ownedTournament },
       }),
     };
     mockAuditService = {
-      recordTrackerTokenIssued: jest.fn().mockResolvedValue(undefined),
+      recordTrackerTokenIssued: vi.fn().mockResolvedValue(undefined),
     };
     // HIVEID_BASE_URL unset → SplitTokenSigner mints locally via mockJwtService,
     // so the token shape + assertions below are identical to pre-Increment-4.

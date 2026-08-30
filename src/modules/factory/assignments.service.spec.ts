@@ -26,21 +26,21 @@ describe('AssignmentsService', () => {
 
   beforeEach(() => {
     mockAssignmentStorage = {
-      findByTournamentId: jest.fn().mockResolvedValue([]),
-      findByUserId: jest.fn().mockResolvedValue([]),
-      findOne: jest.fn().mockResolvedValue(null),
-      grant: jest.fn().mockResolvedValue({ success: true }),
-      revoke: jest.fn().mockResolvedValue({ success: true }),
+      findByTournamentId: vi.fn().mockResolvedValue([]),
+      findByUserId: vi.fn().mockResolvedValue([]),
+      findOne: vi.fn().mockResolvedValue(null),
+      grant: vi.fn().mockResolvedValue({ success: true }),
+      revoke: vi.fn().mockResolvedValue({ success: true }),
     };
     mockUserProviderStorage = {
-      findOne: jest.fn().mockResolvedValue({ userId: 'grantee-uuid', providerId: 'prov-1', providerRole: 'DIRECTOR' }),
-      findByProviderId: jest.fn().mockResolvedValue([
+      findOne: vi.fn().mockResolvedValue({ userId: 'grantee-uuid', providerId: 'prov-1', providerRole: 'DIRECTOR' }),
+      findByProviderId: vi.fn().mockResolvedValue([
         { userId: 'admin-uuid', providerId: 'prov-1', providerRole: 'PROVIDER_ADMIN', email: 'admin@test.com' },
         { userId: 'grantee-uuid', providerId: 'prov-1', providerRole: 'DIRECTOR', email: 'grantee@test.com' },
       ]),
     };
     mockUserStorage = {
-      findOne: jest.fn().mockResolvedValue({ userId: 'grantee-uuid', email: 'grantee@test.com' }),
+      findOne: vi.fn().mockResolvedValue({ userId: 'grantee-uuid', email: 'grantee@test.com' }),
     };
     service = new AssignmentsService(mockAssignmentStorage, mockUserProviderStorage, mockUserStorage);
   });

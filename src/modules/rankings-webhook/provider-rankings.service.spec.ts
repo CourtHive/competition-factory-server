@@ -5,27 +5,27 @@ const ABBR = 'PROV';
 
 function build(overrides: { enabled?: boolean } = {}) {
   const webhook: any = {
-    isEnabled: jest.fn().mockReturnValue(overrides.enabled ?? true),
-    publish: jest.fn().mockResolvedValue({ ok: true, responseBody: { awardCount: 12 } }),
-    generateSnapshot: jest.fn().mockResolvedValue({ ok: true, responseBody: { snapshotId: 'snap-x' } }),
-    fetchIngestedTournamentIds: jest.fn().mockResolvedValue([]),
+    isEnabled: vi.fn().mockReturnValue(overrides.enabled ?? true),
+    publish: vi.fn().mockResolvedValue({ ok: true, responseBody: { awardCount: 12 } }),
+    generateSnapshot: vi.fn().mockResolvedValue({ ok: true, responseBody: { snapshotId: 'snap-x' } }),
+    fetchIngestedTournamentIds: vi.fn().mockResolvedValue([]),
   };
   const tournamentStorage: any = {
-    listProviderTournaments: jest.fn().mockResolvedValue([{ tournamentId: 't1' }, { tournamentId: 't2' }]),
-    fetchTournamentRecords: jest.fn().mockImplementation(({ tournamentIds }: any) => {
+    listProviderTournaments: vi.fn().mockResolvedValue([{ tournamentId: 't1' }, { tournamentId: 't2' }]),
+    fetchTournamentRecords: vi.fn().mockImplementation(({ tournamentIds }: any) => {
       const id = tournamentIds[0];
       return Promise.resolve({ tournamentRecords: { [id]: { tournamentId: id } } });
     }),
   };
   const providerStorage: any = {
-    getProvider: jest.fn().mockResolvedValue({ organisationAbbreviation: ABBR }),
+    getProvider: vi.fn().mockResolvedValue({ organisationAbbreviation: ABBR }),
   };
   const service = new ProviderRankingsService(webhook, tournamentStorage, providerStorage);
   return { service, webhook, tournamentStorage, providerStorage };
 }
 
 describe('ProviderRankingsService.recompute', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('is a no-op when the rankings pipeline is not configured', async () => {
     const { service, webhook, tournamentStorage } = build({ enabled: false });
@@ -83,7 +83,7 @@ describe('ProviderRankingsService.recompute', () => {
 });
 
 describe('ProviderRankingsService.runUnprocessed', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('republishes only the tournaments with no current ingestion run', async () => {
     const { service, webhook, tournamentStorage } = build();
@@ -130,7 +130,7 @@ describe('ProviderRankingsService.runUnprocessed', () => {
 });
 
 describe('ProviderRankingsService.rerunFromDate', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('republishes only tournaments ending on/after fromDate (endDate-less always included)', async () => {
     const { service, webhook, tournamentStorage } = build();

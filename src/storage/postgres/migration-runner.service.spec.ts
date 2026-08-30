@@ -1,3 +1,4 @@
+import type { MockInstance } from 'vitest';
 import { MigrationRunnerService } from './migration-runner.service';
 import { Logger } from '@nestjs/common';
 import { readdirSync } from 'fs';
@@ -14,7 +15,7 @@ describe('MigrationRunnerService', () => {
   let service: MigrationRunnerService;
   let mockPool: any;
   let queryResults: any[];
-  let logSpies: jest.SpyInstance[];
+  let logSpies: MockInstance[];
 
   beforeAll(() => {
     // The runner reports progress and failures through a Nest Logger. These tests
@@ -22,7 +23,7 @@ describe('MigrationRunnerService', () => {
     // logger to keep the suite clean — in particular the intentional "Migration
     // failed: … syntax error" the rollback test provokes on purpose.
     logSpies = (['log', 'warn', 'error'] as const).map((method) =>
-      jest.spyOn(Logger.prototype, method).mockImplementation(() => undefined),
+      vi.spyOn(Logger.prototype, method).mockImplementation(() => undefined),
     );
   });
 
@@ -33,13 +34,13 @@ describe('MigrationRunnerService', () => {
   beforeEach(() => {
     queryResults = [];
     mockPool = {
-      query: jest.fn().mockImplementation(() => {
+      query: vi.fn().mockImplementation(() => {
         const result = queryResults.shift() || { rows: [] };
         return Promise.resolve(result);
       }),
-      connect: jest.fn().mockResolvedValue({
-        query: jest.fn().mockResolvedValue({ rows: [] }),
-        release: jest.fn(),
+      connect: vi.fn().mockResolvedValue({
+        query: vi.fn().mockResolvedValue({ rows: [] }),
+        release: vi.fn(),
       }),
     };
   });
@@ -67,11 +68,11 @@ describe('MigrationRunnerService', () => {
     // assert instead that no migration was applied (no BEGIN issued).
     const clientQueries: string[] = [];
     mockPool.connect.mockResolvedValue({
-      query: jest.fn().mockImplementation((sql: string) => {
+      query: vi.fn().mockImplementation((sql: string) => {
         clientQueries.push(sql);
         return Promise.resolve({ rows: [] });
       }),
-      release: jest.fn(),
+      release: vi.fn(),
     });
     queryResults = [
       undefined, // CREATE TABLE
@@ -85,11 +86,11 @@ describe('MigrationRunnerService', () => {
   it('applies pending migrations in order', async () => {
     const appliedSql: string[] = [];
     const mockClient = {
-      query: jest.fn().mockImplementation((sql: string) => {
+      query: vi.fn().mockImplementation((sql: string) => {
         appliedSql.push(sql);
         return Promise.resolve({ rows: [] });
       }),
-      release: jest.fn(),
+      release: vi.fn(),
     };
     mockPool.connect.mockResolvedValue(mockClient);
 
@@ -115,10 +116,10 @@ describe('MigrationRunnerService', () => {
 
   it('rolls back and throws on migration failure', async () => {
     const mockClient = {
-      query: jest.fn()
+      query: vi.fn()
         .mockResolvedValueOnce(undefined) // BEGIN
         .mockRejectedValueOnce(new Error('syntax error')), // SQL content fails
-      release: jest.fn(),
+      release: vi.fn(),
     };
     mockPool.connect.mockResolvedValue(mockClient);
 

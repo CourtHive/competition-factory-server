@@ -18,8 +18,8 @@ describe('PublicGateway', () => {
     });
 
     it('broadcastPublicUpdate emits to room', () => {
-      const emitFn = jest.fn();
-      (gateway as any).server = { to: jest.fn().mockReturnValue({ emit: emitFn }) };
+      const emitFn = vi.fn();
+      (gateway as any).server = { to: vi.fn().mockReturnValue({ emit: emitFn }) };
 
       gateway.broadcastPublicUpdate('t1', { type: 'matchUpUpdate' });
 
@@ -28,8 +28,8 @@ describe('PublicGateway', () => {
     });
 
     it('broadcastPublicUpdate skips when no tournamentId', () => {
-      const emitFn = jest.fn();
-      (gateway as any).server = { to: jest.fn().mockReturnValue({ emit: emitFn }) };
+      const emitFn = vi.fn();
+      (gateway as any).server = { to: vi.fn().mockReturnValue({ emit: emitFn }) };
 
       gateway.broadcastPublicUpdate('', { type: 'matchUpUpdate' });
 
@@ -50,7 +50,7 @@ describe('PublicGateway', () => {
     });
 
     it('logs connection with IP and user-agent', () => {
-      const logSpy = jest.spyOn((gateway as any).logger, 'log');
+      const logSpy = vi.spyOn((gateway as any).logger, 'log');
       const mockClient = {
         id: 'test-socket',
         handshake: {
@@ -73,7 +73,7 @@ describe('PublicGateway', () => {
     });
 
     it('logs disconnect', () => {
-      const logSpy = jest.spyOn((gateway as any).logger, 'log');
+      const logSpy = vi.spyOn((gateway as any).logger, 'log');
       gateway.handleDisconnect({ id: 'test-socket' } as any);
 
       expect(logSpy).toHaveBeenCalledWith(
@@ -82,13 +82,13 @@ describe('PublicGateway', () => {
     });
 
     it('logs join with tournament and room size', async () => {
-      const logSpy = jest.spyOn((gateway as any).logger, 'log');
+      const logSpy = vi.spyOn((gateway as any).logger, 'log');
       const mockClient = {
         id: 'test-socket',
-        join: jest.fn(),
+        join: vi.fn(),
       };
       (gateway as any).server = {
-        in: jest.fn().mockReturnValue({ fetchSockets: jest.fn().mockResolvedValue([{}, {}]) }),
+        in: vi.fn().mockReturnValue({ fetchSockets: vi.fn().mockResolvedValue([{}, {}]) }),
       };
 
       await gateway.joinTournament({ tournamentId: 't1' }, mockClient as any);
@@ -99,9 +99,9 @@ describe('PublicGateway', () => {
     });
 
     it('logs metrics summary', async () => {
-      const logSpy = jest.spyOn((gateway as any).logger, 'log');
+      const logSpy = vi.spyOn((gateway as any).logger, 'log');
       (gateway as any).server = {
-        fetchSockets: jest.fn().mockResolvedValue([
+        fetchSockets: vi.fn().mockResolvedValue([
           { rooms: new Set(['test-socket-id', 'public:tournament:t1']) },
           { rooms: new Set(['other-socket-id', 'public:tournament:t1', 'public:tournament:t2']) },
         ]),

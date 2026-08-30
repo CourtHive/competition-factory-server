@@ -10,7 +10,7 @@ import { IUserStorage } from '../interfaces/user-storage.interface';
 import { PostgresUserStorage } from './postgres-user.storage';
 
 function makeMockPool() {
-  return { query: jest.fn() };
+  return { query: vi.fn() };
 }
 
 describe('PostgresUserStorage — HiveID PR-E additions', () => {

@@ -22,7 +22,7 @@ describe('AuthGuard', () => {
   });
 
   function createMockContext(headers: Record<string, string> = {}, isPublic = false) {
-    const mockReflector = jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(isPublic);
+    const mockReflector = vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(isPublic);
     return {
       context: {
         getHandler: () => ({}),
@@ -61,7 +61,7 @@ describe('AuthGuard', () => {
       headers: { authorization: 'Bearer prov_sk_live_testkey' },
       provisioner: { provisionerId: 'p1', name: 'IONSport' },
     };
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+    vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
 
     const context = {
       getHandler: () => ({}),
@@ -79,7 +79,7 @@ describe('AuthGuard', () => {
     const payload = { email: 'test@test.com', roles: ['admin'] };
     const token = jwtService.sign(payload, { secret: 'test-secret' });
     const request: any = { headers: { authorization: `Bearer ${token}` }, user: undefined };
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+    vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
 
     const context = {
       getHandler: () => ({}),
@@ -98,7 +98,7 @@ describe('AuthGuard', () => {
   describe('audience handling', () => {
     function ctxWithToken(token: string, decoratorReturns: { isPublic?: boolean; audience?: string[] | undefined }) {
       const request: any = { headers: { authorization: `Bearer ${token}` }, user: undefined };
-      jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: any) => {
+      vi.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: any) => {
         if (key === IS_PUBLIC_KEY) return decoratorReturns.isPublic ?? false;
         if (key === AUDIENCE_KEY) return decoratorReturns.audience;
         return undefined;

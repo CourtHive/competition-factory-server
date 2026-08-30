@@ -2,7 +2,7 @@ import { PostgresProvisionerProviderStorage } from './postgres-provisioner-provi
 import { IProvisionerProviderStorage } from '../interfaces/provisioner-provider-storage.interface';
 
 function makeMockPool() {
-  return { query: jest.fn() };
+  return { query: vi.fn() };
 }
 
 describe('PostgresProvisionerProviderStorage', () => {

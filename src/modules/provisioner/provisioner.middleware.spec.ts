@@ -2,28 +2,28 @@ import { ProvisionerMiddleware, hashApiKey } from './provisioner.middleware';
 
 function makeMockApiKeyStorage(result: any = null) {
   return {
-    findByKeyHash: jest.fn().mockResolvedValue(result),
-    updateLastUsed: jest.fn().mockResolvedValue(undefined),
+    findByKeyHash: vi.fn().mockResolvedValue(result),
+    updateLastUsed: vi.fn().mockResolvedValue(undefined),
   };
 }
 
 function makeMockProviderStorage(relationship: 'owner' | 'subsidiary' | null = null) {
   return {
-    getRelationship: jest.fn().mockResolvedValue(relationship),
+    getRelationship: vi.fn().mockResolvedValue(relationship),
   };
 }
 
 function makeMockProvisionerStorage() {
   return {
-    getProvisioner: jest.fn().mockResolvedValue(null),
+    getProvisioner: vi.fn().mockResolvedValue(null),
   };
 }
 
 function makeMockJwtService(verifyResult: any = null) {
   return {
     verifyAsync: verifyResult instanceof Error
-      ? jest.fn().mockRejectedValue(verifyResult)
-      : jest.fn().mockResolvedValue(verifyResult),
+      ? vi.fn().mockRejectedValue(verifyResult)
+      : vi.fn().mockResolvedValue(verifyResult),
   };
 }
 
@@ -59,7 +59,7 @@ describe('ProvisionerMiddleware', () => {
   it('passes through when no authorization header', async () => {
     const middleware = makeMiddleware(makeMockApiKeyStorage(), makeMockProviderStorage());
     const req = makeReq();
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
     expect(next).toHaveBeenCalled();
     expect(req.provisioner).toBeUndefined();
@@ -68,7 +68,7 @@ describe('ProvisionerMiddleware', () => {
   it('passes through for non-provisioner Bearer tokens (JWT)', async () => {
     const middleware = makeMiddleware(makeMockApiKeyStorage(), makeMockProviderStorage());
     const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.test');
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
     expect(next).toHaveBeenCalled();
     expect(req.provisioner).toBeUndefined();
@@ -77,7 +77,7 @@ describe('ProvisionerMiddleware', () => {
   it('passes through when API key not found', async () => {
     const middleware = makeMiddleware(makeMockApiKeyStorage(null), makeMockProviderStorage());
     const req = makeReq('Bearer prov_sk_live_testkey');
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
     expect(next).toHaveBeenCalled();
     expect(req.provisioner).toBeUndefined();
@@ -87,7 +87,7 @@ describe('ProvisionerMiddleware', () => {
     const apiKeyStorage = makeMockApiKeyStorage(VALID_KEY_RESULT);
     const middleware = makeMiddleware(apiKeyStorage, makeMockProviderStorage());
     const req = makeReq('Bearer prov_sk_live_testkey');
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
 
     expect(next).toHaveBeenCalled();
@@ -110,7 +110,7 @@ describe('ProvisionerMiddleware', () => {
     const apiKeyStorage = makeMockApiKeyStorage(VALID_KEY_RESULT);
     const middleware = makeMiddleware(apiKeyStorage, makeMockProviderStorage());
     const req = makeReq('Bearer prov_sk_live_testkey');
-    await middleware.use(req, {}, jest.fn());
+    await middleware.use(req, {}, vi.fn());
     expect(apiKeyStorage.updateLastUsed).toHaveBeenCalledWith('key-1');
   });
 
@@ -119,7 +119,7 @@ describe('ProvisionerMiddleware', () => {
     const providerStorage = makeMockProviderStorage('owner');
     const middleware = makeMiddleware(apiKeyStorage, providerStorage);
     const req = makeReq('Bearer prov_sk_live_testkey', { 'x-provider-id': 'provider-abc' });
-    await middleware.use(req, {}, jest.fn());
+    await middleware.use(req, {}, vi.fn());
 
     expect(req.provisionerRelationship).toBe('owner');
     expect(req.user.roles).toContain('client');
@@ -132,7 +132,7 @@ describe('ProvisionerMiddleware', () => {
     const providerStorage = makeMockProviderStorage('subsidiary');
     const middleware = makeMiddleware(apiKeyStorage, providerStorage);
     const req = makeReq('Bearer prov_sk_live_testkey', { 'x-provider-id': 'provider-abc' });
-    await middleware.use(req, {}, jest.fn());
+    await middleware.use(req, {}, vi.fn());
 
     expect(req.provisionerRelationship).toBe('subsidiary');
     expect(req.userContext).toBeDefined();
@@ -143,7 +143,7 @@ describe('ProvisionerMiddleware', () => {
     const providerStorage = makeMockProviderStorage(null);
     const middleware = makeMiddleware(apiKeyStorage, providerStorage);
     const req = makeReq('Bearer prov_sk_live_testkey', { 'x-provider-id': 'unmanaged' });
-    await middleware.use(req, {}, jest.fn());
+    await middleware.use(req, {}, vi.fn());
 
     expect(req.provisioner).toBeDefined();
     expect(req.provisionerRelationship).toBeUndefined();
@@ -151,10 +151,10 @@ describe('ProvisionerMiddleware', () => {
   });
 
   it('handles apiKeyStorage errors gracefully', async () => {
-    const apiKeyStorage = { findByKeyHash: jest.fn().mockRejectedValue(new Error('db down')), updateLastUsed: jest.fn() };
+    const apiKeyStorage = { findByKeyHash: vi.fn().mockRejectedValue(new Error('db down')), updateLastUsed: vi.fn() };
     const middleware = makeMiddleware(apiKeyStorage, makeMockProviderStorage());
     const req = makeReq('Bearer prov_sk_live_testkey');
-    const next = jest.fn();
+    const next = vi.fn();
     await middleware.use(req, {}, next);
     expect(next).toHaveBeenCalled();
     expect(req.provisioner).toBeUndefined();
@@ -164,7 +164,7 @@ describe('ProvisionerMiddleware', () => {
 describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
   it('attaches provisioner from JWT when user has PROVISIONER role + provisionerIds', async () => {
     const provisionerStorage = {
-      getProvisioner: jest.fn().mockResolvedValue({
+      getProvisioner: vi.fn().mockResolvedValue({
         provisionerId: 'prov-1',
         name: 'IONSport',
         config: { foo: 1 },
@@ -184,7 +184,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       jwtService,
     );
     const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt');
-    await middleware.use(req, {}, jest.fn());
+    await middleware.use(req, {}, vi.fn());
 
     expect(req.provisioner).toMatchObject({
       provisionerId: 'prov-1',
@@ -200,7 +200,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
   });
 
   it('does not attach when JWT user lacks PROVISIONER role', async () => {
-    const provisionerStorage = { getProvisioner: jest.fn() };
+    const provisionerStorage = { getProvisioner: vi.fn() };
     const jwtService = makeMockJwtService({
       userId: 'user-2',
       roles: ['client'],
@@ -213,7 +213,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       jwtService,
     );
     const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt');
-    await middleware.use(req, {}, jest.fn());
+    await middleware.use(req, {}, vi.fn());
 
     expect(req.provisioner).toBeUndefined();
     expect(provisionerStorage.getProvisioner).not.toHaveBeenCalled();
@@ -221,7 +221,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
 
   it('honours X-Provisioner-Id header when user represents multiple', async () => {
     const provisionerStorage = {
-      getProvisioner: jest.fn().mockResolvedValue({
+      getProvisioner: vi.fn().mockResolvedValue({
         provisionerId: 'prov-2',
         name: 'OtherProv',
         config: {},
@@ -240,7 +240,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       jwtService,
     );
     const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt', { 'x-provisioner-id': 'prov-2' });
-    await middleware.use(req, {}, jest.fn());
+    await middleware.use(req, {}, vi.fn());
 
     expect(provisionerStorage.getProvisioner).toHaveBeenCalledWith('prov-2');
     expect(req.provisioner.provisionerId).toBe('prov-2');
@@ -248,7 +248,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
 
   it('does not attach for inactive provisioner', async () => {
     const provisionerStorage = {
-      getProvisioner: jest.fn().mockResolvedValue({
+      getProvisioner: vi.fn().mockResolvedValue({
         provisionerId: 'prov-1',
         name: 'X',
         config: {},
@@ -267,7 +267,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       jwtService,
     );
     const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt');
-    await middleware.use(req, {}, jest.fn());
+    await middleware.use(req, {}, vi.fn());
 
     expect(req.provisioner).toBeUndefined();
   });
@@ -280,7 +280,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
   // impersonation.
   it('synthesizes req.user + req.userContext when X-Provider-Id resolves to a relationship', async () => {
     const provisionerStorage = {
-      getProvisioner: jest.fn().mockResolvedValue({
+      getProvisioner: vi.fn().mockResolvedValue({
         provisionerId: 'prov-1',
         name: 'IONSport',
         config: {},
@@ -301,7 +301,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       jwtService,
     );
     const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt', { 'x-provider-id': 'provider-abc' });
-    await middleware.use(req, {}, jest.fn());
+    await middleware.use(req, {}, vi.fn());
 
     expect(req.provisionerRelationship).toBe('owner');
     // Mirror exactly the API-key path's synthetic identity shape so
@@ -325,7 +325,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
 
   it('does not set req.user / req.userContext when X-Provider-Id is missing on the JWT path', async () => {
     const provisionerStorage = {
-      getProvisioner: jest.fn().mockResolvedValue({
+      getProvisioner: vi.fn().mockResolvedValue({
         provisionerId: 'prov-1',
         name: 'IONSport',
         config: {},
@@ -344,7 +344,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       jwtService,
     );
     const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt');
-    await middleware.use(req, {}, jest.fn());
+    await middleware.use(req, {}, vi.fn());
 
     expect(req.provisioner).toBeDefined();
     expect(req.user).toBeUndefined();
@@ -359,7 +359,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
   // and other providerRoles entries.
   it('merges X-Provider-Id into an existing AuthMiddleware-populated identity without downgrading', async () => {
     const provisionerStorage = {
-      getProvisioner: jest.fn().mockResolvedValue({
+      getProvisioner: vi.fn().mockResolvedValue({
         provisionerId: 'prov-1',
         name: 'IONSport',
         config: {},
@@ -395,7 +395,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       providerIds: ['other-provider'],
       provisionerProviderIds: [],
     };
-    await middleware.use(req, {}, jest.fn());
+    await middleware.use(req, {}, vi.fn());
 
     expect(req.provisionerRelationship).toBe('owner');
     // Real identity preserved — userId/email/roles untouched, providerId attached.
@@ -415,7 +415,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
 
   it('does not downgrade an existing direct provider role when merging', async () => {
     const provisionerStorage = {
-      getProvisioner: jest.fn().mockResolvedValue({
+      getProvisioner: vi.fn().mockResolvedValue({
         provisionerId: 'prov-1',
         name: 'IONSport',
         config: {},
@@ -448,14 +448,14 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       providerIds: ['provider-abc'],
       provisionerProviderIds: [],
     };
-    await middleware.use(req, {}, jest.fn());
+    await middleware.use(req, {}, vi.fn());
 
     expect(req.userContext.providerRoles['provider-abc']).toBe('DIRECTOR');
   });
 
   it('does not set req.user / req.userContext when X-Provider-Id is not in the provisioner relationship', async () => {
     const provisionerStorage = {
-      getProvisioner: jest.fn().mockResolvedValue({
+      getProvisioner: vi.fn().mockResolvedValue({
         provisionerId: 'prov-1',
         name: 'IONSport',
         config: {},
@@ -475,7 +475,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       jwtService,
     );
     const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt', { 'x-provider-id': 'unmanaged' });
-    await middleware.use(req, {}, jest.fn());
+    await middleware.use(req, {}, vi.fn());
 
     expect(req.provisioner).toBeDefined();
     expect(req.provisionerRelationship).toBeUndefined();

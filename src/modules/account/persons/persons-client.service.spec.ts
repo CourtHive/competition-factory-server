@@ -1,7 +1,7 @@
 // Unit tests for PersonsClient — the CFS-side HTTP + SSE wrapper for
 // courthive-persons.
 //
-// All network access is mocked via jest.spyOn(globalThis, 'fetch').
+// All network access is mocked via vi.spyOn(globalThis, 'fetch').
 // Tests cover:
 //   - resolve POSTs the right shape to /persons/resolve
 //   - getById GETs the right URL and handles 404
@@ -15,32 +15,33 @@
 import { IUserStorage } from '../../../storage/interfaces/user-storage.interface';
 import { HiveIDGateway } from '../../messaging/hiveid/hiveid.gateway';
 import { PersonsClient } from './persons-client.service';
+import type { MockInstance, Mocked } from 'vitest';
 
-function makeGateway(): jest.Mocked<HiveIDGateway> {
+function makeGateway(): Mocked<HiveIDGateway> {
   return {
-    broadcastPersonUpdate: jest.fn(),
+    broadcastPersonUpdate: vi.fn(),
   } as any;
 }
 
-function makeStorage(): jest.Mocked<IUserStorage> {
+function makeStorage(): Mocked<IUserStorage> {
   return {
-    findOne: jest.fn(),
-    findByContactEmail: jest.fn(),
-    findByUserId: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    remove: jest.fn(),
-    findAll: jest.fn(),
-    updateLastAccess: jest.fn(),
-    updateLastSelectedProviderId: jest.fn(),
-    completeFirstLogin: jest.fn(),
-    setContactEmail: jest.fn(),
-    markEmailVerified: jest.fn(),
-    setPasswordByUserId: jest.fn(),
-    getContactEmailCoverage: jest.fn(),
-    setPersonLink: jest.fn(),
-    getPersonLink: jest.fn(),
-    rewritePersonId: jest.fn().mockResolvedValue({ rewrittenCount: 1 }),
+    findOne: vi.fn(),
+    findByContactEmail: vi.fn(),
+    findByUserId: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
+    findAll: vi.fn(),
+    updateLastAccess: vi.fn(),
+    updateLastSelectedProviderId: vi.fn(),
+    completeFirstLogin: vi.fn(),
+    setContactEmail: vi.fn(),
+    markEmailVerified: vi.fn(),
+    setPasswordByUserId: vi.fn(),
+    getContactEmailCoverage: vi.fn(),
+    setPersonLink: vi.fn(),
+    getPersonLink: vi.fn(),
+    rewritePersonId: vi.fn().mockResolvedValue({ rewrittenCount: 1 }),
   } as any;
 }
 
@@ -53,17 +54,17 @@ function mockFetchResponse(body: any, ok = true, status = 200): Response {
 }
 
 describe('PersonsClient', () => {
-  let storage: jest.Mocked<IUserStorage>;
-  let gateway: jest.Mocked<HiveIDGateway>;
+  let storage: Mocked<IUserStorage>;
+  let gateway: Mocked<HiveIDGateway>;
   let client: PersonsClient;
-  let fetchSpy: jest.SpyInstance;
+  let fetchSpy: MockInstance;
 
   beforeEach(() => {
     process.env.PERSONS_BASE_URL = 'http://test-persons:3100';
     storage = makeStorage();
     gateway = makeGateway();
     client = new PersonsClient(storage, gateway);
-    fetchSpy = jest.spyOn(globalThis, 'fetch') as any;
+    fetchSpy = vi.spyOn(globalThis, 'fetch') as any;
   });
 
   afterEach(() => {
@@ -319,7 +320,7 @@ describe('PersonsClient', () => {
     it('skips the stream loop when PERSONS_DISABLED=true', () => {
       process.env.PERSONS_DISABLED = 'true';
       const c = new PersonsClient(storage, makeGateway());
-      const spy = jest.spyOn(c, 'runStreamLoop');
+      const spy = vi.spyOn(c, 'runStreamLoop');
       c.onApplicationBootstrap();
       expect(spy).not.toHaveBeenCalled();
     });
@@ -327,7 +328,7 @@ describe('PersonsClient', () => {
     it('skips the stream loop when PERSONS_BASE_URL=disabled (case-insensitive)', () => {
       process.env.PERSONS_BASE_URL = 'DISABLED';
       const c = new PersonsClient(storage, makeGateway());
-      const spy = jest.spyOn(c, 'runStreamLoop');
+      const spy = vi.spyOn(c, 'runStreamLoop');
       c.onApplicationBootstrap();
       expect(spy).not.toHaveBeenCalled();
     });
@@ -335,7 +336,7 @@ describe('PersonsClient', () => {
     it('runs the stream loop normally when neither opt-out is set', () => {
       process.env.PERSONS_BASE_URL = 'http://test-persons:3100';
       const c = new PersonsClient(storage, makeGateway());
-      const spy = jest.spyOn(c, 'runStreamLoop').mockResolvedValue(undefined);
+      const spy = vi.spyOn(c, 'runStreamLoop').mockResolvedValue(undefined);
       c.onApplicationBootstrap();
       expect(spy).toHaveBeenCalledTimes(1);
     });
@@ -345,8 +346,8 @@ describe('PersonsClient', () => {
     it('logs first + milestone failures at warn, suppresses the noisy middle', async () => {
       process.env.PERSONS_BASE_URL = 'http://test-persons:3100';
       const c = new PersonsClient(storage, makeGateway()) as any;
-      const warn = jest.spyOn(c.logger, 'warn').mockImplementation(() => undefined);
-      const debug = jest.spyOn(c.logger, 'debug').mockImplementation(() => undefined);
+      const warn = vi.spyOn(c.logger, 'warn').mockImplementation(() => undefined);
+      const debug = vi.spyOn(c.logger, 'debug').mockImplementation(() => undefined);
 
       // Drive 12 failures by calling the private logger helper directly —
       // exercises the milestone gate without spinning up the actual loop.

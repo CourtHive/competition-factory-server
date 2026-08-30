@@ -1,5 +1,6 @@
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import type { Mock } from 'vitest';
 
 import { IdentityService } from './identity.service';
 
@@ -15,24 +16,24 @@ describe('IdentityService', () => {
     jwtService = new JwtService({ secret: 'test-secret' });
 
     mockUserStorage = {
-      findOne: jest.fn(),
-      findByContactEmail: jest.fn(),
-      findByUserId: jest.fn().mockResolvedValue(null),
-      setContactEmail: jest.fn().mockResolvedValue({ success: true }),
-      markEmailVerified: jest.fn().mockResolvedValue({ success: true }),
-      getContactEmailCoverage: jest.fn().mockResolvedValue({
+      findOne: vi.fn(),
+      findByContactEmail: vi.fn(),
+      findByUserId: vi.fn().mockResolvedValue(null),
+      setContactEmail: vi.fn().mockResolvedValue({ success: true }),
+      markEmailVerified: vi.fn().mockResolvedValue({ success: true }),
+      getContactEmailCoverage: vi.fn().mockResolvedValue({
         total: 0, missing: 0, equalsLogin: 0, verified: 0, unverified: 0,
       }),
     };
     mockEmailService = {
-      sendTemplated: jest.fn().mockResolvedValue({ id: 'msg-123' }),
+      sendTemplated: vi.fn().mockResolvedValue({ id: 'msg-123' }),
     };
     mockConfigService = {
-      get: jest.fn().mockReturnValue({ baseUrl: 'https://nest.test.example' }),
+      get: vi.fn().mockReturnValue({ baseUrl: 'https://nest.test.example' }),
     };
     mockAuditService = {
-      recordContactEmailChanged: jest.fn().mockResolvedValue(undefined),
-      recordContactEmailVerified: jest.fn().mockResolvedValue(undefined),
+      recordContactEmailChanged: vi.fn().mockResolvedValue(undefined),
+      recordContactEmailVerified: vi.fn().mockResolvedValue(undefined),
     };
 
     identityService = new IdentityService(
@@ -74,7 +75,7 @@ describe('IdentityService', () => {
         }),
       );
       // The verify URL embeds the configured base URL.
-      const sendCall = (mockEmailService.sendTemplated as jest.Mock).mock.calls[0][0];
+      const sendCall = (mockEmailService.sendTemplated as Mock).mock.calls[0][0];
       expect(sendCall.data.verifyUrl).toMatch(/^https:\/\/nest\.test\.example\/admin\/#\/verify-email\//);
     });
 

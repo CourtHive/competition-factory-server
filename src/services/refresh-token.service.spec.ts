@@ -18,12 +18,12 @@ describe('RefreshTokenService', () => {
 
   beforeEach(() => {
     storage = {
-      create: jest.fn().mockImplementation(async (input) => ({ tokenId: 't-new', ...input })),
-      findByHash: jest.fn(),
-      revoke: jest.fn().mockResolvedValue(undefined),
-      revokeFamily: jest.fn().mockResolvedValue(undefined),
-      revokeAllForUser: jest.fn().mockResolvedValue(undefined),
-      deleteExpired: jest.fn().mockResolvedValue(0),
+      create: vi.fn().mockImplementation(async (input) => ({ tokenId: 't-new', ...input })),
+      findByHash: vi.fn(),
+      revoke: vi.fn().mockResolvedValue(undefined),
+      revokeFamily: vi.fn().mockResolvedValue(undefined),
+      revokeAllForUser: vi.fn().mockResolvedValue(undefined),
+      deleteExpired: vi.fn().mockResolvedValue(0),
     };
     service = new RefreshTokenService(storage);
   });

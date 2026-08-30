@@ -41,7 +41,7 @@ describe('isTournamentAccessScopingEnabled — fail-closed (A3)', () => {
   // A2: the fall-back must surface, not be silent.
   it('warns exactly once when the variable is unset', () => {
     delete process.env.ENABLE_TOURNAMENT_ACCESS_SCOPING;
-    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     isTournamentAccessScopingEnabled();
     isTournamentAccessScopingEnabled();
     expect(warn).toHaveBeenCalledTimes(1);
@@ -51,7 +51,7 @@ describe('isTournamentAccessScopingEnabled — fail-closed (A3)', () => {
 
   it('does not warn when the variable is set', () => {
     process.env.ENABLE_TOURNAMENT_ACCESS_SCOPING = 'false';
-    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     isTournamentAccessScopingEnabled();
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();

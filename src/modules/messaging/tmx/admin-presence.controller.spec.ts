@@ -3,14 +3,14 @@ import { AdminPresenceController } from './admin-presence.controller';
 describe('AdminPresenceController', () => {
   function build(opts: { rooms: any[]; providers?: Record<string, any> } = { rooms: [] }) {
     const tmxGateway: any = {
-      getActiveRoomPresence: jest.fn().mockResolvedValue(opts.rooms),
+      getActiveRoomPresence: vi.fn().mockResolvedValue(opts.rooms),
     };
     const providerStorage: any = {
-      getProvider: jest.fn(async (id: string) => opts.providers?.[id] ?? null),
-      getProviders: jest.fn(),
-      setProvider: jest.fn(),
-      removeProvider: jest.fn(),
-      updateLastAccess: jest.fn(),
+      getProvider: vi.fn(async (id: string) => opts.providers?.[id] ?? null),
+      getProviders: vi.fn(),
+      setProvider: vi.fn(),
+      removeProvider: vi.fn(),
+      updateLastAccess: vi.fn(),
     };
     const controller = new AdminPresenceController(tmxGateway, providerStorage);
     return { controller, tmxGateway, providerStorage };
@@ -66,8 +66,8 @@ describe('AdminPresenceController', () => {
 
   it('survives provider lookup failures (best-effort enrichment)', async () => {
     const rooms = [{ tournamentId: 't1', count: 1, members: [{ socketId: 'sa', providerId: 'gone' }] }];
-    const tmxGateway: any = { getActiveRoomPresence: jest.fn().mockResolvedValue(rooms) };
-    const providerStorage: any = { getProvider: jest.fn().mockRejectedValue(new Error('db down')) };
+    const tmxGateway: any = { getActiveRoomPresence: vi.fn().mockResolvedValue(rooms) };
+    const providerStorage: any = { getProvider: vi.fn().mockRejectedValue(new Error('db down')) };
     const controller = new AdminPresenceController(tmxGateway, providerStorage);
 
     const result = await controller.list();

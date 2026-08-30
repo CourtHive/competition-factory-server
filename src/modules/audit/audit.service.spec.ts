@@ -1,9 +1,10 @@
+import type { Mock, MockInstance } from 'vitest';
 import { Logger } from '@nestjs/common';
 import { executionQueue } from '../factory/functions/private/executionQueue';
 import { AuditService } from './audit.service';
 
-jest.mock('../factory/functions/private/executionQueue', () => ({
-  executionQueue: jest.fn(),
+vi.mock('../factory/functions/private/executionQueue', () => ({
+  executionQueue: vi.fn(),
 }));
 
 describe('AuditService', () => {
@@ -12,18 +13,18 @@ describe('AuditService', () => {
 
   beforeEach(() => {
     mockStorage = {
-      append: jest.fn().mockResolvedValue(undefined),
-      findById: jest.fn().mockResolvedValue(null),
-      findByTournamentId: jest.fn().mockResolvedValue([]),
-      findByActionType: jest.fn().mockResolvedValue([]),
-      findByActor: jest.fn().mockResolvedValue([]),
-      prune: jest.fn().mockResolvedValue(0),
-      incrementFailureCount: jest.fn().mockResolvedValue(undefined),
-      clearFailureCount: jest.fn().mockResolvedValue(undefined),
-      loadFailureCounts: jest.fn().mockResolvedValue([]),
+      append: vi.fn().mockResolvedValue(undefined),
+      findById: vi.fn().mockResolvedValue(null),
+      findByTournamentId: vi.fn().mockResolvedValue([]),
+      findByActionType: vi.fn().mockResolvedValue([]),
+      findByActor: vi.fn().mockResolvedValue([]),
+      prune: vi.fn().mockResolvedValue(0),
+      incrementFailureCount: vi.fn().mockResolvedValue(undefined),
+      clearFailureCount: vi.fn().mockResolvedValue(undefined),
+      loadFailureCounts: vi.fn().mockResolvedValue([]),
     };
     service = new AuditService(mockStorage);
-    (executionQueue as jest.Mock).mockReset();
+    (executionQueue as Mock).mockReset();
   });
 
   describe('recordMutation', () => {
@@ -365,7 +366,7 @@ describe('AuditService', () => {
   });
 
   describe('restoreDraw', () => {
-    const mockStorageSvc: any = { fetchTournamentRecords: jest.fn(), saveTournamentRecords: jest.fn() };
+    const mockStorageSvc: any = { fetchTournamentRecords: vi.fn(), saveTournamentRecords: vi.fn() };
     const deletedRow = {
       auditId: 'audit-1',
       tournamentId: 't-1',
@@ -439,14 +440,14 @@ describe('AuditService', () => {
 
     it('runs executionQueue with addDrawDefinition and appends RESTORE_DRAW on success', async () => {
       mockStorage.findById.mockResolvedValue(deletedRow);
-      (executionQueue as jest.Mock).mockResolvedValue({ success: true });
+      (executionQueue as Mock).mockResolvedValue({ success: true });
 
       const result = await service.restoreDraw({ auditId: 'audit-1', userId: 'u-1', userEmail: 'u@test.com' });
       expect(result.success).toBe(true);
       expect(result.drawId).toBe('d-1');
       expect(result.eventId).toBe('e-1');
 
-      const call = (executionQueue as jest.Mock).mock.calls[0];
+      const call = (executionQueue as Mock).mock.calls[0];
       expect(call[0].tournamentIds).toEqual(['t-1']);
       expect(call[0].methods[0].method).toBe('addDrawDefinition');
       expect(call[0].methods[0].params.eventId).toBe('e-1');
@@ -462,7 +463,7 @@ describe('AuditService', () => {
 
     it('returns the factory error and skips the RESTORE_DRAW row when executionQueue fails', async () => {
       mockStorage.findById.mockResolvedValue(deletedRow);
-      (executionQueue as jest.Mock).mockResolvedValue({ error: 'DRAW_ID_EXISTS' });
+      (executionQueue as Mock).mockResolvedValue({ error: 'DRAW_ID_EXISTS' });
 
       const result = await service.restoreDraw({ auditId: 'audit-1' });
       expect(result.error).toBe('DRAW_ID_EXISTS');
@@ -532,17 +533,17 @@ describe('AuditService', () => {
   });
 
   describe('failure throttling + recovery logging', () => {
-    let errorSpy: jest.SpyInstance;
-    let warnSpy: jest.SpyInstance;
-    let debugSpy: jest.SpyInstance;
+    let errorSpy: MockInstance;
+    let warnSpy: MockInstance;
+    let debugSpy: MockInstance;
 
     beforeEach(() => {
       // Spy on the Logger prototype so the AuditService instance's
       // logger (constructed in the outer describe's beforeEach) routes
       // calls through these mocks.
-      errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-      warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-      debugSpy = jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+      errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      debugSpy = vi.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
     });
 
     afterEach(() => {
@@ -551,7 +552,7 @@ describe('AuditService', () => {
       debugSpy.mockRestore();
     });
 
-    function failureMessages(spy: jest.SpyInstance): string[] {
+    function failureMessages(spy: MockInstance): string[] {
       return spy.mock.calls
         .map((c) => c[0])
         .filter((m): m is string => typeof m === 'string' && m.includes('Failed to record MUTATION audit'));
@@ -633,8 +634,8 @@ describe('AuditService', () => {
       // Cause MUTATION to fail one more time — the count should advance
       // to 8 (continuing from the hydrated 7), not restart at 1.
       mockStorage.append.mockRejectedValueOnce(new Error('still down'));
-      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-      const debugSpy = jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+      const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      const debugSpy = vi.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
       try {
         await service.recordMutation({ tournamentIds: ['t-1'], methods: [], status: 'applied' });
         const failureLines = [...errorSpy.mock.calls, ...debugSpy.mock.calls]

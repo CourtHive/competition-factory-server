@@ -34,7 +34,7 @@ function record(overrides: Record<string, any> = {}) {
  */
 function storageWith({ cityState, sex }: { cityState?: boolean; sex?: boolean }): any {
   return {
-    getProvider: jest.fn().mockResolvedValue({
+    getProvider: vi.fn().mockResolvedValue({
       providerConfigCaps: { participantPrivacy: { sex } },
       providerConfigSettings: { participantPrivacy: { cityState } },
     }),
@@ -61,7 +61,7 @@ describe('resolvePublicParticipantPolicy', () => {
     // falsification probe that widened `addresses` on failure passed it — a
     // fail-open bug slipping through the test named for catching it. An
     // exact-match is the only assertion that covers every attribute at once.
-    const providerStorage: any = { getProvider: jest.fn().mockRejectedValue(new Error('db down')) };
+    const providerStorage: any = { getProvider: vi.fn().mockRejectedValue(new Error('db down')) };
     const policy = await resolvePublicParticipantPolicy({ tournamentRecord: record(), providerStorage });
     expect(policy).toEqual(publicParticipantPrivacyPolicy());
   });
@@ -88,7 +88,7 @@ describe('resolvePublicParticipantPolicy', () => {
   it('does NOT open a settings-tier toggle declared on caps, or vice versa', async () => {
     // The tiers are not interchangeable, and a mis-tiered toggle fails CLOSED.
     const capsOnlyCityState: any = {
-      getProvider: jest.fn().mockResolvedValue({
+      getProvider: vi.fn().mockResolvedValue({
         providerConfigCaps: { participantPrivacy: { cityState: true } },
         providerConfigSettings: {},
       }),

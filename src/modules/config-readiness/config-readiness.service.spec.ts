@@ -1,25 +1,27 @@
+import type { MockInstance } from 'vitest';
 import { Logger } from '@nestjs/common';
 
 import { ConfigReadinessService } from './config-readiness.service';
 
 // F2 (architectural-standards.md A6): the previous wipe-and-restore-on-
 // `beforeEach` shape works only if no test throws between the mutation
-// and the next beforeEach. `jest.replaceProperty` is restored at the
-// end of each test by Jest itself — robust even if the test body
-// throws unhandled.
+// and the next beforeEach. Vitest has no `replaceProperty`, so the restore
+// is an explicit afterEach — which runs even when the test body throws
+// unhandled, preserving the property that motivated F2.
 
 describe('ConfigReadinessService', () => {
   let service: ConfigReadinessService;
   const baselineEnv = { ...process.env };
+  const realEnv = process.env;
 
   // The service emits its delineated readiness block at log/warn on every
   // run; these specs assert on the returned report, not the log output, so
   // silence the chatty levels to keep the Jest summary readable.
-  let logSpy: jest.SpyInstance;
-  let warnSpy: jest.SpyInstance;
+  let logSpy: MockInstance;
+  let warnSpy: MockInstance;
   beforeAll(() => {
-    logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
-    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    logSpy = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });
   afterAll(() => {
     logSpy.mockRestore();
@@ -31,7 +33,11 @@ describe('ConfigReadinessService', () => {
     // Replace the whole process.env with a fresh copy of the captured
     // baseline. Per-test mutations land on this replacement and are
     // discarded at test teardown.
-    jest.replaceProperty(process, 'env', { ...baselineEnv });
+    process.env = { ...baselineEnv };
+  });
+
+  afterEach(() => {
+    process.env = realEnv;
   });
 
   function get(name: string, report = service.runAndLog('manual')): ReturnType<ConfigReadinessService['runAndLog']>['checks'][number] {

@@ -1,15 +1,21 @@
 import { getServerProfile, isModuleEnabled } from './server-profile';
 
-// Per architectural-standards.md A6: prefer `jest.replaceProperty` over
-// manual snapshot+restore — auto-restored on test teardown even if the
-// test body throws.
+// Per architectural-standards.md A6, the point is auto-restore on teardown even
+// when the test body throws. Vitest has no `replaceProperty`, and `restoreMocks`
+// cannot stand in for it — this suite has spies that must survive across tests
+// within a describe. An explicit afterEach keeps the same guarantee.
 
 describe('server-profile', () => {
+  const realEnv = process.env;
+  afterEach(() => {
+    process.env = realEnv;
+  });
+
   function withServerProfile(value: string | undefined): void {
     const next = { ...process.env };
     if (value === undefined) delete next.SERVER_PROFILE;
     else next.SERVER_PROFILE = value;
-    jest.replaceProperty(process, 'env', next);
+    process.env = next;
   }
 
   describe('getServerProfile', () => {

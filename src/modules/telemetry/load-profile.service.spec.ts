@@ -1,7 +1,7 @@
 import { LoadProfileService } from './load-profile.service';
 
 function makeMockPool() {
-  return { query: jest.fn().mockResolvedValue({ rowCount: 1 }) };
+  return { query: vi.fn().mockResolvedValue({ rowCount: 1 }) };
 }
 
 function makeService(pool: any, env: Record<string, string> = {}) {
@@ -28,11 +28,11 @@ describe('LoadProfileService', () => {
 
   beforeEach(() => {
     pool = makeMockPool();
-    jest.useFakeTimers().setSystemTime(new Date('2026-12-08T14:30:00Z'));
+    vi.useFakeTimers().setSystemTime(new Date('2026-12-08T14:30:00Z'));
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   describe('when disabled', () => {
@@ -123,7 +123,7 @@ describe('LoadProfileService', () => {
     it('restores the window and counts the failure without throwing', async () => {
       pool.query.mockRejectedValue(new Error('connection terminated'));
       const service = makeService(pool);
-      const errorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+      const errorSpy = vi.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
 
       service.record(sample());
       await expect(service.flush()).resolves.toBeUndefined();
@@ -137,7 +137,7 @@ describe('LoadProfileService', () => {
     it('merges restored buckets with samples recorded during the failed flush', async () => {
       pool.query.mockRejectedValueOnce(new Error('down'));
       const service = makeService(pool);
-      jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+      vi.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
 
       service.record(sample({ elapsedMs: 10 }));
       await service.flush();
@@ -154,8 +154,8 @@ describe('LoadProfileService', () => {
     it('emits a recovery WARN on the first successful flush after failures', async () => {
       pool.query.mockRejectedValueOnce(new Error('down'));
       const service = makeService(pool);
-      jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
-      const warnSpy = jest.spyOn((service as any).logger, 'warn').mockImplementation(() => undefined);
+      vi.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+      const warnSpy = vi.spyOn((service as any).logger, 'warn').mockImplementation(() => undefined);
 
       service.record(sample());
       await service.flush();
@@ -171,7 +171,7 @@ describe('LoadProfileService', () => {
     it('bounds the buffer so a persistently stuck flush cannot exhaust the heap', async () => {
       pool.query.mockRejectedValue(new Error('down'));
       const service = makeService(pool);
-      jest.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
+      vi.spyOn((service as any).logger, 'error').mockImplementation(() => undefined);
 
       const max = service.getStatus().maxBufferedBuckets;
       for (let i = 0; i < max + 10; i++) {

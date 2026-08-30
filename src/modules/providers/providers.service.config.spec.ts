@@ -9,26 +9,27 @@
  */
 
 import { ProvidersService } from './providers.service';
+import type { Mock } from 'vitest';
 
 interface MockProviderStorage {
-  getProvider: jest.Mock;
-  updateProviderSettings: jest.Mock;
+  getProvider: Mock;
+  updateProviderSettings: Mock;
 }
 
 interface MockTournamentProvisionerStorage {
-  getByTournament: jest.Mock;
+  getByTournament: Mock;
 }
 
 function makeProviderStorage(provider: any | null = null): MockProviderStorage {
   return {
-    getProvider: jest.fn().mockResolvedValue(provider),
-    updateProviderSettings: jest.fn().mockResolvedValue({ success: true }),
+    getProvider: vi.fn().mockResolvedValue(provider),
+    updateProviderSettings: vi.fn().mockResolvedValue({ success: true }),
   };
 }
 
 function makeTournamentProvisionerStorage(row: any | null = null): MockTournamentProvisionerStorage {
   return {
-    getByTournament: jest.fn().mockResolvedValue(row),
+    getByTournament: vi.fn().mockResolvedValue(row),
   };
 }
 
