@@ -165,15 +165,22 @@ export class ConfigReadinessService implements OnApplicationBootstrap {
   }
 
   private checkNodeVersion(): ReadinessCheck {
-    const major = parseInt(process.version.replace(/^v/, '').split('.')[0], 10);
-    if (major >= 22) {
+    // 22.12 rather than 22: NestJS 12 is ESM-only and this server is CommonJS, so it loads
+    // Nest through `require(esm)`, which is unflagged only from 22.12.0. Measured: 22.0 and
+    // 22.11 fail every Nest import with ERR_REQUIRE_ESM; 22.12, 24 and 26 load cleanly. A
+    // major-only check would call a server that cannot boot at all "ok".
+    const [major, minor] = process.version
+      .replace(/^v/, '')
+      .split('.')
+      .map((part) => parseInt(part, 10));
+    if (major > 22 || (major === 22 && minor >= 12)) {
       return { name: 'node-version', level: 'INFO', status: 'ok', detail: process.version };
     }
     return {
       name: 'node-version',
       level: 'WARN',
       status: 'warn',
-      detail: `${process.version} is below the documented minimum (node >= 22)`,
+      detail: `${process.version} is below the documented minimum (node >= 22.12, required by NestJS 12's ESM-only packaging)`,
     };
   }
 

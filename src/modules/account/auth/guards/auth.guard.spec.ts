@@ -25,6 +25,7 @@ describe('AuthGuard', () => {
     const mockReflector = vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(isPublic);
     return {
       context: {
+        getType: () => 'http',
         getHandler: () => ({}),
         getClass: () => ({}),
         switchToHttp: () => ({
@@ -34,6 +35,25 @@ describe('AuthGuard', () => {
       mockReflector,
     };
   }
+
+  it('defers to the gateway guard on a websocket context, without reading an HTTP request', async () => {
+    // Nest 12 runs global guards ahead of gateway-level ones, so this guard now sees WS
+    // contexts. switchToHttp().getRequest() is undefined there; reaching it threw and broke
+    // executionQueue over the /tmx socket. TmxGateway's SocketGuard owns socket auth.
+    let switchToHttpCalled = false;
+    const wsContext: any = {
+      getType: () => 'ws',
+      getHandler: () => ({}),
+      getClass: () => ({}),
+      switchToHttp: () => {
+        switchToHttpCalled = true;
+        return { getRequest: () => undefined };
+      },
+    };
+
+    await expect(guard.canActivate(wsContext)).resolves.toBe(true);
+    expect(switchToHttpCalled).toBe(false);
+  });
 
   it('allows access for @Public() routes', async () => {
     const { context } = createMockContext({}, true);
@@ -64,6 +84,7 @@ describe('AuthGuard', () => {
     vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
 
     const context = {
+      getType: () => 'http',
       getHandler: () => ({}),
       getClass: () => ({}),
       switchToHttp: () => ({
@@ -82,6 +103,7 @@ describe('AuthGuard', () => {
     vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
 
     const context = {
+      getType: () => 'http',
       getHandler: () => ({}),
       getClass: () => ({}),
       switchToHttp: () => ({
@@ -106,6 +128,7 @@ describe('AuthGuard', () => {
       return {
         request,
         context: {
+          getType: () => 'http',
           getHandler: () => ({}),
           getClass: () => ({}),
           switchToHttp: () => ({ getRequest: () => request }),
