@@ -1,4 +1,5 @@
 import { scopeCalendarForUser } from 'src/modules/factory/helpers/checkTournamentAccess';
+import { publicCalendar } from './helpers/publicCalendarEntry';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { computeEffectiveConfig, DEFAULT_SCORING_LAUNCH, validateSettings } from '@courthive/provider-config';
@@ -29,10 +30,16 @@ export class ProvidersService {
     private readonly tournamentStorageService: TournamentStorageService,
   ) {}
 
+  /**
+   * UNAUTHENTICATED (`@Public()`). The stored calendar is not a public shape — it is
+   * written on every save with no publish gating, and each entry carries the full
+   * `getTournamentInfo` projection plus a `createdByUserId` UUID. Project it through
+   * the allow-list before it leaves the process; see `publicCalendarEntry.ts`.
+   */
   async getCalendar({ providerAbbr }) {
     const calendar = await this.calendarStorage.getCalendar(providerAbbr);
     if (!calendar) return { success: false, message: 'No calendar found' };
-    return { ...SUCCESS, calendar };
+    return { ...SUCCESS, calendar: publicCalendar(calendar) };
   }
 
   /**
