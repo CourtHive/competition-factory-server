@@ -9,6 +9,7 @@ import { publicCalendar, publicCalendarEntry } from './publicCalendarEntry';
  * the unauthenticated `POST /provider/calendar` before 2026-08-29.
  */
 const storedEntry = () => ({
+  published: true,
   searchText: 'battle of boca',
   tournamentId: 'tid-1',
   providerId: 'prov-1',
@@ -86,6 +87,47 @@ describe('publicCalendarEntry', () => {
   });
 });
 
+describe('publicCalendar — publish filter', () => {
+  it('lists a published tournament', () => {
+    const result = publicCalendar({ provider: {}, tournaments: [storedEntry()] });
+    expect(result.tournaments).toHaveLength(1);
+  });
+
+  it('withholds an explicitly unpublished tournament', () => {
+    const entry = { ...storedEntry(), published: false };
+    expect(publicCalendar({ provider: {}, tournaments: [entry] }).tournaments).toHaveLength(0);
+  });
+
+  // Fail-CLOSED. An entry written before the flag existed carries no `published`, and
+  // treating absent as published is the fail-open shape that caused the original defect.
+  // The cost is that pre-existing calendars list nothing until the backfill runs — which
+  // is why scripts/backfill-calendar-published.mjs is a deploy step.
+  it('withholds an entry with NO published flag at all', () => {
+    const entry: any = storedEntry();
+    delete entry.published;
+    expect(publicCalendar({ provider: {}, tournaments: [entry] }).tournaments).toHaveLength(0);
+  });
+
+  it('withholds truthy-but-not-true values', () => {
+    for (const value of ['true', 1, {}] as any[]) {
+      const entry = { ...storedEntry(), published: value };
+      expect(publicCalendar({ provider: {}, tournaments: [entry] }).tournaments).toHaveLength(0);
+    }
+  });
+
+  it('filters a mixed calendar to the published subset', () => {
+    const result = publicCalendar({
+      provider: {},
+      tournaments: [
+        { ...storedEntry(), tournamentId: 'pub-1' },
+        { ...storedEntry(), tournamentId: 'draft-1', published: false },
+        { ...storedEntry(), tournamentId: 'pub-2' },
+      ],
+    });
+    expect(result.tournaments.map((t: any) => t.tournamentId)).toEqual(['pub-1', 'pub-2']);
+  });
+});
+
 describe('publicCalendar', () => {
   it('reduces the provider record to public identity only', () => {
     const result = publicCalendar({
@@ -108,7 +150,7 @@ describe('publicCalendar', () => {
     expect(result.provider).not.toHaveProperty('internalNotes');
   });
 
-  it('projects every tournament, not just the first', () => {
+  it('projects every published tournament, not just the first', () => {
     const result = publicCalendar({ provider: {}, tournaments: [storedEntry(), storedEntry()] });
     expect(result.tournaments).toHaveLength(2);
     for (const entry of result.tournaments) {

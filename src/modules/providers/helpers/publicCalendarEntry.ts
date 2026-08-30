@@ -68,14 +68,43 @@ export function publicCalendarEntry(entry: any): any {
 }
 
 /**
+ * Is this entry publicly listable?
+ *
+ * `published` is stamped at write time by `getCalendarEntry()`. **Strict equality, so a
+ * missing flag withholds** — an entry written before the flag existed is not published
+ * as far as this endpoint is concerned. That is deliberate: the alternative (treat
+ * absent as published) is fail-open, and it is the shape that produced this endpoint's
+ * original defect.
+ *
+ * The cost of that choice is real and must be paid at deploy: every calendar written
+ * before this change lists nothing publicly until it is re-stamped. Run
+ * `scripts/backfill-calendar-published.mjs` as part of the rollout — entries also
+ * self-heal on the tournament's next save, but that is not a schedule anyone controls.
+ */
+function isPubliclyListable(entry: any): boolean {
+  return entry?.published === true;
+}
+
+/**
  * Project a whole stored calendar to its public shape.
  *
- * `provider` is reduced to public identity only — the stored object is the full
- * provider record, which carries settings and internal configuration.
+ * Two independent reductions, and both matter:
+ *  - **which tournaments** — published only (unpublished and draft tournaments were
+ *    listed to anonymous callers, because the calendar is written on every save);
+ *  - **which fields** — the allow-list above.
+ *
+ * `provider` is reduced to public identity only; the stored object is the full provider
+ * record, which carries settings and internal configuration.
+ *
+ * ⚠️ NOT filtered here: sanctioning approval. A tournament that has not completed a
+ * sanctioning process should also be withheld from the public list, but no sanctioning
+ * state is readable from the tournament record today — `getTournamentInfo` has no
+ * awareness of it. Confirmed with CA 2026-08-30: that is a capability to build toward,
+ * not a filter that can be written now.
  */
 export function publicCalendar(calendar: any): any {
   return {
     provider: pick(calendar?.provider, ['organisationId', 'organisationName', 'organisationAbbreviation']),
-    tournaments: (calendar?.tournaments ?? []).map(publicCalendarEntry),
+    tournaments: (calendar?.tournaments ?? []).filter(isPubliclyListable).map(publicCalendarEntry),
   };
 }
