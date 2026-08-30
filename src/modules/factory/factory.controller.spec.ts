@@ -16,6 +16,7 @@ import { UsersModule } from '../users/users.module';
 import { FactoryService } from './factory.service';
 import { AuthModule } from '../account/auth/auth.module';
 import { testTournamentId } from 'src/common/constants/test';
+import type { Mock } from 'vitest';
 
 const tournamentId = testTournamentId(__filename);
 import { ConfigService } from '@nestjs/config';
@@ -25,9 +26,9 @@ import { seededRng } from 'src/tests/helpers/seededRng';
 // These specs cover caching and service binding, not authorization. A gate that
 // always allows keeps them testing what they are about; the gate itself is
 // covered by mutation-authorization.service.spec.ts.
-const permissiveMutationAuth = () => ({ gate: jest.fn().mockResolvedValue(null) }) as any;
+const permissiveMutationAuth = () => ({ gate: vi.fn().mockResolvedValue(null) }) as any;
 // No scoped grants — the unrestricted case these specs are written against.
-const stubGrants = () => ({ forCaller: jest.fn().mockResolvedValue([]) }) as any;
+const stubGrants = () => ({ forCaller: vi.fn().mockResolvedValue([]) }) as any;
 
 const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
 
@@ -105,27 +106,27 @@ describe('FactoryController', () => {
     const mockResult = { success: true };
 
     const mockService = {
-      getTournamentInfo: jest.fn().mockResolvedValue(mockResult),
-      getEventData: jest.fn().mockResolvedValue(mockResult),
-      getScheduleMatchUps: jest.fn().mockResolvedValue(mockResult),
-      getParticipants: jest.fn().mockResolvedValue(mockResult),
-      getMatchUps: jest.fn().mockResolvedValue(mockResult),
+      getTournamentInfo: vi.fn().mockResolvedValue(mockResult),
+      getEventData: vi.fn().mockResolvedValue(mockResult),
+      getScheduleMatchUps: vi.fn().mockResolvedValue(mockResult),
+      getParticipants: vi.fn().mockResolvedValue(mockResult),
+      getMatchUps: vi.fn().mockResolvedValue(mockResult),
     } as unknown as FactoryService;
 
     const mockBroadcast = {
-      broadcastMutation: jest.fn(),
-      broadcastPublicNotices: jest.fn(),
+      broadcastMutation: vi.fn(),
+      broadcastPublicNotices: vi.fn(),
     } as unknown as TournamentBroadcastService;
 
     const mockCache = {
-      get: jest.fn().mockResolvedValue(undefined),
-      set: jest.fn(),
-      del: jest.fn().mockResolvedValue(undefined),
+      get: vi.fn().mockResolvedValue(undefined),
+      set: vi.fn(),
+      del: vi.fn().mockResolvedValue(undefined),
     } as unknown as any;
 
     beforeEach(() => {
       mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     it('getTournamentInfo preserves service binding', async () => {
@@ -174,24 +175,24 @@ describe('FactoryController', () => {
     let mockController: FactoryController;
 
     const mockBroadcast = {
-      broadcastMutation: jest.fn(),
-      broadcastPublicNotices: jest.fn(),
+      broadcastMutation: vi.fn(),
+      broadcastPublicNotices: vi.fn(),
     } as unknown as TournamentBroadcastService;
 
     const mockCache = {
-      get: jest.fn().mockResolvedValue(undefined),
-      set: jest.fn(),
-      del: jest.fn().mockResolvedValue(undefined),
+      get: vi.fn().mockResolvedValue(undefined),
+      set: vi.fn(),
+      del: vi.fn().mockResolvedValue(undefined),
     } as unknown as any;
 
     beforeEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     it('broadcasts after successful executionQueue', async () => {
       const publicNotices = [{ topic: 'MODIFY_MATCHUP', matchUp: { matchUpId: 'm1' } }];
       const mockService = {
-        executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices }),
+        executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices }),
       } as unknown as FactoryService;
       mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
 
@@ -208,7 +209,7 @@ describe('FactoryController', () => {
 
     it('stamps the JWT-verified identity (userEmail/userId) onto the payload', async () => {
       const mockService = {
-        executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
+        executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
       } as unknown as FactoryService;
       mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
 
@@ -232,7 +233,7 @@ describe('FactoryController', () => {
 
     it('records userEmail but no userId when the JWT carries no id-shaped identifier', async () => {
       const mockService = {
-        executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
+        executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
       } as unknown as FactoryService;
       mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
 
@@ -240,14 +241,14 @@ describe('FactoryController', () => {
       const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined, user: { email: 'd@e.com' } };
       await mockController.executionQueue(eqd as any, mockReq);
 
-      const passed = (mockService.executionQueue as jest.Mock).mock.calls[0][0];
+      const passed = (mockService.executionQueue as Mock).mock.calls[0][0];
       expect(passed.userEmail).toBe('d@e.com');
       expect(passed.userId).toBeUndefined();
     });
 
     it('does not broadcast after failed executionQueue', async () => {
       const mockService = {
-        executionQueue: jest.fn().mockResolvedValue({ error: 'something failed' }),
+        executionQueue: vi.fn().mockResolvedValue({ error: 'something failed' }),
       } as unknown as FactoryService;
       mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
 
@@ -265,7 +266,7 @@ describe('FactoryController', () => {
     it('broadcasts after successful score', async () => {
       const publicNotices = [{ topic: 'MODIFY_MATCHUP', matchUp: { matchUpId: 'm1' } }];
       const mockService = {
-        score: jest.fn().mockResolvedValue({ success: true, publicNotices }),
+        score: vi.fn().mockResolvedValue({ success: true, publicNotices }),
       } as unknown as FactoryService;
       mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
 
@@ -278,7 +279,7 @@ describe('FactoryController', () => {
 
     it('does not broadcast after failed score', async () => {
       const mockService = {
-        score: jest.fn().mockResolvedValue({ error: 'invalid score' }),
+        score: vi.fn().mockResolvedValue({ error: 'invalid score' }),
       } as unknown as FactoryService;
       mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
 
@@ -299,27 +300,27 @@ describe('FactoryController', () => {
 
     const mockResult = { success: true };
     const mockService = {
-      getTournamentInfo: jest.fn().mockResolvedValue(mockResult),
-      getEventData: jest.fn().mockResolvedValue(mockResult),
-      getScheduleMatchUps: jest.fn().mockResolvedValue(mockResult),
-      getParticipants: jest.fn().mockResolvedValue(mockResult),
-      getMatchUps: jest.fn().mockResolvedValue(mockResult),
-      getAssistantContext: jest.fn().mockResolvedValue(mockResult),
-      getDrawData: jest.fn().mockResolvedValue(mockResult),
-      getStructureData: jest.fn().mockResolvedValue(mockResult),
-      executionQueue: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
-      score: jest.fn().mockResolvedValue({ success: true, publicNotices: [] }),
+      getTournamentInfo: vi.fn().mockResolvedValue(mockResult),
+      getEventData: vi.fn().mockResolvedValue(mockResult),
+      getScheduleMatchUps: vi.fn().mockResolvedValue(mockResult),
+      getParticipants: vi.fn().mockResolvedValue(mockResult),
+      getMatchUps: vi.fn().mockResolvedValue(mockResult),
+      getAssistantContext: vi.fn().mockResolvedValue(mockResult),
+      getDrawData: vi.fn().mockResolvedValue(mockResult),
+      getStructureData: vi.fn().mockResolvedValue(mockResult),
+      executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
+      score: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
     } as unknown as FactoryService;
 
     const mockBroadcast = {
-      broadcastMutation: jest.fn(),
-      broadcastPublicNotices: jest.fn(),
+      broadcastMutation: vi.fn(),
+      broadcastPublicNotices: vi.fn(),
     } as unknown as TournamentBroadcastService;
 
     const mockCache = {
-      get: jest.fn().mockResolvedValue(undefined),
-      set: jest.fn(),
-      del: jest.fn().mockResolvedValue(undefined),
+      get: vi.fn().mockResolvedValue(undefined),
+      set: vi.fn(),
+      del: vi.fn().mockResolvedValue(undefined),
     } as unknown as any;
 
     async function populateCacheForTid(controller: FactoryController, tid: string): Promise<void> {
@@ -335,7 +336,7 @@ describe('FactoryController', () => {
     }
 
     beforeEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
       mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
     });
 
@@ -399,10 +400,10 @@ describe('FactoryController', () => {
     it("narrows to the evicted event key, sparing OTHER events' cached payloads", async () => {
       await populateCacheForTid(mockController, 't1');
       await mockController.eventData({ tournamentId: 't1', eventId: 'e2' } as any);
-      jest.clearAllMocks();
+      vi.clearAllMocks();
 
       // The mutation reported a targeted eviction for e1 only.
-      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+      (mockService.executionQueue as Mock).mockResolvedValueOnce({
         success: true,
         publicNotices: [],
         evictedEventKeys: ['ged|t1|e1'],
@@ -423,11 +424,11 @@ describe('FactoryController', () => {
     it('FAIL-SAFE: sweeps every event key when no targeted eviction was reported', async () => {
       await populateCacheForTid(mockController, 't1');
       await mockController.eventData({ tournamentId: 't1', eventId: 'e2' } as any);
-      jest.clearAllMocks();
+      vi.clearAllMocks();
 
       // No evictedEventKeys — the mutation's notices never carried an eventId, so the controller
       // cannot know which events changed and must fall back to the tournament-wide sweep.
-      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+      (mockService.executionQueue as Mock).mockResolvedValueOnce({
         success: true,
         publicNotices: [],
         evictedEventKeys: [],
@@ -444,7 +445,7 @@ describe('FactoryController', () => {
       await populateCacheForTid(mockController, 't1');
       await mockController.eventData({ tournamentId: 't1', eventId: 'e2' } as any);
 
-      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+      (mockService.executionQueue as Mock).mockResolvedValueOnce({
         success: true,
         publicNotices: [],
         evictedEventKeys: ['ged|t1|e1'],
@@ -454,8 +455,8 @@ describe('FactoryController', () => {
 
       // Second write, this time with no targeted eviction: the spared e2 key must still be known
       // to the side-table, or it would leak and never be invalidated again.
-      jest.clearAllMocks();
-      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+      vi.clearAllMocks();
+      (mockService.executionQueue as Mock).mockResolvedValueOnce({
         success: true,
         publicNotices: [],
         evictedEventKeys: [],
@@ -467,10 +468,10 @@ describe('FactoryController', () => {
 
     it('spares a WARMED key from the sweep, so the rebuilt payload survives', async () => {
       await populateCacheForTid(mockController, 't1');
-      jest.clearAllMocks();
+      vi.clearAllMocks();
 
       // executionQueue did the warming (both transports share it); it reports what it re-seeded.
-      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+      (mockService.executionQueue as Mock).mockResolvedValueOnce({
         success: true,
         publicNotices: [],
         evictedEventKeys: ['ged|t1|e1'],
@@ -485,9 +486,9 @@ describe('FactoryController', () => {
 
     it('still evicts the event key when nothing was warmed', async () => {
       await populateCacheForTid(mockController, 't1');
-      jest.clearAllMocks();
+      vi.clearAllMocks();
 
-      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+      (mockService.executionQueue as Mock).mockResolvedValueOnce({
         success: true,
         publicNotices: [],
         evictedEventKeys: ['ged|t1|e1'],
@@ -503,7 +504,7 @@ describe('FactoryController', () => {
       const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
       await mockController.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, mockReq);
 
-      const services = (mockService.executionQueue as jest.Mock).mock.calls[0][1];
+      const services = (mockService.executionQueue as Mock).mock.calls[0][1];
       expect(typeof services.trackCacheKey).toBe('function');
     });
 
@@ -531,9 +532,9 @@ describe('FactoryController', () => {
       await mockController.tournamentMatchUps({ params: { tournamentId: 't1' } } as any);
       await mockController.tournamentParticipants({ params: { tournamentId: 't1' } } as any);
       await mockController.getMatchUps({ tournamentId: 't1' } as any);
-      jest.clearAllMocks();
+      vi.clearAllMocks();
 
-      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+      (mockService.executionQueue as Mock).mockResolvedValueOnce({
         success: true,
         publicNotices: [],
         evictedEventKeys: ['gsd|t1|s1', 'gdd|t1|d1', 'gdd|t1|d1|s'],
@@ -558,9 +559,9 @@ describe('FactoryController', () => {
       await mockController.drawData({ tournamentId: 't1', drawId: 'd1' } as any);
       await mockController.structureData({ tournamentId: 't1', drawId: 'd1', structureId: 's1' } as any);
       await mockController.structureData({ tournamentId: 't1', drawId: 'd1', structureId: 's2' } as any);
-      jest.clearAllMocks();
+      vi.clearAllMocks();
 
-      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+      (mockService.executionQueue as Mock).mockResolvedValueOnce({
         success: true,
         publicNotices: [],
         // draw tier attributed; structure tier could not be
@@ -581,9 +582,9 @@ describe('FactoryController', () => {
     it('FAIL-SAFE: sweeps every tier when no targeted eviction was reported', async () => {
       await mockController.drawData({ tournamentId: 't1', drawId: 'd1' } as any);
       await mockController.structureData({ tournamentId: 't1', drawId: 'd1', structureId: 's1' } as any);
-      jest.clearAllMocks();
+      vi.clearAllMocks();
 
-      (mockService.executionQueue as jest.Mock).mockResolvedValueOnce({
+      (mockService.executionQueue as Mock).mockResolvedValueOnce({
         success: true,
         publicNotices: [],
         evictedEventKeys: [],
@@ -609,7 +610,7 @@ describe('FactoryController', () => {
     it('does not delete cache keys when the mutation fails', async () => {
       const failingService = {
         ...mockService,
-        executionQueue: jest.fn().mockResolvedValue({ error: 'fail' }),
+        executionQueue: vi.fn().mockResolvedValue({ error: 'fail' }),
       } as unknown as FactoryService;
       const failingController = new FactoryController(failingService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
       await populateCacheForTid(failingController, 't1');
@@ -710,23 +711,23 @@ describe('FactoryController eventdata — participantsVersion', () => {
   };
 
   const mockService = {
-    getEventData: jest.fn().mockResolvedValue(cachedPayload),
+    getEventData: vi.fn().mockResolvedValue(cachedPayload),
   } as unknown as FactoryService;
 
   const mockBroadcast = {
-    broadcastMutation: jest.fn(),
-    broadcastPublicNotices: jest.fn(),
+    broadcastMutation: vi.fn(),
+    broadcastPublicNotices: vi.fn(),
   } as unknown as TournamentBroadcastService;
 
   const mockCache = {
-    get: jest.fn().mockResolvedValue(undefined),
-    set: jest.fn(),
-    del: jest.fn().mockResolvedValue(undefined),
+    get: vi.fn().mockResolvedValue(undefined),
+    set: vi.fn(),
+    del: vi.fn().mockResolvedValue(undefined),
   } as unknown as any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    (mockService.getEventData as jest.Mock).mockResolvedValue(cachedPayload);
+    vi.clearAllMocks();
+    (mockService.getEventData as Mock).mockResolvedValue(cachedPayload);
     mockCache.get.mockResolvedValue(undefined);
     mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
   });
@@ -807,18 +808,18 @@ describe('FactoryController eventdata — participantsVersion', () => {
 // CLIENT could post the same `methods` array over HTTP and bypass every
 // provider restriction. These tests fail against that pre-fix controller.
 describe('FactoryController.executionQueue — authorization gate', () => {
-  const mockBroadcast: any = { broadcastMutation: jest.fn(), broadcastPublicNotices: jest.fn() };
-  const mockCache: any = { get: jest.fn(), set: jest.fn(), del: jest.fn().mockResolvedValue(undefined) };
+  const mockBroadcast: any = { broadcastMutation: vi.fn(), broadcastPublicNotices: vi.fn() };
+  const mockCache: any = { get: vi.fn(), set: vi.fn(), del: vi.fn().mockResolvedValue(undefined) };
   const eqd: any = { tournamentIds: ['t1'], methods: [{ method: 'addEvent', params: {} }] };
   const req: any = { user: { email: 'u@example.com' }, headers: {}, provisioner: undefined, auditSource: undefined };
 
   function controllerWithGate(denial: string | null) {
-    const service: any = { executionQueue: jest.fn().mockResolvedValue({ success: true }) };
-    const gate = { gate: jest.fn().mockResolvedValue(denial) } as any;
+    const service: any = { executionQueue: vi.fn().mockResolvedValue({ success: true }) };
+    const gate = { gate: vi.fn().mockResolvedValue(denial) } as any;
     return { controller: new FactoryController(service, mockBroadcast, gate, stubGrants(), mockCache), service, gate };
   }
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('rejects with 403 and never reaches the engine when the gate denies', async () => {
     const { controller, service } = controllerWithGate('Action not permitted: addEvent');

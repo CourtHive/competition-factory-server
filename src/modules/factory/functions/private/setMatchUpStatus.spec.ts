@@ -188,7 +188,7 @@ describe('setMatchUpStatus', () => {
   // Previously auditService was never forwarded, so API-submitted scores were
   // absent from audit_log (187 missing rows found in prod tournament 510be2a8).
   it('writes an audit record via the score path when auditService is provided', async () => {
-    const recordMutation = jest.fn().mockResolvedValue(undefined);
+    const recordMutation = vi.fn().mockResolvedValue(undefined);
     const result: any = await setMatchUpStatus(
       {
         tournamentId: TOURNAMENT_ID,
@@ -246,7 +246,7 @@ describe('setMatchUpStatus', () => {
     );
     expect(complete.success).toEqual(true);
 
-    const recordMutation = jest.fn().mockResolvedValue(undefined);
+    const recordMutation = vi.fn().mockResolvedValue(undefined);
     const result: any = await setMatchUpStatus(
       {
         tournamentId: TOURNAMENT_ID,

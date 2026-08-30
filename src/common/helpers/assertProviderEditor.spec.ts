@@ -25,7 +25,7 @@ function mockProvisionerProviderStorage(
   // pairs: [provisionerId, providerId][] — getRelationship returns 'owner'
   // when the (provisionerId, providerId) pair is in `pairs`, else null.
   return {
-    getRelationship: jest.fn(async (provisionerId: string, providerId: string) =>
+    getRelationship: vi.fn(async (provisionerId: string, providerId: string) =>
       pairs.some(([pn, pd]) => pn === provisionerId && pd === providerId) ? ('owner' as const) : null,
     ),
   } as any;

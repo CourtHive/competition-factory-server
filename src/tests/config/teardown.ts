@@ -2,7 +2,7 @@
  * ⚠️ WHY `maxWorkers: 1` IS SET IN package.json — do not remove it to speed the suite up.
  *
  * Every spec shares ONE Postgres. Specs that boot the real AppModule write through to it,
- * and cleanup is per-spec plus the sweep below. With jest's default worker pool that is a
+ * and cleanup is per-spec plus the sweep below. With a parallel worker pool that is a
  * data race: one worker's cleanup deletes rows another worker's spec is mid-assertion on.
  *
  * Measured 2026-08-16, not assumed:
@@ -46,7 +46,7 @@
  */
 import 'dotenv/config';
 
-module.exports = async function teardown() {
+export default async function teardown() {
   if (process.env.STORAGE_PROVIDER !== 'postgres') return;
   if (!process.env.PG_HOST || !process.env.PG_DATABASE) return;
 
@@ -118,7 +118,7 @@ module.exports = async function teardown() {
   } catch (err) {
     await client.query('ROLLBACK');
      
-    console.warn('[jest globalTeardown] cleanup failed:', (err as Error).message);
+    console.warn('[globalTeardown] cleanup failed:', (err as Error).message);
   } finally {
     client.release();
     await pool.end();

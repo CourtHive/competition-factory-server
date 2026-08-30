@@ -7,7 +7,7 @@ describe('RankingsWebhookService', () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
     process.env = { ...originalEnv };
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it('returns { skipped: true } when RANKINGS_PIPELINE_URL is unset', async () => {
@@ -29,7 +29,7 @@ describe('RankingsWebhookService', () => {
   it('POSTs to /tournaments/ingest and returns ok on 2xx', async () => {
     process.env.RANKINGS_PIPELINE_URL = 'http://rankings.local';
     let receivedBody: any;
-    globalThis.fetch = jest.fn(async (url: any, init: any) => {
+    globalThis.fetch = vi.fn(async (url: any, init: any) => {
       expect(url).toBe('http://rankings.local/tournaments/ingest');
       receivedBody = JSON.parse(init.body);
       return {
@@ -53,7 +53,7 @@ describe('RankingsWebhookService', () => {
 
   it('does not retry on 4xx responses', async () => {
     process.env.RANKINGS_PIPELINE_URL = 'http://rankings.local';
-    const fetchMock = jest.fn(async () => ({
+    const fetchMock = vi.fn(async () => ({
       ok: false,
       status: 422,
       text: async () => 'bad shape',
@@ -72,7 +72,7 @@ describe('RankingsWebhookService', () => {
   it('retries up to maxRetries on network failure', async () => {
     process.env.RANKINGS_PIPELINE_URL = 'http://rankings.local';
     process.env.RANKINGS_PIPELINE_RETRIES = '3';
-    const fetchMock = jest.fn(async () => {
+    const fetchMock = vi.fn(async () => {
       throw new Error('ECONNREFUSED');
     }) as any;
     globalThis.fetch = fetchMock;
@@ -90,7 +90,7 @@ describe('RankingsWebhookService', () => {
     process.env.RANKINGS_PIPELINE_URL = 'http://rankings.local';
     process.env.RANKINGS_PIPELINE_RETRIES = '3';
     let calls = 0;
-    globalThis.fetch = jest.fn(async () => {
+    globalThis.fetch = vi.fn(async () => {
       calls += 1;
       if (calls === 1) return { ok: false, status: 503, text: async () => '' } as any;
       return { ok: true, status: 202, text: async () => JSON.stringify({ ingestionRunId: 'run-2' }) } as any;

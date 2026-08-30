@@ -2,7 +2,7 @@ import { PostgresTournamentStorage } from './postgres-tournament.storage';
 import { FENCED_BY_NEWER_OWNER } from 'src/common/constants/app';
 
 function makeMockPool() {
-  return { query: jest.fn() };
+  return { query: vi.fn() };
 }
 
 function record(overrides: any = {}) {
@@ -71,8 +71,8 @@ describe('PostgresTournamentStorage — owner_epoch fencing', () => {
   });
 
   it('logs the first fence rejection at ERROR and throttles the next ones', async () => {
-    const errorSpy = jest.spyOn((storage as any).logger, 'error').mockImplementation(() => undefined);
-    const debugSpy = jest.spyOn((storage as any).logger, 'debug').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn((storage as any).logger, 'error').mockImplementation(() => undefined);
+    const debugSpy = vi.spyOn((storage as any).logger, 'debug').mockImplementation(() => undefined);
     pool.query.mockResolvedValue({ rowCount: 0 });
 
     await storage.saveTournamentRecord({ tournamentRecord: record(), ownerEpoch: 1 });
@@ -85,8 +85,8 @@ describe('PostgresTournamentStorage — owner_epoch fencing', () => {
   });
 
   it('emits a recovery WARN on the first success after a fence rejection', async () => {
-    const warnSpy = jest.spyOn((storage as any).logger, 'warn').mockImplementation(() => undefined);
-    jest.spyOn((storage as any).logger, 'error').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn((storage as any).logger, 'warn').mockImplementation(() => undefined);
+    vi.spyOn((storage as any).logger, 'error').mockImplementation(() => undefined);
 
     pool.query.mockResolvedValueOnce({ rowCount: 0 });
     await storage.saveTournamentRecord({ tournamentRecord: record(), ownerEpoch: 1 });
@@ -100,7 +100,7 @@ describe('PostgresTournamentStorage — owner_epoch fencing', () => {
   });
 
   it('does not emit a recovery WARN when there was nothing to recover from', async () => {
-    const warnSpy = jest.spyOn((storage as any).logger, 'warn').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn((storage as any).logger, 'warn').mockImplementation(() => undefined);
     pool.query.mockResolvedValue({ rowCount: 1 });
 
     await storage.saveTournamentRecord({ tournamentRecord: record() });
@@ -110,7 +110,7 @@ describe('PostgresTournamentStorage — owner_epoch fencing', () => {
 
   it('aborts the batch on the first fenced record and surfaces the fence', async () => {
     pool.query.mockResolvedValueOnce({ rowCount: 1 }).mockResolvedValueOnce({ rowCount: 0 });
-    jest.spyOn((storage as any).logger, 'error').mockImplementation(() => undefined);
+    vi.spyOn((storage as any).logger, 'error').mockImplementation(() => undefined);
 
     const result: any = await storage.saveTournamentRecords({
       tournamentRecords: {

@@ -9,7 +9,7 @@ import { AppModule } from '../../modules/app/app.module';
 import { saveAndCommit } from '../helpers/saveAndCommit';
 import { TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
 
-jest.setTimeout(120_000);
+vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
 const CONCURRENCY = 10;
 const TOURNAMENT_A = 'mutex-stress-a';

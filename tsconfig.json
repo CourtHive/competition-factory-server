@@ -25,7 +25,7 @@
     "noUnusedParameters": true,
     "skipLibCheck": true,
     "strict": true,
-    "types": ["node", "jest", "express", "supertest"]
+    "types": ["node", "vitest/globals", "express", "supertest"]
   },
   // audit-worker is a separate package with its own package.json, its own
   // tsconfig, and its own `tods-competition-factory` dependency. Type-checking it
@@ -35,5 +35,17 @@
   // factory.service and getEventData. It also checked audit-worker/src/__tests__,
   // which audit-worker's own tsconfig deliberately excludes. Excluded here the
   // same way admin-client and e2e are; audit-worker owns its own type check.
-  "exclude": ["node_modules", "dist", "build", "admin-client", "audit-worker", "e2e"]
+  // vitest.config.mts / vitest.unit.config.mts are ESM tooling configs that use
+  // import.meta, which this tsconfig's "module": "commonjs" cannot represent. Vitest
+  // type-checks them itself when it loads them.
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "admin-client",
+    "audit-worker",
+    "e2e",
+    "vitest.config.mts",
+    "vitest.unit.config.mts"
+  ]
 }

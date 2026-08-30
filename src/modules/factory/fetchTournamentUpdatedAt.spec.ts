@@ -8,18 +8,18 @@ import { FactoryService } from './factory.service';
 const SUPER_ADMIN_USER = { roles: ['superadmin'] };
 
 function makeService(storageImpl: (params: any) => Promise<any>) {
-  const tournamentStorageService = { fetchTournamentUpdatedAt: jest.fn(storageImpl) };
+  const tournamentStorageService = { fetchTournamentUpdatedAt: vi.fn(storageImpl) };
   const assignmentsService = {
-    getAssignedTournamentIds: jest.fn().mockResolvedValue(new Set()),
-    getAssignedRoles: jest.fn().mockResolvedValue(new Map()),
+    getAssignedTournamentIds: vi.fn().mockResolvedValue(new Set()),
+    getAssignedRoles: vi.fn().mockResolvedValue(new Map()),
   };
-  const mutationServices: any = new MutationServicesService({ isEnabled: false, enqueue: jest.fn() } as any, {
-    record: jest.fn(),
+  const mutationServices: any = new MutationServicesService({ isEnabled: false, enqueue: vi.fn() } as any, {
+    record: vi.fn(),
     isEnabled: false,
   } as any);
   const service = new FactoryService(
     tournamentStorageService as any,
-    new SnapshotProjectionService({ isEnabled: false, enqueue: jest.fn() } as any) as any,
+    new SnapshotProjectionService({ isEnabled: false, enqueue: vi.fn() } as any) as any,
     mutationServices,
     assignmentsService as any,
     {} as any,

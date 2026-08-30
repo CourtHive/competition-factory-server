@@ -6,8 +6,8 @@ import { AdminProjectionController } from './admin-projection.controller';
 // Nest RolesGuard at runtime), not re-tested here.
 describe('AdminProjectionController', () => {
   const makeRebuild = () => ({
-    rebuildAll: jest.fn(async () => ({ requested: 3, rebuilt: 3, failed: [], deltas: 42 })),
-    rebuildTournament: jest.fn(async () => 7),
+    rebuildAll: vi.fn(async () => ({ requested: 3, rebuilt: 3, failed: [], deltas: 42 })),
+    rebuildTournament: vi.fn(async () => 7),
   });
 
   it('rebuildAll forwards the body and wraps the result', async () => {

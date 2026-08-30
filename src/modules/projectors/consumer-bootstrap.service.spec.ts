@@ -1,3 +1,4 @@
+import type { MockInstance } from 'vitest';
 import { Logger } from '@nestjs/common';
 
 import { ConsumerBootstrap } from './consumer-bootstrap.service';
@@ -21,11 +22,11 @@ describe('ConsumerBootstrap', () => {
 
   // Registry/bootstrap emit consumer-registration lines at log level; these
   // specs assert on registry state, not log output, so silence the noise.
-  let logSpy: jest.SpyInstance;
-  let warnSpy: jest.SpyInstance;
+  let logSpy: MockInstance;
+  let warnSpy: MockInstance;
   beforeAll(() => {
-    logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
-    warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    logSpy = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });
   afterAll(() => {
     logSpy.mockRestore();

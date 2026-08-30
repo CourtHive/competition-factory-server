@@ -1,5 +1,5 @@
 // Mock the lazy feature flag function to always return true for tests
-jest.mock('src/common/constants/feature-flags', () => ({
+vi.mock('src/common/constants/feature-flags', () => ({
   isTournamentAccessScopingEnabled: () => true,
 }));
 
@@ -46,11 +46,11 @@ const multiProvider = makeCtx({
 });
 
 // Flag-OFF bypass is tested by verifying the helper code path returns true
-// immediately when the constant is false. jest.mock above forces it ON so
+// immediately when the constant is false. vi.mock above forces it ON so
 // every rule path is exercised. The flag-OFF behavior is trivially correct
 // (single early-return line) and does not need its own suite.
 
-describe('checkTournamentAccess (flag ON via jest.mock)', () => {
+describe('checkTournamentAccess (flag ON via vi.mock)', () => {
 
   describe('canViewTournament', () => {
     it('SUPER_ADMIN sees everything', () => {

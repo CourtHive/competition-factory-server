@@ -14,16 +14,17 @@
  */
 
 import { ProvisionerService } from './provisioner.service';
+import type { Mock } from 'vitest';
 
 interface MockProviderStorage {
-  getProvider: jest.Mock;
-  updateProviderCaps: jest.Mock;
+  getProvider: Mock;
+  updateProviderCaps: Mock;
 }
 
 function makeProviderStorage(provider: any | null = {}): MockProviderStorage {
   return {
-    getProvider: jest.fn().mockResolvedValue(provider),
-    updateProviderCaps: jest.fn().mockResolvedValue({ success: true }),
+    getProvider: vi.fn().mockResolvedValue(provider),
+    updateProviderCaps: vi.fn().mockResolvedValue({ success: true }),
   };
 }
 

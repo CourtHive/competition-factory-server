@@ -29,57 +29,57 @@ describe('HiveIDService', () => {
     jwtService = new JwtService({ secret: 'test-secret' });
 
     mockUsersService = {
-      findOne: jest.fn(),
-      create: jest.fn().mockResolvedValue({ email: 'new@test.com' }),
-      findAll: jest.fn(),
-      remove: jest.fn(),
-      getDevUserById: jest.fn().mockReturnValue(null),
+      findOne: vi.fn(),
+      create: vi.fn().mockResolvedValue({ email: 'new@test.com' }),
+      findAll: vi.fn(),
+      remove: vi.fn(),
+      getDevUserById: vi.fn().mockReturnValue(null),
     };
 
-    mockEmailService = { sendTemplated: jest.fn().mockResolvedValue({ id: 'msg-1' }) };
+    mockEmailService = { sendTemplated: vi.fn().mockResolvedValue({ id: 'msg-1' }) };
     mockConfigService = {
-      get: jest.fn().mockReturnValue({ baseUrl: 'https://nest.test.example' }),
+      get: vi.fn().mockReturnValue({ baseUrl: 'https://nest.test.example' }),
     };
     mockProviderStorage = {
-      getProvider: jest.fn().mockResolvedValue(null),
-      updateLastAccess: jest.fn().mockResolvedValue(undefined),
+      getProvider: vi.fn().mockResolvedValue(null),
+      updateLastAccess: vi.fn().mockResolvedValue(undefined),
     };
     mockUserStorage = {
-      setContactEmail: jest.fn().mockResolvedValue({ success: true }),
-      setPersonLink: jest.fn().mockResolvedValue({ success: true }),
-      getPersonLink: jest.fn().mockResolvedValue(null),
-      markEmailVerified: jest.fn().mockResolvedValue({ success: true }),
-      findByUserId: jest.fn().mockResolvedValue(null),
-      updateLastAccess: jest.fn().mockResolvedValue(undefined),
+      setContactEmail: vi.fn().mockResolvedValue({ success: true }),
+      setPersonLink: vi.fn().mockResolvedValue({ success: true }),
+      getPersonLink: vi.fn().mockResolvedValue(null),
+      markEmailVerified: vi.fn().mockResolvedValue({ success: true }),
+      findByUserId: vi.fn().mockResolvedValue(null),
+      updateLastAccess: vi.fn().mockResolvedValue(undefined),
     };
     mockUserProviderStorage = {
-      findByUserIdEnriched: jest.fn().mockResolvedValue([]),
-      findByUserId: jest.fn().mockResolvedValue([]),
+      findByUserIdEnriched: vi.fn().mockResolvedValue([]),
+      findByUserId: vi.fn().mockResolvedValue([]),
     };
     mockUserProvisionerStorage = {
-      findProvisionerIdsByUser: jest.fn().mockResolvedValue([]),
+      findProvisionerIdsByUser: vi.fn().mockResolvedValue([]),
     };
     mockProvisionerProviderStorage = {
-      findByProvisioner: jest.fn().mockResolvedValue([]),
+      findByProvisioner: vi.fn().mockResolvedValue([]),
     };
     mockRefreshTokenService = {
-      issue: jest.fn().mockResolvedValue('rtok_test_token'),
-      rotate: jest.fn(),
-      revoke: jest.fn().mockResolvedValue(undefined),
-      revokeAllForUser: jest.fn().mockResolvedValue(undefined),
+      issue: vi.fn().mockResolvedValue('rtok_test_token'),
+      rotate: vi.fn(),
+      revoke: vi.fn().mockResolvedValue(undefined),
+      revokeAllForUser: vi.fn().mockResolvedValue(undefined),
     };
     mockAuthCodeStorage = {
-      setAccessCode: jest.fn().mockResolvedValue({ success: true }),
-      consumeAccessCode: jest.fn(),
+      setAccessCode: vi.fn().mockResolvedValue({ success: true }),
+      consumeAccessCode: vi.fn(),
     };
     mockIdentityService = {
-      resendVerification: jest.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
-      setContactEmail: jest.fn().mockResolvedValue({ success: true, status: 'pending_verification', contactEmail: 'new@test.com' }),
+      resendVerification: vi.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
+      setContactEmail: vi.fn().mockResolvedValue({ success: true, status: 'pending_verification', contactEmail: 'new@test.com' }),
     };
     mockAuditService = {};
     mockPersonsClient = {
-      resolve: jest.fn(),
-      getById: jest.fn(),
+      resolve: vi.fn(),
+      getById: vi.fn(),
     };
 
     authService = new AuthService(

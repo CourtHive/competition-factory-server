@@ -26,29 +26,29 @@ function ctx(overrides: Partial<UserContext> = {}): UserContext {
 
 function makeUserProviderStorage(rows: any[] = []): IUserProviderStorage {
   return {
-    findByUserIdEnriched: jest.fn(async (uid: string, allowed?: string[]) => {
+    findByUserIdEnriched: vi.fn(async (uid: string, allowed?: string[]) => {
       const matches = rows.filter((r) => r.userId === uid);
       return allowed ? matches.filter((r) => allowed.includes(r.providerId)) : matches;
     }),
-    findByUserId: jest.fn(async (uid: string) => rows.filter((r) => r.userId === uid)),
-    findByEmail: jest.fn(),
-    findByProviderId: jest.fn(async (pid: string) => rows.filter((r) => r.providerId === pid)),
-    findOne: jest.fn(async (uid: string, pid: string) =>
+    findByUserId: vi.fn(async (uid: string) => rows.filter((r) => r.userId === uid)),
+    findByEmail: vi.fn(),
+    findByProviderId: vi.fn(async (pid: string) => rows.filter((r) => r.providerId === pid)),
+    findOne: vi.fn(async (uid: string, pid: string) =>
       rows.find((r) => r.userId === uid && r.providerId === pid) ?? null,
     ),
-    upsert: jest.fn(async () => ({ success: true })),
-    remove: jest.fn(async () => ({ success: true })),
+    upsert: vi.fn(async () => ({ success: true })),
+    remove: vi.fn(async () => ({ success: true })),
   };
 }
 
 function makeProvisionerProviderStorage(): IProvisionerProviderStorage {
   return {
-    findByProvisioner: jest.fn(async () => []),
-    findByProvider: jest.fn(),
-    getRelationship: jest.fn(async () => null),
-    associate: jest.fn(),
-    updateRelationship: jest.fn(),
-    disassociate: jest.fn(),
+    findByProvisioner: vi.fn(async () => []),
+    findByProvider: vi.fn(),
+    getRelationship: vi.fn(async () => null),
+    associate: vi.fn(),
+    updateRelationship: vi.fn(),
+    disassociate: vi.fn(),
   };
 }
 

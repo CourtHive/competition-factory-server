@@ -1,7 +1,7 @@
 import { PostgresChatStorage } from './postgres-chat.storage';
 
 function makePool(rows: any[] = [], rowCount?: number) {
-  return { query: jest.fn().mockResolvedValue({ rows, rowCount: rowCount ?? rows.length }) } as any;
+  return { query: vi.fn().mockResolvedValue({ rows, rowCount: rowCount ?? rows.length }) } as any;
 }
 
 const dbRow = (over: Partial<Record<string, any>> = {}) => ({
@@ -32,7 +32,7 @@ describe('PostgresChatStorage', () => {
   });
 
   it('appendMessage returns an error string on failure', async () => {
-    const pool = { query: jest.fn().mockRejectedValue(new Error('db down')) } as any;
+    const pool = { query: vi.fn().mockRejectedValue(new Error('db down')) } as any;
     const storage = new PostgresChatStorage(pool);
     const { record, error } = await storage.appendMessage({ tournamentId: 't1', userName: 'a', message: 'x' });
     expect(record).toBeUndefined();

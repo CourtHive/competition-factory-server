@@ -3,49 +3,49 @@ import { SsoController } from './sso.controller';
 
 function makeMockSsoTokenService() {
   return {
-    generate: jest.fn(),
-    consume: jest.fn(),
+    generate: vi.fn(),
+    consume: vi.fn(),
   };
 }
 
 function makeMockJwtService() {
   return {
-    signAsync: jest.fn().mockResolvedValue('mock-jwt-token'),
+    signAsync: vi.fn().mockResolvedValue('mock-jwt-token'),
   };
 }
 
 function makeMockSsoIdentityStorage() {
   return {
-    findByExternalId: jest.fn(),
-    findByUserId: jest.fn().mockResolvedValue([]),
+    findByExternalId: vi.fn(),
+    findByUserId: vi.fn().mockResolvedValue([]),
   };
 }
 
 function makeMockUserStorage() {
   return {
-    findOne: jest.fn(),
-    updateLastAccess: jest.fn().mockResolvedValue(undefined),
+    findOne: vi.fn(),
+    updateLastAccess: vi.fn().mockResolvedValue(undefined),
   };
 }
 
 function makeMockUserProviderStorage() {
   return {
-    findByUserId: jest.fn().mockResolvedValue([{ email: 'test@test.com', userId: 'u1', providerId: 'p1', providerRole: 'DIRECTOR' }]),
-    findByEmail: jest.fn().mockResolvedValue([]),
-    findByProviderId: jest.fn().mockResolvedValue([]),
-    findOne: jest.fn(),
-    upsert: jest.fn(),
-    remove: jest.fn(),
+    findByUserId: vi.fn().mockResolvedValue([{ email: 'test@test.com', userId: 'u1', providerId: 'p1', providerRole: 'DIRECTOR' }]),
+    findByEmail: vi.fn().mockResolvedValue([]),
+    findByProviderId: vi.fn().mockResolvedValue([]),
+    findOne: vi.fn(),
+    upsert: vi.fn(),
+    remove: vi.fn(),
   };
 }
 
 function makeMockProviderStorage() {
   return {
-    getProvider: jest.fn().mockResolvedValue({ organisationName: 'Test Org', organisationAbbreviation: 'TST' }),
-    getProviders: jest.fn().mockResolvedValue([]),
-    setProvider: jest.fn().mockResolvedValue({ success: true }),
-    removeProvider: jest.fn().mockResolvedValue({ success: true }),
-    updateLastAccess: jest.fn().mockResolvedValue(undefined),
+    getProvider: vi.fn().mockResolvedValue({ organisationName: 'Test Org', organisationAbbreviation: 'TST' }),
+    getProviders: vi.fn().mockResolvedValue([]),
+    setProvider: vi.fn().mockResolvedValue({ success: true }),
+    removeProvider: vi.fn().mockResolvedValue({ success: true }),
+    updateLastAccess: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -66,9 +66,9 @@ describe('SsoController', () => {
     userProviderStorage = makeMockUserProviderStorage();
     providerStorage = makeMockProviderStorage();
 
-    const userProvisionerStorage: any = { findProvisionerIdsByUser: jest.fn().mockResolvedValue([]) };
-    const provisionerProviderStorage: any = { findByProvisioner: jest.fn().mockResolvedValue([]) };
-    const refreshTokenService: any = { issue: jest.fn().mockResolvedValue('rtok_sso') };
+    const userProvisionerStorage: any = { findProvisionerIdsByUser: vi.fn().mockResolvedValue([]) };
+    const provisionerProviderStorage: any = { findByProvisioner: vi.fn().mockResolvedValue([]) };
+    const refreshTokenService: any = { issue: vi.fn().mockResolvedValue('rtok_sso') };
 
     // HIVEID_BASE_URL unset → SplitTokenSigner signs locally via the mock
     // jwtService (returns 'mock-jwt-token'), so accessToken assertions are unchanged.

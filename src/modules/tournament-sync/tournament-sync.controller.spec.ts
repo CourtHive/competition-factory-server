@@ -1,9 +1,9 @@
 import { TournamentSyncController } from './tournament-sync.controller';
 
 const mockSyncService = {
-  listRemoteTournaments: jest.fn(),
-  pullTournament: jest.fn(),
-  getSyncStatus: jest.fn(),
+  listRemoteTournaments: vi.fn(),
+  pullTournament: vi.fn(),
+  getSyncStatus: vi.fn(),
 };
 
 describe('TournamentSyncController', () => {
@@ -11,7 +11,7 @@ describe('TournamentSyncController', () => {
 
   beforeEach(() => {
     controller = new TournamentSyncController(mockSyncService as any);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('listRemote', () => {

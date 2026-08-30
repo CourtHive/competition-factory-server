@@ -29,7 +29,7 @@ import { PG_POOL } from './postgres.config';
 const MIGRATIONS_DIR = join(process.cwd(), 'src', 'storage', 'postgres', 'migrations');
 
 // Arbitrary, stable key for the session-level advisory lock that serialises
-// migration application across concurrent runners (parallel jest workers, or
+// migration application across concurrent runners (parallel test workers, or
 // multiple app instances booting at once). Without it, two runners can both
 // see a new CREATE TABLE migration pending and race the create, colliding on
 // pg_type ("duplicate key value violates unique constraint

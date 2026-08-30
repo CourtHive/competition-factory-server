@@ -14,15 +14,15 @@ function makeRecord(overrides: any = {}) {
 
 // storage that reports the tournament does NOT yet exist → creation
 const notFoundStorage = {
-  fetchTournamentUpdatedAt: jest.fn().mockResolvedValue({ error: MISSING_TOURNAMENT_RECORD }),
+  fetchTournamentUpdatedAt: vi.fn().mockResolvedValue({ error: MISSING_TOURNAMENT_RECORD }),
 };
 // storage that reports the tournament DOES exist → edit-save
 const existsStorage = {
-  fetchTournamentUpdatedAt: jest.fn().mockResolvedValue({ success: true, updatedAt: '2026-07-01T00:00:00Z' }),
+  fetchTournamentUpdatedAt: vi.fn().mockResolvedValue({ success: true, updatedAt: '2026-07-01T00:00:00Z' }),
 };
 
 const providerWithPolicy = {
-  getProvider: jest.fn().mockResolvedValue({ providerConfigCaps: {}, providerConfigSettings: { participantPrivacyPolicy: privacyPolicy } }),
+  getProvider: vi.fn().mockResolvedValue({ providerConfigCaps: {}, providerConfigSettings: { participantPrivacyPolicy: privacyPolicy } }),
 };
 
 function participantPolicyOn(record: any) {
@@ -31,7 +31,7 @@ function participantPolicyOn(record: any) {
 }
 
 describe('attachProviderPrivacyOnCreate (REST /factory/save create path)', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('attaches the provider privacy policy on creation (tournament not yet in storage)', async () => {
     const record = makeRecord();
@@ -78,7 +78,7 @@ describe('attachProviderPrivacyOnCreate (REST /factory/save create path)', () =>
 
   it('does NOT attach when the provider has no privacy policy configured', async () => {
     const record = makeRecord();
-    const bareProvider = { getProvider: jest.fn().mockResolvedValue({ providerConfigCaps: {}, providerConfigSettings: {} }) };
+    const bareProvider = { getProvider: vi.fn().mockResolvedValue({ providerConfigCaps: {}, providerConfigSettings: {} }) };
     const attached = await attachProviderPrivacyOnCreate(record, {
       tournamentStorageService: notFoundStorage as any,
       providerStorage: bareProvider as any,
@@ -89,7 +89,7 @@ describe('attachProviderPrivacyOnCreate (REST /factory/save create path)', () =>
 
   it('does NOT attach on an uncertain existence check (non-missing storage error)', async () => {
     const record = makeRecord();
-    const erroringStorage = { fetchTournamentUpdatedAt: jest.fn().mockResolvedValue({ error: 'DB_DOWN' }) };
+    const erroringStorage = { fetchTournamentUpdatedAt: vi.fn().mockResolvedValue({ error: 'DB_DOWN' }) };
     const attached = await attachProviderPrivacyOnCreate(record, {
       tournamentStorageService: erroringStorage as any,
       providerStorage: providerWithPolicy as any,

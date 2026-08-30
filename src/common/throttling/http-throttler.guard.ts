@@ -1,6 +1,12 @@
 import { ExecutionContext, Injectable } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 
+// @nestjs/throttler stays at 6.5.0 — its latest — while the rest of the Nest stack is on 12.
+// Its peerDependencies still cap @nestjs/common and @nestjs/core at ^11.0.0, so an install
+// warns. It works: verified against Nest 12 with a live probe, 14 rapid POSTs to /auth/login
+// returning 10x 401 then 4x 429. pnpm does not enforce peer ranges by default, so the stale
+// range warns rather than blocks. Revisit when a v12-peered release ships.
+
 /**
  * Rate-limit guard that governs only HTTP traffic and exempts trusted,
  * high-volume service callers.

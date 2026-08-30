@@ -174,7 +174,7 @@ jobs:
       # reads .env directly, so neutralising dotenv is NOT enough to reproduce a
       # runner locally — supplying the variables is.
       #
-      # NODE_ENV=test matches Environment.Testing and is what jest sets anyway.
+      # NODE_ENV=test matches Environment.Testing and is what vitest sets anyway.
       # JWT_SECRET only has to satisfy MinLength(1); no suite in this gate verifies
       # a real signature against it.
       - name: Test (database-free suites)

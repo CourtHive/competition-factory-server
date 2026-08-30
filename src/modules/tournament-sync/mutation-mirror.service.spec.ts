@@ -6,7 +6,7 @@ let queue: MirrorQueueEntry[] = [];
 let nextSeq = 1;
 
 const mockPool = {
-  query: jest.fn(async (sql: string, params?: any[]) => {
+  query: vi.fn(async (sql: string, params?: any[]) => {
     const text = sql.replace(/\s+/g, ' ').trim();
 
     if (text.includes('CREATE TABLE')) {
@@ -74,7 +74,7 @@ describe('MutationMirrorService', () => {
 
     queue = [];
     nextSeq = 1;
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -106,7 +106,7 @@ describe('MutationMirrorService', () => {
 
   describe('drainOnce', () => {
     it('sends enqueued mutations to upstream', async () => {
-      global.fetch = jest.fn().mockResolvedValue({ ok: true });
+      global.fetch = vi.fn().mockResolvedValue({ ok: true });
 
       await service.enqueue({
         tournamentIds: ['t1'],
@@ -139,7 +139,7 @@ describe('MutationMirrorService', () => {
     });
 
     it('nacks and stops on failure — preserves ordering', async () => {
-      global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
 
       await service.enqueue({ tournamentIds: ['t1'], methods: [{ method: 'a' }] });
       await service.enqueue({ tournamentIds: ['t2'], methods: [{ method: 'b' }] });
@@ -154,7 +154,7 @@ describe('MutationMirrorService', () => {
 
     it('drains multiple entries in sequence order', async () => {
       const postBodies: any[] = [];
-      global.fetch = jest.fn().mockImplementation(async (_url, opts) => {
+      global.fetch = vi.fn().mockImplementation(async (_url, opts) => {
         postBodies.push(JSON.parse(opts.body));
         return { ok: true };
       });
@@ -169,7 +169,7 @@ describe('MutationMirrorService', () => {
     });
 
     it('increments attempts on nack', async () => {
-      global.fetch = jest.fn()
+      global.fetch = vi.fn()
         .mockRejectedValueOnce(new Error('fail'))
         .mockResolvedValueOnce({ ok: true });
 

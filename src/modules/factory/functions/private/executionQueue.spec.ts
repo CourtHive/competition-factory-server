@@ -71,7 +71,7 @@ describe('executionQueue', () => {
     );
     expect(gen.success).toEqual(true);
 
-    const recordMutation = jest.fn().mockResolvedValue(undefined);
+    const recordMutation = vi.fn().mockResolvedValue(undefined);
     const auditService = { recordMutation } as any;
 
     // Schedule against a non-existent draw → the engine returns an
@@ -110,7 +110,7 @@ describe('attachProviderPolicies (privacy attach hook)', () => {
 
   // A provider whose effective config exposes the selected privacy policy.
   const providerStorage: any = {
-    getProvider: jest.fn().mockResolvedValue({
+    getProvider: vi.fn().mockResolvedValue({
       providerConfigCaps: {},
       providerConfigSettings: { participantPrivacyPolicy: privacyPolicy },
     }),
@@ -123,7 +123,7 @@ describe('attachProviderPolicies (privacy attach hook)', () => {
     return {
       applied,
       getState: () => ({ tournamentRecords: { [tournamentId]: record } }),
-      executionQueue: jest.fn(async (methods: any[]) => {
+      executionQueue: vi.fn(async (methods: any[]) => {
         applied.push(...methods);
         return { success: true };
       }),
@@ -132,7 +132,7 @@ describe('attachProviderPolicies (privacy attach hook)', () => {
 
   const newTournamentMethods = [{ method: 'newTournamentRecord', params: {} }];
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   it('attaches the provider privacy policy on new-tournament creation and returns the method for client replay', async () => {
     const engine = makeEngine({ tournamentId, parentOrganisation: { organisationId: PROVIDER_ID } });
@@ -167,7 +167,7 @@ describe('attachProviderPolicies (privacy attach hook)', () => {
 
   it('is a no-op when the provider has no privacy policy configured', async () => {
     const bareProviderStorage: any = {
-      getProvider: jest.fn().mockResolvedValue({ providerConfigCaps: {}, providerConfigSettings: {} }),
+      getProvider: vi.fn().mockResolvedValue({ providerConfigCaps: {}, providerConfigSettings: {} }),
     };
     const engine = makeEngine({ tournamentId, parentOrganisation: { organisationId: PROVIDER_ID } });
     const applied = await attachProviderPolicies({
@@ -193,7 +193,7 @@ describe('attachProviderPolicies (privacy attach hook)', () => {
   });
 
   it('fail-soft: a provider-lookup error never throws and yields no applied methods', async () => {
-    const throwingStorage: any = { getProvider: jest.fn().mockRejectedValue(new Error('db down')) };
+    const throwingStorage: any = { getProvider: vi.fn().mockRejectedValue(new Error('db down')) };
     const engine = makeEngine({ tournamentId, parentOrganisation: { organisationId: PROVIDER_ID } });
     const applied = await attachProviderPolicies({
       methods: newTournamentMethods,

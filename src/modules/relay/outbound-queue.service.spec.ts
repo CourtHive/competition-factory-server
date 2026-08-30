@@ -6,7 +6,7 @@ let rows: QueueEntry[] = [];
 let nextSeq = 1;
 
 const mockPool = {
-  query: jest.fn(async (sql: string, params?: any[]) => {
+  query: vi.fn(async (sql: string, params?: any[]) => {
     const text = sql.replace(/\s+/g, ' ').trim();
 
     if (text.includes('CREATE TABLE')) {
@@ -74,7 +74,7 @@ describe('OutboundQueueService', () => {
   beforeEach(() => {
     rows = [];
     nextSeq = 1;
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     queue = new OutboundQueueService(mockPool as any);
   });
 

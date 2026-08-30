@@ -6,11 +6,11 @@ describe('SsoTokenService', () => {
 
   beforeEach(() => {
     mockClient = {
-      set: jest.fn().mockResolvedValue('OK'),
-      getDel: jest.fn(),
-      connect: jest.fn().mockResolvedValue(undefined),
-      quit: jest.fn().mockResolvedValue(undefined),
-      on: jest.fn(),
+      set: vi.fn().mockResolvedValue('OK'),
+      getDel: vi.fn(),
+      connect: vi.fn().mockResolvedValue(undefined),
+      quit: vi.fn().mockResolvedValue(undefined),
+      on: vi.fn(),
       isOpen: true,
     };
 

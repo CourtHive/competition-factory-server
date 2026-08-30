@@ -27,13 +27,13 @@ function singlesMatchUp(matchUpId: string, drawId: string) {
   };
 }
 
-async function build(intents: ProjectionIntent[], flattenDraw = jest.fn().mockResolvedValue([])) {
+async function build(intents: ProjectionIntent[], flattenDraw = vi.fn().mockResolvedValue([])) {
   return buildProjectionDeltas({ intents, tournamentRecords: RECORDS, flattenDraw });
 }
 
 describe('buildProjectionDeltas', () => {
   it('flattenDraw → tournaments + match_ups + competitor upserts (FK-ordered)', async () => {
-    const flattenDraw = jest.fn().mockResolvedValue([singlesMatchUp('m1', 'd1')]);
+    const flattenDraw = vi.fn().mockResolvedValue([singlesMatchUp('m1', 'd1')]);
     const deltas = await build([{ kind: 'flattenDraw', tournamentId: 't-1', drawId: 'd1' }], flattenDraw);
 
     expect(flattenDraw).toHaveBeenCalledWith('t-1', 'd1');
@@ -45,7 +45,7 @@ describe('buildProjectionDeltas', () => {
   });
 
   it('deduplicates the same draw flattened twice', async () => {
-    const flattenDraw = jest.fn().mockResolvedValue([]);
+    const flattenDraw = vi.fn().mockResolvedValue([]);
     await build(
       [
         { kind: 'flattenDraw', tournamentId: 't-1', drawId: 'd1' },
@@ -57,7 +57,7 @@ describe('buildProjectionDeltas', () => {
   });
 
   it('republishEvent resolves to the event drawIds and flattens each', async () => {
-    const flattenDraw = jest.fn().mockResolvedValue([]);
+    const flattenDraw = vi.fn().mockResolvedValue([]);
     await build([{ kind: 'republishEvent', tournamentId: 't-1', eventId: 'e1' }], flattenDraw);
     expect(flattenDraw.mock.calls.map((c) => c[1]).sort()).toEqual(['d1', 'd2']);
   });
@@ -71,7 +71,7 @@ describe('buildProjectionDeltas', () => {
   });
 
   it('skips the slim result when the same matchUp was fully built by a flatten', async () => {
-    const flattenDraw = jest.fn().mockResolvedValue([singlesMatchUp('m1', 'd1')]);
+    const flattenDraw = vi.fn().mockResolvedValue([singlesMatchUp('m1', 'd1')]);
     const deltas = await build(
       [
         { kind: 'flattenDraw', tournamentId: 't-1', drawId: 'd1' },
@@ -134,7 +134,7 @@ describe('buildProjectionDeltas', () => {
     const records = {
       't-1': { ...RECORD, participants: [{ participantId: 'p1', person: { personId: '1001' } }], events: [{ eventId: 'e1', entries: [{ participantId: 'p1', entryStatus: 'ACCEPTED' }] }] },
     };
-    const deltas = await buildProjectionDeltas({ intents: [{ kind: 'participants', tournamentId: 't-1' }], tournamentRecords: records, flattenDraw: jest.fn() });
+    const deltas = await buildProjectionDeltas({ intents: [{ kind: 'participants', tournamentId: 't-1' }], tournamentRecords: records, flattenDraw: vi.fn() });
     expect(deltas.some((d) => d.table === 'tournaments')).toBe(true);
     // delete-by-tournament THEN re-insert (a removed entry must not leave a stale row)
     const entryOps = deltas.filter((d) => d.table === 'entries');
@@ -155,7 +155,7 @@ describe('buildProjectionDeltas', () => {
     const deltas = await buildProjectionDeltas({
       intents: [{ kind: 'events', tournamentId: 't-1' }],
       tournamentRecords: records,
-      flattenDraw: jest.fn(),
+      flattenDraw: vi.fn(),
     });
     const eventDeltas = deltas.filter((d) => d.table === 'events');
     expect(eventDeltas.map((d) => d.key)).toEqual([{ event_id: 'e1' }, { event_id: 'e2' }]);
@@ -219,7 +219,7 @@ describe('buildProjectionDeltas', () => {
     const deltas = await buildProjectionDeltas({
       intents: [{ kind: 'draw', tournamentId: 't-1', drawId: 'd1' }],
       tournamentRecords: records,
-      flattenDraw: jest.fn(),
+      flattenDraw: vi.fn(),
     });
     const drawOps = deltas.filter((d) => d.table === 'draws');
     const structOps = deltas.filter((d) => d.table === 'structures');
@@ -272,7 +272,7 @@ describe('buildProjectionDeltas', () => {
     const deltas = await buildProjectionDeltas({
       intents: [{ kind: 'seeds', tournamentId: 't-1', structureId: 's1' }],
       tournamentRecords: records,
-      flattenDraw: jest.fn(),
+      flattenDraw: vi.fn(),
     });
     const seedOps = deltas.filter((d) => d.table === 'seeds');
     // delete-by-structure first, then the two participant-holding upserts (order matters)
@@ -315,7 +315,7 @@ describe('buildProjectionDeltas', () => {
   it('does NOT delete a matchUp that was also (re)built this cycle — draw-replace hazard guard', async () => {
     // A draw replace fires delete(old ids) + flatten(new ids) for the SAME matchUpId.
     // The flatten upsert must win; the delete (emitted last) must be skipped.
-    const flattenDraw = jest.fn().mockResolvedValue([singlesMatchUp('m1', 'd1')]);
+    const flattenDraw = vi.fn().mockResolvedValue([singlesMatchUp('m1', 'd1')]);
     const deltas = await build(
       [
         { kind: 'flattenDraw', tournamentId: 't-1', drawId: 'd1' },
@@ -328,7 +328,7 @@ describe('buildProjectionDeltas', () => {
   });
 
   it('deleteMatchUps still deletes a matchUp that was NOT rebuilt this cycle', async () => {
-    const flattenDraw = jest.fn().mockResolvedValue([singlesMatchUp('m1', 'd1')]);
+    const flattenDraw = vi.fn().mockResolvedValue([singlesMatchUp('m1', 'd1')]);
     const deltas = await build(
       [
         { kind: 'flattenDraw', tournamentId: 't-1', drawId: 'd1' },
@@ -351,7 +351,7 @@ describe('buildProjectionDeltas', () => {
     const up = await buildProjectionDeltas({
       intents: [{ kind: 'orderOfPlay', tournamentId: 't-1' }],
       tournamentRecords: published,
-      flattenDraw: jest.fn(),
+      flattenDraw: vi.fn(),
     });
     expect(up.find((d) => d.table === 'order_of_play')).toMatchObject({
       op: 'upsert',
@@ -374,7 +374,7 @@ describe('buildProjectionDeltas', () => {
     const up = await buildProjectionDeltas({
       intents: [{ kind: 'participantPublish', tournamentId: 't-1' }],
       tournamentRecords: published,
-      flattenDraw: jest.fn(),
+      flattenDraw: vi.fn(),
     });
     expect(up.find((d) => d.table === 'participant_publish')).toMatchObject({
       op: 'upsert',
@@ -410,7 +410,7 @@ describe('buildProjectionDeltas', () => {
     const deltas = await buildProjectionDeltas({
       intents: [{ kind: 'entries', tournamentId: 't-1' }],
       tournamentRecords: records,
-      flattenDraw: jest.fn(),
+      flattenDraw: vi.fn(),
     });
     // delete-by-tournament THEN re-insert (a removed entry must not leave a stale row)
     const entryOps = deltas.filter((d) => d.table === 'entries');
@@ -513,7 +513,7 @@ describe('buildProjectionDeltas', () => {
   // matched": it is a cross-tournament dimension with no tournament_id column, linked
   // through tournament_venues (which is itself scoped).
   it('every delete and update delta is scoped by tournament_id', async () => {
-    const flattenDraw = jest.fn().mockResolvedValue([singlesMatchUp('m1', 'd1')]);
+    const flattenDraw = vi.fn().mockResolvedValue([singlesMatchUp('m1', 'd1')]);
     const deltas = await build(
       [
         { kind: 'flattenDraw', tournamentId: 't-1', drawId: 'd1' },

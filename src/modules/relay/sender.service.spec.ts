@@ -2,13 +2,14 @@ import { OutboundQueueService } from './outbound-queue.service';
 import { QueueEntry } from './types/queue-entry';
 import { RelayConfig } from './relay.config';
 import { SenderService } from './sender.service';
+import type { Mock } from 'vitest';
 
 // In-memory queue simulating the Postgres table
 let rows: QueueEntry[] = [];
 let nextSeq = 1;
 
 const mockPool = {
-  query: jest.fn(async (sql: string, params?: any[]) => {
+  query: vi.fn(async (sql: string, params?: any[]) => {
     const text = sql.replace(/\s+/g, ' ').trim();
 
     if (text.includes('CREATE TABLE')) return { rows: [] };
@@ -70,13 +71,13 @@ describe('SenderService.drainOnce', () => {
   let queue: OutboundQueueService;
   let config: RelayConfig;
   let sender: SenderService;
-  let fetchMock: jest.Mock;
+  let fetchMock: Mock;
   const ORIGINAL_ENV = { ...process.env };
 
   beforeEach(() => {
     rows = [];
     nextSeq = 1;
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     process.env.INSTANCE_ROLE = 'local';
     process.env.LOCAL_VENUE_ID = 'venue-test';
     process.env.CLOUD_RELAY_URL = 'https://relay.example.test';
@@ -86,7 +87,7 @@ describe('SenderService.drainOnce', () => {
     queue = new OutboundQueueService(mockPool as any);
     config = new RelayConfig();
     sender = new SenderService(config, queue);
-    fetchMock = jest.fn(async () => ({ ok: true, status: 200 }) as any);
+    fetchMock = vi.fn(async () => ({ ok: true, status: 200 }) as any);
     (globalThis as any).fetch = fetchMock;
   });
 

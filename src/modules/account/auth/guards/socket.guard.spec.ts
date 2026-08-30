@@ -24,7 +24,7 @@ describe('SocketGuard', () => {
     const emittedEvents: any[] = [];
     const request: any = { user: undefined };
 
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(isPublic);
+    vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(isPublic);
 
     const client = {
       handshake: { headers: { authorization: authHeader } },
@@ -73,7 +73,7 @@ describe('SocketGuard', () => {
   it('allows access for valid JWT without role requirements', async () => {
     const payload = { email: 'test@test.com', roles: ['admin'] };
     const token = jwtService.sign(payload, { secret: 'test-secret' });
-    jest.spyOn(reflector, 'get').mockReturnValue(undefined);
+    vi.spyOn(reflector, 'get').mockReturnValue(undefined);
 
     const { context, request } = createMockWsContext(`Bearer ${token}`);
     const result = await guard.canActivate(context);
@@ -85,7 +85,7 @@ describe('SocketGuard', () => {
   it('allows access when user has required role', async () => {
     const payload = { email: 'test@test.com', roles: ['admin'] };
     const token = jwtService.sign(payload, { secret: 'test-secret' });
-    jest.spyOn(reflector, 'get').mockReturnValue(['admin']);
+    vi.spyOn(reflector, 'get').mockReturnValue(['admin']);
 
     const { context } = createMockWsContext(`Bearer ${token}`);
     const result = await guard.canActivate(context);
@@ -95,7 +95,7 @@ describe('SocketGuard', () => {
   it('rejects when user lacks required role', async () => {
     const payload = { email: 'test@test.com', roles: ['client'] };
     const token = jwtService.sign(payload, { secret: 'test-secret' });
-    jest.spyOn(reflector, 'get').mockReturnValue(['superadmin']);
+    vi.spyOn(reflector, 'get').mockReturnValue(['superadmin']);
 
     const { context } = createMockWsContext(`Bearer ${token}`);
     await expect(guard.canActivate(context)).rejects.toThrow('Unauthorized access');
@@ -105,12 +105,12 @@ describe('SocketGuard', () => {
     function ctxWithAud(token: string, audience?: string[]) {
       const emittedEvents: any[] = [];
       const request: any = { user: undefined };
-      jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: any) => {
+      vi.spyOn(reflector, 'getAllAndOverride').mockImplementation((key: any) => {
         if (key === IS_PUBLIC_KEY) return false;
         if (key === AUDIENCE_KEY) return audience;
         return undefined;
       });
-      jest.spyOn(reflector, 'get').mockReturnValue(undefined);
+      vi.spyOn(reflector, 'get').mockReturnValue(undefined);
       const client = {
         handshake: { headers: { authorization: `Bearer ${token}` } },
         emit: (event: string, data: any) => emittedEvents.push({ event, data }),
@@ -187,8 +187,8 @@ describe('SocketGuard', () => {
     function ctxWithAuthPayload(authPayload: { token?: any } | undefined, headerToken?: string) {
       const emittedEvents: any[] = [];
       const request: any = { user: undefined };
-      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
-      jest.spyOn(reflector, 'get').mockReturnValue(undefined);
+      vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
+      vi.spyOn(reflector, 'get').mockReturnValue(undefined);
       const client = {
         handshake: {
           headers: { authorization: headerToken ? `Bearer ${headerToken}` : undefined },
