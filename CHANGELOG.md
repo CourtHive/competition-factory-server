@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.30.0](https://github.com/CourtHive/competition-factory-server/compare/v2.29.0...v2.30.0) (2026-08-31)
+
+
+### Features
+
+* **cache:** keep the participant roster when only a score changed ([#947](https://github.com/CourtHive/competition-factory-server/issues/947)) ([655de86](https://github.com/CourtHive/competition-factory-server/commit/655de865a19e6d0b4565ff516aa8fb0ed2ea4a9b))
+* **projection:** produce the discovery row, keyed on the touched-tournament union ([#942](https://github.com/CourtHive/competition-factory-server/issues/942)) ([63ea13f](https://github.com/CourtHive/competition-factory-server/commit/63ea13f0f53d235b021e2efc8633886d719f2f1d))
+* **storage:** separate calendar listing from ownership, and index participation ([#945](https://github.com/CourtHive/competition-factory-server/issues/945)) ([bf5c2a4](https://github.com/CourtHive/competition-factory-server/commit/bf5c2a4a8d536d1f661ea9c659c13fd7485fc912))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 6.36.0 ([247c7ca](https://github.com/CourtHive/competition-factory-server/commit/247c7ca38390658d6bd5017eb04a1ce20efdb8db))
+* **storage:** a dying connection must not kill the mutation server ([#948](https://github.com/CourtHive/competition-factory-server/issues/948)) ([5e0e80b](https://github.com/CourtHive/competition-factory-server/commit/5e0e80bf439ec03ba0491cf17674847f5289c61c))
+* **storage:** stop the participation ROLLBACK masking the real error, and log the swallow ([#949](https://github.com/CourtHive/competition-factory-server/issues/949)) ([e6ca57e](https://github.com/CourtHive/competition-factory-server/commit/e6ca57e9ad0c5c78711f79211e6d69ce0fa7a682))
+
 ## [2.29.0](https://github.com/CourtHive/competition-factory-server/compare/v2.28.0...v2.29.0) (2026-08-31)
 
 
