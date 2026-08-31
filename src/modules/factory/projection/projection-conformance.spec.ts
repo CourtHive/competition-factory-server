@@ -30,10 +30,16 @@ const PK: Record<string, string[]> = {
   scheduling_profile: ['tournament_id', 'schedule_date', 'venue_id', 'round_order'],
   participant_publish: ['tournament_id'],
   tournament_venues: ['tournament_id', 'venue_id'],
+  tournament_discovery: ['tournament_id'],
 };
 
 function keyString(table: string, row: Record<string, any>): string {
-  return PK[table].map((c) => String(row[c])).join('|');
+  // Named error rather than `Cannot read properties of undefined (reading 'map')`. This map is one
+  // of several places the read model's table list is enumerated, so it goes stale whenever a table
+  // is added — and the raw TypeError points at this line instead of at the missing entry.
+  const pk = PK[table];
+  if (!pk) throw new Error(`projection-conformance: no PK mapping for read-model table '${table}'`);
+  return pk.map((c) => String(row[c])).join('|');
 }
 
 function matchesKey(row: Record<string, any>, key: Record<string, any>): boolean {

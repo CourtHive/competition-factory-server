@@ -14,6 +14,16 @@ export const TABLE_ENTRIES = 'entries';
 export const TABLE_VENUES = 'venues';
 export const TABLE_COURTS = 'courts';
 export const TABLE_TOURNAMENT_VENUES = 'tournament_venues';
+/**
+ * The discovery projection — the read model's only AGGREGATE table.
+ *
+ * Cascade-covered, so it is registered in SNAPSHOT_CASCADE_COVERED_TABLES and must stay OUT of
+ * SNAPSHOT_OWNED_TABLES: `query_tournament_discovery.tournament_id` references
+ * `query_tournaments(tournament_id) ON DELETE CASCADE`, and TABLE_TOURNAMENTS is itself in the
+ * owned purge scope — so a snapshot's purge of the parent removes this row already. Listing it in
+ * both would be the bug the cascade list exists to prevent.
+ */
+export const TABLE_TOURNAMENT_DISCOVERY = 'tournament_discovery';
 
 /**
  * Tables a tournament SNAPSHOT owns and may purge by `tournament_id` before
@@ -68,7 +78,7 @@ export const SNAPSHOT_OWNED_TABLES = [
  * They are mirrored in projection-conformance.spec.ts's FK_CASCADES, whose own
  * comment states that map must track the migrations exactly.
  */
-export const SNAPSHOT_CASCADE_COVERED_TABLES = [TABLE_MATCH_UP_COMPETITORS] as const;
+export const SNAPSHOT_CASCADE_COVERED_TABLES = [TABLE_MATCH_UP_COMPETITORS, TABLE_TOURNAMENT_DISCOVERY] as const;
 
 /** Projected tables a snapshot must never purge — cross-tournament dimensions. */
 export const SNAPSHOT_SHARED_TABLES = [TABLE_VENUES] as const;
