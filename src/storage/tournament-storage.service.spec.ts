@@ -1,4 +1,5 @@
 import { TournamentStorageService } from './tournament-storage.service';
+import { CALENDAR_LISTED } from 'src/helpers/calendarListing';
 import { canDeleteTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { PROVIDER_ADMIN, DIRECTOR } from 'src/common/constants/roles';
 
@@ -34,6 +35,7 @@ describe('TournamentStorageService — delete safeguards', () => {
   let tournamentStorage: any;
   let providerStorage: any;
   let calendarStorage: any;
+  let participationStorage: any;
 
   beforeEach(() => {
     tournamentStorage = {
@@ -50,10 +52,18 @@ describe('TournamentStorageService — delete safeguards', () => {
       setCalendar: vi.fn().mockResolvedValue({ success: true }),
       listCalendars: vi.fn().mockResolvedValue([]),
     };
-    service = new TournamentStorageService(tournamentStorage, providerStorage, calendarStorage, {
-      isEnabled: false,
-      enqueue: vi.fn(),
-    } as any);
+    participationStorage = {
+      replaceTournamentRows: vi.fn().mockResolvedValue({ success: true }),
+      listForSubject: vi.fn().mockResolvedValue([]),
+      deleteTournamentRows: vi.fn().mockResolvedValue({ success: true }),
+    };
+    service = new TournamentStorageService(
+      tournamentStorage,
+      providerStorage,
+      calendarStorage,
+      { isEnabled: false, enqueue: vi.fn() } as any,
+      participationStorage,
+    );
   });
 
   const adminAt = (providerId: string) => ctx({ userId: 'clubx', providerRoles: { [providerId]: PROVIDER_ADMIN } });
@@ -147,6 +157,7 @@ describe('TournamentStorageService — detach-on-move (save side-effect)', () =>
   let tournamentStorage: any;
   let providerStorage: any;
   let calendarStorage: any;
+  let participationStorage: any;
 
   beforeEach(() => {
     tournamentStorage = { saveTournamentRecord: vi.fn().mockResolvedValue({ success: true }) };
@@ -156,10 +167,18 @@ describe('TournamentStorageService — detach-on-move (save side-effect)', () =>
       setCalendar: vi.fn().mockResolvedValue({ success: true }),
       listCalendars: vi.fn().mockResolvedValue([]),
     };
-    service = new TournamentStorageService(tournamentStorage, providerStorage, calendarStorage, {
-      isEnabled: false,
-      enqueue: vi.fn(),
-    } as any);
+    participationStorage = {
+      replaceTournamentRows: vi.fn().mockResolvedValue({ success: true }),
+      listForSubject: vi.fn().mockResolvedValue([]),
+      deleteTournamentRows: vi.fn().mockResolvedValue({ success: true }),
+    };
+    service = new TournamentStorageService(
+      tournamentStorage,
+      providerStorage,
+      calendarStorage,
+      { isEnabled: false, enqueue: vi.fn() } as any,
+      participationStorage,
+    );
   });
 
   it('detaches the tournament from another provider’s calendar when first added to its new provider', async () => {
@@ -172,6 +191,40 @@ describe('TournamentStorageService — detach-on-move (save side-effect)', () =>
       'ION',
       expect.objectContaining({ tournaments: [{ tournamentId: 'keep' }] }),
     );
+  });
+
+  it('an UNLISTED record touches the calendar not at all — no read, no write, no detach sweep', async () => {
+    // The whole reason the seam exists. Tens of thousands of fixtures under one provider are only
+    // affordable if an unlisted save does zero calendar IO; a calendar is one row holding its entire
+    // entry list in a single column, read whole and rewritten on every save.
+    const record: any = buildRecord({ providerId: BOBOCA });
+    record.extensions.push({ name: CALENDAR_LISTED, value: false });
+
+    await service.saveTournamentRecord({ tournamentRecord: record });
+
+    expect(calendarStorage.getCalendar).not.toHaveBeenCalled();
+    expect(calendarStorage.setCalendar).not.toHaveBeenCalled();
+    expect(calendarStorage.listCalendars).not.toHaveBeenCalled();
+    // Still stored, and still indexed: unlisted means "not in the calendar", not "not saved".
+    expect(tournamentStorage.saveTournamentRecord).toHaveBeenCalled();
+    expect(participationStorage.replaceTournamentRows).toHaveBeenCalled();
+  });
+
+  it('still lists a record that says nothing about listing', async () => {
+    await service.saveTournamentRecord({ tournamentRecord: buildRecord({ providerId: BOBOCA }) });
+    expect(calendarStorage.setCalendar).toHaveBeenCalled();
+  });
+
+  it('rewrites participation on every save, so a removed competitor loses its row', async () => {
+    await service.saveTournamentRecord({ tournamentRecord: buildRecord({ providerId: BOBOCA }) });
+    expect(participationStorage.replaceTournamentRows).toHaveBeenCalledWith(TID, []);
+  });
+
+  it('saves the tournament even when the participation index fails', async () => {
+    // A derived read model must not be able to turn its own outage into a write outage.
+    participationStorage.replaceTournamentRows.mockRejectedValue(new Error('index down'));
+    const result = await service.saveTournamentRecord({ tournamentRecord: buildRecord({ providerId: BOBOCA }) });
+    expect(result).toEqual({ success: true });
   });
 
   it('does NOT scan other calendars on a normal update (tournament already listed in its provider)', async () => {

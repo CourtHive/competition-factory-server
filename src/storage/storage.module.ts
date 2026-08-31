@@ -19,6 +19,7 @@ import { PROVIDER_STORAGE } from './interfaces/provider-storage.interface';
 import { TOPOLOGY_STORAGE } from './interfaces/topology-storage.interface';
 import { PROVIDER_CATALOG_STORAGE } from './interfaces/provider-catalog-storage.interface';
 import { CALENDAR_STORAGE } from './interfaces/calendar-storage.interface';
+import { PARTICIPATION_STORAGE } from './interfaces/participation-storage.interface';
 import { POLICY_STORAGE } from './interfaces/policy-storage.interface';
 import { AUDIT_STORAGE } from './interfaces/audit-storage.interface';
 import { USER_STORAGE } from './interfaces/user-storage.interface';
@@ -44,6 +45,7 @@ import { PostgresProviderStorage } from './postgres/postgres-provider.storage';
 import { PostgresTopologyStorage } from './postgres/postgres-topology.storage';
 import { PostgresProviderCatalogStorage } from './postgres/postgres-provider-catalog.storage';
 import { PostgresCalendarStorage } from './postgres/postgres-calendar.storage';
+import { PostgresParticipationStorage } from './postgres/postgres-participation.storage';
 import { PostgresAuthCodeStorage } from './postgres/postgres-auth-code.storage';
 import { PostgresPolicyStorage } from './postgres/postgres-policy.storage';
 import { PostgresUserStorage } from './postgres/postgres-user.storage';
@@ -87,6 +89,7 @@ const providerCatalogStorageProvider = makeStorageProvider(
   PostgresProviderCatalogStorage,
 );
 const calendarStorageProvider = makeStorageProvider(CALENDAR_STORAGE, PostgresCalendarStorage);
+const participationStorageProvider = makeStorageProvider(PARTICIPATION_STORAGE, PostgresParticipationStorage);
 const authCodeStorageProvider = makeStorageProvider(AUTH_CODE_STORAGE, PostgresAuthCodeStorage);
 const userProviderStorageProvider = makeStorageProvider(USER_PROVIDER_STORAGE, PostgresUserProviderStorage);
 const assignmentStorageProvider = makeStorageProvider(ASSIGNMENT_STORAGE, PostgresAssignmentStorage);
@@ -118,6 +121,7 @@ const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_ST
     topologyStorageProvider,
     providerCatalogStorageProvider,
     calendarStorageProvider,
+    participationStorageProvider,
     authCodeStorageProvider,
     userProviderStorageProvider,
     assignmentStorageProvider,
@@ -146,6 +150,7 @@ const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_ST
     TOPOLOGY_STORAGE,
     PROVIDER_CATALOG_STORAGE,
     CALENDAR_STORAGE,
+    PARTICIPATION_STORAGE,
     AUTH_CODE_STORAGE,
     USER_PROVIDER_STORAGE,
     ASSIGNMENT_STORAGE,

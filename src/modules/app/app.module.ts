@@ -36,6 +36,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AppService } from './app.service';
 import { APP_GUARD } from '@nestjs/core';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { ParticipationModule } from '../participation/participation.module';
 
 // Core modules — always loaded regardless of profile.
 //
@@ -82,6 +83,7 @@ const tournamentModules = isModuleEnabled('tournament')
       FactoryModule,
       MessagingModule,
       ProvidersModule,
+      ParticipationModule,
       CacheModule,
       AuditModule,
       ProvisionerModule,

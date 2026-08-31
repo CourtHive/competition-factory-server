@@ -3,11 +3,14 @@ import { Inject, Injectable } from '@nestjs/common';
 import { TOURNAMENT_STORAGE, type ITournamentStorage } from './interfaces/tournament-storage.interface';
 import { PROVIDER_STORAGE, type IProviderStorage } from './interfaces/provider-storage.interface';
 import { CALENDAR_STORAGE, type ICalendarStorage } from './interfaces/calendar-storage.interface';
+import { PARTICIPATION_STORAGE, type IParticipationStorage } from './interfaces/participation-storage.interface';
 import { PROJECTION_OUTBOX_STORAGE, type IProjectionOutboxStorage } from './interfaces/projection-outbox-storage.interface';
 import { CREATED_BY_USER_ID, canDeleteTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
+import { deriveParticipationRows } from 'src/helpers/participationRows';
 import { getCalendarEntry } from 'src/helpers/getCalendarEntry';
+import { isCalendarListed } from 'src/helpers/calendarListing';
 import { SUCCESS } from 'src/common/constants/app';
 import { isTestTournamentId } from 'src/common/constants/test';
 
@@ -27,6 +30,7 @@ export class TournamentStorageService {
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     @Inject(CALENDAR_STORAGE) private readonly calendarStorage: ICalendarStorage,
     @Inject(PROJECTION_OUTBOX_STORAGE) private readonly projectionOutbox: IProjectionOutboxStorage,
+    @Inject(PARTICIPATION_STORAGE) private readonly participationStorage: IParticipationStorage,
   ) {}
 
   // --- Read-through (no side-effects) ---
@@ -76,9 +80,14 @@ export class TournamentStorageService {
       this.stampCreatedBy(tournamentRecord, userId);
     }
 
-    if (providerId) {
+    // Ownership and calendar listing are separate decisions. An unlisted record touches the
+    // calendar not at all — no read, no rewrite, no `listCalendars()` detach sweep — which is what
+    // makes storing tens of thousands of fixtures under one provider affordable.
+    if (providerId && isCalendarListed(tournamentRecord)) {
       await this.addToOrUpdateCalendar({ providerId, tournamentRecord });
     }
+
+    await this.updateParticipationIndex(tournamentRecord);
 
     return this.tournamentStorage.saveTournamentRecord({ tournamentRecord, ownerEpoch });
   }
@@ -198,6 +207,17 @@ export class TournamentStorageService {
       await this.removeFromCalendar({ providerId: tournamentProviderId, tournamentId });
     }
 
+    // Participation rows are keyed by tournament_id with no FK to cascade from, so they are dropped
+    // here alongside the calendar detach. Unconditional: an UNLISTED record was never in a calendar
+    // but still asserted participation, so gating this on the provider would strand exactly the
+    // fixtures the index exists for.
+    try {
+      await this.participationStorage.deleteTournamentRows(tournamentId);
+    } catch {
+      // Fail-soft, as with the calendar and outbox side-effects: a read-model error must not block
+      // the delete. The backfill job reconciles orphans.
+    }
+
     // READ-MODEL PROJECTION: tournament deletion bypasses executionQueue (no
     // factory notice), so enqueue the delete-delta explicitly here — next to the
     // calendar detach. All child read tables (match_ups → competitors, entries,
@@ -271,6 +291,25 @@ export class TournamentStorageService {
       });
     } catch {
       // Audit failure is non-blocking.
+    }
+  }
+
+  /**
+   * Rewrite this tournament's participation rows.
+   *
+   * Bounded to the one tournament, so it stays O(participants-here) however large the index grows.
+   * A record asserting no durable competitor identity produces no rows, and the replace still runs:
+   * that is how a tournament whose participants were removed loses its stale rows.
+   *
+   * Non-blocking. Participation is a derived read model — a tournament must still save when its
+   * index update fails, or a read-model outage becomes a write outage.
+   */
+  private async updateParticipationIndex(tournamentRecord: any) {
+    try {
+      const rows = deriveParticipationRows(tournamentRecord);
+      await this.participationStorage.replaceTournamentRows(tournamentRecord.tournamentId, rows);
+    } catch {
+      // Deliberately swallowed; see above. The backfill job repairs a missed update.
     }
   }
 
