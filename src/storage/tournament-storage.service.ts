@@ -320,16 +320,16 @@ export class TournamentStorageService {
       // that CODES projection to storage's row shape, which is the boundary the calendar deriver
       // draws too: the factory returns what the record says, storage owns its own keys.
       //
-      // `organisationId` — which body issued `subjectId` — is deliberately NOT persisted: the table
-      // has no column for it. Harmless while a single body issues ids, but it means two bodies
-      // issuing the SAME id string would collapse into one subject. Recorded in TASKS rather than
-      // fixed here, because widening the primary key is a migration and its own decision.
+      // `organisationId` — which body issued `subjectId` — is carried through, because a subjectId
+      // is unique only WITHIN its issuing body. Without it a read for one id returns every body's
+      // competitor carrying that id as a single merged history.
       const entries = participantGovernor.getParticipation({ tournamentRecord });
       const rows = entries.map((entry) => ({
         subjectType: entry.subjectType,
         subjectId: entry.subjectId,
         tournamentId: entry.tournamentId,
         participantId: entry.participantId,
+        organisationId: entry.organisationId,
         providerId: entry.providerId,
         tournamentName: entry.tournamentName,
         startDate: entry.startDate,

@@ -244,8 +244,10 @@ describe('TournamentStorageService — detach-on-move (save side-effect)', () =>
       'local-a',
       'local-b',
     ]);
-    // The storage row carries no organisationId column; the mapping must not smuggle one in.
-    expect(rows.every((row: any) => !('organisationId' in row))).toBe(true);
+    // INVERTED when 046 added the column. It previously asserted the mapping must NOT carry an
+    // issuer, because the table had nowhere to put one; now it must, because a subjectId is unique
+    // only within the body that issued it and a read without the issuer merges two competitors.
+    expect(rows.every((row: any) => row.organisationId === 'org-1')).toBe(true);
   });
 
   it('rewrites participation on every save, so a removed competitor loses its row', async () => {
