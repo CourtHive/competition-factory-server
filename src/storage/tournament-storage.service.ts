@@ -8,8 +8,8 @@ import { PROJECTION_OUTBOX_STORAGE, type IProjectionOutboxStorage } from './inte
 import { CREATED_BY_USER_ID, canDeleteTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
-import { deriveParticipationRows } from 'src/helpers/participationRows';
 import { getCalendarEntry } from 'src/helpers/getCalendarEntry';
+import { participantGovernor } from 'tods-competition-factory';
 import { isCalendarListed } from 'src/helpers/calendarListing';
 import { SUCCESS } from 'src/common/constants/app';
 import { isTestTournamentId } from 'src/common/constants/test';
@@ -315,7 +315,27 @@ export class TournamentStorageService {
    */
   private async updateParticipationIndex(tournamentRecord: any) {
     try {
-      const rows = deriveParticipationRows(tournamentRecord);
+      // The DERIVATION lives in the factory, alongside `getTournamentCalendarEntry`, so the server
+      // and any other consumer read a record the same way. This method keeps only the mapping from
+      // that CODES projection to storage's row shape, which is the boundary the calendar deriver
+      // draws too: the factory returns what the record says, storage owns its own keys.
+      //
+      // `organisationId` — which body issued `subjectId` — is deliberately NOT persisted: the table
+      // has no column for it. Harmless while a single body issues ids, but it means two bodies
+      // issuing the SAME id string would collapse into one subject. Recorded in TASKS rather than
+      // fixed here, because widening the primary key is a migration and its own decision.
+      const entries = participantGovernor.getParticipation({ tournamentRecord });
+      const rows = entries.map((entry) => ({
+        subjectType: entry.subjectType,
+        subjectId: entry.subjectId,
+        tournamentId: entry.tournamentId,
+        participantId: entry.participantId,
+        providerId: entry.providerId,
+        tournamentName: entry.tournamentName,
+        startDate: entry.startDate,
+        endDate: entry.endDate,
+        eventCount: entry.eventCount,
+      }));
       await this.participationStorage.replaceTournamentRows(tournamentRecord.tournamentId, rows);
     } catch (error: any) {
       this.logger.error(

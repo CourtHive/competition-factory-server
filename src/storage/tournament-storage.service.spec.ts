@@ -215,6 +215,39 @@ describe('TournamentStorageService — detach-on-move (save side-effect)', () =>
     expect(calendarStorage.setCalendar).toHaveBeenCalled();
   });
 
+  it('derives real participation rows THROUGH the factory, both sides of a fixture', async () => {
+    // Without this the suite cannot tell a working derivation from one that returns nothing: every
+    // other record here has no issued identities, so `[]` is the correct answer either way and a
+    // neutered call still passes. Proven by falsification — stubbing the derivation out left all
+    // other tests green.
+    const record: any = buildRecord({ providerId: BOBOCA });
+    const issued = (participantId: string, issuedId: string) => ({
+      participantId,
+      participantType: 'TEAM',
+      participantName: `Team ${issuedId}`,
+      participantOtherIds: [{ organisationId: 'org-1', participantId: issuedId }],
+    });
+    record.participants = [issued('local-a', 'ITA-A'), issued('local-b', 'ITA-B')];
+    record.events = [{ eventId: 'dual' }];
+
+    await service.saveTournamentRecord({ tournamentRecord: record });
+
+    const [tournamentId, rows] = participationStorage.replaceTournamentRows.mock.calls.at(-1);
+    expect(tournamentId).toBe(TID);
+    expect(rows.map((row: any) => row.subjectId).sort((a: string, b: string) => a.localeCompare(b, 'en'))).toEqual([
+      'ITA-A',
+      'ITA-B',
+    ]);
+    // Keyed on the ISSUED id, with the tournament-local id kept separately.
+    expect(rows.every((row: any) => row.subjectType === 'TEAM')).toBe(true);
+    expect(rows.map((row: any) => row.participantId).sort((a: string, b: string) => a.localeCompare(b, 'en'))).toEqual([
+      'local-a',
+      'local-b',
+    ]);
+    // The storage row carries no organisationId column; the mapping must not smuggle one in.
+    expect(rows.every((row: any) => !('organisationId' in row))).toBe(true);
+  });
+
   it('rewrites participation on every save, so a removed competitor loses its row', async () => {
     await service.saveTournamentRecord({ tournamentRecord: buildRecord({ providerId: BOBOCA }) });
     expect(participationStorage.replaceTournamentRows).toHaveBeenCalledWith(TID, []);
