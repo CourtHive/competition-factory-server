@@ -43,6 +43,21 @@ export type FactoryRequestContext = {
    * makes the controller sweep that tier instead, which is coarse but correct.
    */
   unnarrowablePrefixes?: Set<string>;
+
+  /**
+   * Every notice topic that fired during this request.
+   *
+   * Answers a different question from `evictedEventKeys` / `unnarrowablePrefixes`. Those ask *which
+   * ENTITY changed* — this event, that draw — so the controller can spare the entities that did not.
+   * This asks *what KIND of change it was*, so the controller can spare a cache entry that the kind
+   * of change cannot possibly affect. The tournament participant roster (`gtp|<tid>`) is the case:
+   * it is discarded today by every mutation, including every score, and a score cannot alter it.
+   *
+   * Recorded by wrapping the handler map at registration rather than by each handler opting in — a
+   * topic added later must be recorded automatically, because a list someone has to remember to
+   * update is precisely how "invalidate less" turns into "serve stale".
+   */
+  noticeTopics?: Set<string>;
 };
 
 const asyncLocalStorage = new AsyncLocalStorage<FactoryRequestContext>();

@@ -406,11 +406,68 @@ export const subscriptionHandlers = {
  * no longer takes services / publicNotices / deltaBuffer — the handlers read those from the
  * request context the caller establishes via runWithRequestContext().
  */
+/**
+ * Notice topics after which the tournament participant roster (`gtp|<tid>`) is UNCHANGED, so the
+ * controller may keep its cached copy instead of discarding it.
+ *
+ * An ALLOW-LIST, and deliberately so. Keeping the roster when it should have been discarded serves a
+ * stale one — a withdrawn player still listed, a corrected name still wrong — for the full TTL, and
+ * nothing reports it. Anything absent from this set keeps today's discard-everything behaviour, so an
+ * omission costs a little performance rather than correctness.
+ *
+ * The roster payload (`publicQueries.getParticipants`) is built WITHOUT `allParticipantResults` and
+ * WITHOUT `withDraws`, so it carries no results, no draws and no matchUps. What it does carry —
+ * `events[]` entry data, `seedings`, `timeItems`, name/person/rankings/ratings — is what the excluded
+ * topics can move.
+ *
+ * Membership here is evidence-backed, not inferred. Measured against factory `mocksEngine`, with a
+ * positive control proving the check can see a change (a `modifyParticipant` rename moves 1 entry):
+ *   - completing qualifying matchUps  → 0 roster entries change  (MODIFY_MATCHUP)
+ *   - a LANDED `assignDrawPosition`   → 0 roster entries change  (MODIFY_POSITION_ASSIGNMENTS)
+ *
+ * Draw-definition topics are deliberately ABSENT despite looking safe: generating or modifying a draw
+ * is adjacent to entry handling and has not been probed. The win is dominated by MODIFY_MATCHUP
+ * anyway, so there is nothing to gain by guessing.
+ *
+ * See `Mentat/planning/D2_PARTICIPANT_CACHE_ATTRIBUTION.md`.
+ */
+export const ROSTER_SAFE_TOPICS: ReadonlySet<string> = new Set([
+  topicConstants.MODIFY_MATCHUP,
+  topicConstants.ADD_MATCHUPS,
+  topicConstants.DELETED_MATCHUP_IDS,
+  topicConstants.MODIFY_POSITION_ASSIGNMENTS,
+  topicConstants.MODIFY_SCHEDULING_PROFILE,
+  topicConstants.ADD_VENUE,
+  topicConstants.MODIFY_VENUE,
+  topicConstants.DELETE_VENUE,
+  topicConstants.PUBLISH_ORDER_OF_PLAY,
+  topicConstants.UNPUBLISH_ORDER_OF_PLAY,
+  topicConstants.MODIFY_TOURNAMENT_DETAIL,
+  topicConstants.AUDIT,
+]);
+
+/**
+ * The handler map, wrapped so every topic that fires is recorded on the request context.
+ *
+ * Wrapped centrally rather than by editing each handler: a topic added to `subscriptionHandlers`
+ * later is then recorded with no further action, and an unrecorded topic would silently look like
+ * "nothing of that kind happened" — which is the direction that serves stale data.
+ */
+const recordingSubscriptionHandlers = Object.fromEntries(
+  Object.entries(subscriptionHandlers).map(([topic, handler]) => [
+    topic,
+    (params: any) => {
+      getRequestContext().noticeTopics?.add(topic);
+      return (handler as (p: any) => any)(params);
+    },
+  ]),
+);
+
 export function getMutationEngine() {
   const engineAsync = asyncEngine();
   // DECISION: register AFTER asyncEngine() — engine construction resets the instance state's
   // subscriptions, so registering first silently produced a context with zero subscriptions and
   // addNotice then dropped every notice (no handler fired at all).
-  globalState.setSubscriptions({ subscriptions: subscriptionHandlers });
+  globalState.setSubscriptions({ subscriptions: recordingSubscriptionHandlers });
   return engineAsync;
 }
