@@ -177,6 +177,14 @@ jobs:
           APP_PORT: '8383'
           JWT_SECRET: ci-only-value-not-used-by-any-deployment
           NODE_ENV: test
+          # STORAGE_PROVIDER gates `e2eEnabled` in six e2e specs — without it they
+          # describe.skip and the gate silently covers less than it appears to.
+          STORAGE_PROVIDER: postgres
+          # APP_MODE=development enables the built-in dev super-admin (axel@castle.com,
+          # users.service.ts:40) that those same specs authenticate as. It has no users row, so
+          # no amount of database seeding substitutes for it. NEVER set this in a deployed
+          # environment: it is a hardcoded super-admin with a published password.
+          APP_MODE: development
           PG_HOST: 127.0.0.1
           PG_PORT: '5432'
           PG_USER: guidon
