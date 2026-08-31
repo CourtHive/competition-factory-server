@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.29.0](https://github.com/CourtHive/competition-factory-server/compare/v2.28.0...v2.29.0) (2026-08-31)
+
+
+### Features
+
+* **auth:** create and revoke scoped grants over rest ([#926](https://github.com/CourtHive/competition-factory-server/issues/926)) ([849fd4b](https://github.com/CourtHive/competition-factory-server/commit/849fd4b94c7f5c33061a82b450d2c5fa2fd60388))
+* move the server to NestJS 12 ([#939](https://github.com/CourtHive/competition-factory-server/issues/939)) ([d846cfd](https://github.com/CourtHive/competition-factory-server/commit/d846cfda19bd5681dc7da9f09299ffc9fd4e4633))
+* **persons:** send X-Service-Token to courthive-persons ([5461537](https://github.com/CourtHive/competition-factory-server/commit/54615377ad2cbc75c2209eae321b74fdeb5e52b3))
+
+
+### Bug Fixes
+
+* **auth:** derive the providerId JWT claim from the effective home provider ([#931](https://github.com/CourtHive/competition-factory-server/issues/931)) ([be0537e](https://github.com/CourtHive/competition-factory-server/commit/be0537e8e6d4d67121f343ecc04cb2f17dd30999))
+* **auth:** name the instant when a lapsed grant denies everything ([#928](https://github.com/CourtHive/competition-factory-server/issues/928)) ([86997e4](https://github.com/CourtHive/competition-factory-server/commit/86997e4f90d56944a5c04f043e28be484b2d7152))
+* **deps:** update tods-competition-factory to 6.31.0 ([#929](https://github.com/CourtHive/competition-factory-server/issues/929)) ([c52c1a1](https://github.com/CourtHive/competition-factory-server/commit/c52c1a1d8dedc141e4e6c0a6394a11f5e1f869b4))
+* **deps:** update tods-competition-factory to 6.32.0 ([a43d27e](https://github.com/CourtHive/competition-factory-server/commit/a43d27edbe202a3f682e2f9f17982bcf26cb4288))
+* **deps:** update tods-competition-factory to 6.33.0 ([23e01e7](https://github.com/CourtHive/competition-factory-server/commit/23e01e7e971c84e292dfd94c783898651c17d808))
+* **deps:** update tods-competition-factory to 6.35.0 ([f49fc37](https://github.com/CourtHive/competition-factory-server/commit/f49fc378ea95217e7a9beebcbd46e9fa3412a9ed))
+* **factory:** key cached payloads by shape — and a live TBD bug on eventdata ([#933](https://github.com/CourtHive/competition-factory-server/issues/933)) ([4943500](https://github.com/CourtHive/competition-factory-server/commit/4943500ca0b5f9a6182b2a0952a6766f3b47d40d))
+* **providers:** harden the public provider calendar (fields + publish state) and add an authenticated operator feed ([#934](https://github.com/CourtHive/competition-factory-server/issues/934)) ([f972cdc](https://github.com/CourtHive/competition-factory-server/commit/f972cdcd01cc2a58d7e3079cb9678f79d6aefd62))
+* **providers:** stop create-intennse-provider duplicating the provider it updates ([#930](https://github.com/CourtHive/competition-factory-server/issues/930)) ([387933e](https://github.com/CourtHive/competition-factory-server/commit/387933ee8b04352ac3bcd9f37c569833271e1619))
+
 ## [2.28.0](https://github.com/CourtHive/competition-factory-server/compare/v2.27.0...v2.28.0) (2026-08-23)
 
 
