@@ -40,6 +40,7 @@ import { User } from '../account/auth/decorators/user.decorator';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { MutationAuthorizationService } from './mutation-authorization.service';
 import { PayloadProfileEnum } from 'tods-competition-factory';
+import { ROSTER_SAFE_TOPICS } from './engines/getMutationEngine';
 import { GrantsService } from './grants.service';
 import { FactoryService } from './factory.service';
 
@@ -51,6 +52,9 @@ import { FactoryService } from './factory.service';
  * either over-swept (loses the granularity it was added for) or under-swept (serves stale).
  */
 const PER_ENTITY_PREFIXES = ['ged|', 'gdd|', 'gsd|'] as const;
+
+/** The tournament participant roster. Tournament-scoped, and far slower-changing than the rest. */
+const ROSTER_KEY_PREFIX = 'gtp|';
 
 /**
  * Cache-key suffix for the payload-shape variants of one entity.
@@ -157,6 +161,7 @@ export class FactoryController {
     evictedEventKeys?: readonly string[],
     warmedEventKeys?: readonly string[],
     unnarrowablePrefixes?: readonly string[],
+    noticeTopics?: readonly string[],
   ): void {
     // Per-event `ged|<tid>|<eid>` payloads are the bulk of this cache — measured at 3.26 MB across a
     // Grand-Slam-shaped tournament's five events, four times the tournamentRecord they derive from
@@ -177,6 +182,19 @@ export class FactoryController {
     // the handlers saw but could not target looks identical to no change at all, and the key is
     // spared — stale for the full TTL. See FactoryRequestContext.unnarrowablePrefixes.
     const unnarrowable = new Set(unnarrowablePrefixes ?? []);
+
+    // The participant ROSTER (`gtp|<tid>`) is spared when nothing this mutation did could have moved
+    // it. A different question from the per-entity narrowing above: that asks WHICH entity changed,
+    // this asks WHAT KIND of change it was. Today a single point scored discards the roster, and the
+    // next reader rebuilds a list that did not change.
+    //
+    // Fail-safe in both directions. `topics.length > 0` because a mutation that emitted no notices
+    // tells us nothing, and silence must not read as "nothing happened". `every` because a mutation
+    // emits several topics and one roster-affecting topic is enough — sparing on "some were safe"
+    // would serve a stale roster whenever a withdrawal rode along with a score.
+    const topics = noticeTopics ?? [];
+    const rosterUnchanged = topics.length > 0 && topics.every((t) => ROSTER_SAFE_TOPICS.has(t));
+
     for (const tid of tournamentIds) {
       if (!tid || typeof tid !== 'string') continue;
       const keys = this.cacheKeysByTournament.get(tid);
@@ -184,6 +202,10 @@ export class FactoryController {
       const retained = new Set<string>();
       for (const key of keys) {
         if (warmed.has(key)) {
+          retained.add(key);
+          continue;
+        }
+        if (rosterUnchanged && key.startsWith(ROSTER_KEY_PREFIX)) {
           retained.add(key);
           continue;
         }
@@ -401,6 +423,7 @@ export class FactoryController {
         result?.evictedEventKeys,
         undefined,
         result?.unnarrowablePrefixes,
+        result?.noticeTopics,
       );
     }
     return result;
@@ -472,6 +495,7 @@ export class FactoryController {
         result?.evictedEventKeys,
         result?.warmedEventKeys,
         result?.unnarrowablePrefixes,
+        result?.noticeTopics,
       );
     }
     return result;

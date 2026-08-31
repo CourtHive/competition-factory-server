@@ -1,3 +1,4 @@
+import { topicConstants } from 'tods-competition-factory';
 import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
 import { MutationAuthorizationService } from './mutation-authorization.service';
 import { FactoryController } from './factory.controller';
@@ -19,6 +20,7 @@ import type { Mock } from 'vitest';
 // These specs cover cache keying, not authorization — an always-allow gate keeps them about one thing.
 const permissiveMutationAuth = () => ({ gate: vi.fn().mockResolvedValue(null) }) as any;
 const stubGrants = () => ({ forCaller: vi.fn().mockResolvedValue([]) }) as any;
+const REQ = { provisioner: undefined, headers: {}, auditSource: undefined };
 
 describe('FactoryController — eventdata payload tiers', () => {
   let controller: FactoryController;
@@ -30,6 +32,8 @@ describe('FactoryController — eventdata payload tiers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     service = {
+      getParticipants: vi.fn().mockResolvedValue(mockResult),
+      getScheduleMatchUps: vi.fn().mockResolvedValue(mockResult),
       getDrawData: vi.fn().mockResolvedValue(mockResult),
       getEventData: vi.fn().mockResolvedValue(mockResult),
       executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
@@ -149,6 +153,101 @@ describe('FactoryController — eventdata payload tiers', () => {
     const deleted = cache.del.mock.calls.map((c: any[]) => c[0]);
     expect(deleted).toContain('ged|t1|e1');
     expect(deleted).toContain('ged|t1|e1|s');
+  });
+
+  it('ROSTER: a score-only mutation KEEPS the participant roster', async () => {
+    // The point of the change. Today every mutation discards gtp|<tid>, so one point scored throws
+    // away the roster and the next reader rebuilds a list that did not change. Measured against the
+    // factory: completing matchUps changes 0 roster entries.
+    await controller.tournamentParticipants({ params: { tournamentId: 't1' } } as any);
+    cache.del.mockClear();
+
+    (service.executionQueue as Mock).mockResolvedValueOnce({
+      noticeTopics: [topicConstants.MODIFY_MATCHUP, topicConstants.MODIFY_POSITION_ASSIGNMENTS],
+      tournamentIds: ['t1'],
+      success: true,
+    });
+    await controller.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, REQ);
+
+    expect(cache.del.mock.calls.map((c: any[]) => c[0])).not.toContain('gtp|t1');
+  });
+
+  it('ROSTER: a participant mutation DISCARDS it', async () => {
+    // The control for the test above. Without this, "not discarded" could mean the sweep never ran.
+    await controller.tournamentParticipants({ params: { tournamentId: 't1' } } as any);
+    cache.del.mockClear();
+
+    (service.executionQueue as Mock).mockResolvedValueOnce({
+      noticeTopics: [topicConstants.MODIFY_PARTICIPANTS],
+      tournamentIds: ['t1'],
+      success: true,
+    });
+    await controller.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, REQ);
+
+    expect(cache.del.mock.calls.map((c: any[]) => c[0])).toContain('gtp|t1');
+  });
+
+  it('ROSTER: ONE unsafe topic among safe ones is enough to discard it', async () => {
+    // A mutation emits several topics. Sparing on "some were safe" would serve a stale roster
+    // whenever a withdrawal rode along with a score — which is exactly when it matters.
+    await controller.tournamentParticipants({ params: { tournamentId: 't1' } } as any);
+    cache.del.mockClear();
+
+    (service.executionQueue as Mock).mockResolvedValueOnce({
+      noticeTopics: [topicConstants.MODIFY_MATCHUP, topicConstants.MODIFY_EVENT_ENTRIES],
+      tournamentIds: ['t1'],
+      success: true,
+    });
+    await controller.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, REQ);
+
+    expect(cache.del.mock.calls.map((c: any[]) => c[0])).toContain('gtp|t1');
+  });
+
+  it('ROSTER: NO topics means we know nothing, so it is discarded', async () => {
+    // Silence must not read as "nothing happened".
+    await controller.tournamentParticipants({ params: { tournamentId: 't1' } } as any);
+    cache.del.mockClear();
+
+    (service.executionQueue as Mock).mockResolvedValueOnce({
+      tournamentIds: ['t1'],
+      success: true,
+    });
+    await controller.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, REQ);
+
+    expect(cache.del.mock.calls.map((c: any[]) => c[0])).toContain('gtp|t1');
+  });
+
+  it('ROSTER: an UNKNOWN topic is treated as unsafe', async () => {
+    // A topic added to the handler map but not to the allow-list must not be spared by accident.
+    await controller.tournamentParticipants({ params: { tournamentId: 't1' } } as any);
+    cache.del.mockClear();
+
+    (service.executionQueue as Mock).mockResolvedValueOnce({
+      noticeTopics: [topicConstants.MODIFY_MATCHUP, 'someTopicAddedLater'],
+      tournamentIds: ['t1'],
+      success: true,
+    });
+    await controller.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, REQ);
+
+    expect(cache.del.mock.calls.map((c: any[]) => c[0])).toContain('gtp|t1');
+  });
+
+  it('ROSTER: sparing it does not spare the other tournament-scoped keys', async () => {
+    // gtp| is spared on its own merits; gtm| and the rest aggregate across entities and still go.
+    await controller.tournamentParticipants({ params: { tournamentId: 't1' } } as any);
+    await controller.tournamentMatchUps({ params: { tournamentId: 't1' } } as any);
+    cache.del.mockClear();
+
+    (service.executionQueue as Mock).mockResolvedValueOnce({
+      noticeTopics: [topicConstants.MODIFY_MATCHUP],
+      tournamentIds: ['t1'],
+      success: true,
+    });
+    await controller.executionQueue({ tournamentIds: ['t1'], methods: [] } as any, REQ);
+
+    const deleted = cache.del.mock.calls.map((c: any[]) => c[0]);
+    expect(deleted).not.toContain('gtp|t1');
+    expect(deleted).toContain('gtm|t1');
   });
 
   it('EVICTION: sparing is per-key, so an untouched event keeps BOTH of its variants', async () => {

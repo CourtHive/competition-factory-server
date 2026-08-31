@@ -43,6 +43,9 @@ export async function executionQueue(
     // FactoryRequestContext.unnarrowablePrefixes. Returned alongside the evicted keys so the
     // controller can sweep exactly those tiers instead of sparing them.
     const unnarrowablePrefixes = new Set<string>();
+    // Every notice topic this mutation fired — see FactoryRequestContext.noticeTopics. Returned so
+    // the controller can decide whether the participant roster could possibly have changed.
+    const noticeTopics = new Set<string>();
     // Collect cache keys to clear AFTER save to avoid race condition
     // where an HTTP read repopulates the cache with stale data between
     // cache-clear (during mutation) and save (after mutation).
@@ -72,6 +75,7 @@ export async function executionQueue(
       deltaBuffer,
       evictedEventKeys,
       unnarrowablePrefixes,
+      noticeTopics,
       services: {
         ...services,
         cacheManager: deferredClearCache,
@@ -253,6 +257,7 @@ export async function executionQueue(
       publicNotices,
       evictedEventKeys: [...evictedEventKeys],
       unnarrowablePrefixes: [...unnarrowablePrefixes],
+      noticeTopics: [...noticeTopics],
       warmedEventKeys,
     };
   } catch (err) {
