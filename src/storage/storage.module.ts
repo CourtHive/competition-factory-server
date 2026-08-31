@@ -51,6 +51,7 @@ import { PostgresPolicyStorage } from './postgres/postgres-policy.storage';
 import { PostgresUserStorage } from './postgres/postgres-user.storage';
 import { MigrationRunnerService } from './postgres/migration-runner.service';
 import { PG_POOL, getPostgresConfig } from './postgres/postgres.config';
+import { attachPoolErrorHandler } from './pool-error-handler';
 
 import { TournamentStorageService } from './tournament-storage.service';
 import { Global, Inject, Injectable, Module, OnModuleDestroy } from '@nestjs/common';
@@ -58,7 +59,14 @@ import { Pool } from 'pg';
 
 const pgPoolProvider = {
   provide: PG_POOL,
-  useFactory: () => new Pool(getPostgresConfig()),
+  // attachPoolErrorHandler, not a bare `new Pool(...)`. A broken connection
+  // surfaces as an 'error' event, and with no listener Node throws and the
+  // process exits. It fires in TWO places — on the pool for an idle client, and
+  // on the Client itself for one checked out via pool.connect() — so both need
+  // covering. postgres-participation.storage and postgres-provisioner.storage
+  // both hold a client across BEGIN/COMMIT, which is exactly the second case.
+  // See its header.
+  useFactory: () => attachPoolErrorHandler(new Pool(getPostgresConfig()), 'core-db'),
 };
 
 // Nest only invokes onModuleDestroy on class-provider instances, not on
