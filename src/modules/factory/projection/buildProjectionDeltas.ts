@@ -5,6 +5,7 @@ import { ProjectionDelta } from 'src/storage/interfaces/projection-outbox-storag
 import { ProjectionIntent } from './projectionTypes';
 import {
   TABLE_TOURNAMENTS,
+  TABLE_TOURNAMENT_DISCOVERY,
   TABLE_EVENTS,
   TABLE_DRAWS,
   TABLE_STRUCTURES,
@@ -383,6 +384,57 @@ function resultDeltas(g: Grouped, records: Record<string, any>, coveredMatchUpId
   return deltas;
 }
 
+/**
+ * One discovery row per tournament the batch touched.
+ *
+ * THE UNION OF EVERY TOURNAMENT ID IN THE GROUPED INTENTS, deliberately — not a curated list of the
+ * mutations known to move this row. A curated list is a denylist that must be maintained: the
+ * factory's notice-conformance harness identified six mutations that change a discovery row
+ * (deleteEvents, addVenue, modifyVenue, deleteVenue, setTournamentDates in both directions, and
+ * setTournamentTier), and a seventh added later would silently stale the row with nothing failing.
+ * The union cannot miss one, because any mutation producing ANY intent for a tournament rebuilds it.
+ *
+ * Over-emitting costs one row per tournament per batch. Under-emitting costs a wrong facet that
+ * nobody notices until a search returns the wrong tournaments.
+ *
+ * NOT `Object.keys(records)`: that map is the WHOLE ENGINE STATE, not the mutated set, so keying off
+ * it would emit a row for every loaded tournament on every mutation.
+ *
+ * The row comes from `readModel.tournamentDiscoveryRow` — the SAME builder `cast()` uses — so the
+ * incremental and rebuild paths cannot diverge.
+ */
+function discoveryDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[] {
+  const tournamentIds = new Set<string>([
+    ...g.touched,
+    ...g.participants,
+    ...g.events,
+    ...g.orderOfPlay,
+    ...g.participantPublish,
+    ...g.draws.values(),
+    ...g.seeds.values(),
+    ...g.deleteMatchUps.values(),
+    ...g.deleteEvents.values(),
+    ...g.schedulingProfiles.keys(),
+    ...[...g.flattenDraws.values()].map((d) => d.tournamentId),
+    ...[...g.matchUpResults.values()].map((m) => m.tournamentId),
+    ...[...g.venues.values()].map((v) => v.tournamentId),
+    ...[...g.claims.values()].map((c) => c.tournamentId),
+    ...[...g.participantNames.values()].map((n) => n.tournamentId),
+    ...g.deleteVenues.map((v) => v.tournamentId),
+    ...g.deleteDraws.map((d) => d.tournamentId),
+    ...g.deleteParticipants.map((p) => p.tournamentId),
+  ]);
+
+  const deltas: ProjectionDelta[] = [];
+  for (const tournamentId of tournamentIds) {
+    const record = records?.[tournamentId];
+    if (!record) continue;
+    const row = readModel.tournamentDiscoveryRow(record);
+    deltas.push(upsert(tournamentId, TABLE_TOURNAMENT_DISCOVERY, { tournament_id: tournamentId }, row, 'discovery'));
+  }
+  return deltas;
+}
+
 function tournamentDeltas(g: Grouped, records: Record<string, any>): ProjectionDelta[] {
   const deltas: ProjectionDelta[] = [];
   for (const tournamentId of g.touched) {
@@ -709,6 +761,9 @@ export async function buildProjectionDeltas(args: BuildDeltasArgs): Promise<Proj
 
   return [
     ...tournamentDeltas(g, args.tournamentRecords),
+    // after tournamentDeltas: the discovery row FKs to query_tournaments, so its parent
+    // must be upserted first within the same span.
+    ...discoveryDeltas(g, args.tournamentRecords),
     ...eventDeltas(g, args.tournamentRecords),
     ...drawDeltas(g, args.tournamentRecords),
     ...seedDeltas(g, args.tournamentRecords),

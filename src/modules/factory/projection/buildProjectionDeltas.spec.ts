@@ -38,10 +38,19 @@ describe('buildProjectionDeltas', () => {
 
     expect(flattenDraw).toHaveBeenCalledWith('t-1', 'd1');
     const tables = deltas.map((d) => `${d.op}:${d.table}`);
-    // tournaments (parent) before match_ups before competitors
-    expect(tables).toEqual(['upsert:tournaments', 'upsert:match_ups', 'upsert:match_up_competitors', 'upsert:match_up_competitors']);
+    // tournaments (parent) before match_ups before competitors. tournament_discovery sits
+    // immediately after tournaments for the same FK reason — it references
+    // query_tournaments(tournament_id), so its parent row has to exist first within the span.
+    expect(tables).toEqual([
+      'upsert:tournaments',
+      'upsert:tournament_discovery',
+      'upsert:match_ups',
+      'upsert:match_up_competitors',
+      'upsert:match_up_competitors',
+    ]);
     expect(deltas[0].row).toMatchObject({ tournament_id: 't-1', provider_id: 'BOBOCA' });
-    expect(deltas[1].key).toEqual({ match_up_id: 'm1' });
+    expect(deltas[1].table).toBe('tournament_discovery');
+    expect(deltas[2].key).toEqual({ match_up_id: 'm1' });
   });
 
   it('deduplicates the same draw flattened twice', async () => {
