@@ -228,12 +228,33 @@ export class ProvidersController {
     return this.catalog.remove(providerId, assertCatalogType(type), catalogId);
   }
 
-  /** Public calendar — used by courthive-public and epixodic. Unchanged. */
+  /**
+   * PUBLIC calendar — anonymous surface. Serves courthive-public, and TMX's
+   * logged-out path (`createTournamentsTable.ts` uses `my-calendars` when a user
+   * context exists and this only when one does not).
+   *
+   * Published tournaments only, reduced to public fields. Operator-facing consumers
+   * that need unpublished tournaments must use `calendar/provider` below.
+   */
   @Public()
   @Post('calendar')
   @HttpCode(HttpStatus.OK)
   getCalendar(@Body() providerAbbr: GetCalendarDto) {
     return this.providers.getCalendar(providerAbbr);
+  }
+
+  /**
+   * AUTHENTICATED full calendar for one named provider — includes unpublished
+   * tournaments and the full entry. For the AMS provider dashboard and other
+   * operator surfaces. Role-gated rather than membership-scoped, because an AMS
+   * admin inspects providers it is not a member of; use `my-calendars` for the
+   * membership-scoped case.
+   */
+  @Post('calendar/provider')
+  @Roles([ADMIN, SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  getProviderCalendar(@Body() body: GetCalendarDto) {
+    return this.providers.getProviderCalendar(body);
   }
 
   /**

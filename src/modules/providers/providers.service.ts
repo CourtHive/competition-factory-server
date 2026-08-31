@@ -1,4 +1,5 @@
 import { scopeCalendarForUser } from 'src/modules/factory/helpers/checkTournamentAccess';
+import { publicCalendar } from './helpers/publicCalendarEntry';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { computeEffectiveConfig, DEFAULT_SCORING_LAUNCH, validateSettings } from '@courthive/provider-config';
@@ -29,7 +30,35 @@ export class ProvidersService {
     private readonly tournamentStorageService: TournamentStorageService,
   ) {}
 
+  /**
+   * UNAUTHENTICATED (`@Public()`). The stored calendar is not a public shape — it is
+   * written on every save with no publish gating, and each entry carries the full
+   * `getTournamentInfo` projection plus `createdByUserId` and `published`. Project it
+   * through `publicCalendar()`, which filters to published tournaments AND reduces the
+   * fields, before it leaves the process.
+   *
+   * Provider- and provisioner-facing consumers must NOT use this route — they need
+   * unpublished tournaments. They use `getProviderCalendar` below.
+   */
   async getCalendar({ providerAbbr }) {
+    const calendar = await this.calendarStorage.getCalendar(providerAbbr);
+    if (!calendar) return { success: false, message: 'No calendar found' };
+    return { ...SUCCESS, calendar: publicCalendar(calendar) };
+  }
+
+  /**
+   * AUTHENTICATED full calendar for one provider — unfiltered and unprojected.
+   *
+   * Serves the operator-facing consumers, for which unpublished tournaments are the
+   * point rather than a leak: the AMS provider dashboard needs every tournament to
+   * count activity, and a provider or provisioner is entitled to see its own drafts.
+   *
+   * Distinct from `getMyCalendars`, which scopes to the providers the *caller* is
+   * associated with. This one takes an explicit `providerAbbr` and is role-gated at the
+   * controller, because an AMS admin inspects providers it has no membership in.
+   */
+  async getProviderCalendar({ providerAbbr }) {
+    if (!providerAbbr) return { error: 'providerAbbr is required' };
     const calendar = await this.calendarStorage.getCalendar(providerAbbr);
     if (!calendar) return { success: false, message: 'No calendar found' };
     return { ...SUCCESS, calendar };
