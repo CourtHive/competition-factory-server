@@ -19,6 +19,7 @@ d('Provisioner E2E', () => {
   let provisionerId: string;
   let apiKey: string;
   let providerId: string;
+  let providerAbbr: string;
   let ssoUserId: string;
   let ssoUserEmail: string;
   const createdTournamentIds: string[] = [];
@@ -176,6 +177,7 @@ d('Provisioner E2E', () => {
 
   it('creates a provider', async () => {
     const abbr = `E2E${Date.now()}`;
+    providerAbbr = abbr;
     const res = await request(app.getHttpServer())
       .post('/provisioner/providers')
       .set('Authorization', `Bearer ${apiKey}`)
@@ -209,10 +211,14 @@ d('Provisioner E2E', () => {
   });
 
   it('rejects duplicate abbreviation', async () => {
+    // Duplicate the abbreviation THIS spec created, not a hardcoded 'TMX'. The old form
+    // depended on a TMX provider already existing in whatever database the suite happened to
+    // meet — true on a developer machine holding 1,070 accumulated providers, false on a fresh
+    // one, so the rejection path went untested exactly where it was cheapest to test.
     const res = await request(app.getHttpServer())
       .post('/provisioner/providers')
       .set('Authorization', `Bearer ${apiKey}`)
-      .send({ organisationAbbreviation: 'TMX', organisationName: 'Dup' });
+      .send({ organisationAbbreviation: providerAbbr, organisationName: 'Dup' });
 
     expect(res.body.error).toBeDefined();
   });

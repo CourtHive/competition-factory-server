@@ -3,10 +3,18 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
+import { PG_POOL } from 'src/storage/postgres/postgres.config';
 import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
+
+// Seeded by this spec so the provider-list assertion below has something to find. It used to
+// rely on whatever providers the database happened to hold — true on a developer machine with
+// 1,070 accumulated providers, false on a fresh one, which is every CI run.
+const SEEDED_PROVIDER_ID = 'e2e-providers-spec-provider';
+const SEEDED_PROVIDER_ABBR = 'E2EPROV';
 
 describe('ProvidersService', () => {
   let app: INestApplication;
+  let pool: any;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -25,6 +33,14 @@ describe('ProvidersService', () => {
     const httpServer = app.getHttpServer();
     httpServer.keepAliveTimeout = 0;
     httpServer.headersTimeout = 0;
+
+    pool = app.get(PG_POOL);
+    await pool.query(
+      `INSERT INTO providers (provider_id, organisation_abbreviation, organisation_name)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (provider_id) DO UPDATE SET organisation_abbreviation = EXCLUDED.organisation_abbreviation`,
+      [SEEDED_PROVIDER_ID, SEEDED_PROVIDER_ABBR, 'E2E Providers Spec'],
+    );
   });
 
   test('/POST calendar no auth', async () => {
@@ -70,6 +86,7 @@ describe('ProvidersService', () => {
   });
 
   afterAll(async () => {
+    await pool.query(`DELETE FROM providers WHERE provider_id = $1`, [SEEDED_PROVIDER_ID]).catch(() => {});
     await app.close();
   });
 });

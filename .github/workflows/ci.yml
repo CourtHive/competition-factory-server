@@ -26,6 +26,38 @@ jobs:
   verify:
     name: lint · types · test · build
     runs-on: ubuntu-latest
+
+    # Postgres and Redis so the FULL suite runs here, end-to-end specs included. Images match
+    # this repo's own docker-compose.yml and Guidon's compose/services.yml — three definitions of
+    # the same world that must not drift.
+    #
+    # No seeding step is needed: MigrationRunnerService applies migrations on module init
+    # (src/storage/postgres/migration-runner.service.ts), so the schema builds itself against an
+    # empty database on the first spec that boots the app.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: guidon
+          POSTGRES_PASSWORD: guidon
+          POSTGRES_DB: guidon_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U guidon"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Mint App token
         id: app-token
@@ -122,69 +154,38 @@ jobs:
         working-directory: competition-factory-server
         run: pnpm check-types
 
-      # NOTE: `pnpm test` is deliberately NOT run here yet, and the reason is
-      # specific rather than caution.
+      # The FULL suite, end-to-end specs included, against the service containers above.
       #
-      # The suite needs a real Postgres. Rehearsed in a clean clone with a valid
-      # .env (APP_PORT / APP_NAME / JWT_SECRET / NODE_ENV are all @IsDefined in
-      # src/config/config-validation.ts) and no database:
+      # This replaces `pnpm test:unit`, which excluded every *.e2e.spec.ts because no database was
+      # available. That exclusion had a cost: CFS#934 changed the semantics of a @Public() route,
+      # passed this pipeline green, and left a broken e2e spec on main for a day (fixed in #944).
+      # A gate that cannot see the tests that describe your route is not a gate.
       #
-      #   Test Suites: 10 failed, 6 skipped, 113 passed, 123 of 129
-      #   Tests:       36 failed, 47 skipped, 1180 passed, 1263
-      #   error: role "courthive" does not exist
+      # src/config/config-validation.ts marks APP_PORT / APP_NAME / JWT_SECRET / NODE_ENV as
+      # @IsDefined and throws 'missing valid ENV' otherwise. Locally these come from an untracked
+      # .env; here they are supplied explicitly. NestJS ConfigModule reads .env directly, so
+      # neutralising dotenv is not enough to reproduce a runner locally — supplying the variables
+      # is.
       #
-      # Ten suites — providers.service, factory.controller, and the *.e2e.spec
-      # files — open a pg pool. Making this green needs a `services: postgres`
-      # container with the right role/database plus the migration-runner bootstrap
-      # (src/storage/postgres/migration-runner.service.ts), and a CI .env built
-      # from the tracked .env.example. That is worth doing and is the obvious next
-      # step; it is left out of this PR because it could not be verified locally
-      # (no Docker on the authoring machine) and guessing at it in CI is how the
-      # first three runs of this workflow were spent.
-      #
-      # lint + check-types + build were each verified end-to-end in a clean
-      # two-repo clone that reproduces this workflow exactly.
-
-      # `pnpm test:unit` rather than `pnpm test`: 15 of the 130 suites open a real
-      # pg pool and cannot run without a database, and a Postgres service container
-      # was ruled out for this workflow. Measured by running the full suite with
-      # Postgres pointed at a closed port, which separates database dependence from
-      # config dependence:
-      #
-      #   Test Suites: 15 failed, 1 skipped, 114 passed, 129 of 130
-      #   Tests:       80 failed, 3 skipped, 1196 passed, 1279
-      #
-      # The gate excludes every `*.e2e.spec.ts` plus two integration tests misnamed
-      # as unit specs (factory.controller, providers.service). That is a rule rather
-      # than a hand-maintained list, so new e2e specs are covered automatically — at
-      # the cost of two e2e suites that would in fact pass without a database
-      # (instanceState.middleware, projection-verify). Deliberate: rot-resistance
-      # over two suites.
-      #
-      # Consequence worth knowing: a NEW spec that needs a database and is not named
-      # `*.e2e.spec.ts` will fail this gate. That is the intended forcing function —
-      # rename it, or drop the dependency.
-      #
-      # 113 suites / 1171 tests, verified green with Postgres unreachable, and
-      # falsified by breaking an included spec (gate goes red).
-      # src/config/config-validation.ts marks APP_PORT / APP_NAME / JWT_SECRET /
-      # NODE_ENV as @IsDefined and throws 'missing valid ENV' otherwise. Locally
-      # these come from an untracked .env, which is why the suite passes on a dev
-      # machine and four suites failed on the first CI run here. NestJS ConfigModule
-      # reads .env directly, so neutralising dotenv is NOT enough to reproduce a
-      # runner locally — supplying the variables is.
-      #
-      # NODE_ENV=test matches Environment.Testing and is what vitest sets anyway.
-      # JWT_SECRET only has to satisfy MinLength(1); no suite in this gate verifies
-      # a real signature against it.
-      - name: Test (database-free suites)
+      # REDIS_URL selects database index 1 rather than the default 0. Sharing a Redis index was
+      # measured to make the suite vary run to run; isolating it made three consecutive
+      # fresh-database runs identical.
+      - name: Test (full suite, Postgres + Redis)
         working-directory: competition-factory-server
         env:
           APP_NAME: competition-factory-server-ci
           APP_PORT: '8383'
           JWT_SECRET: ci-only-value-not-used-by-any-deployment
           NODE_ENV: test
-        run: pnpm test:unit
+          PG_HOST: 127.0.0.1
+          PG_PORT: '5432'
+          PG_USER: guidon
+          PG_PASSWORD: guidon
+          PG_DATABASE: guidon_ci
+          REDIS_URL: redis://127.0.0.1:6379/1
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: '6379'
+        run: pnpm test
 
       - name: Build
         working-directory: competition-factory-server
