@@ -1,4 +1,10 @@
 -- 045-add-participation-index.sql
+-- AFFECTS: admin
+--
+-- Creates a NEW table and its indexes. It alters nothing existing, and no end-user surface
+-- reads participation_index — the only reader is the role-gated GET /participation/... route.
+-- Classified explicitly because the promote gate treats a missing header as end-user impact
+-- (fail-safe loud), which is right as a default and wrong for this file.
 --
 -- A read model answering "what did this subject take part in", without a scan.
 --

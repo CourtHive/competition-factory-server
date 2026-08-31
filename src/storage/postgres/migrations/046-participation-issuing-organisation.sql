@@ -1,4 +1,8 @@
 -- 046-participation-issuing-organisation.sql
+-- AFFECTS: admin
+--
+-- Adds a nullable column plus an index to the table 045 created. Additive, no backfill, no
+-- end-user surface reads it. Same classification and same reason as 045.
 --
 -- Record WHICH BODY issued a subject's id.
 --
