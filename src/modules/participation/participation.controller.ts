@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 
 import { ParticipationService, isParticipationSubjectType } from './participation.service';
 import { RolesGuard } from '../account/auth/guards/role.guard';
@@ -19,16 +19,25 @@ export class ParticipationController {
    *
    * For a TEAM the `subjectId` is the id its governing body issued, which for a team-grain provider
    * is also that provider's id — so impersonating the provider and reading its schedule use one key.
+   *
+   * `?organisationId=` narrows to one issuing body. A subjectId is unique only WITHIN the body that
+   * issued it, so a caller that knows which body it speaks for should say so; omitting it returns
+   * every body's rows for that id, which is right today and wrong the moment a second body issues
+   * ids that collide.
    */
   @Get(':subjectType/:subjectId')
   @Roles([ADMIN, SUPER_ADMIN])
-  async getSchedule(@Param('subjectType') subjectType: string, @Param('subjectId') subjectId: string) {
+  async getSchedule(
+    @Param('subjectType') subjectType: string,
+    @Param('subjectId') subjectId: string,
+    @Query('organisationId') organisationId?: string,
+  ) {
     const normalised = subjectType?.toUpperCase();
     // Reject an unknown grain rather than returning an empty list: an empty result for a typo'd
     // subject type is indistinguishable from a subject that genuinely took part in nothing.
     if (!isParticipationSubjectType(normalised)) {
       throw new BadRequestException(`Unknown participation subjectType: ${subjectType}`);
     }
-    return this.participation.getSchedule({ subjectType: normalised, subjectId });
+    return this.participation.getSchedule({ subjectType: normalised, subjectId, organisationId });
   }
 }

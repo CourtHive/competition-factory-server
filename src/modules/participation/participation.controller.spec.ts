@@ -28,12 +28,23 @@ describe('ParticipationController', () => {
     const result: any = await controller.getSchedule('TEAM', 'team-a');
     expect(result.count).toBe(2);
     expect(result.entries.map((entry: any) => entry.tournamentId)).toEqual(['dual-1', 'dual-2']);
-    expect(storage.listForSubject).toHaveBeenCalledWith('TEAM', 'team-a');
+    expect(storage.listForSubject).toHaveBeenCalledWith('TEAM', 'team-a', undefined);
   });
 
   it('accepts a lower-case subjectType so the route is not case-fragile', async () => {
     await controller.getSchedule('team', 'team-a');
-    expect(storage.listForSubject).toHaveBeenCalledWith('TEAM', 'team-a');
+    expect(storage.listForSubject).toHaveBeenCalledWith('TEAM', 'team-a', undefined);
+  });
+
+  it('passes ?organisationId through, so one body\u2019s competitor is not merged with another\u2019s', async () => {
+    await controller.getSchedule('TEAM', '12345', 'body-A');
+    expect(storage.listForSubject).toHaveBeenCalledWith('TEAM', '12345', 'body-A');
+  });
+
+  it('omits the filter when none is given, and does not echo one back', async () => {
+    const result: any = await controller.getSchedule('TEAM', '12345');
+    expect(storage.listForSubject).toHaveBeenCalledWith('TEAM', '12345', undefined);
+    expect('organisationId' in result).toBe(false);
   });
 
   it('REJECTS an unknown subjectType rather than returning an empty schedule', async () => {

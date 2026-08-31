@@ -25,8 +25,16 @@ export class ParticipationService {
    * subject) — deriving it would mean loading every tournament the subject appears in, which is the
    * unbounded cross-tournament read A7 forbids on a controller-reachable path.
    */
-  async getSchedule({ subjectType, subjectId }: { subjectType: ParticipationSubjectType; subjectId: string }) {
-    const entries = await this.participation.listForSubject(subjectType, subjectId);
-    return { subjectType, subjectId, count: entries.length, entries };
+  async getSchedule({
+    subjectType,
+    subjectId,
+    organisationId,
+  }: {
+    subjectType: ParticipationSubjectType;
+    subjectId: string;
+    organisationId?: string;
+  }) {
+    const entries = await this.participation.listForSubject(subjectType, subjectId, organisationId);
+    return { subjectType, subjectId, ...(organisationId ? { organisationId } : {}), count: entries.length, entries };
   }
 }

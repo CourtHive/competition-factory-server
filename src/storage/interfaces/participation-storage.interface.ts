@@ -8,6 +8,13 @@ export interface ParticipationRow {
   subjectId: string;
   tournamentId: string;
   participantId: string;
+  /**
+   * The body that ISSUED `subjectId`. Absent means the record did not say — a gap, not a default.
+   *
+   * `subjectId` is unique only WITHIN its issuing organisation, so without this a read for one id
+   * returns every body's competitor carrying that id, merged into one history.
+   */
+  organisationId?: string;
   providerId?: string;
   tournamentName?: string;
   startDate?: string;
@@ -25,10 +32,17 @@ export interface IParticipationStorage {
    */
   replaceTournamentRows(tournamentId: string, rows: ParticipationRow[]): Promise<{ success: boolean }>;
 
-  /** Every tournament one subject took part in, earliest first. O(rows-for-this-subject). */
+  /**
+   * Every tournament one subject took part in, earliest first. O(rows-for-this-subject).
+   *
+   * `organisationId` narrows to a single issuing body. Omitting it returns every body's rows for
+   * that id, which is right when one body issues ids and wrong the moment two do — so a caller
+   * that knows which body it speaks for should say so.
+   */
   listForSubject(
     subjectType: ParticipationSubjectType,
     subjectId: string,
+    organisationId?: string,
   ): Promise<ParticipationRow[]>;
 
   /** Drop a tournament's rows when the tournament itself is deleted. */

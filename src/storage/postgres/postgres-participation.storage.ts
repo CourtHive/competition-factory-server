@@ -15,6 +15,7 @@ function toRow(row: any): ParticipationRow {
     subjectId: row.subject_id,
     tournamentId: row.tournament_id,
     participantId: row.participant_id,
+    organisationId: row.organisation_id ?? undefined,
     providerId: row.provider_id ?? undefined,
     tournamentName: row.tournament_name ?? undefined,
     // pg returns DATE as a Date; the rest of the system speaks ISO day strings.
@@ -50,10 +51,11 @@ export class PostgresParticipationStorage implements IParticipationStorage {
       for (const row of rows) {
         await client.query(
           `INSERT INTO participation_index
-             (subject_type, subject_id, tournament_id, participant_id, provider_id,
+             (subject_type, subject_id, tournament_id, participant_id, organisation_id, provider_id,
               tournament_name, start_date, end_date, event_count, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
            ON CONFLICT (subject_type, subject_id, tournament_id, participant_id) DO UPDATE SET
+             organisation_id = EXCLUDED.organisation_id,
              provider_id = EXCLUDED.provider_id,
              tournament_name = EXCLUDED.tournament_name,
              start_date = EXCLUDED.start_date,
@@ -65,6 +67,7 @@ export class PostgresParticipationStorage implements IParticipationStorage {
             row.subjectId,
             tournamentId,
             row.participantId,
+            row.organisationId ?? null,
             row.providerId ?? null,
             row.tournamentName ?? null,
             row.startDate ?? null,
@@ -103,14 +106,21 @@ export class PostgresParticipationStorage implements IParticipationStorage {
     }
   }
 
-  async listForSubject(subjectType: ParticipationSubjectType, subjectId: string): Promise<ParticipationRow[]> {
+  async listForSubject(
+    subjectType: ParticipationSubjectType,
+    subjectId: string,
+    organisationId?: string,
+  ): Promise<ParticipationRow[]> {
+    // The issuer filter is applied in SQL rather than after the fact: filtering in JS would still
+    // read every body's rows for the id, which is the cost this narrowing exists to avoid.
     const result = await this.pool.query(
-      `SELECT subject_type, subject_id, tournament_id, participant_id, provider_id,
+      `SELECT subject_type, subject_id, tournament_id, participant_id, organisation_id, provider_id,
               tournament_name, start_date, end_date, event_count
          FROM participation_index
         WHERE subject_type = $1 AND subject_id = $2
+          AND ($3::text IS NULL OR organisation_id = $3)
         ORDER BY start_date NULLS LAST, tournament_id`,
-      [subjectType, subjectId],
+      [subjectType, subjectId, organisationId ?? null],
     );
     return result.rows.map(toRow);
   }
