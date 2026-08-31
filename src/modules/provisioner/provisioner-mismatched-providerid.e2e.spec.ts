@@ -238,8 +238,13 @@ d('Provisioner / mismatched X-Provider-Id', () => {
   // the first run of this spec) cannot recur.
 
   it('D1. ION calendar contains the two "wrong" tournaments (C1, C2)', async () => {
+    // The authenticated operator route, not the @Public() one. This block asks where a
+    // tournament LANDED, which is inventory rather than publication: since #934 the public
+    // route serves published tournaments only, and nothing here publishes, so it would
+    // correctly report an empty calendar and stop testing provisioner routing entirely.
     const res = await request(app.getHttpServer())
-      .post('/provider/calendar')
+      .post('/provider/calendar/provider')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ providerAbbr: ionAbbr });
     expect(res.body?.success).toBe(true);
     const ts: any[] = res.body?.calendar?.tournaments ?? [];
@@ -251,7 +256,8 @@ d('Provisioner / mismatched X-Provider-Id', () => {
 
   it('D2. BOBOCA calendar contains the "correct" tournament (C3) only', async () => {
     const res = await request(app.getHttpServer())
-      .post('/provider/calendar')
+      .post('/provider/calendar/provider')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ providerAbbr: bobocaAbbr });
     expect(res.body?.success).toBe(true);
     const ts: any[] = res.body?.calendar?.tournaments ?? [];
