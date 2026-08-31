@@ -76,7 +76,27 @@ export class PostgresParticipationStorage implements IParticipationStorage {
       await client.query('COMMIT');
       return { ...SUCCESS };
     } catch (error) {
-      await client.query('ROLLBACK');
+      // The ROLLBACK is itself guarded.
+      //
+      // A checked-out client whose backend dies stops being queryable, so `ROLLBACK` REJECTS, and
+      // unguarded that rejection propagates INSTEAD of `error`.
+      //
+      // Measured, because the obvious framing overstates it. When the connection dies FIRST, the
+      // statement failed because of it and `error` already says
+      // `Client has encountered a connection error and is not queryable` — replacing it with an
+      // identical message costs nothing. The damaging case needs a RACE: an informative failure
+      // (a constraint violation, say) and then the connection dying before the rollback runs. Then
+      // `duplicate key value violates unique constraint` is replaced by the generic connection
+      // message and the incident loses its root cause.
+      //
+      // Narrow, therefore — but the cost when it lands is an undiagnosable failure, and the fix is
+      // this `try`. There is nothing to roll back either way: the transaction died with the
+      // connection.
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // Already gone. Keep the original error, which is the one that explains anything.
+      }
       throw error;
     } finally {
       client.release();
