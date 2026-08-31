@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { TOURNAMENT_STORAGE, type ITournamentStorage } from './interfaces/tournament-storage.interface';
 import { PROVIDER_STORAGE, type IProviderStorage } from './interfaces/provider-storage.interface';
@@ -25,6 +25,8 @@ import { isTestTournamentId } from 'src/common/constants/test';
  */
 @Injectable()
 export class TournamentStorageService {
+  private readonly logger = new Logger(TournamentStorageService.name);
+
   constructor(
     @Inject(TOURNAMENT_STORAGE) private readonly tournamentStorage: ITournamentStorage,
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
@@ -303,13 +305,23 @@ export class TournamentStorageService {
    *
    * Non-blocking. Participation is a derived read model — a tournament must still save when its
    * index update fails, or a read-model outage becomes a write outage.
+   *
+   * But non-blocking is not the same as silent, and the original comment here claimed a backfill
+   * job would repair a missed update. **There is no backfill job.** The index is maintained purely
+   * by this call, so a swallowed failure is a row that is missing until the tournament happens to be
+   * saved again — invisible, with the read returning a plausible shorter history rather than an
+   * error. That is the failure mode this whole workstream exists to stop, reintroduced at the point
+   * where the guarantee is given up. So it is logged, loudly, with the id needed to repair it.
    */
   private async updateParticipationIndex(tournamentRecord: any) {
     try {
       const rows = deriveParticipationRows(tournamentRecord);
       await this.participationStorage.replaceTournamentRows(tournamentRecord.tournamentId, rows);
-    } catch {
-      // Deliberately swallowed; see above. The backfill job repairs a missed update.
+    } catch (error: any) {
+      this.logger.error(
+        `participation index not updated for ${tournamentRecord?.tournamentId}: ${error?.message ?? error}. ` +
+          `The save succeeded; this tournament's participation rows are STALE until it is saved again.`,
+      );
     }
   }
 
