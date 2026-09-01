@@ -47,10 +47,16 @@ External Platform (Federation, Club System)
   │     • Token → JWT exchange
   │
   └─► AdminProvisionerController (/admin/provisioners/*)
-        • Provisioner CRUD (SUPER_ADMIN only)
-        • API key lifecycle
-        • Provider association
+        • Provisioner CRUD (SUPER_ADMIN only)   ── writes MOVED to AMS
+        • API key lifecycle                     ── writes MOVED to AMS
+        • Provider association                  ── writes MOVED to AMS
 ```
+
+Provisioner **management** (the `/admin/provisioners/*` block above) is served by courthive-ams at
+`/ams/admin/provisioners` in production; CFS still answers the GETs but returns `410 Gone` on every
+write while `PROVISIONER_WRITES_MOVED` is set. Provisioner **auth** — `prov_sk_` key middleware, the
+synthetic user, and the mutation-time authz read — is unaffected and stays in CFS. See
+[Admin API](?path=/docs/provisioner-admin-api--docs).
 
 ## Typical Integration Flow
 

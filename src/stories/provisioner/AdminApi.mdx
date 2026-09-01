@@ -6,6 +6,28 @@ import { Meta } from '@storybook/addon-docs/blocks';
 
 The admin API (`/admin/provisioners`) is used by super administrators to manage provisioner entities and their API keys. All endpoints require JWT authentication with the `SUPER_ADMIN` role.
 
+> **This surface now lives in AMS — call `https://<host>/ams/admin/provisioners`.**
+>
+> Provisioner MANAGEMENT moved to courthive-ams (`Mentat/planning/PROVISIONER_MOVE_TO_AMS.md`). The
+> tables stay in the `courthive` database, so everything below still describes the rows correctly, but
+> in production:
+>
+> - **Writes on CFS return `410 Gone`** when `PROVISIONER_WRITES_MOVED` is set (`ProvisionerWritesMovedGuard`) —
+>   every POST / PUT / PATCH / DELETE on these routes. It is set in prod.
+> - **Reads on CFS still pass through** the guard unchanged, which is why a script can list provisioners
+>   from CFS and then fail on the very next write.
+> - **Provisioner-auth is untouched** — `prov_sk_` API-key middleware and the mutation-time authz read
+>   are outside these controllers and stay local to CFS.
+>
+> The AMS routes mirror these paths **and these response envelopes** (`{ success, provisioners }`,
+> `{ success, keys }`, `{ success, providers }`, `{ success, users }`). That parity is load-bearing:
+> when the port dropped the envelopes in Aug 2026, the admin console silently rendered an empty
+> provisioner list against live provisioners. AMS pins it in `provisioner.controller.spec.ts`.
+>
+> Association differs by caller: a super admin uses `POST /ams/admin/provisioners/:id/providers`; a
+> provisioner acting on itself uses `POST /ams/provisioner/providers/:providerId/associate` with an
+> `X-Provisioner-Id` header.
+
 ## Provisioner Lifecycle
 
 ### Create Provisioner
