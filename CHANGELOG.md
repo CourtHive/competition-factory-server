@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.30.1](https://github.com/CourtHive/competition-factory-server/compare/v2.30.0...v2.30.1) (2026-09-01)
+
+
+### Documentation
+
+* **provisioner:** say that management moved to ams, and that writes 410 here ([525571e](https://github.com/CourtHive/competition-factory-server/commit/525571e5f8110376d6c8534c37cc3d975a2f0f15))
+
 ## [2.30.0](https://github.com/CourtHive/competition-factory-server/compare/v2.29.0...v2.30.0) (2026-08-31)
 
 
