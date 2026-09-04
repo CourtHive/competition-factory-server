@@ -33,7 +33,7 @@ jobs:
           cache: pnpm
 
       # pnpm-workspace.yaml `link:` overrides point at sibling clones
-      # (factory, provider-config, courthive-i18n, courthive-ingest) that
+      # (factory, provider-config, courthive-i18n) that
       # don't exist on the runner. Today Storybook builds anyway because
       # stories don't import those packages, but the dangling symlinks
       # are a latent bomb — strip the link: lines so package.json pins

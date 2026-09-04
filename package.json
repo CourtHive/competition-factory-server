@@ -72,7 +72,6 @@
     "class-validator": "^0.15.0",
     "compression": "^1.7.4",
     "core-js": "^3.48.0",
-    "courthive-ingest": "link:../courthive-ingest",
     "dotenv": "^17.0.0",
     "ejs": "6.0.1",
     "express": "^5.0.0",
