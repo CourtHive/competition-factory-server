@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.30.2](https://github.com/CourtHive/competition-factory-server/compare/v2.30.1...v2.30.2) (2026-09-04)
+
+
+### Bug Fixes
+
+* **deps:** drop the vestigial courthive-ingest dependency ([#959](https://github.com/CourtHive/competition-factory-server/issues/959)) ([7246643](https://github.com/CourtHive/competition-factory-server/commit/7246643f439c691d9b1ea14a9e347e149957a01e))
+
 ## [2.30.1](https://github.com/CourtHive/competition-factory-server/compare/v2.30.0...v2.30.1) (2026-09-01)
 
 
