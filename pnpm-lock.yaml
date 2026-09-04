@@ -10,7 +10,6 @@ overrides:
   tods-competition-factory: link:../factory
   '@courthive/provider-config': link:../provider-config
   '@courthive/i18n': link:../courthive-i18n
-  courthive-ingest: link:../courthive-ingest
   brace-expansion@1: '>=1.1.16'
   brace-expansion@2: '>=2.1.2'
   fast-uri: ^4.0.0
@@ -81,9 +80,6 @@ importers:
       core-js:
         specifier: ^3.48.0
         version: 3.50.0
-      courthive-ingest:
-        specifier: link:../courthive-ingest
-        version: link:../courthive-ingest
       dotenv:
         specifier: ^17.0.0
         version: 17.4.2

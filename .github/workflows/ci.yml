@@ -8,16 +8,17 @@ on:
 permissions:
   contents: read
 
-# competition-factory-server is the one ecosystem service whose CI cannot install
-# from the registry alone: `courthive-ingest` is a PRIVATE, UNPUBLISHED package
-# consumed as `link:../courthive-ingest` (package.json dependency AND a
-# pnpm-workspace.yaml override), and the Jest globalSetup imports it to fail fast
-# on a stale build. So the sibling is checked out and built first, using the same
-# app-token pattern sync-i18n.yml already uses to reach courthive-i18n.
+# Every `link:` override this repo carries (tods-competition-factory,
+# @courthive/provider-config, @courthive/i18n) is a PUBLISHED package, so CI strips
+# them all and installs from the registry.
 #
-# The other three overrides (tods-competition-factory, @courthive/provider-config,
-# @courthive/i18n) ARE published, so they are stripped and installed from the
-# registry — only the courthive-ingest link is preserved.
+# It was not always so: `courthive-ingest` is private and unpublished, and used to be
+# consumed as `link:../courthive-ingest`, which forced this workflow to mint an
+# app token, check the sibling out and build it before installing. That dependency
+# went vestigial when the federation-data module was retired (66880e4c, 2026-07-24)
+# and was removed once courthive-ingest's workspace split made the bare package name
+# unresolvable. Do not reintroduce a private sibling here without restoring that
+# machinery.
 #
 # Scope is lint + check-types + build. `pnpm test` needs a Postgres service and is
 # a follow-up — see the note above the Build step for the measured evidence.
@@ -66,27 +67,16 @@ jobs:
           client-id: ${{ secrets.RELEASE_BOT_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
           owner: CourtHive
-          repositories: competition-factory-server,courthive-ingest
+          repositories: competition-factory-server
 
       - name: Checkout competition-factory-server
         uses: actions/checkout@v7
         with:
           path: competition-factory-server
 
-      # Must land as a SIBLING directory: both the package.json dependency and the
-      # pnpm-workspace.yaml override resolve `link:../courthive-ingest` relative to
-      # the server checkout.
-      - name: Checkout courthive-ingest
-        uses: actions/checkout@v7
-        with:
-          repository: CourtHive/courthive-ingest
-          token: ${{ steps.app-token.outputs.token }}
-          path: courthive-ingest
-
-      # Both repos are checked out into subdirectories, so the workspace root has
-      # no package.json for the action to read `packageManager` from — point it at
-      # the server's. (courthive-ingest pins the same pnpm major, so one install
-      # serves both.)
+      # The server is checked out into a subdirectory, so the workspace root has no
+      # package.json for the action to read `packageManager` from — point it at the
+      # server's.
       - uses: pnpm/action-setup@v6
         with:
           package_json_file: competition-factory-server/package.json
@@ -95,49 +85,15 @@ jobs:
         with:
           node-version: 24
 
-      # courthive-ingest links ../factory, which is not checked out here.
-      - name: 'Strip link: overrides (courthive-ingest)'
-        working-directory: courthive-ingest
-        run: |
-          node -e "
-          const fs = require('fs');
-          if (fs.existsSync('pnpm-workspace.yaml')) {
-            const before = fs.readFileSync('pnpm-workspace.yaml', 'utf8');
-            const after = before.split('\n').filter(line => !/:\s*link:\S+\s*\$/.test(line)).join('\n');
-            if (after !== before) fs.writeFileSync('pnpm-workspace.yaml', after);
-          }
-          "
-
-      # The server consumes courthive-ingest from its build/ output (main:
-      # build/index.js), so it must be built before the server installs.
-      #
-      # --no-frozen-lockfile rather than deleting the lockfile: stripping the
-      # overrides makes the lockfile stale, and CI defaults to frozen. Keeping it
-      # means only the stripped deps re-resolve while everything else installs at
-      # its locked version. Deleting it re-resolves EVERYTHING, which collides with
-      # `minimumReleaseAge: 1440` the moment any transitive dep published in the
-      # last 24h — a time bomb that fires on an unrelated PR. It fired on this one:
-      # `@storybook/csf-plugin@10.5.8 ... within the minimumReleaseAge cutoff`,
-      # published 98 seconds inside the window.
-      - name: Build courthive-ingest
-        working-directory: courthive-ingest
-        run: |
-          pnpm install --no-frozen-lockfile
-          pnpm build
-
-      # Strip only the PUBLISHED overrides; keep courthive-ingest pointing at the
-      # sibling checkout above.
-      - name: 'Strip published link: overrides (server)'
+      # Every override left is published, so strip them all and install from the registry.
+      - name: 'Strip link: overrides (server)'
         working-directory: competition-factory-server
         run: |
           node -e "
           const fs = require('fs');
           if (fs.existsSync('pnpm-workspace.yaml')) {
             const before = fs.readFileSync('pnpm-workspace.yaml', 'utf8');
-            const after = before
-              .split('\n')
-              .filter(line => !(/:\s*link:\S+\s*\$/.test(line) && !line.includes('courthive-ingest')))
-              .join('\n');
+            const after = before.split('\n').filter(line => !/:\s*link:\S+\s*\$/.test(line)).join('\n');
             if (after !== before) fs.writeFileSync('pnpm-workspace.yaml', after);
           }
           "

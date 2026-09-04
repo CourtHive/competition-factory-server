@@ -26,7 +26,7 @@ const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PAR
  *
  * ⚠️ `person.sex` and `teams` are a different case — do NOT read their removal as "nobody needs this".
  * Removing them is safe *today*: the only consumer is courthive-public's name colouring, which loses a
- * tint, and the ITA duals carry no `person.sex` at all (`courthive-ingest/scripts/dual-to-codes.mjs:168`
+ * tint, and the ITA duals carry no `person.sex` at all (`courthive-ingest/packages/ingest-runner/scripts/dual-to-codes.mjs:168`
  * builds a person with `personId` and the two standard names, never `sex`). But the ITA **requires**
  * gender to pass through, so it has to come back — as a **provider-scoped policy**, never as a global
  * widening of the shared default applied to every provider to satisfy one of them. That is the hack this
