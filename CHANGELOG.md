@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.30.3](https://github.com/CourtHive/competition-factory-server/compare/v2.30.2...v2.30.3) (2026-09-07)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 6.37.1 ([e32f35a](https://github.com/CourtHive/competition-factory-server/commit/e32f35ae7a9d35259321595f8f3f1584a417cd66))
+* **deps:** update tods-competition-factory to 6.37.2 ([fc6321a](https://github.com/CourtHive/competition-factory-server/commit/fc6321a7f2bc308b4f3d8255ae84a09194af545a))
+* **rankings-proxy:** stream bodies and honour the upstream cache policy ([#964](https://github.com/CourtHive/competition-factory-server/issues/964)) ([6412f5c](https://github.com/CourtHive/competition-factory-server/commit/6412f5c2ae67286985a95067dcf0ab5d1c1d030a))
+
 ## [2.30.2](https://github.com/CourtHive/competition-factory-server/compare/v2.30.1...v2.30.2) (2026-09-04)
 
 
