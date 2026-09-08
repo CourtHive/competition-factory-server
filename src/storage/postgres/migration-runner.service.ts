@@ -23,10 +23,25 @@ import { Pool } from 'pg';
 
 import { PG_POOL } from './postgres.config';
 
-// Resolve to the SOURCE migrations directory, not __dirname (which points to
-// build/ at runtime — .sql files are not copied by tsc). process.cwd() is the
-// project root for both `nest start` and `pnpm watch`.
-const MIGRATIONS_DIR = join(process.cwd(), 'src', 'storage', 'postgres', 'migrations');
+// Resolve from __dirname, so the runner works from ANY working directory.
+//
+// This used to be `join(process.cwd(), 'src', 'storage', 'postgres', 'migrations')` — the SOURCE
+// tree, because tsc does not copy .sql files. That made the schema depend on where the process
+// happened to be started, and it failed OPEN: `getPendingMigrations` returns [] when the directory
+// is missing, so the caller logged "All migrations up to date" over an empty database and exited 0.
+// The warning it prints first is immediately contradicted by that line.
+//
+// It held in production only because the deploy does `cd $SERVER_DIR && pm2 start` and ships the
+// source tree. Neither is guaranteed: a container that copies just `build/` — the normal thing for
+// a multi-stage image, and exactly what the in-flight cfs.Dockerfile would do — boots against an
+// unmigrated database and says it is up to date.
+//
+// nest-cli.json now copies the .sql files into `build/src/storage/postgres/migrations`, so
+// __dirname resolves for the compiled output, and the `src/` path below covers `nest start` /
+// `pnpm watch` / vitest, which execute from the TypeScript tree. courthive-query has always done
+// it this way.
+const BUILT_MIGRATIONS_DIR = join(__dirname, 'migrations');
+const SOURCE_MIGRATIONS_DIR = join(__dirname, '..', '..', '..', 'src', 'storage', 'postgres', 'migrations');
 
 // Arbitrary, stable key for the session-level advisory lock that serialises
 // migration application across concurrent runners (parallel test workers, or
@@ -110,20 +125,49 @@ export class MigrationRunnerService implements OnModuleInit {
     return new Set(result.rows.map((row) => row.name));
   }
 
-  private async getPendingMigrations(applied: Set<string>): Promise<{ name: string; path: string }[]> {
-    let files: string[];
-    try {
-      files = await readdir(MIGRATIONS_DIR);
-    } catch {
-      this.logger.warn(`Migrations directory not found: ${MIGRATIONS_DIR}`);
-      return [];
+  /**
+   * Locate the migrations directory: the compiled copy first (nest-cli copies the .sql files into
+   * build/), then the source tree for `nest start` / `pnpm watch` / vitest.
+   *
+   * THROWS when neither exists. This used to return [] and let the caller report "All migrations
+   * up to date" over an empty database — a fail-open default on the one path whose whole job is to
+   * build the schema, where "did nothing" and "succeeded" must never look alike. There is no
+   * legitimate state in which a service that ships migrations cannot find them, so this is a
+   * startup failure, not a warning.
+   */
+  private async resolveMigrationsDir(): Promise<string> {
+    for (const dir of [BUILT_MIGRATIONS_DIR, SOURCE_MIGRATIONS_DIR]) {
+      try {
+        await readdir(dir);
+        return dir;
+      } catch {
+        // try the next candidate
+      }
     }
+    throw new Error(
+      `Migrations directory not found. Looked in:\n  ${BUILT_MIGRATIONS_DIR}\n  ${SOURCE_MIGRATIONS_DIR}\n` +
+        'Refusing to report success against a database that may be unmigrated. If this is a ' +
+        'container image, it must include the .sql files — nest-cli.json copies them into build/.',
+    );
+  }
 
-    return files
+  private async getPendingMigrations(applied: Set<string>): Promise<{ name: string; path: string }[]> {
+    const migrationsDir = await this.resolveMigrationsDir();
+    const files = await readdir(migrationsDir);
+
+    const pending = files
       .filter((f) => f.endsWith('.sql'))
       .sort()
       .filter((f) => !applied.has(f))
-      .map((f) => ({ name: f, path: join(MIGRATIONS_DIR, f) }));
+      .map((f) => ({ name: f, path: join(migrationsDir, f) }));
+
+    // A directory that exists but holds no .sql at all is the same fail-open shape as a missing
+    // one — an empty read that reports as success. Distinguish it from "everything is applied".
+    if (!files.some((f) => f.endsWith('.sql'))) {
+      throw new Error(`Migrations directory ${migrationsDir} contains no .sql files.`);
+    }
+
+    return pending;
   }
 
   private async applyMigration(migration: { name: string; path: string }): Promise<void> {
