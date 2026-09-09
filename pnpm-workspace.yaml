@@ -1,20 +1,28 @@
 packages: []
 
-# Keep pnpm v11's supply-chain minimumReleaseAge policy active for
-# third-party packages (1440 minutes = 1 day floor), but exempt every
-# CourtHive package we publish ourselves so cross-repo release cascades
-# don't get blocked by their own freshness. CourtHive packages are also
-# `link:../` overridden below — the lockfile entries are advisory, not
-# fetched — but the exempt-list makes the install pass even when a fresh
-# install reads the lockfile without honoring the link override.
-minimumReleaseAge: 1440
-minimumReleaseAgeExclude:
-  - 'tods-competition-factory'
-  - 'courthive-*'
-  - '@courthive/*'
-  - 'pdf-factory'
-  - 'scoring-visualizations'
-  - 'tabulator-scorecards'
+# Supply-chain freshness policy DISABLED, matching courthive-ams,
+# courthive-ingest, courthive-public, epixodic and courthive-rankings.
+#
+# This was `minimumReleaseAge: 1440` plus an exempt list naming every CourtHive
+# package, added 2026-09-01 (525571e5) so that "cross-repo release cascades
+# don't get blocked by their own freshness". The intent was right; the
+# mechanism does not survive pnpm 12 (pinned 2026-09-06, 8d16ca51).
+#
+# pnpm 12 verifies the LOCKFILE against policy in a pass that runs before
+# resolution, and that pass does not honour the unversioned exempt entries —
+# only exact `name@version` pins, which rot on every release. So the exempt
+# list silently stopped exempting anything, and the factory 6.38.0 promote to
+# production failed for hours on ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION —
+# against a package we publish ourselves and had already built, tested and run
+# on dev from that exact lockfile.
+#
+# A freshness floor defends against a compromised upstream shipping a malicious
+# version before anyone notices. It buys nothing for the packages it was
+# actually firing on, because those are ours, and pnpm 12 gives no working way
+# to scope it to third parties only. Third-party cover is not really lost here
+# either: `--config.minimumReleaseAge=0` has been passed on every nest install
+# since long before this.
+minimumReleaseAge: 0
 
 # verifyDepsBeforeRun: false suppresses pnpm's pre-script deps-status check
 # (which otherwise runs `pnpm install` on every husky hook + script
