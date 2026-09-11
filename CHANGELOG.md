@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.31.0](https://github.com/CourtHive/competition-factory-server/compare/v2.30.3...v2.31.0) (2026-09-11)
+
+
+### Features
+
+* **factory:** give the mutation engine a typed method surface ([#972](https://github.com/CourtHive/competition-factory-server/issues/972)) ([4921d76](https://github.com/CourtHive/competition-factory-server/commit/4921d76fbe4618fffc3ce74a2a641c497b72692f))
+
+
+### Bug Fixes
+
+* **storage:** the migration runner must not report success from the wrong directory ([c16a441](https://github.com/CourtHive/competition-factory-server/commit/c16a44153544cd6517909813ff0ea691737ec97b))
+
 ## [2.30.3](https://github.com/CourtHive/competition-factory-server/compare/v2.30.2...v2.30.3) (2026-09-07)
 
 
