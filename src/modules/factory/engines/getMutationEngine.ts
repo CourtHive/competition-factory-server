@@ -1,4 +1,5 @@
 import { auditConstants, governors, asyncEngine, globalState, topicConstants } from 'tods-competition-factory';
+import type { FactoryEngineTyped } from 'tods-competition-factory';
 import asyncGlobalState from './asyncGlobalState';
 import { getRequestContext } from './requestContext';
 import {
@@ -463,8 +464,8 @@ const recordingSubscriptionHandlers = Object.fromEntries(
   ]),
 );
 
-export function getMutationEngine() {
-  const engineAsync = asyncEngine();
+export function getMutationEngine(): FactoryEngineTyped {
+  const engineAsync = asyncEngine() as unknown as FactoryEngineTyped;
   // DECISION: register AFTER asyncEngine() — engine construction resets the instance state's
   // subscriptions, so registering first silently produced a context with zero subscriptions and
   // addNotice then dropped every notice (no handler fired at all).
