@@ -24,6 +24,7 @@ import { TopologiesService } from './topologies.service';
 import { ProviderCatalogService, assertCatalogType } from './provider-catalog.service';
 import { AddProviderDto } from './dto/addProvider.dto';
 import { GetProviderDto } from './dto/getProvider.dto';
+import { GetMyCalendarsDto } from './dto/getMyCalendars.dto';
 import { GetCalendarDto } from './dto/getCalendar.dto';
 import { RolesGuard } from '../account/auth/guards/role.guard';
 
@@ -288,11 +289,20 @@ export class ProvidersController {
    * Authenticated multi-provider calendar — used by TMX.
    * Returns one filtered calendar per provider the user is associated with.
    * Optional body.providerAbbr to scope to a single provider.
+   *
+   * Paged, always — `body.limit` / `body.offset`, defaulting to the first
+   * {@link DEFAULT_CALENDAR_PAGE_SIZE} and capped at
+   * {@link MAX_CALENDAR_PAGE_SIZE}. The `paging` block in the response carries
+   * `total` and `hasMore`; a caller that wants everything pages until
+   * `hasMore` is false.
+   *
+   * A SUPER_ADMIN who names no `providerAbbr` gets an EMPTY list, not the
+   * corpus — see `ProvidersService.resolveTargetAbbrs`.
    */
   @Post('my-calendars')
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  getMyCalendars(@Body() body: { providerAbbr?: string }, @UserCtx() ctx: UserContext) {
+  getMyCalendars(@Body() body: GetMyCalendarsDto, @UserCtx() ctx: UserContext) {
     return this.providers.getMyCalendars(body, ctx);
   }
 

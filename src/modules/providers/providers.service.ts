@@ -1,4 +1,5 @@
 import { scopeCalendarForUser } from 'src/modules/factory/helpers/checkTournamentAccess';
+import { emptyPaging, pageCalendars, type MyCalendarsParams } from './helpers/calendarPaging';
 import { publicCalendar } from './helpers/publicCalendarEntry';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
@@ -71,8 +72,17 @@ export class ProvidersService {
    * fetches that provider's calendar and filters it through the access-
    * control helper. Returns an array of per-provider calendars so TMX
    * can render a unified multi-provider tournaments table.
+   *
+   * **A super-admin with no `providerAbbr` gets NOTHING** — see
+   * {@link resolveTargetAbbrs}. The response is always paged; see
+   * {@link pageCalendars}.
    */
-  async getMyCalendars(params: { providerAbbr?: string }, userContext: UserContext) {
+  async getMyCalendars(params: MyCalendarsParams, userContext: UserContext) {
+    const targetAbbrs = await this.resolveTargetAbbrs(params, userContext);
+    if (!targetAbbrs.length) {
+      return { ...SUCCESS, calendars: [], paging: emptyPaging(params) };
+    }
+
     // Resolve the user's assigned tournament IDs (for DIRECTOR scoping)
     let assignedIds = new Set<string>();
     try {
@@ -82,44 +92,68 @@ export class ProvidersService {
       // assignment storage may throw on LevelDB — graceful fallback
     }
 
-    // Determine which provider abbreviations to fetch
-    const allProviders = await this.providerStorage.getProviders();
-    const providerAbbrMap: Record<string, string> = {}; // providerId → providerAbbr
-    for (const { key, value } of allProviders ?? []) {
-      const pid = key || value?.organisationId;
-      const abbr = value?.organisationAbbreviation;
-      if (pid && abbr) providerAbbrMap[pid] = abbr;
-    }
-
-    // For super-admin with a specific providerAbbr filter, scope to that
-    const targetAbbrs: string[] = [];
-    if (params.providerAbbr) {
-      targetAbbrs.push(params.providerAbbr);
-    } else if (userContext.isSuperAdmin) {
-      // Super admin with no filter: return all provider calendars
-      targetAbbrs.push(...Object.values(providerAbbrMap));
-    } else {
-      for (const pid of userContext.providerIds) {
-        const abbr = providerAbbrMap[pid];
-        if (abbr) targetAbbrs.push(abbr);
-      }
-    }
-
-    // Fetch + scope each calendar
-    const calendars: any[] = [];
+    // Fetch + scope each calendar. Scoping must happen BEFORE the page window is
+    // applied: the window has to be taken over what this user may actually see,
+    // or a DIRECTOR's page of 500 arrives holding 3 rows and `hasMore` lies.
+    const scoped: Array<{ providerAbbr: string; provider: any; tournaments: any[] }> = [];
     for (const abbr of targetAbbrs) {
       const calendar = await this.calendarStorage.getCalendar(abbr);
       if (!calendar) continue;
 
-      const filtered = scopeCalendarForUser(calendar.tournaments ?? [], userContext, assignedIds);
-      calendars.push({
+      scoped.push({
         providerAbbr: abbr,
         provider: calendar.provider,
-        tournaments: filtered,
+        tournaments: scopeCalendarForUser(calendar.tournaments ?? [], userContext, assignedIds),
       });
     }
 
-    return { ...SUCCESS, calendars };
+    return { ...SUCCESS, ...pageCalendars(scoped, params) };
+  }
+
+  /**
+   * Which provider abbreviations this call may read.
+   *
+   * The super-admin rung is **fail-closed by design** (architectural standard A3).
+   * It previously read:
+   *
+   * ```ts
+   * } else if (userContext.isSuperAdmin) {
+   *   targetAbbrs.push(...Object.values(providerAbbrMap));  // every provider
+   * }
+   * ```
+   *
+   * which made "my calendars, no provider named" mean *the entire corpus*. On
+   * 2026-09-15 a super-admin impersonating a provider clicked TMX's stop-
+   * impersonating X — which clears the provider scope and re-requests
+   * (`createTournamentsTable.ts`) — and the route walked every calendar in a
+   * sequential awaited loop and returned **49,000+ tournaments** to a browser.
+   * `scopeCalendarForUser` short-circuits on `isSuperAdmin`, so not one row was
+   * filtered on the way out.
+   *
+   * A super-admin has no membership, so "MY calendars" has no answer for one:
+   * the honest response is none. Super-admins still read any single provider by
+   * naming it in `providerAbbr` — the impersonation path always does.
+   */
+  private async resolveTargetAbbrs(params: MyCalendarsParams, userContext: UserContext): Promise<string[]> {
+    if (params.providerAbbr) return [params.providerAbbr];
+    if (userContext.isSuperAdmin) return [];
+
+    const providerIds = userContext.providerIds ?? [];
+    if (!providerIds.length) return [];
+
+    // `providerIds` are ids; calendars are keyed by abbreviation. Resolve the
+    // map only on this rung — the two rungs above never needed it, and the old
+    // code paid for `getProviders()` on every call including the ones that
+    // discarded it.
+    const allProviders = await this.providerStorage.getProviders();
+    const abbrByProviderId: Record<string, string> = {};
+    for (const { key, value } of allProviders ?? []) {
+      const providerId = key || value?.organisationId;
+      const abbr = value?.organisationAbbreviation;
+      if (providerId && abbr) abbrByProviderId[providerId] = abbr;
+    }
+
+    return providerIds.map((providerId) => abbrByProviderId[providerId]).filter(Boolean);
   }
 
   async getProvider({ providerId }) {
