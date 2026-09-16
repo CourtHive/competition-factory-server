@@ -163,3 +163,73 @@ describe('publicCalendar', () => {
     expect(publicCalendar(undefined).tournaments).toEqual([]);
   });
 });
+
+/**
+ * `event_info` became PUBLIC-ELIGIBLE with migration 047 (CA: "event_info must have
+ * visibility flags"). Before that it was withheld by OMISSION — absent from the allow-list —
+ * while the stored entry carried every event, published or not. These pin the gate.
+ */
+describe('publicCalendarEntry — event visibility', () => {
+  const entry = (overrides: any = {}) => ({
+    published: true,
+    tournamentId: 't-1',
+    providerId: 'p-1',
+    searchText: 'open',
+    tournament: {
+      tournamentName: 'Open',
+      publishState: { status: { published: true, publishedEventIds: ['e-pub'] } },
+      eventInfo: [
+        { eventId: 'e-pub', eventName: 'Published Event', entriesCount: 32, notes: 'operator only' },
+        { eventId: 'e-draft', eventName: 'Draft Event', entriesCount: 4, notes: 'operator only' },
+      ],
+      ...overrides,
+    },
+  });
+
+  it('lists only events named in publishedEventIds', () => {
+    const projected = publicCalendarEntry(entry());
+    expect(projected.tournament.eventInfo.map((e: any) => e.eventId)).toEqual(['e-pub']);
+  });
+
+  it('strips operator-only fields from the events it does list', () => {
+    const projected = publicCalendarEntry(entry());
+    expect(projected.tournament.eventInfo[0]).not.toHaveProperty('notes');
+    expect(projected.tournament.eventInfo[0]).toMatchObject({ eventName: 'Published Event', entriesCount: 32 });
+  });
+
+  it('lists NO events when publishedEventIds is absent — fail closed', () => {
+    const projected = publicCalendarEntry(entry({ publishState: undefined }));
+    expect(projected.tournament.eventInfo).toEqual([]);
+  });
+
+  it('lists NO events when publishState carries an empty published list', () => {
+    const projected = publicCalendarEntry(entry({ publishState: { status: { publishedEventIds: [] } } }));
+    expect(projected.tournament.eventInfo).toEqual([]);
+  });
+
+  it('omits eventInfo entirely when the entry has none', () => {
+    const projected = publicCalendarEntry(entry({ eventInfo: undefined }));
+    expect(projected.tournament).not.toHaveProperty('eventInfo');
+  });
+
+  it('drops an event with no eventId rather than listing it unidentified', () => {
+    const projected = publicCalendarEntry(entry({ eventInfo: [{ eventName: 'Nameless' }] }));
+    expect(projected.tournament.eventInfo).toEqual([]);
+  });
+
+  it('does not mutate the stored entry while projecting', () => {
+    const stored = entry();
+    publicCalendarEntry(stored);
+    expect(stored.tournament.eventInfo).toHaveLength(2);
+    expect(stored.tournament.eventInfo[0]).toHaveProperty('notes');
+  });
+
+  it('never leaks the private carriers alongside the events', () => {
+    const projected = publicCalendarEntry(
+      entry({ registrationProfile: { entryFees: [{ amount: 50 }] }, tournamentContacts: [{ value: 'x@y.test' }] }),
+    );
+    expect(projected.tournament).not.toHaveProperty('registrationProfile');
+    expect(projected.tournament).not.toHaveProperty('tournamentContacts');
+    expect(projected.tournament).not.toHaveProperty('publishState');
+  });
+});

@@ -56,6 +56,7 @@ const IDENTITY_FIELDS = [
   'parentOrganisation',
 ] as const;
 
+
 export interface CalendarTournamentRow {
   tournament_id: string;
   provider_id: string;
@@ -181,8 +182,8 @@ export function fromRow(row: CalendarTournamentRow): any {
   assignDefined(tournament, {
     tournamentId: row.tournament_id,
     tournamentName: row.tournament_name,
-    startDate: row.start_date,
-    endDate: row.end_date,
+    startDate: dateColumnToCalendarDay(row.start_date),
+    endDate: dateColumnToCalendarDay(row.end_date),
     tournamentStatus: row.tournament_status,
     tournamentImageURL: row.tournament_image_url,
     onlineResources: row.online_resources,
@@ -202,6 +203,38 @@ export function fromRow(row: CalendarTournamentRow): any {
   // present rather than assigned-if-defined — an absent flag must read as not-published.
   entry.published = row.published === true;
   return entry;
+}
+
+/**
+ * Turn whatever a DATE column yields into a calendar-day string.
+ *
+ * The `pg` driver maps DATE to a JavaScript `Date` at LOCAL midnight. Two consequences, and
+ * the second is the dangerous one:
+ *
+ *  - the entry's `startDate` stops being the date-only string every consumer expects, and
+ *    JSON-serialises as a full instant (`2026-06-29T04:00:00.000Z`);
+ *  - `toISOString()` on it shifts by the UTC offset, so EAST of UTC it reports the PREVIOUS
+ *    DAY. Measured: local midnight on 2026-06-29 serialises as `2026-06-28` in Asia/Tokyo
+ *    (offset -540) and Pacific/Auckland (-720), while America/New_York (+240) and UTC both
+ *    give `2026-06-29`. A tournament in Tokyo would list as starting the day before.
+ *
+ * `SELECT_COLUMNS` casts these to `text` in SQL so the coercion never happens. This stays as
+ * the defensive half — any other caller reading the column gets the same calendar day — and
+ * reads LOCAL parts, because local midnight is what the driver constructed.
+ *
+ * A calendar day is not an instant. Keeping the boundary a string is also what keeps this
+ * survivable when the factory moves to Temporal.
+ */
+function dateColumnToCalendarDay(value: any): string | undefined {
+  if (!value) return undefined;
+  if (typeof value === 'string') return value.split('T')[0];
+  if (value instanceof Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  return undefined;
 }
 
 /** Column order shared by the INSERT and every SELECT, so the two cannot drift. */
@@ -231,3 +264,12 @@ export const CALENDAR_TOURNAMENT_COLUMNS = [
   'notes',
   'remainder',
 ] as const;
+
+/**
+ * The SELECT projection. Identical to {@link CALENDAR_TOURNAMENT_COLUMNS} except that DATE
+ * columns are cast to `text`, so the driver returns the calendar day as a string rather than
+ * constructing a `Date` at local midnight — see {@link dateColumnToCalendarDay}.
+ */
+export const CALENDAR_TOURNAMENT_SELECT = CALENDAR_TOURNAMENT_COLUMNS.map((column) =>
+  column === 'start_date' || column === 'end_date' ? `${column}::text AS ${column}` : column,
+).join(', ');

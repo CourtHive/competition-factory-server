@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS calendar_tournaments (
                                 -- hostCountryCode, localTimeZone, activeDates, updatedAt,
                                 -- parentOrganisation (the factory declares it public)
   online_resources     JSONB,
-  event_info           JSONB,   -- PUBLIC-ELIGIBLE, GATED AT READ — see below
+  event_info           JSONB,   -- PUBLIC, GATED AT READ on publishedEventIds — see below
 
   -- ── Carried, PRIVATE ──
   venues               JSONB,   -- a public `location` roll-up is deferred; see below
@@ -148,13 +148,18 @@ CREATE TABLE IF NOT EXISTS calendar_tournaments (
 --
 -- No flag needs stamping. `publish_state.status.publishedEventIds` already rides along in
 -- the same row, written in the same operation, so it cannot go stale against the events
--- beside it. Gate at READ:
+-- beside it. `publicCalendarEntry` filters `event_info` through it at read time, failing
+-- closed when the list is absent.
 --
---     published AND (embargo IS NULL OR embargo <= now())
+-- A second stored representation of the same fact would be the P19 class — one bad writer
+-- silently flips every exclusion — which is the other reason not to stamp a flag.
 --
--- Read-time is also forced rather than chosen: embargo is time-dependent, so no stored
--- boolean could express it. A second stored representation of the same fact is the P19
--- class — one bad writer silently flips every exclusion.
+-- NO EMBARGO CLAUSE, and that is a finding rather than an omission. Embargoes are recorded
+-- at DRAW and STAGE level (`collectEventEmbargoes` -> `collectDrawEmbargoes`), plus
+-- orderOfPlay / participants at tournament level; there is no event-level embargo to test,
+-- and the public event fields carry counts rather than draw contents. Should one ever be
+-- added, it must re-evaluate the `embargo` TIMESTAMP against now: the stored `embargoActive`
+-- boolean is computed at write time and is stale the moment the embargo lapses.
 
 -- The director list: "my tournaments", newest first.
 CREATE INDEX IF NOT EXISTS calendar_tournaments_provider_start_idx

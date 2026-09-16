@@ -1,12 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import { CALENDAR_TOURNAMENT_COLUMNS, fromRow } from './calendarTournamentRow';
+import { CALENDAR_TOURNAMENT_COLUMNS, CALENDAR_TOURNAMENT_SELECT, fromRow } from './calendarTournamentRow';
 import type { CalendarQuery, ICalendarStorage } from '../interfaces/calendar-storage.interface';
 import { SUCCESS } from 'src/common/constants/app';
 import { PG_POOL } from './postgres.config';
 
 const COLUMNS = CALENDAR_TOURNAMENT_COLUMNS.join(', ');
+/** DATE columns cast to text — see `dateColumnToCalendarDay`. Use for every SELECT. */
+const SELECT_COLUMNS = CALENDAR_TOURNAMENT_SELECT;
 
 /**
  * `calendar_tournaments` — one row per tournament (migration 047).
@@ -55,7 +57,7 @@ export class PostgresCalendarStorage implements ICalendarStorage {
 
   async getTournament(tournamentId: string): Promise<any | null> {
     const result = await this.pool.query(
-      `SELECT ${COLUMNS} FROM calendar_tournaments WHERE tournament_id = $1`,
+      `SELECT ${SELECT_COLUMNS} FROM calendar_tournaments WHERE tournament_id = $1`,
       [tournamentId],
     );
     return result.rows.length ? fromRow(result.rows[0] as any) : null;
@@ -87,7 +89,7 @@ export class PostgresCalendarStorage implements ICalendarStorage {
     // (and is nullable), so without a unique final sort key LIMIT/OFFSET paging can repeat
     // a row on one page and skip it on the next.
     const rowsResult = await this.pool.query(
-      `SELECT ${COLUMNS} FROM calendar_tournaments
+      `SELECT ${SELECT_COLUMNS} FROM calendar_tournaments
        WHERE ${where}
        ORDER BY start_date DESC NULLS LAST, tournament_id
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -99,7 +101,7 @@ export class PostgresCalendarStorage implements ICalendarStorage {
 
   async listProviderTournaments(providerId: string): Promise<any[]> {
     const result = await this.pool.query(
-      `SELECT ${COLUMNS} FROM calendar_tournaments WHERE provider_id = $1 ORDER BY start_date DESC NULLS LAST, tournament_id`,
+      `SELECT ${SELECT_COLUMNS} FROM calendar_tournaments WHERE provider_id = $1 ORDER BY start_date DESC NULLS LAST, tournament_id`,
       [providerId],
     );
     return result.rows.map((row) => fromRow(row as any));

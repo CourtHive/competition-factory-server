@@ -207,3 +207,55 @@ describe('fidelity against a real factory entry', () => {
     expect(unclassified, `unclassified calendar-entry field(s) — classify in 047: ${unclassified}`).toEqual([]);
   });
 });
+
+/**
+ * Regression: the `pg` driver maps a DATE column to a JS `Date` at LOCAL midnight, so a row
+ * read back carried an instant where every consumer expects a calendar-day string. Caught
+ * only by running real SQL — the mocked-pool specs returned the strings they were handed.
+ *
+ * `SELECT_COLUMNS` now casts to text so the coercion never happens; this pins the defensive
+ * half, which matters for any caller that reads the column another way.
+ */
+describe('DATE columns are calendar days, not instants', () => {
+  it('converts a driver-supplied Date to its LOCAL calendar day', () => {
+    // Local midnight on the 29th — what pg constructs for DATE '2026-06-29'.
+    const row: any = { tournament_id: 't-1', provider_id: 'p', search_text: '', published: true };
+    row.start_date = new Date(2026, 5, 29, 0, 0, 0);
+    row.end_date = new Date(2026, 6, 12, 0, 0, 0);
+
+    const entry = fromRow(row);
+
+    expect(entry.tournament.startDate).toBe('2026-06-29');
+    expect(entry.tournament.endDate).toBe('2026-07-12');
+  });
+
+  it('does NOT use toISOString, which reports the previous day EAST of UTC', () => {
+    // Direction measured rather than reasoned about: getTimezoneOffset() is minutes WEST of
+    // UTC, so a NEGATIVE offset is east. Local midnight 2026-06-29 serialises as 2026-06-28
+    // in Asia/Tokyo (-540) and Pacific/Auckland (-720); America/New_York (+240) and UTC are
+    // unaffected. An earlier version of this test asserted the opposite direction and failed.
+    const row: any = { tournament_id: 't-1', provider_id: 'p', search_text: '', published: true };
+    row.start_date = new Date(2026, 5, 29, 0, 0, 0);
+
+    const actual = fromRow(row).tournament.startDate;
+    expect(actual).toBe('2026-06-29');
+
+    // Only east-of-UTC hosts can observe the divergence; elsewhere the two agree and the
+    // assertion above is the whole guarantee.
+    if (row.start_date.getTimezoneOffset() < 0) {
+      expect(actual).not.toBe(row.start_date.toISOString().split('T')[0]);
+    }
+  });
+
+  it('passes a plain date string straight through', () => {
+    const row: any = {
+      tournament_id: 't-1', provider_id: 'p', search_text: '', published: true, start_date: '2026-06-29',
+    };
+    expect(fromRow(row).tournament.startDate).toBe('2026-06-29');
+  });
+
+  it('omits the key entirely when the column is NULL', () => {
+    const row: any = { tournament_id: 't-1', provider_id: 'p', search_text: '', published: true, start_date: null };
+    expect('startDate' in fromRow(row).tournament).toBe(false);
+  });
+});
