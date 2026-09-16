@@ -44,20 +44,14 @@ export interface CalendarPaging {
   hasMore: boolean;
 }
 
-export interface ScopedCalendar {
-  providerAbbr: string;
-  provider: any;
-  tournaments: any[];
-}
-
 /**
  * Clamp caller-supplied paging.
  *
- * Fail-closed (standard A3): anything missing, non-numeric, or out of range
- * lands on the default page size rather than on "no limit". `limit: 0` and a
- * negative limit are caller errors, not requests for everything.
+ * Fail-closed (standard A3): anything missing, non-numeric, or out of range lands on the
+ * default page size rather than on "no limit". `limit: 0` and a negative limit are caller
+ * errors, not requests for everything.
  */
-function resolveWindow(params: MyCalendarsParams): { limit: number; offset: number } {
+export function resolveWindow(params: MyCalendarsParams | undefined): { limit: number; offset: number } {
   const requestedLimit = Number(params?.limit);
   const requestedOffset = Number(params?.offset);
 
@@ -70,47 +64,22 @@ function resolveWindow(params: MyCalendarsParams): { limit: number; offset: numb
   return { limit, offset };
 }
 
-/** Paging block for a response with no target calendars at all. */
-export function emptyPaging(params: MyCalendarsParams): CalendarPaging {
-  const { limit, offset } = resolveWindow(params);
-  return { limit, offset, total: 0, returned: 0, hasMore: false };
-}
-
 /**
- * Apply one window across the concatenation of already-scoped calendars.
+ * The `paging` block for a response.
  *
- * The window runs over the calendars in order, so a caller paging with a stable
- * `providerAbbr`/membership set walks every tournament exactly once. Each
- * calendar is kept in the response even when the window misses it entirely —
- * its `provider` block is how TMX labels the row group, and dropping it would
- * make a provider vanish from the UI on page 2.
+ * `total` is the count BEFORE the window, taken from the same predicate as the page itself,
+ * so `hasMore` cannot disagree with what a subsequent request returns.
  */
-export function pageCalendars(
-  scoped: ScopedCalendar[],
-  params: MyCalendarsParams,
-): { calendars: Array<ScopedCalendar & { total: number }>; paging: CalendarPaging } {
-  const { limit, offset } = resolveWindow(params);
-
-  const total = scoped.reduce((sum, calendar) => sum + calendar.tournaments.length, 0);
-  const windowEnd = offset + limit;
-
-  let cursor = 0;
-  let returned = 0;
-
-  const calendars = scoped.map((calendar) => {
-    const start = cursor;
-    const end = cursor + calendar.tournaments.length;
-    cursor = end;
-
-    // Intersect [start, end) with [offset, windowEnd), then translate back into
-    // this calendar's own index space.
-    const from = Math.max(offset, start) - start;
-    const to = Math.min(windowEnd, end) - start;
-    const tournaments = from < to ? calendar.tournaments.slice(from, to) : [];
-    returned += tournaments.length;
-
-    return { ...calendar, tournaments, total: calendar.tournaments.length };
-  });
-
-  return { calendars, paging: { limit, offset, total, returned, hasMore: offset + returned < total } };
+export function pagingFor({
+  total,
+  returned,
+  limit,
+  offset,
+}: {
+  total: number;
+  returned: number;
+  limit: number;
+  offset: number;
+}): CalendarPaging {
+  return { limit, offset, total, returned, hasMore: offset + returned < total };
 }

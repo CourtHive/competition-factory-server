@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_CALENDAR_PAGE_SIZE, MAX_CALENDAR_PAGE_SIZE } from './helpers/calendarPaging';
+import { InMemoryCalendarStorage } from 'src/tests/helpers/inMemoryCalendarStorage';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { ProvidersService } from './providers.service';
 
@@ -8,6 +9,18 @@ import { ProvidersService } from './providers.service';
  * Regression cover for the 2026-09-15 production incident: a super-admin who
  * stopped impersonating was served every provider's calendar — 49,000+
  * tournaments in one unbounded response.
+ *
+ * ## These assertions are unchanged across migration 047
+ *
+ * Every `expect` below is what it was when the incident was fixed (#974). What changed is
+ * the FIXTURE: the calendar moved from one JSONB array per provider to one row per
+ * tournament, so the test double now implements the row-based `ICalendarStorage` instead of
+ * stubbing `getCalendar`. The behaviour being asserted — fail-closed scope, paging, totals —
+ * is identical, which is the point: the cutover changes where an entry is stored, not what
+ * a caller receives.
+ *
+ * `InMemoryCalendarStorage` mirrors `PostgresCalendarStorage.buildWhere` deliberately; see
+ * its header for how that mirroring is pinned (A1, mock divergence).
  */
 
 const PROVIDER_A = 'provider-a-id';
@@ -18,7 +31,25 @@ function tournament(tournamentId: string, providerId: string) {
 }
 
 function buildService(calendars: Record<string, { provider: any; tournaments: any[] }>) {
-  const getCalendar = vi.fn(async (abbr: string) => calendars[abbr] ?? null);
+  // The calendar is keyed by tournament now, not by provider abbreviation. Flatten the
+  // per-provider fixtures into rows, resolving each provider's id the way the service does.
+  const abbrToId: Record<string, string> = { AAA: PROVIDER_A, BBB: PROVIDER_B };
+  const seed: any[] = [];
+  for (const [abbr, calendar] of Object.entries(calendars)) {
+    for (const tournament of calendar.tournaments) {
+      seed.push({
+        tournamentId: tournament.tournamentId,
+        providerId: abbrToId[abbr] ?? abbr,
+        searchText: tournament.tournamentId,
+        published: true,
+        tournament,
+      });
+    }
+  }
+
+  const calendarStorage = new InMemoryCalendarStorage(seed);
+  const querySpy = vi.spyOn(calendarStorage, 'queryTournaments');
+
   const getProviders = vi.fn(async () => [
     { key: PROVIDER_A, value: { organisationId: PROVIDER_A, organisationAbbreviation: 'AAA' } },
     { key: PROVIDER_B, value: { organisationId: PROVIDER_B, organisationAbbreviation: 'BBB' } },
@@ -26,13 +57,13 @@ function buildService(calendars: Record<string, { provider: any; tournaments: an
 
   const service = new ProvidersService(
     { getProviders } as any,
-    { getCalendar } as any,
+    calendarStorage as any,
     { findByUserId: vi.fn(async () => []) } as any,
     {} as any,
     {} as any,
   );
 
-  return { service, getCalendar, getProviders };
+  return { service, querySpy, getProviders };
 }
 
 function superAdmin(): UserContext {
@@ -79,13 +110,15 @@ describe('getMyCalendars', () => {
     });
 
     it('does not read a single calendar — the fan-out is gone, not merely filtered', async () => {
-      const { service, getCalendar, getProviders } = buildService({
+      const { service, querySpy, getProviders } = buildService({
         AAA: { provider: {}, tournaments: [tournament('t1', PROVIDER_A)] },
       });
 
       await service.getMyCalendars({}, superAdmin());
 
-      expect(getCalendar).not.toHaveBeenCalled();
+      // The storage is never asked. Not "asked and filtered to nothing" — the read that
+      // produced 49,000 rows does not happen at all.
+      expect(querySpy).not.toHaveBeenCalled();
       expect(getProviders).not.toHaveBeenCalled();
     });
 
@@ -102,7 +135,7 @@ describe('getMyCalendars', () => {
   });
 
   describe('membership scoping', () => {
-    it('resolves a member’s providerIds to calendar abbreviations', async () => {
+    it('resolves a member’s providerIds to their calendars', async () => {
       const { service } = buildService({
         AAA: { provider: {}, tournaments: [tournament('t1', PROVIDER_A)] },
         BBB: { provider: {}, tournaments: [tournament('t2', PROVIDER_B)] },
@@ -126,8 +159,11 @@ describe('getMyCalendars', () => {
   });
 
   describe('paging', () => {
+    // Ids are namespaced by provider because `tournament_id` is now the PRIMARY KEY — the
+    // one-calendar invariant. The pre-047 fixture reused `t0..tN` across providers, which
+    // the blob tolerated and the table correctly refuses.
     const many = (count: number, providerId = PROVIDER_A) =>
-      Array.from({ length: count }, (_, i) => tournament(`t${i}`, providerId));
+      Array.from({ length: count }, (_, i) => tournament(`${providerId}-t${i}`, providerId));
 
     it('caps an unasked-for response at the default page size', async () => {
       const { service } = buildService({ AAA: { provider: {}, tournaments: many(1200) } });
