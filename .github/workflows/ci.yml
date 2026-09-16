@@ -176,6 +176,12 @@ jobs:
           REDIS_URL: redis://127.0.0.1:6379/1
           REDIS_HOST: 127.0.0.1
           REDIS_PORT: '6379'
+          # Runs calendarTournaments.e2e.spec.ts against the real Postgres above. Every other
+          # storage spec mocks the pool, so SQL strings are otherwise never executed — and the
+          # calendar's authorization now lives in SQL. Enabled after that test caught a live
+          # defect the mocked suite could not: the pg driver returns DATE as a JS Date at local
+          # midnight, which serialised as the PREVIOUS DAY east of UTC.
+          CALENDAR_DB_TESTS: 'true'
         run: pnpm test
 
       - name: Build
