@@ -19,6 +19,7 @@
  */
 import { isTournamentAccessScopingEnabled } from 'src/common/constants/feature-flags';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
+import type { CalendarScope } from 'src/storage/interfaces/calendar-storage.interface';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
 /** Extension name used on tournament records to store the creating user's UUID. */
@@ -220,4 +221,46 @@ export function scopeCalendarForUser(
 
     return false;
   });
+}
+
+/**
+ * Translate a UserContext into the SQL-applied {@link CalendarScope} (migration 047).
+ *
+ * This is `scopeCalendarForUser` expressed as data instead of as a per-row predicate, so the
+ * calendar read can scope in SQL rather than filtering an already-loaded array. The two must
+ * agree; `scopeCalendarForUser` stays because non-calendar callers still filter in memory,
+ * and `calendarScopeParity.spec.ts` asserts they cannot drift.
+ *
+ * One case has no rung here and that is deliberate: `scopeCalendarForUser` treats an entry
+ * with NO providerId as unscoped-and-visible. `calendar_tournaments.provider_id` is NOT
+ * NULL, so such a row cannot exist — the backfill resolves every provider or reports the
+ * row rather than importing it.
+ */
+export function buildCalendarScope(
+  userContext: UserContext | undefined,
+  assignedTournamentIds: Set<string> = new Set(),
+): CalendarScope {
+  const empty = { fullAccessProviderIds: [], directorProviderIds: [], assignedTournamentIds: [] };
+
+  if (!isTournamentAccessScopingEnabled()) return { ...empty, unrestricted: true };
+  // No identity sees nothing — matching `scopeCalendarForUser`'s `return []`.
+  if (!userContext) return { ...empty, unrestricted: false };
+  if (userContext.isSuperAdmin) return { ...empty, unrestricted: true };
+
+  const fullAccessProviderIds = new Set<string>(userContext.provisionerProviderIds ?? []);
+  const directorProviderIds = new Set<string>();
+
+  for (const [providerId, role] of Object.entries(userContext.providerRoles ?? {})) {
+    if (fullAccessProviderIds.has(providerId)) continue;
+    if (role === PROVIDER_ADMIN) fullAccessProviderIds.add(providerId);
+    else if (role) directorProviderIds.add(providerId);
+  }
+
+  return {
+    unrestricted: false,
+    fullAccessProviderIds: [...fullAccessProviderIds],
+    directorProviderIds: [...directorProviderIds],
+    userId: userContext.userId,
+    assignedTournamentIds: [...assignedTournamentIds],
+  };
 }

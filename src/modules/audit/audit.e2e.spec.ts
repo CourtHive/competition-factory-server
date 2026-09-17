@@ -82,7 +82,9 @@ d('Audit Trail E2E', () => {
         try {
           const { CALENDAR_STORAGE } = await import('src/storage/interfaces');
           const calendarStorage = app.get(CALENDAR_STORAGE);
-          await calendarStorage.setCalendar(AUDIT_PROVIDER_ABBR, { provider: {}, tournaments: [] });
+          // Migration 047: rows keyed by tournament, so clear this provider's rows by id.
+          const listed = await calendarStorage.listProviderTournaments(providerId);
+          for (const entry of listed) await calendarStorage.removeTournament(entry.tournamentId);
         } catch (err) {
            
           console.warn('[audit.e2e] calendar cleanup failed:', (err as Error).message);

@@ -1,5 +1,5 @@
-import { scopeCalendarForUser } from 'src/modules/factory/helpers/checkTournamentAccess';
-import { emptyPaging, pageCalendars, type MyCalendarsParams } from './helpers/calendarPaging';
+import { buildCalendarScope } from 'src/modules/factory/helpers/checkTournamentAccess';
+import { pagingFor, resolveWindow, type MyCalendarsParams } from './helpers/calendarPaging';
 import { publicCalendar } from './helpers/publicCalendarEntry';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
@@ -20,6 +20,18 @@ import {
   type ITournamentProvisionerStorage,
 } from 'src/storage/interfaces';
 
+/**
+ * No membership test — the caller's entitlement on these routes comes from elsewhere:
+ * publication (`publishedOnly`) on the public route, and the controller's `@Roles` gate on
+ * the operator route. Named so the two uses read as the same deliberate decision.
+ */
+const PUBLISHED_SCOPE = {
+  unrestricted: true,
+  fullAccessProviderIds: [],
+  directorProviderIds: [],
+  assignedTournamentIds: [],
+};
+
 @Injectable()
 export class ProvidersService {
   constructor(
@@ -32,58 +44,81 @@ export class ProvidersService {
   ) {}
 
   /**
-   * UNAUTHENTICATED (`@Public()`). The stored calendar is not a public shape — it is
-   * written on every save with no publish gating, and each entry carries the full
-   * `getTournamentInfo` projection plus `createdByUserId` and `published`. Project it
-   * through `publicCalendar()`, which filters to published tournaments AND reduces the
-   * fields, before it leaves the process.
+   * UNAUTHENTICATED (`@Public()`).
+   *
+   * Published tournaments only, reduced to public fields. Since migration 047 the publish
+   * filter and the page window run in SQL (`publishedOnly`), and `publicCalendar()` reduces
+   * the FIELDS — the two are separate reductions and both still apply.
    *
    * Provider- and provisioner-facing consumers must NOT use this route — they need
    * unpublished tournaments. They use `getProviderCalendar` below.
    */
-  async getCalendar({ providerAbbr }) {
-    const calendar = await this.calendarStorage.getCalendar(providerAbbr);
-    if (!calendar) return { success: false, message: 'No calendar found' };
-    return { ...SUCCESS, calendar: publicCalendar(calendar) };
+  async getCalendar({ providerAbbr, limit, offset }: MyCalendarsParams & { providerAbbr?: string }) {
+    const provider = await this.findProviderByAbbr(providerAbbr);
+    if (!provider) return { success: false, message: 'No calendar found' };
+
+    const window = resolveWindow({ limit, offset });
+    const { rows, total } = await this.calendarStorage.queryTournaments({
+      providerIds: [provider.organisationId],
+      // `publishedOnly` IS the gate on this route, so the scope must not also apply a
+      // MEMBERSHIP test. `buildCalendarScope(undefined)` means "no identity, sees nothing"
+      // — correct for a member-scoped read, and wrong here: it made the public calendar
+      // return an empty list for every provider. Publication is the entitlement an
+      // anonymous caller has; membership is not in question.
+      scope: PUBLISHED_SCOPE,
+      publishedOnly: true,
+      ...window,
+    });
+
+    return {
+      ...SUCCESS,
+      calendar: publicCalendar({ provider, tournaments: rows }),
+      paging: pagingFor({ total, returned: rows.length, ...window }),
+    };
   }
 
   /**
-   * AUTHENTICATED full calendar for one provider — unfiltered and unprojected.
-   *
-   * Serves the operator-facing consumers, for which unpublished tournaments are the
-   * point rather than a leak: the AMS provider dashboard needs every tournament to
-   * count activity, and a provider or provisioner is entitled to see its own drafts.
-   *
-   * Distinct from `getMyCalendars`, which scopes to the providers the *caller* is
-   * associated with. This one takes an explicit `providerAbbr` and is role-gated at the
-   * controller, because an AMS admin inspects providers it has no membership in.
+   * AUTHENTICATED full calendar for one named provider — includes unpublished
+   * tournaments and the full entry. For the AMS provider dashboard and other
+   * operator surfaces. Role-gated rather than membership-scoped, because an AMS
+   * admin inspects providers it is not a member of; use `getMyCalendars` for the
+   * membership-scoped case.
    */
-  async getProviderCalendar({ providerAbbr }) {
+  async getProviderCalendar({ providerAbbr, limit, offset }: MyCalendarsParams & { providerAbbr?: string }) {
     if (!providerAbbr) return { error: 'providerAbbr is required' };
-    const calendar = await this.calendarStorage.getCalendar(providerAbbr);
-    if (!calendar) return { success: false, message: 'No calendar found' };
-    return { ...SUCCESS, calendar };
+    const provider = await this.findProviderByAbbr(providerAbbr);
+    if (!provider) return { success: false, message: 'No calendar found' };
+
+    const window = resolveWindow({ limit, offset });
+    const { rows, total } = await this.calendarStorage.queryTournaments({
+      providerIds: [provider.organisationId],
+      // Role-gated at the controller ([ADMIN, SUPER_ADMIN]); membership scoping would be
+      // wrong here, since the point is inspecting a provider you do not belong to.
+      scope: PUBLISHED_SCOPE,
+      ...window,
+    });
+
+    return {
+      ...SUCCESS,
+      calendar: { provider, tournaments: rows },
+      paging: pagingFor({ total, returned: rows.length, ...window }),
+    };
   }
 
   /**
    * Authenticated multi-provider calendar for TMX.
    *
-   * For each provider the user is associated with (via user_providers),
-   * fetches that provider's calendar and filters it through the access-
-   * control helper. Returns an array of per-provider calendars so TMX
-   * can render a unified multi-provider tournaments table.
-   *
-   * **A super-admin with no `providerAbbr` gets NOTHING** — see
-   * {@link resolveTargetAbbrs}. The response is always paged; see
-   * {@link pageCalendars}.
+   * **A super-admin with no `providerAbbr` gets NOTHING** — see {@link resolveTargetProviderIds}.
+   * Scoping, publish filtering and the page window all run in SQL since migration 047;
+   * `scopeCalendarForUser` is no longer on this path.
    */
   async getMyCalendars(params: MyCalendarsParams, userContext: UserContext) {
-    const targetAbbrs = await this.resolveTargetAbbrs(params, userContext);
-    if (!targetAbbrs.length) {
-      return { ...SUCCESS, calendars: [], paging: emptyPaging(params) };
+    const targets = await this.resolveTargetProviderIds(params, userContext);
+    const window = resolveWindow(params);
+    if (!targets.length) {
+      return { ...SUCCESS, calendars: [], paging: pagingFor({ total: 0, returned: 0, ...window }) };
     }
 
-    // Resolve the user's assigned tournament IDs (for DIRECTOR scoping)
     let assignedIds = new Set<string>();
     try {
       const rows = await this.assignmentStorage.findByUserId(userContext.userId);
@@ -92,68 +127,83 @@ export class ProvidersService {
       // assignment storage may throw on LevelDB — graceful fallback
     }
 
-    // Fetch + scope each calendar. Scoping must happen BEFORE the page window is
-    // applied: the window has to be taken over what this user may actually see,
-    // or a DIRECTOR's page of 500 arrives holding 3 rows and `hasMore` lies.
-    const scoped: Array<{ providerAbbr: string; provider: any; tournaments: any[] }> = [];
-    for (const abbr of targetAbbrs) {
-      const calendar = await this.calendarStorage.getCalendar(abbr);
-      if (!calendar) continue;
+    const { rows, total, totalsByProvider } = await this.calendarStorage.queryTournaments({
+      providerIds: targets.map((provider) => provider.organisationId),
+      scope: buildCalendarScope(userContext, assignedIds),
+      ...window,
+    });
 
-      scoped.push({
-        providerAbbr: abbr,
-        provider: calendar.provider,
-        tournaments: scopeCalendarForUser(calendar.tournaments ?? [], userContext, assignedIds),
-      });
-    }
-
-    return { ...SUCCESS, ...pageCalendars(scoped, params) };
+    return {
+      ...SUCCESS,
+      calendars: this.groupByProvider(rows, targets, totalsByProvider),
+      paging: pagingFor({ total, returned: rows.length, ...window }),
+    };
   }
 
   /**
-   * Which provider abbreviations this call may read.
+   * Which providers this call may read, as full provider records.
    *
-   * The super-admin rung is **fail-closed by design** (architectural standard A3).
-   * It previously read:
-   *
-   * ```ts
-   * } else if (userContext.isSuperAdmin) {
-   *   targetAbbrs.push(...Object.values(providerAbbrMap));  // every provider
-   * }
-   * ```
-   *
-   * which made "my calendars, no provider named" mean *the entire corpus*. On
-   * 2026-09-15 a super-admin impersonating a provider clicked TMX's stop-
-   * impersonating X — which clears the provider scope and re-requests
-   * (`createTournamentsTable.ts`) — and the route walked every calendar in a
-   * sequential awaited loop and returned **49,000+ tournaments** to a browser.
-   * `scopeCalendarForUser` short-circuits on `isSuperAdmin`, so not one row was
-   * filtered on the way out.
-   *
-   * A super-admin has no membership, so "MY calendars" has no answer for one:
-   * the honest response is none. Super-admins still read any single provider by
-   * naming it in `providerAbbr` — the impersonation path always does.
+   * The super-admin rung is **fail-closed by design** (architectural standard A3). It
+   * previously returned every provider, which on 2026-09-15 served a super-admin who had
+   * just stopped impersonating **49,000+ tournaments** in one response. A super-admin has no
+   * membership, so "MY calendars" has no answer for one; they read any single provider by
+   * naming it, which the impersonation path always does.
    */
-  private async resolveTargetAbbrs(params: MyCalendarsParams, userContext: UserContext): Promise<string[]> {
-    if (params.providerAbbr) return [params.providerAbbr];
+  private async resolveTargetProviderIds(params: MyCalendarsParams, userContext: UserContext): Promise<any[]> {
+    if (params.providerAbbr) {
+      const provider = await this.findProviderByAbbr(params.providerAbbr);
+      return provider ? [provider] : [];
+    }
     if (userContext.isSuperAdmin) return [];
 
     const providerIds = userContext.providerIds ?? [];
     if (!providerIds.length) return [];
 
-    // `providerIds` are ids; calendars are keyed by abbreviation. Resolve the
-    // map only on this rung — the two rungs above never needed it, and the old
-    // code paid for `getProviders()` on every call including the ones that
-    // discarded it.
-    const allProviders = await this.providerStorage.getProviders();
-    const abbrByProviderId: Record<string, string> = {};
-    for (const { key, value } of allProviders ?? []) {
-      const providerId = key || value?.organisationId;
-      const abbr = value?.organisationAbbreviation;
-      if (providerId && abbr) abbrByProviderId[providerId] = abbr;
+    const all = await this.providerStorage.getProviders();
+    const wanted = new Set(providerIds);
+    return (all ?? [])
+      .map(({ key, value }) => ({ ...value, organisationId: value?.organisationId ?? key }))
+      .filter((provider) => provider.organisationId && wanted.has(provider.organisationId));
+  }
+
+  /**
+   * Regroup a flat page of rows into the per-provider response shape TMX expects.
+   *
+   * Every target provider stays in the response even when the window missed it entirely —
+   * its `provider` block is how the client labels the row group, and dropping it would make
+   * a provider vanish from the UI on page 2.
+   */
+  private groupByProvider(rows: any[], providers: any[], totalsByProvider: Record<string, number> = {}): any[] {
+    const byProviderId = new Map<string, any[]>();
+    for (const provider of providers) byProviderId.set(provider.organisationId, []);
+    for (const row of rows) {
+      const bucket = byProviderId.get(row.providerId);
+      if (bucket) bucket.push(row);
+      else byProviderId.set(row.providerId, [row]);
     }
 
-    return providerIds.map((providerId) => abbrByProviderId[providerId]).filter(Boolean);
+    return providers.map((provider) => ({
+      providerAbbr: provider.organisationAbbreviation,
+      provider,
+      tournaments: byProviderId.get(provider.organisationId) ?? [],
+      // Pre-window count for THIS provider, so a truncated group is never silent.
+      total: totalsByProvider[provider.organisationId] ?? 0,
+    }));
+  }
+
+  /**
+   * Resolve a provider by abbreviation.
+   *
+   * `provider_abbr` is a MUTABLE natural key — `modifyProvider` can change it — which is why
+   * `calendar_tournaments` is keyed by the immutable `organisationId` and the abbreviation is
+   * resolved here, at the API boundary, rather than being the tenant key.
+   */
+  private async findProviderByAbbr(providerAbbr?: string): Promise<any | undefined> {
+    if (!providerAbbr) return undefined;
+    const all = await this.providerStorage.getProviders();
+    const hit = (all ?? []).find(({ value }) => value?.organisationAbbreviation === providerAbbr);
+    if (!hit) return undefined;
+    return { ...hit.value, organisationId: hit.value?.organisationId ?? hit.key };
   }
 
   async getProvider({ providerId }) {
@@ -168,21 +218,27 @@ export class ProvidersService {
     return { ...SUCCESS, providers };
   }
 
+  /** Which stored tournaments have no calendar row. Super-admin diagnostic. */
   async checkCalendars() {
-    const values = await this.calendarStorage.listCalendars();
-    const calendarTournamentIds = (values as Array<any>)?.flatMap((v) =>
-      (v.value?.tournaments ?? []).map((t) => t.tournamentId),
-    );
     const tournamentIds = await this.tournamentStorageService.listTournamentIds();
-    const missingTournamentIds = tournamentIds?.filter((id) => !calendarTournamentIds?.includes(id));
+    const listed = new Set<string>();
+    for (const provider of (await this.providerStorage.getProviders()) ?? []) {
+      const providerId = provider.value?.organisationId ?? provider.key;
+      if (!providerId) continue;
+      for (const entry of await this.calendarStorage.listProviderTournaments(providerId)) {
+        listed.add(entry.tournamentId);
+      }
+    }
+    const missingTournamentIds = tournamentIds?.filter((id) => !listed.has(id));
     return { ...SUCCESS, missingTournamentIds, tournamentsCount: tournamentIds.length };
   }
 
   async calendarAudit({ providerAbbr }: { providerAbbr: string }) {
     if (!providerAbbr) return { error: 'providerAbbr is required' };
 
-    const calendar = await this.calendarStorage.getCalendar(providerAbbr);
-    const tournaments = calendar?.tournaments ?? [];
+    const provider = await this.findProviderByAbbr(providerAbbr);
+    if (!provider) return { success: false, message: 'No calendar found' };
+    const tournaments = await this.calendarStorage.listProviderTournaments(provider.organisationId);
     const tournamentIds = await this.tournamentStorageService.listTournamentIds();
     const storageIdSet = new Set(tournamentIds);
 

@@ -85,12 +85,17 @@ d('Provider API Key E2E', () => {
       const { PROVIDER_STORAGE, CALENDAR_STORAGE } = await import('src/storage/interfaces');
       const providerStorage = app.get(PROVIDER_STORAGE);
       const calendarStorage = app.get(CALENDAR_STORAGE);
-      for (const [pid, abbr] of [
+      for (const [pid] of [
         [alphaProviderId, ALPHA_ABBR],
         [betaProviderId, BETA_ABBR],
       ] as const) {
         if (pid) await providerStorage.removeProvider(pid).catch(() => undefined);
-        if (abbr) await calendarStorage.setCalendar(abbr, { provider: {}, tournaments: [] }).catch(() => undefined);
+        // Migration 047: the calendar is rows keyed by tournament, not one blob per abbr,
+        // so emptying it means deleting this provider's rows by provider_id.
+        if (pid) {
+          const listed = await calendarStorage.listProviderTournaments(pid).catch(() => []);
+          for (const entry of listed) await calendarStorage.removeTournament(entry.tournamentId).catch(() => undefined);
+        }
       }
     } finally {
       await app.close();

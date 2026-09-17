@@ -9,6 +9,7 @@ import { CREATED_BY_USER_ID, canDeleteTournament } from 'src/modules/factory/hel
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
 import { getCalendarEntry } from 'src/helpers/getCalendarEntry';
+import { toRow } from 'src/storage/postgres/calendarTournamentRow';
 import { participantGovernor } from 'tods-competition-factory';
 import { isCalendarListed } from 'src/helpers/calendarListing';
 import { SUCCESS } from 'src/common/constants/app';
@@ -347,63 +348,56 @@ export class TournamentStorageService {
 
   // --- Calendar side-effect helpers ---
 
-  async addToOrUpdateCalendar({ providerId, tournamentRecord }: { providerId: string; tournamentRecord: any }) {
-    const providerResult = await this.getProviderCalendar({ providerId });
-    if (providerResult.error) return providerResult;
-
-    const { provider, tournaments } = providerResult;
-    const calendarEntry = getCalendarEntry({ tournamentRecord });
-    if (!calendarEntry) return this.updateCalendar({ provider, tournaments });
-
-    const exists = tournaments.some((entry) => entry.tournamentId === calendarEntry.tournamentId);
-    const updatedEntries = exists
-      ? tournaments.map((entry) => (entry.tournamentId === calendarEntry.tournamentId ? calendarEntry : entry))
-      : [...tournaments, calendarEntry];
-
-    // First time this tournament appears in THIS provider's calendar (create or
-    // provider move): detach it from any OTHER provider's calendar so a moved
-    // tournament never lingers under its source provider (incident 2026-05-23).
-    if (!exists) {
-      await this.detachFromOtherCalendars({
-        tournamentId: calendarEntry.tournamentId,
-        keepAbbr: provider?.organisationAbbreviation,
-      });
-    }
-
-    return this.updateCalendar({ provider, tournaments: updatedEntries });
-  }
-
   /**
-   * Remove a tournament from every provider calendar except `keepAbbr`, enforcing
-   * the invariant that a tournament lives in exactly one provider's calendar —
-   * its current parentOrganisation provider.
+   * Write one tournament's calendar row (migration 047).
+   *
+   * Was: read the provider's entire JSONB array, `map` over it, write the whole array back —
+   * on every save, inside the per-tournament mutation lock, so the cost of saving ONE
+   * tournament grew with the number of tournaments beside it.
+   *
+   * Now: a single-row upsert keyed on `tournament_id`. A provider MOVE is the same statement
+   * with a different `provider_id`, so `detachFromOtherCalendars` — which read EVERY
+   * provider's calendar into memory to enforce "a tournament lives in exactly one calendar"
+   * (incident 2026-05-23) — is deleted rather than optimised. The primary key is that
+   * invariant now.
    */
-  private async detachFromOtherCalendars({
-    tournamentId,
-    keepAbbr,
-  }: {
-    tournamentId: string;
-    keepAbbr?: string;
-  }): Promise<void> {
-    const calendars = await this.calendarStorage.listCalendars();
-    for (const { key, value } of calendars) {
-      if (key === keepAbbr) continue;
-      const entries: any[] = value?.tournaments ?? [];
-      if (!entries.some((entry) => entry.tournamentId === tournamentId)) continue;
-      const filtered = entries.filter((entry) => entry.tournamentId !== tournamentId);
-      await this.calendarStorage.setCalendar(key, { provider: value.provider, tournaments: filtered });
-    }
+  async addToOrUpdateCalendar({ providerId, tournamentRecord }: { providerId: string; tournamentRecord: any }) {
+    const provider: any = await this.providerStorage.getProvider(providerId);
+    if (!provider) return { error: 'Provider not found' };
+
+    const calendarEntry = getCalendarEntry({ tournamentRecord });
+    // A record that yields no entry is not listable; nothing to write, and nothing to
+    // remove either — `removeFromCalendar` is the explicit path for that.
+    if (!calendarEntry?.tournamentId) return { ...SUCCESS };
+
+    await this.calendarStorage.upsertTournament(
+      toRow(calendarEntry, providerId, provider.organisationAbbreviation),
+    );
+    return { ...SUCCESS };
   }
 
   async removeFromCalendar({ providerId, tournamentId }: { providerId: string; tournamentId: string }) {
-    const providerResult = await this.getProviderCalendar({ providerId });
-    if (providerResult.error) return providerResult;
+    // `providerId` is no longer needed to locate the row — `tournament_id` is the primary
+    // key — but it is still the caller's assertion about which calendar it is acting on, so
+    // it is verified rather than ignored. Removing another provider's row on a mistaken
+    // providerId would be silent data loss.
+    const existing = await this.calendarStorage.getTournament(tournamentId);
+    if (!existing) return { ...SUCCESS };
+    if (existing.providerId !== providerId) return { error: 'Tournament not in this provider calendar' };
 
-    const { provider, tournaments } = providerResult;
-    const updatedEntries = tournaments.filter((tournament) => tournament.tournamentId !== tournamentId);
-    return this.updateCalendar({ provider, tournaments: updatedEntries });
+    await this.calendarStorage.removeTournament(tournamentId);
+    return { ...SUCCESS };
   }
 
+  /**
+   * Partial update of one calendar row, from the MODIFY_TOURNAMENT_DETAIL subscription.
+   *
+   * The caller hands over whatever the mutation produced, so the merge stays open — the
+   * updates are applied to the entry's `tournament` object and the row is re-derived from
+   * it. Re-deriving (rather than patching columns) is what keeps a partial update from
+   * disagreeing with the projection: exactly one function decides what lands in which
+   * column, here and on the full-save path alike.
+   */
   async modifyProviderCalendar({
     providerId,
     tournamentId,
@@ -413,23 +407,22 @@ export class TournamentStorageService {
     tournamentId: string;
     updates: any;
   }) {
-    const providerResult = await this.getProviderCalendar({ providerId });
-    if (providerResult.error) return providerResult;
+    const existing = await this.calendarStorage.getTournament(tournamentId);
+    if (!existing) return { error: 'Tournament not found' };
 
-    const existingEntry = providerResult.tournaments.find((tournament) => tournament.tournamentId === tournamentId);
-    if (!existingEntry) return { error: 'Tournament not found' };
+    const provider: any = await this.providerStorage.getProvider(providerId);
+    const tournament = { ...existing.tournament, ...updates };
+    const updatedEntry = {
+      ...existing,
+      searchText: updates.tournamentName?.toLowerCase() || existing.searchText,
+      providerId,
+      tournament,
+    };
 
-    const { provider, tournaments } = providerResult;
-    const updatedEntries = tournaments.map((entry) => {
-      if (entry.tournamentId === tournamentId) {
-        const searchText = updates.tournamentName?.toLowerCase() || entry.searchText;
-        const tournament = { ...entry.tournament, ...updates };
-        return { searchText, tournamentId, providerId, tournament };
-      }
-      return entry;
-    });
-
-    return this.updateCalendar({ provider, tournaments: updatedEntries });
+    await this.calendarStorage.upsertTournament(
+      toRow(updatedEntry, providerId, provider?.organisationAbbreviation),
+    );
+    return { ...SUCCESS };
   }
 
   /**
@@ -437,29 +430,13 @@ export class TournamentStorageService {
    * tournamentId + tournament.startDate/endDate). Used by the "apply
    * participant-privacy policy to existing tournaments" action to enumerate
    * and classify a provider's tournaments without loading full records.
+   *
+   * Unscoped and unpaged by design — both callers (rankings republish, privacy apply) are
+   * admin/batch operations that act on a provider's whole calendar. Not a user-facing list;
+   * `ProvidersService.getMyCalendars` is.
    */
   async listProviderTournaments({ providerId }: { providerId: string }): Promise<any[]> {
-    const result: any = await this.getProviderCalendar({ providerId });
-    if (result?.error) return [];
-    return result.tournaments ?? [];
-  }
-
-  // --- Private helpers ---
-
-  private async getProviderCalendar({ providerId }: { providerId: string }) {
-    const provider: any = await this.providerStorage.getProvider(providerId);
-    const providerAbbr = provider?.organisationAbbreviation;
-    if (!providerAbbr) return { error: 'Provider not found' };
-
-    const calendarResult: any = await this.calendarStorage.getCalendar(providerAbbr);
-    const tournaments = calendarResult?.tournaments ?? [];
-    return { provider, tournaments };
-  }
-
-  private async updateCalendar({ provider, tournaments }: { provider: any; tournaments: any[] }) {
-    const key = provider?.organisationAbbreviation;
-    if (key) await this.calendarStorage.setCalendar(key, { provider, tournaments });
-    return { ...SUCCESS };
+    return this.calendarStorage.listProviderTournaments(providerId);
   }
 
   /**

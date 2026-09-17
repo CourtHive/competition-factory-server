@@ -1,6 +1,7 @@
 import { TournamentStorageService } from './tournament-storage.service';
 import { CALENDAR_LISTED } from 'src/helpers/calendarListing';
 import { canDeleteTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
+import { InMemoryCalendarStorage } from 'src/tests/helpers/inMemoryCalendarStorage';
 import { PROVIDER_ADMIN, DIRECTOR } from 'src/common/constants/roles';
 
 // getCalendarEntry is pure (a thin wrapper over the factory's pure calendar-entry
@@ -44,14 +45,13 @@ describe('TournamentStorageService — delete safeguards', () => {
       removeTournamentRecords: vi.fn().mockResolvedValue({ success: true, removed: 1 }),
       saveTournamentRecord: vi.fn().mockResolvedValue({ success: true }),
     };
-    providerStorage = { getProvider: vi.fn().mockResolvedValue({ organisationAbbreviation: 'BOBOCA' }) };
-    calendarStorage = {
-      getCalendar: vi
-        .fn()
-        .mockResolvedValue({ provider: { organisationAbbreviation: 'BOBOCA' }, tournaments: [{ tournamentId: TID }] }),
-      setCalendar: vi.fn().mockResolvedValue({ success: true }),
-      listCalendars: vi.fn().mockResolvedValue([]),
+    providerStorage = {
+      getProvider: vi.fn().mockResolvedValue({ organisationId: BOBOCA, organisationAbbreviation: 'BOBOCA' }),
     };
+    calendarStorage = new InMemoryCalendarStorage([{ tournamentId: TID, providerId: BOBOCA, searchText: '' }]);
+    vi.spyOn(calendarStorage, 'upsertTournament');
+    vi.spyOn(calendarStorage, 'removeTournament');
+    vi.spyOn(calendarStorage, 'getTournament');
     participationStorage = {
       replaceTournamentRows: vi.fn().mockResolvedValue({ success: true }),
       listForSubject: vi.fn().mockResolvedValue([]),
@@ -139,20 +139,17 @@ describe('TournamentStorageService — delete safeguards', () => {
 
   it('removes the calendar entry from the tournament’s OWN provider, leaving siblings', async () => {
     tournamentStorage.findTournamentRecord.mockResolvedValue({ tournamentRecord: buildRecord({ providerId: BOBOCA }) });
-    calendarStorage.getCalendar.mockResolvedValue({
-      provider: { organisationAbbreviation: 'BOBOCA' },
-      tournaments: [{ tournamentId: TID }, { tournamentId: 'other' }],
-    });
+    calendarStorage.entries.set('other', { tournamentId: 'other', providerId: BOBOCA, searchText: '' });
+
     await service.removeTournamentRecords({ tournamentId: TID }, { userId: 'clubx' }, undefined, adminAt(BOBOCA));
-    expect(providerStorage.getProvider).toHaveBeenCalledWith(BOBOCA);
-    expect(calendarStorage.setCalendar).toHaveBeenCalledWith(
-      'BOBOCA',
-      expect.objectContaining({ tournaments: [{ tournamentId: 'other' }] }),
-    );
+
+    // One row deleted by primary key, rather than the provider's whole array rewritten.
+    expect(calendarStorage.removeTournament).toHaveBeenCalledWith(TID);
+    expect([...calendarStorage.entries.keys()]).toEqual(['other']);
   });
 });
 
-describe('TournamentStorageService — detach-on-move (save side-effect)', () => {
+describe('TournamentStorageService — provider move (save side-effect)', () => {
   let service: TournamentStorageService;
   let tournamentStorage: any;
   let providerStorage: any;
@@ -161,12 +158,13 @@ describe('TournamentStorageService — detach-on-move (save side-effect)', () =>
 
   beforeEach(() => {
     tournamentStorage = { saveTournamentRecord: vi.fn().mockResolvedValue({ success: true }) };
-    providerStorage = { getProvider: vi.fn().mockResolvedValue({ organisationAbbreviation: 'BOBOCA' }) };
-    calendarStorage = {
-      getCalendar: vi.fn().mockResolvedValue({ provider: { organisationAbbreviation: 'BOBOCA' }, tournaments: [] }),
-      setCalendar: vi.fn().mockResolvedValue({ success: true }),
-      listCalendars: vi.fn().mockResolvedValue([]),
+    providerStorage = {
+      getProvider: vi.fn().mockResolvedValue({ organisationId: BOBOCA, organisationAbbreviation: 'BOBOCA' }),
     };
+    calendarStorage = new InMemoryCalendarStorage();
+    vi.spyOn(calendarStorage, 'upsertTournament');
+    vi.spyOn(calendarStorage, 'removeTournament');
+    vi.spyOn(calendarStorage, 'getTournament');
     participationStorage = {
       replaceTournamentRows: vi.fn().mockResolvedValue({ success: true }),
       listForSubject: vi.fn().mockResolvedValue([]),
@@ -181,30 +179,32 @@ describe('TournamentStorageService — detach-on-move (save side-effect)', () =>
     );
   });
 
-  it('detaches the tournament from another provider’s calendar when first added to its new provider', async () => {
-    calendarStorage.listCalendars.mockResolvedValue([
-      { key: 'ION', value: { provider: { organisationAbbreviation: 'ION' }, tournaments: [{ tournamentId: TID }, { tournamentId: 'keep' }] } },
-      { key: 'BOBOCA', value: { provider: { organisationAbbreviation: 'BOBOCA' }, tournaments: [] } },
-    ]);
+  it('moves the tournament to its new provider, leaving the old provider’s siblings', async () => {
+    // Pre-047 this needed `detachFromOtherCalendars` — a `listCalendars()` sweep reading
+    // EVERY provider's calendar into memory on each move. `tournament_id` is the primary
+    // key now, so the upsert relocates the row and the sweep is deleted: the invariant is
+    // the schema rather than a procedure that has to remember to run.
+    calendarStorage.entries.set(TID, { tournamentId: TID, providerId: 'ION', searchText: '' });
+    calendarStorage.entries.set('keep', { tournamentId: 'keep', providerId: 'ION', searchText: '' });
+
     await service.saveTournamentRecord({ tournamentRecord: buildRecord({ providerId: BOBOCA }) });
-    expect(calendarStorage.setCalendar).toHaveBeenCalledWith(
-      'ION',
-      expect.objectContaining({ tournaments: [{ tournamentId: 'keep' }] }),
-    );
+
+    expect(calendarStorage.entries.get(TID).providerId).toBe(BOBOCA);
+    expect(calendarStorage.entries.get('keep').providerId).toBe('ION');
+    // Exactly one row: the tournament cannot be in two calendars, by construction.
+    expect([...calendarStorage.entries.values()].filter((e: any) => e.tournamentId === TID)).toHaveLength(1);
   });
 
-  it('an UNLISTED record touches the calendar not at all — no read, no write, no detach sweep', async () => {
-    // The whole reason the seam exists. Tens of thousands of fixtures under one provider are only
-    // affordable if an unlisted save does zero calendar IO; a calendar is one row holding its entire
-    // entry list in a single column, read whole and rewritten on every save.
+  it('an UNLISTED record touches the calendar not at all', async () => {
+    // The seam still matters, for a different reason than it did. It is no longer that a
+    // save rewrites the provider's whole array — 047 made that a single-row upsert — but
+    // that an unlisted fixture has no business in a calendar at all.
     const record: any = buildRecord({ providerId: BOBOCA });
     record.extensions.push({ name: CALENDAR_LISTED, value: false });
 
     await service.saveTournamentRecord({ tournamentRecord: record });
 
-    expect(calendarStorage.getCalendar).not.toHaveBeenCalled();
-    expect(calendarStorage.setCalendar).not.toHaveBeenCalled();
-    expect(calendarStorage.listCalendars).not.toHaveBeenCalled();
+    expect(calendarStorage.upsertTournament).not.toHaveBeenCalled();
     // Still stored, and still indexed: unlisted means "not in the calendar", not "not saved".
     expect(tournamentStorage.saveTournamentRecord).toHaveBeenCalled();
     expect(participationStorage.replaceTournamentRows).toHaveBeenCalled();
@@ -212,7 +212,7 @@ describe('TournamentStorageService — detach-on-move (save side-effect)', () =>
 
   it('still lists a record that says nothing about listing', async () => {
     await service.saveTournamentRecord({ tournamentRecord: buildRecord({ providerId: BOBOCA }) });
-    expect(calendarStorage.setCalendar).toHaveBeenCalled();
+    expect(calendarStorage.upsertTournament).toHaveBeenCalled();
   });
 
   it('derives real participation rows THROUGH the factory, both sides of a fixture', async () => {
@@ -262,13 +262,21 @@ describe('TournamentStorageService — detach-on-move (save side-effect)', () =>
     expect(result).toEqual({ success: true });
   });
 
-  it('does NOT scan other calendars on a normal update (tournament already listed in its provider)', async () => {
-    calendarStorage.getCalendar.mockResolvedValue({
-      provider: { organisationAbbreviation: 'BOBOCA' },
-      tournaments: [{ tournamentId: TID, tournament: {} }],
-    });
+  it('never reads another calendar on save — not for a new tournament, not for an update', async () => {
+    // This used to assert a NARROWER thing: that the `listCalendars()` detach sweep was
+    // skipped when the tournament was already listed in its provider. A first-time save
+    // still paid for it. Post-047 there is no sweep to skip — `tournament_id` is the
+    // primary key — so the claim is now unconditional, and worth stating that way.
+    const listSpy = vi.spyOn(calendarStorage, 'listProviderTournaments');
+
+    // First save (the case that used to trigger the sweep)...
     await service.saveTournamentRecord({ tournamentRecord: buildRecord({ providerId: BOBOCA }) });
-    expect(calendarStorage.listCalendars).not.toHaveBeenCalled();
+    // ...and an update of the same tournament.
+    await service.saveTournamentRecord({ tournamentRecord: buildRecord({ providerId: BOBOCA }) });
+
+    expect(listSpy).not.toHaveBeenCalled();
+    // Two saves, two single-row upserts — the write cost does not grow with the calendar.
+    expect(calendarStorage.upsertTournament).toHaveBeenCalledTimes(2);
   });
 });
 

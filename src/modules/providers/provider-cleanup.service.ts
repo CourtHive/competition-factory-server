@@ -15,6 +15,7 @@
  *     tournament_provisioner   (provider_id)
  *     pending_saves            (provider_id)
  *     calendars                (provider_abbr — KEYED BY ABBR, not id!)
+ *     calendar_tournaments     (provider_id — migration 047; keyed by ID, unlike calendars)
  *     tournaments              (provider_id)
  *
  *   CASCADE (deleted automatically when providers row goes):
@@ -43,6 +44,9 @@ export interface CleanupCounts {
   tournamentProvisioner: number;
   pendingSaves: number;
   calendars: number;
+  /** Rows in `calendar_tournaments` (migration 047). Keyed by provider_id, NOT by abbr —
+   *  the distinction that makes this a separate delete from `calendars`. */
+  calendarTournaments: number;
   // CASCADE tables — included in counts so the preview shows the full
   // blast radius even though we don't issue explicit DELETEs for them.
   topologies: number;
@@ -76,6 +80,7 @@ export class ProviderCleanupService {
         (SELECT COUNT(*) FROM tournament_provisioner WHERE provider_id = $1)    AS tournament_provisioner,
         (SELECT COUNT(*) FROM pending_saves WHERE provider_id = $1)             AS pending_saves,
         (SELECT COUNT(*) FROM calendars WHERE provider_abbr = $2)               AS calendars,
+        (SELECT COUNT(*) FROM calendar_tournaments WHERE provider_id = $1)      AS calendar_tournaments,
         (SELECT COUNT(*) FROM provider_topologies WHERE provider_id = $1)       AS topologies,
         (SELECT COUNT(*) FROM provider_catalog_items WHERE provider_id = $1)    AS catalog_items,
         (SELECT COUNT(*) FROM policies WHERE provider_id = $1)                  AS policies,
@@ -91,6 +96,7 @@ export class ProviderCleanupService {
       tournamentProvisioner: Number(row.tournament_provisioner ?? 0),
       pendingSaves: Number(row.pending_saves ?? 0),
       calendars: Number(row.calendars ?? 0),
+      calendarTournaments: Number(row.calendar_tournaments ?? 0),
       topologies: Number(row.topologies ?? 0),
       catalogItems: Number(row.catalog_items ?? 0),
       policies: Number(row.policies ?? 0),
@@ -118,6 +124,10 @@ export class ProviderCleanupService {
       const tournamentProv     = await client.query('DELETE FROM tournament_provisioner WHERE provider_id = $1', [providerId]);
       const pendingSaves       = await client.query('DELETE FROM pending_saves WHERE provider_id = $1', [providerId]);
       const calendars          = await client.query('DELETE FROM calendars WHERE provider_abbr = $1', [providerAbbr]);
+      // Migration 047. Deleted BY ID: `calendar_tournaments` is keyed by the immutable
+      // provider_id precisely because the abbreviation can change, so deleting by abbr here
+      // would miss every row of a provider that had ever been renamed.
+      const calendarTournaments = await client.query('DELETE FROM calendar_tournaments WHERE provider_id = $1', [providerId]);
       const tournaments        = await client.query('DELETE FROM tournaments WHERE provider_id = $1', [providerId]);
 
       // Count CASCADE-bound rows BEFORE the providers DELETE so we can
@@ -151,6 +161,7 @@ export class ProviderCleanupService {
         tournamentProvisioner: tournamentProv.rowCount ?? 0,
         pendingSaves: pendingSaves.rowCount ?? 0,
         calendars: calendars.rowCount ?? 0,
+        calendarTournaments: calendarTournaments.rowCount ?? 0,
         topologies: topologies.rows[0]?.n ?? 0,
         catalogItems: catalogItems.rows[0]?.n ?? 0,
         policies: policies.rows[0]?.n ?? 0,
