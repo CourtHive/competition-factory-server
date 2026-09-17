@@ -305,6 +305,20 @@ export class FactoryService {
     return result;
   }
 
+  /**
+   * May this caller read an UNPUBLISHED tournament through a public read route?
+   *
+   * Yes exactly when the caller could fetch the record through the authenticated routes: the same
+   * `checkUser`, `checkProvider` and `canViewTournament` gates `fetchTournamentUpdatedAt` applies, run
+   * against the same minimal projection, so the public route can never be wider than the private one.
+   * No identity is never enough.
+   */
+  async canReadUnpublishedTournament(tournamentId: string, user, userContext?: UserContext): Promise<boolean> {
+    if (!tournamentId || (!user && !userContext)) return false;
+    const result: any = await this.fetchTournamentUpdatedAt({ tournamentId }, user, userContext);
+    return result?.success === true;
+  }
+
   // Lightweight staleness probe — returns only `updatedAt`, never the full
   // record. Reuses the exact same access gates as `fetchTournamentRecords`,
   // run against a minimal record projected from the JSONB, so the probe can't

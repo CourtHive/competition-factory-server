@@ -107,6 +107,7 @@ describe('FactoryController', () => {
 
     const mockService = {
       getTournamentInfo: vi.fn().mockResolvedValue(mockResult),
+      canReadUnpublishedTournament: vi.fn().mockResolvedValue(true),
       getEventData: vi.fn().mockResolvedValue(mockResult),
       getScheduleMatchUps: vi.fn().mockResolvedValue(mockResult),
       getParticipants: vi.fn().mockResolvedValue(mockResult),
@@ -138,7 +139,8 @@ describe('FactoryController', () => {
     it('tournamentInfo (POST) preserves service binding', async () => {
       const params = { tournamentId: 'tid' };
       const result = await mockController.tournamentInfo(params);
-      expect(mockService.getTournamentInfo).toHaveBeenCalledWith(params);
+      // an anonymous caller always reads the published view
+      expect(mockService.getTournamentInfo).toHaveBeenCalledWith({ ...params, usePublishState: true });
       expect(result).toEqual(mockResult);
     });
 
@@ -301,6 +303,7 @@ describe('FactoryController', () => {
     const mockResult = { success: true };
     const mockService = {
       getTournamentInfo: vi.fn().mockResolvedValue(mockResult),
+      canReadUnpublishedTournament: vi.fn().mockResolvedValue(true),
       getEventData: vi.fn().mockResolvedValue(mockResult),
       getScheduleMatchUps: vi.fn().mockResolvedValue(mockResult),
       getParticipants: vi.fn().mockResolvedValue(mockResult),
@@ -351,7 +354,7 @@ describe('FactoryController', () => {
       await mockController.executionQueue(eqd as any, mockReq);
 
       const deletedKeys = mockCache.del.mock.calls.map((c: any[]) => c[0]).sort();
-      expect(deletedKeys).toEqual(['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|ms', 'gtm|t1', 'gtp|t1'].sort());
+      expect(deletedKeys).toEqual(['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|msps', 'gtm|t1', 'gtp|t1'].sort());
     });
 
     it('deletes flag-variant keys (gti|<tid>|<flags>) on invalidation', async () => {
@@ -370,7 +373,7 @@ describe('FactoryController', () => {
       await mockController.executionQueue(eqd as any, mockReq);
 
       const deletedKeys = mockCache.del.mock.calls.map((c: any[]) => c[0]).sort();
-      expect(deletedKeys).toEqual(['gti|t1|ms', 'gti|t1|mssd', 'gti|t1|vd']);
+      expect(deletedKeys).toEqual(['gti|t1|msps', 'gti|t1|mssdps', 'gti|t1|psvd']);
     });
 
     it('does not delete cache keys for a different tournament on a t1 write', async () => {
@@ -391,7 +394,7 @@ describe('FactoryController', () => {
         expect(key.split('|')[1]).toBe('t1');
       }
       // And every t1-keyed entry we populated must have been deleted.
-      const expectedT1 = ['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|ms', 'gtm|t1', 'gtp|t1'];
+      const expectedT1 = ['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|msps', 'gtm|t1', 'gtp|t1'];
       for (const key of expectedT1) {
         expect(deletedKeys).toContain(key);
       }
@@ -416,7 +419,7 @@ describe('FactoryController', () => {
       expect(deletedKeys).not.toContain('ged|t1|e2');
       // e1 was reported evicted, so the controller may still delete it (idempotent).
       // Tournament-scoped keys aggregate across events and must ALL still go.
-      for (const key of ['gac|t1', 'gmr|t1', 'gti|t1', 'gti|t1|ms', 'gtm|t1', 'gtp|t1']) {
+      for (const key of ['gac|t1', 'gmr|t1', 'gti|t1', 'gti|t1|msps', 'gtm|t1', 'gtp|t1']) {
         expect(deletedKeys).toContain(key);
       }
     });
@@ -604,7 +607,7 @@ describe('FactoryController', () => {
       await mockController.scoreMatchUp(sms as any, {} as any);
 
       const deletedKeys = mockCache.del.mock.calls.map((c: any[]) => c[0]).sort();
-      expect(deletedKeys).toEqual(['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|ms', 'gtm|t1', 'gtp|t1'].sort());
+      expect(deletedKeys).toEqual(['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|msps', 'gtm|t1', 'gtp|t1'].sort());
     });
 
     it('does not delete cache keys when the mutation fails', async () => {
