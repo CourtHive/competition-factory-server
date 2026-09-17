@@ -1,7 +1,7 @@
 import { AppModule } from 'src/modules/app/app.module';
-import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import { mocksEngine } from 'tods-competition-factory';
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
 import { TEST_EMAIL, TEST_PASSWORD, testTournamentId } from 'src/common/constants/test';
