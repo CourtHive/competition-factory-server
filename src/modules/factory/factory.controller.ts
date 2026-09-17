@@ -73,6 +73,9 @@ function payloadVariant({ profile, hydrateParticipants }: { profile?: string; hy
   return hydrateParticipants === false ? '|n' : '';
 }
 
+// The not-found result `findTournamentRecord` returns; a withheld tournament must be indistinguishable from it.
+const TOURNAMENT_NOT_FOUND = 'Tournament not found';
+
 @UseGuards(RolesGuard)
 @Controller('factory')
 export class FactoryController {
@@ -251,27 +254,52 @@ export class FactoryController {
 
   @Public()
   @Get('tournamentinfo/:tid')
-  async getTournamentInfo(@Param('tid') tid) {
+  async getTournamentInfo(@Param('tid') tid, @User() user?: any, @UserCtx() userContext?: UserContext) {
     const key = `gti|${tid}`;
-    return await this.cacheFx(key, (params) => this.factoryService.getTournamentInfo(params), {
+    const result = await this.cacheFx(key, (params) => this.factoryService.getTournamentInfo(params), {
       tournamentId: tid,
       usePublishState: true,
     });
+    return await this.withholdUnpublished(tid, result, user, userContext);
   }
 
   @Public()
   @Post('tournamentinfo')
-  async tournamentInfo(@Body() gti: GetTournamentInfoDto) {
+  async tournamentInfo(@Body() gti: GetTournamentInfoDto, @User() user?: any, @UserCtx() userContext?: UserContext) {
+    // Without an admin-audience identity the caller always reads the PUBLISHED view. `usePublishState`
+    // used to be the caller's choice, and absent meant ungated — so any anonymous request could list a
+    // tournament's unpublished events by leaving the flag out (punch list P1). `userContext`, not `user`:
+    // a HiveID player token hydrates `user` too, and grants no tournament-management access.
+    const params = userContext ? gti : { ...gti, usePublishState: true };
     const flags = [
-      gti.withMatchUpStats && 'ms',
-      gti.withStructureDetails && 'sd',
-      gti.usePublishState && 'ps',
-      gti.withVenueData && 'vd',
+      params.withMatchUpStats && 'ms',
+      params.withStructureDetails && 'sd',
+      params.usePublishState && 'ps',
+      params.withVenueData && 'vd',
     ]
       .filter(Boolean)
       .join('');
-    const key = `gti|${gti.tournamentId}|${flags}`;
-    return await this.cacheFx(key, (params) => this.factoryService.getTournamentInfo(params), gti);
+    const key = `gti|${params.tournamentId}|${flags}`;
+    const result = await this.cacheFx(key, (p) => this.factoryService.getTournamentInfo(p), params);
+    return await this.withholdUnpublished(params.tournamentId, result, user, userContext);
+  }
+
+  /**
+   * The public tournament-info routes serve an UNPUBLISHED tournament only to a caller who could fetch it
+   * through the authenticated routes (punch list P1, P23 D7). Everyone else gets exactly the response a
+   * tournament that does not exist gets, so the route does not confirm that a withheld tournament exists.
+   *
+   * Applied AFTER the cache, deliberately: the cached payload is caller-independent and the decision is
+   * per caller, so one cached entry can never answer for a different caller's access.
+   *
+   * The withheld response is the storage layer's own not-found result (`findTournamentRecord`), not a
+   * similar-looking constant — the e2e spec compares the two responses byte for byte.
+   */
+  private async withholdUnpublished(tournamentId: string, result: any, user?: any, userContext?: UserContext) {
+    if (result?.error) return result;
+    if (result?.tournamentInfo?.publishState?.status?.published === true) return result;
+    if (await this.factoryService.canReadUnpublishedTournament(tournamentId, user, userContext)) return result;
+    return { error: TOURNAMENT_NOT_FOUND };
   }
 
   @Public()
