@@ -148,6 +148,16 @@ export class ProvidersService {
    * just stopped impersonating **49,000+ tournaments** in one response. A super-admin has no
    * membership, so "MY calendars" has no answer for one; they read any single provider by
    * naming it, which the impersonation path always does.
+   *
+   * **Membership here is direct OR provisioner-inherited.** `buildCalendarScope` has always
+   * put `provisionerProviderIds` in `fullAccessProviderIds`, so the scope would admit those
+   * calendars — but this selector only ever asked for `providerIds`, and a filter is ready
+   * for calendars it is never handed. A provisioner admin with no direct `user_providers`
+   * row therefore got an EMPTY list: measured in prod 2026-09-18 as a 104-byte
+   * `/provider/my-calendars` response for IONSport's provisioner admin, who owns four
+   * providers (reported by IONSport 2026-09-19). Unlike a super-admin, a provisioner DOES
+   * have a membership answer — the providers its provisioner relationship covers — so the
+   * bounded aggregate is the honest response, not nothing.
    */
   private async resolveTargetProviderIds(params: MyCalendarsParams, userContext: UserContext): Promise<any[]> {
     if (params.providerAbbr) {
@@ -156,7 +166,9 @@ export class ProvidersService {
     }
     if (userContext.isSuperAdmin) return [];
 
-    const providerIds = userContext.providerIds ?? [];
+    const providerIds = [
+      ...new Set([...(userContext.providerIds ?? []), ...(userContext.provisionerProviderIds ?? [])]),
+    ];
     if (!providerIds.length) return [];
 
     const all = await this.providerStorage.getProviders();

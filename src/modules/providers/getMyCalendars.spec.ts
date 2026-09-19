@@ -88,6 +88,23 @@ function providerAdmin(providerId: string): UserContext {
   };
 }
 
+/**
+ * A provisioner admin with NO `user_providers` row anywhere — the shape that returned an
+ * empty list in prod. `provisionerProviderIds` is the only thing connecting them to a
+ * provider, exactly as `buildUserContext` hydrates it for a PROVISIONER-role user.
+ */
+function provisionerAdmin(providerIds: string[]): UserContext {
+  return {
+    userId: 'provisioner-admin-user',
+    email: 'admin@provisioner.example',
+    isSuperAdmin: false,
+    globalRoles: ['CLIENT', 'provisioner'],
+    providerRoles: {},
+    providerIds: [],
+    provisionerProviderIds: providerIds,
+  };
+}
+
 describe('getMyCalendars', () => {
   beforeEach(() => {
     // Deterministic per test (A6) — the helper defaults to enabled when unset,
@@ -146,6 +163,43 @@ describe('getMyCalendars', () => {
       expect(result.calendars).toHaveLength(1);
       expect(result.calendars[0].providerAbbr).toBe('AAA');
       expect(result.calendars[0].tournaments.map((t: any) => t.tournamentId)).toEqual(['t1']);
+    });
+
+    it('resolves a provisioner admin’s managed providers, with no direct membership at all', async () => {
+      const { service } = buildService({
+        AAA: { provider: {}, tournaments: [tournament('t1', PROVIDER_A)] },
+        BBB: { provider: {}, tournaments: [tournament('t2', PROVIDER_B)] },
+      });
+
+      const result: any = await service.getMyCalendars({}, provisionerAdmin([PROVIDER_A, PROVIDER_B]));
+
+      // `buildCalendarScope` has always put these in `fullAccessProviderIds`; the SELECTOR
+      // was what never asked for them, so the scope was ready for calendars it never saw.
+      // IONSport's provisioner admin got a 104-byte empty response in prod for this reason.
+      expect(result.calendars.map((c: any) => c.providerAbbr).sort()).toEqual(['AAA', 'BBB']);
+      expect(result.paging.total).toBe(2);
+    });
+
+    it('unions provisioner-managed providers with direct memberships rather than replacing them', async () => {
+      const { service } = buildService({
+        AAA: { provider: {}, tournaments: [tournament('t1', PROVIDER_A)] },
+        BBB: { provider: {}, tournaments: [tournament('t2', PROVIDER_B)] },
+      });
+      const both: UserContext = { ...providerAdmin(PROVIDER_A), provisionerProviderIds: [PROVIDER_B] };
+
+      const result: any = await service.getMyCalendars({}, both);
+
+      expect(result.calendars.map((c: any) => c.providerAbbr).sort()).toEqual(['AAA', 'BBB']);
+    });
+
+    it('does not double-count a provider held both directly and through a provisioner', async () => {
+      const { service } = buildService({ AAA: { provider: {}, tournaments: [tournament('t1', PROVIDER_A)] } });
+      const overlapping: UserContext = { ...providerAdmin(PROVIDER_A), provisionerProviderIds: [PROVIDER_A] };
+
+      const result: any = await service.getMyCalendars({}, overlapping);
+
+      expect(result.calendars).toHaveLength(1);
+      expect(result.paging.total).toBe(1);
     });
 
     it('returns nothing for a user with no memberships', async () => {

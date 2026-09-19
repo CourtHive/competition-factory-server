@@ -19,14 +19,19 @@ const P_PROVISIONED = 'p-provisioned';
 const P_FOREIGN = 'p-foreign';
 const ME = 'user-me';
 
+/** The synthesised actor a provisioner API-key save stamps — see `isProvisionerCreated`. */
+const PROVISIONER_ACTOR = 'provisioner:prov-1';
+
 const ENTRIES = [
   { tournamentId: 't-admin-own', providerId: P_ADMIN, createdByUserId: ME },
   { tournamentId: 't-admin-other', providerId: P_ADMIN, createdByUserId: 'someone' },
   { tournamentId: 't-dir-own', providerId: P_DIRECTOR, createdByUserId: ME },
   { tournamentId: 't-dir-other', providerId: P_DIRECTOR, createdByUserId: 'someone' },
   { tournamentId: 't-dir-assigned', providerId: P_DIRECTOR, createdByUserId: 'someone' },
+  { tournamentId: 't-dir-provisioner-made', providerId: P_DIRECTOR, createdByUserId: PROVISIONER_ACTOR },
+  { tournamentId: 't-dir-legacy', providerId: P_DIRECTOR, createdByUserId: undefined },
   { tournamentId: 't-prov', providerId: P_PROVISIONED, createdByUserId: 'someone' },
-  { tournamentId: 't-foreign', providerId: P_FOREIGN, createdByUserId: 'someone' },
+  { tournamentId: 't-foreign', providerId: P_FOREIGN, createdByUserId: PROVISIONER_ACTOR },
 ];
 
 const ASSIGNED = new Set(['t-dir-assigned']);
@@ -38,7 +43,9 @@ function applySqlScope(entries: any[], scope: ReturnType<typeof buildCalendarSco
     if (scope.fullAccessProviderIds.includes(entry.providerId)) return true;
     if (scope.directorProviderIds.includes(entry.providerId)) {
       if (scope.userId && entry.createdByUserId === scope.userId) return true;
-      return scope.assignedTournamentIds.includes(entry.tournamentId);
+      if (scope.assignedTournamentIds.includes(entry.tournamentId)) return true;
+      // `created_by_user_id LIKE 'provisioner:%'` — the unconditional rung in buildWhere.
+      return typeof entry.createdByUserId === 'string' && entry.createdByUserId.startsWith('provisioner:');
     }
     return false;
   });
@@ -116,6 +123,17 @@ describe('calendar scope parity — Node filter vs SQL translation', () => {
       const scope = buildCalendarScope(context({ isSuperAdmin: true }));
       expect(scope.unrestricted).toBe(true);
       expect(scope.fullAccessProviderIds).toEqual([]);
+    });
+
+    it('shows a director a provisioner-created tournament at their provider, but not at a foreign one', () => {
+      const userContext = context({ providerRoles: { [P_DIRECTOR]: 'DIRECTOR' } });
+      const visible = ids(scopeCalendarForUser(ENTRIES, userContext, ASSIGNED));
+
+      expect(visible).toContain('t-dir-provisioner-made');
+      // The provider rung still gates it: same creator, provider where the user holds nothing.
+      expect(visible).not.toContain('t-foreign');
+      // And it does not resurrect legacy entries that carry no creator at all.
+      expect(visible).not.toContain('t-dir-legacy');
     });
 
     it('is restricted-with-no-providers for a caller with no identity', () => {

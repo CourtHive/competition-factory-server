@@ -141,6 +141,28 @@ d('calendar_tournaments (real Postgres)', () => {
     expect(total).toBe(2);
   });
 
+  it('shows a DIRECTOR what the provider’s provisioner created for it — the LIKE rung, in real SQL', async () => {
+    await seed([
+      entry('t-provisioner-made', P_DIRECTOR, { createdByUserId: 'provisioner:prov-uuid' }),
+      entry('t-peer', P_DIRECTOR, { createdByUserId: 'someone' }),
+      entry('t-legacy', P_DIRECTOR, { createdByUserId: null }),
+      // Same creator, a provider this director holds nothing at: the provider rung still gates.
+      entry('t-foreign', P_ADMIN, { createdByUserId: 'provisioner:prov-uuid' }),
+    ]);
+
+    const scope = buildCalendarScope({
+      userId: ME, email: 'me@test', isSuperAdmin: false, globalRoles: ['CLIENT'],
+      providerRoles: { [P_DIRECTOR]: 'DIRECTOR' }, providerIds: [P_DIRECTOR],
+    } as any);
+
+    const { rows, total } = await storage.queryTournaments({
+      providerIds: [P_DIRECTOR, P_ADMIN], scope, limit: 50, offset: 0,
+    });
+
+    expect(rows.map((r) => r.tournamentId)).toEqual(['t-provisioner-made']);
+    expect(total).toBe(1);
+  });
+
   it('returns NOTHING for an empty provider list — the 2026-09-15 shape', async () => {
     await seed([entry('t-1', P_ADMIN)]);
     const result = await storage.queryTournaments({ providerIds: [], scope: unrestricted, limit: 50, offset: 0 });

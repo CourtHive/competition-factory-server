@@ -3,7 +3,13 @@ vi.mock('src/common/constants/feature-flags', () => ({
   isTournamentAccessScopingEnabled: () => true,
 }));
 
-import { canViewTournament, canMutateTournament, scopeCalendarForUser, CREATED_BY_USER_ID } from './checkTournamentAccess';
+import {
+  canViewTournament,
+  canMutateTournament,
+  canDeleteTournament,
+  scopeCalendarForUser,
+  CREATED_BY_USER_ID,
+} from './checkTournamentAccess';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
 // ── Fixtures ──
@@ -110,6 +116,47 @@ describe('checkTournamentAccess (flag ON via vi.mock)', () => {
       const tournament = { tournamentId: 'demo-1' }; // no parentOrganisation
       let result: any = canViewTournament(tournament, director);
       expect(result).toBe(true);
+    });
+
+    describe('tournaments the provider’s provisioner created for it', () => {
+      // The actor the provisioner middleware synthesises for an API-key save. IONSport's
+      // integration creates BOBOCA's tournaments this way — 21 of 33 on 2026-09-19 — and
+      // before this rung every one of them was invisible to BOBOCA's own director.
+      const provisionerMade = () => makeTournament('prov-1', 'provisioner:prov-admin-uuid');
+
+      it('a DIRECTOR sees one, with no assignment row and without having created it', () => {
+        expect(canViewTournament(provisionerMade(), director)).toBe(true);
+      });
+
+      it('and may run it — reaching it needs no assignment, so no assignment role downgrades it', () => {
+        expect(canMutateTournament(provisionerMade(), director, new Map(), ['addEvent'])).toBe(true);
+      });
+
+      it('but an explicit SCORER assignment still governs', () => {
+        const tournament = provisionerMade();
+        const roles = new Map([[tournament.tournamentId, 'SCORER']]);
+        expect(canMutateTournament(tournament, director, roles, ['addEvent'])).toBe(false);
+        expect(canMutateTournament(tournament, director, roles, ['setMatchUpStatus'])).toBe(true);
+      });
+
+      it('does NOT reach a provider where the user holds no role', () => {
+        const foreign = makeTournament('prov-99', 'provisioner:prov-admin-uuid');
+        expect(canViewTournament(foreign, director)).toBe(false);
+      });
+
+      it('does not widen to a creator that merely mentions a provisioner', () => {
+        // Only the leading `provisioner:` actor prefix counts — not a uuid that contains it.
+        expect(canViewTournament(makeTournament('prov-1', 'user-provisioner:x'), director)).toBe(false);
+      });
+
+      it('does NOT become deletable by the director — view and run, not destroy', () => {
+        const tournament = provisionerMade();
+        expect(canViewTournament(tournament, director)).toBe(true);
+        expect(canDeleteTournament(tournament, director)).toBe(false);
+        // Still deletable by the provider admin and the provisioner that owns the provider.
+        expect(canDeleteTournament(tournament, providerAdmin)).toBe(true);
+        expect(canDeleteTournament(tournament, makeCtx({ provisionerProviderIds: ['prov-1'] }))).toBe(true);
+      });
     });
 
     it('multi-provider user: PROVIDER_ADMIN at prov-1, DIRECTOR at prov-2', () => {
