@@ -1,4 +1,5 @@
 import type { CalendarQuery, CalendarScope, ICalendarStorage } from 'src/storage/interfaces/calendar-storage.interface';
+import { isProvisionerCreated } from 'src/modules/factory/helpers/checkTournamentAccess';
 
 /**
  * An in-memory `ICalendarStorage` for unit tests, mirroring `calendar_tournaments`.
@@ -26,7 +27,10 @@ export function matchesCalendarScope(entry: any, scope: CalendarScope): boolean 
   if (scope.fullAccessProviderIds.includes(entry.providerId)) return true;
   if (scope.directorProviderIds.includes(entry.providerId)) {
     if (scope.userId && entry.createdByUserId === scope.userId) return true;
-    return scope.assignedTournamentIds.includes(entry.tournamentId);
+    if (scope.assignedTournamentIds.includes(entry.tournamentId)) return true;
+    // `created_by_user_id LIKE 'provisioner:%'` — a tournament the provider's provisioner
+    // created for it. Unconditional in `buildWhere`, so unconditional here.
+    return isProvisionerCreated(entry.createdByUserId);
   }
   return false;
 }

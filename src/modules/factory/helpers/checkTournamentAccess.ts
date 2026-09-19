@@ -13,7 +13,8 @@
  *   SUPER_ADMIN → all tournaments at all providers.
  *   PROVIDER_ADMIN at provider P → all tournaments where parentOrganisation.organisationId === P.
  *   DIRECTOR at provider P → tournaments where parentOrganisation.organisationId === P AND
- *       (createdByUserId === userContext.userId OR an assignment row exists for the tournament).
+ *       (createdByUserId === userContext.userId OR an assignment row exists for the tournament
+ *        OR the tournament was created by P's provisioner — see {@link isProvisionerCreated}).
  *   No user_providers row for the tournament's provider → no access.
  *   Legacy tournaments (createdByUserId absent) → visible to SUPER_ADMIN and PROVIDER_ADMIN only.
  */
@@ -24,6 +25,32 @@ import type { UserContext } from 'src/modules/account/auth/decorators/user-conte
 
 /** Extension name used on tournament records to store the creating user's UUID. */
 export const CREATED_BY_USER_ID = 'createdByUserId';
+
+/**
+ * Actor prefix the provisioner middleware synthesises for API-key callers —
+ * `provisioner:<provisionerId>` (`provisioner.middleware.ts`), which is what lands in
+ * `createdByUserId` when a provisioner creates a tournament on a provider's behalf.
+ *
+ * It matches no user id, so before this rung existed every such tournament was invisible to
+ * that provider's DIRECTORs: 21 of BOBOCA's 33 tournaments, reported by IONSport 2026-09-19.
+ */
+export const PROVISIONER_ACTOR_PREFIX = 'provisioner:';
+
+/**
+ * Was this tournament created by a provisioner acting on a provider's behalf?
+ *
+ * The prefix alone is sufficient, and does not need to name WHICH provisioner: the API-key
+ * path requires an `X-Provider-Id` header and verifies `getRelationship(provisionerId,
+ * providerId)` before it synthesises any context, so a provisioner can only write to a
+ * provider it owns or subsidiaries. A `provisioner:`-created tournament at provider P was
+ * therefore created by a provisioner of P — which is exactly "created FOR this provider".
+ *
+ * Callers must still have established that the tournament sits at a provider where the user
+ * holds a role. This answers only "did the provider's provisioner create it".
+ */
+export function isProvisionerCreated(createdByUserId: unknown): boolean {
+  return typeof createdByUserId === 'string' && createdByUserId.startsWith(PROVISIONER_ACTOR_PREFIX);
+}
 
 // ── Helpers ──
 
@@ -77,6 +104,11 @@ export function canViewTournament(
   if (createdBy && createdBy === userContext.userId) return true;
   if (tournamentId && assignedTournamentIds.has(tournamentId)) return true;
 
+  // Created by this provider's provisioner, on the provider's behalf — a director runs those
+  // tournaments, so they must be able to see them. Without this rung the provisioner's own
+  // customers cannot see what the provisioner created for them (CA 2026-09-19).
+  if (isProvisionerCreated(createdBy)) return true;
+
   // Legacy tournament (no createdByUserId) — hidden from directors.
   return false;
 }
@@ -115,6 +147,12 @@ export function classifyAssignmentRole(role: string | undefined): 'full' | 'scor
  * when access is assignment-derived. A SUPER_ADMIN, provisioner-owner,
  * PROVIDER_ADMIN or the tournament's creator reaches this tournament without an
  * assignment row, so an unrelated `SCORER` row must not downgrade them.
+ *
+ * A DIRECTOR reaching a tournament through the provisioner-created rung likewise has no
+ * assignment row, so `classifyAssignmentRole(undefined)` returns `full` and they may run it.
+ * That is intended, not incidental — a provisioner creates a tournament FOR a director to
+ * run, and a listing they cannot operate would be useless. `directorRunsProvisionerCreated`
+ * in the spec pins it. Deletion is NOT widened this way: see {@link canDeleteTournament}.
  *
  * `requestedMethods` is required for a SCORER to be granted anything: an empty
  * list means "may this user mutate at all", and the honest answer for a scorer
@@ -184,6 +222,10 @@ export function canDeleteTournament(
   if (roleAtProvider === PROVIDER_ADMIN) return true;
 
   // Non-admin provider role (e.g. DIRECTOR): only own or assigned tournaments.
+  //
+  // Deliberately NOT extended to the provisioner-created rung that `canViewTournament` grants.
+  // A director may see and run what their provisioner created for them; destroying it stays with
+  // the provisioner or the provider admin. Widening view is recoverable; widening delete is not.
   const createdBy = getCreatedByUserId(tournament);
   if (createdBy && createdBy === userContext.userId) return true;
   return tournament?.tournamentId ? assignedTournamentIds.has(tournament.tournamentId) : false;
@@ -214,10 +256,11 @@ export function scopeCalendarForUser(
     if (!roleAtProvider) return false;
     if (roleAtProvider === PROVIDER_ADMIN) return true;
 
-    // DIRECTOR: own or assigned.
+    // DIRECTOR: own, assigned, or created for this provider by its provisioner.
     const createdBy = entry?.createdByUserId;
     if (createdBy && createdBy === userContext.userId) return true;
     if (entry?.tournamentId && assignedTournamentIds.has(entry.tournamentId)) return true;
+    if (isProvisionerCreated(createdBy)) return true;
 
     return false;
   });

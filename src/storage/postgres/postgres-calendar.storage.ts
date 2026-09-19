@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 
 import { CALENDAR_TOURNAMENT_COLUMNS, CALENDAR_TOURNAMENT_SELECT, fromRow } from './calendarTournamentRow';
 import type { CalendarQuery, ICalendarStorage } from '../interfaces/calendar-storage.interface';
+import { PROVISIONER_ACTOR_PREFIX } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { SUCCESS } from 'src/common/constants/app';
 import { PG_POOL } from './postgres.config';
 
@@ -140,9 +141,17 @@ export class PostgresCalendarStorage implements ICalendarStorage {
           ownership.push(`tournament_id = ANY($${params.length})`);
         }
 
+        // Created for this provider by its provisioner — `scopeCalendarForUser`'s
+        // `isProvisionerCreated` rung. Parametrised rather than inlined so the pattern cannot
+        // drift into the SQL text; the prefix is the middleware's synthesised actor id.
+        params.push(`${PROVISIONER_ACTOR_PREFIX}%`);
+        ownership.push(`created_by_user_id LIKE $${params.length}`);
+
         // A director with neither a userId nor assignments can see nothing at those
-        // providers — `FALSE` rather than an omitted clause, which would widen the read to
-        // every tournament there.
+        // providers beyond that — `FALSE` rather than an omitted clause, which would widen
+        // the read to every tournament there. The provisioner rung above is unconditional, so
+        // the fallback is unreachable today; it stays as the fail-closed guard for the day a
+        // rung becomes conditional again.
         visibility.push(`(${directorProviders} AND (${ownership.length ? ownership.join(' OR ') : 'FALSE'}))`);
       }
 
