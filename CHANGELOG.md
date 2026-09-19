@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.31.0](https://github.com/CourtHive/competition-factory-server/compare/v2.30.3...v2.31.0) (2026-09-19)
+
+
+### Features
+
+* **calendar:** provider calendars become one row per tournament (047) ([#975](https://github.com/CourtHive/competition-factory-server/issues/975)) ([46959c5](https://github.com/CourtHive/competition-factory-server/commit/46959c55a09b691b327ae148f28eab71e80daaa7))
+* **factory:** give the mutation engine a typed method surface ([#972](https://github.com/CourtHive/competition-factory-server/issues/972)) ([4921d76](https://github.com/CourtHive/competition-factory-server/commit/4921d76fbe4618fffc3ce74a2a641c497b72692f))
+
+
+### Bug Fixes
+
+* **calendar:** a provisioner's calendars, and its directors' tournaments, were unreachable ([#978](https://github.com/CourtHive/competition-factory-server/issues/978)) ([15ba411](https://github.com/CourtHive/competition-factory-server/commit/15ba41162618beaf38048cd188e5e5d3adb285d1))
+* **calendar:** a super-admin with no provider named gets nothing, not everything ([#974](https://github.com/CourtHive/competition-factory-server/issues/974)) ([81b6aed](https://github.com/CourtHive/competition-factory-server/commit/81b6aed9eed0bfae5c9e665df99cf539e087b7df))
+* **factory:** public tournament info withholds unpublished tournaments ([#976](https://github.com/CourtHive/competition-factory-server/issues/976)) ([4f83bbd](https://github.com/CourtHive/competition-factory-server/commit/4f83bbd2f3f23bd29119ed651a5c0276e8ded4a3))
+* **storage:** the migration runner must not report success from the wrong directory ([c16a441](https://github.com/CourtHive/competition-factory-server/commit/c16a44153544cd6517909813ff0ea691737ec97b))
+
 ## [2.30.3](https://github.com/CourtHive/competition-factory-server/compare/v2.30.2...v2.30.3) (2026-09-07)
 
 
