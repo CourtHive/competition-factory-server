@@ -121,6 +121,44 @@ async function readJson(archivePath, rel) {
   return JSON.parse(text);
 }
 
+/**
+ * The provider's calendar rows, tolerating archives written before 2026-09-21.
+ *
+ * Archives from before then captured the abbr-keyed legacy `calendars` table as
+ * `calendar.json` and never captured `calendar_tournaments` — so a decommission archived a
+ * stale calendar and a revive restored it into a table nothing read. The provider came back
+ * with no calendar at all, silently. That is fixed going forward, but old archives still
+ * exist and must not crash the revive, nor pretend they carried something they did not.
+ *
+ * Returns [] for a legacy archive rather than attempting a conversion. The legacy entries
+ * are a projection of the tournament records, which ARE restored — so the calendar is
+ * rebuildable by re-saving them, and a half-faithful conversion here would be a second,
+ * un-authoritative writer of the same fact.
+ */
+async function readCalendarRows(archivePath) {
+  try {
+    return await readJson(archivePath, 'calendar_tournaments.json');
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+
+  try {
+    const legacy = await readJson(archivePath, 'calendar.json');
+    const entries = legacy.reduce((sum, row) => sum + (row?.tournaments?.length ?? 0), 0);
+    console.warn(
+      `WARNING: this archive predates 2026-09-21 and holds the RETIRED calendars shape ` +
+        `(calendar.json, ${legacy.length} row(s), ${entries} entr(ies)). The calendar will NOT be ` +
+        `restored — the table it belonged to was dropped in migration 048. The tournaments are ` +
+        `restored, so re-save them to rebuild the calendar.`,
+    );
+    return [];
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+
+  return [];
+}
+
 async function readJsonl(archivePath, rel) {
   const text = await fs.readFile(path.join(archivePath, rel), 'utf8');
   if (!text.trim()) return [];
@@ -206,7 +244,7 @@ async function main() {
     provider_topologies: await readJson(archivePath, 'provider_topologies.json'),
     provider_catalog_items: await readJson(archivePath, 'provider_catalog_items.json'),
     policies: await readJson(archivePath, 'policies.json'),
-    calendars: await readJson(archivePath, 'calendar.json'),
+    calendar_tournaments: await readCalendarRows(archivePath),
     tournaments,
     audit_log: await readJsonl(archivePath, 'audit_log.jsonl'),
   };
@@ -229,7 +267,7 @@ async function main() {
     restored.provider_topologies = await insertRows(client, 'provider_topologies', data.provider_topologies);
     restored.provider_catalog_items = await insertRows(client, 'provider_catalog_items', data.provider_catalog_items);
     restored.policies = await insertRows(client, 'policies', data.policies);
-    restored.calendars = await insertRows(client, 'calendars', data.calendars);
+    restored.calendar_tournaments = await insertRows(client, 'calendar_tournaments', data.calendar_tournaments);
     // audit_log last — its tournament_id FKs are conceptually present
     // even though the column has no FK constraint.
     restored.audit_log = await insertRows(client, 'audit_log', data.audit_log);

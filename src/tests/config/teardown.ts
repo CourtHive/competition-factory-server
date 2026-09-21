@@ -83,10 +83,13 @@ export default async function teardown() {
       `DELETE FROM audit_log WHERE tournament_id LIKE 'audit-e2e-%'`,
     );
 
+    // `calendar_tournaments` (047), by the immutable provider_id. The retired abbr-keyed
+    // `calendars` delete that stood here left E2E rows in the NEW table untouched, because
+    // nothing here ever pointed at it.
     await client.query(
-      `DELETE FROM calendars
-         WHERE provider_abbr IN (
-           SELECT organisation_abbreviation FROM providers
+      `DELETE FROM calendar_tournaments
+         WHERE provider_id IN (
+           SELECT provider_id FROM providers
             WHERE organisation_abbreviation LIKE 'E2E%'
                OR organisation_abbreviation LIKE 'AUDITE2E%'
          )`,

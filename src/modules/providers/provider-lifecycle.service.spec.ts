@@ -31,7 +31,7 @@ describe('ProviderLifecycleService', () => {
         tournamentAssignments: 3,
         tournamentProvisioner: 0,
         pendingSaves: 1,
-        calendars: 1,
+        calendarTournaments: 1,
         topologies: 0,
         catalogItems: 0,
         policies: 0,
@@ -44,7 +44,7 @@ describe('ProviderLifecycleService', () => {
         tournamentAssignments: 3,
         tournamentProvisioner: 0,
         pendingSaves: 1,
-        calendars: 1,
+        calendarTournaments: 1,
         topologies: 0,
         catalogItems: 0,
         policies: 0,
@@ -113,7 +113,7 @@ describe('ProviderLifecycleService', () => {
       expect(mockArchiveService.writeArchive).toHaveBeenCalledWith(
         expect.objectContaining({ providerId: 'p-1', providerAbbr: 'TESTORG' }),
       );
-      expect(mockCleanupService.wipe).toHaveBeenCalledWith('p-1', 'TESTORG');
+      expect(mockCleanupService.wipe).toHaveBeenCalledWith('p-1');
       expect(mockArchiveStorage.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           providerId: 'p-1',
@@ -179,7 +179,7 @@ describe('ProviderLifecycleService', () => {
     it('wipes on the happy path, with no archive', async () => {
       const result: any = await service.delete('p-1', 'TESTORG', true, superAdminCtx);
 
-      expect(mockCleanupService.wipe).toHaveBeenCalledWith('p-1', 'TESTORG');
+      expect(mockCleanupService.wipe).toHaveBeenCalledWith('p-1');
       expect(mockArchiveService.writeArchive).not.toHaveBeenCalled();
       expect(mockArchiveStorage.insert).not.toHaveBeenCalled();
       expect(result.success).toBe(true);

@@ -72,7 +72,7 @@ export class ProviderLifecycleService {
   async preview(providerId: string, ctx: UserContext | undefined): Promise<PreviewArchiveResult> {
     this.assertSuperAdmin(ctx);
     const provider = await this.loadProvider(providerId);
-    const counts = await this.cleanupService.getCounts(provider.providerId, provider.providerAbbr);
+    const counts = await this.cleanupService.getCounts(provider.providerId);
     return { ...provider, counts };
   }
 
@@ -98,7 +98,7 @@ export class ProviderLifecycleService {
 
     let counts: CleanupCounts;
     try {
-      counts = await this.cleanupService.wipe(provider.providerId, provider.providerAbbr);
+      counts = await this.cleanupService.wipe(provider.providerId);
     } catch (err) {
       // Cleanup failed — the archive directory survived but live DB is
       // unchanged. Log loudly and re-throw; operator can inspect the
@@ -155,7 +155,7 @@ export class ProviderLifecycleService {
       );
     }
 
-    const counts = await this.cleanupService.wipe(provider.providerId, provider.providerAbbr);
+    const counts = await this.cleanupService.wipe(provider.providerId);
 
     this.logger.log(
       `DELETED provider ${provider.providerId} (${provider.providerAbbr}) — ${counts.tournaments} tournaments destroyed. No archive.`,
