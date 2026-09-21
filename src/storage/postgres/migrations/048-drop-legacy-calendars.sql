@@ -46,5 +46,47 @@
 -- Restoring the table from that dump gives back the rows, but NOT their currency — they were
 -- already four days stale when dumped and grow staler. Anything that genuinely needs the
 -- legacy shape should rebuild it from `calendar_tournaments`, which is authoritative.
+--
+-- ── THE GUARD BELOW EXISTS BECAUSE THIS MIGRATION DESTROYED DATA ─────────────
+--
+-- Everything above argues from a premise about NEST: "prod has run on the new path since
+-- 2026-09-17, so `calendars` is a stale second copy." That premise was true there and was
+-- never CHECKED here — and 047 creates `calendar_tournaments` WITHOUT backfilling it (nest's
+-- rows came from a separate backfill step run before the 047 release).
+--
+-- So on any host where 047 and 048 apply in the SAME boot, this dropped the only populated
+-- copy moments after 047 created an empty replacement. That happened on Button (the always-on
+-- ingest host, own local Postgres) on 2026-09-21: 5,844 calendar entries destroyed, recovered
+-- by recomputing them from the tournament records through the same `getCalendarEntry` +
+-- `toRow` the save path uses. Recoverable only because the calendar is a PROJECTION; had it
+-- been authoritative the dump in `preserved/` would have been the only way back, and that
+-- dump is of nest's rows, not Button's.
+--
+-- A migration that is safe only because of a fact about one database must assert that fact.
+-- This one now refuses unless the new table is populated or the old one is empty — so it is a
+-- no-op on a fresh database (both empty) and on an already-migrated one, and it halts loudly
+-- on a host that has not backfilled yet.
+
+DO $$
+DECLARE
+  legacy_rows INT;
+  new_rows    INT;
+BEGIN
+  IF to_regclass('calendars') IS NULL THEN
+    RETURN; -- already dropped; nothing to check or do
+  END IF;
+
+  EXECUTE 'SELECT count(*) FROM calendars' INTO legacy_rows;
+  EXECUTE 'SELECT count(*) FROM calendar_tournaments' INTO new_rows;
+
+  IF legacy_rows > 0 AND new_rows = 0 THEN
+    RAISE EXCEPTION
+      'REFUSING to drop `calendars`: it holds % row(s) and `calendar_tournaments` is EMPTY. '
+      'Migration 047 does not backfill — populate the new table first (re-save the records, or '
+      'recompute each entry with getCalendarEntry + toRow), then re-run. Dropping here would '
+      'destroy the only populated copy, as it did on Button 2026-09-21.',
+      legacy_rows;
+  END IF;
+END $$;
 
 DROP TABLE IF EXISTS calendars;
