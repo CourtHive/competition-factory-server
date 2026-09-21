@@ -116,19 +116,19 @@ export class ProviderArchiveService {
       { rel: 'provider_topologies.json',   sql: 'SELECT * FROM provider_topologies WHERE provider_id = $1' },
       { rel: 'provider_catalog_items.json', sql: 'SELECT * FROM provider_catalog_items WHERE provider_id = $1' },
       { rel: 'policies.json',              sql: 'SELECT * FROM policies WHERE provider_id = $1' },
+      // The calendar (migration 047). It joins this list rather than needing the
+      // abbr-keyed special case the retired `calendars` table required: keyed by the
+      // immutable provider_id, it is an ordinary by-provider export like every other row
+      // above. Until 2026-09-21 the archive captured the LEGACY table and not this one, so
+      // a decommission archived a stale calendar and a revive restored it into a table
+      // nothing read — the provider came back with no calendar at all.
+      { rel: 'calendar_tournaments.json', sql: 'SELECT * FROM calendar_tournaments WHERE provider_id = $1' },
     ];
 
     for (const { rel, sql } of tablesByProviderId) {
       const result = await this.pool.query(sql, [provider.providerId]);
       await writeJson(rel, result.rows, result.rows.length);
     }
-
-    // Calendar is keyed by abbr, not id.
-    const calendars = await this.pool.query(
-      'SELECT * FROM calendars WHERE provider_abbr = $1',
-      [provider.providerAbbr],
-    );
-    await writeJson('calendar.json', calendars.rows, calendars.rows.length);
 
     // Tournaments — one file per record. Even for a large provider this
     // stays manageable: one JSON file per tournament, content roughly

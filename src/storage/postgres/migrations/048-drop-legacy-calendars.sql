@@ -1,0 +1,50 @@
+-- 048-drop-legacy-calendars.sql
+-- AFFECTS: admin
+-- Drops the legacy `calendars` table. No end-user read or write path touches it.
+--
+-- This is the migration 047 named and deferred: "Dropping it is 048, and only after prod
+-- has run on the new path, so this migration stays reversible by pointing the storage layer
+-- back." Prod has run on `calendar_tournaments` since release 2026-09-17-0026-46959c5 —
+-- four days at time of writing, across the IONSport calendar incident and its fixes.
+--
+-- ── WHY NOW, AND WHY IT IS NOT MERELY TIDYING ────────────────────────────────
+--
+-- Leaving it was not free. Measured on prod 2026-09-19, BOBOCA's legacy row held 30 entries
+-- against 33 real tournaments: the table had been silently diverging since the cutover,
+-- because 047 moved every writer and left two readers behind.
+--
+-- Both are in the provider DECOMMISSION path, which is where a stale copy does real damage:
+--
+--   ProviderArchiveService  archived `calendars` as calendar.json and never captured
+--                           `calendar_tournaments`;
+--   revive-provider.mjs     restored calendar.json into `calendars` — a table nothing reads.
+--
+-- So a decommission → revive round trip returned a provider with NO calendar, silently, and
+-- the archive that was supposed to make the delete recoverable preserved a stale projection
+-- instead of the live one. `ProviderCleanupService` was the only one of the three that had
+-- been taught about both tables, so the wipe was correct and the record of it was not.
+--
+-- Those are fixed in the same change as this migration. Dropping the table is what stops the
+-- pair from drifting apart again — a second stored representation of one fact is the P19
+-- class, and the cure is subtraction.
+--
+-- ── WHAT WAS CHECKED BEFORE DROPPING ─────────────────────────────────────────
+--
+--   * every `FROM calendars` / `INTO calendars` / `UPDATE calendars` in the repo, outside
+--     migrations: archive, revive, cleanup, the test teardown and cleanup-test-data — all
+--     repointed at `calendar_tournaments` in this change;
+--   * `PostgresCalendarStorage` reads and writes `calendar_tournaments` exclusively;
+--   * `2026-09-13-boboca-to-jtcc.sql` names `calendars` and is deliberately NOT updated: it
+--     is an applied historical record of what was run that day, not live code.
+--
+-- The prod table (1,120 rows) was dumped to
+-- `preserved/2026-09-21-prod-legacy-calendars-table-dump.sql` before this migration was
+-- written. A DROP is not reversible by re-running a migration, so the dump is the way back.
+--
+-- ── IF THIS EVER NEEDS UNDOING ───────────────────────────────────────────────
+--
+-- Restoring the table from that dump gives back the rows, but NOT their currency — they were
+-- already four days stale when dumped and grow staler. Anything that genuinely needs the
+-- legacy shape should rebuild it from `calendar_tournaments`, which is authoritative.
+
+DROP TABLE IF EXISTS calendars;

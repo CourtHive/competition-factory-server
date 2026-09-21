@@ -8,7 +8,7 @@
  *   - providers WHERE organisation_abbreviation LIKE 'E2E%' OR 'AUDITE2E%'
  *   - users.email LIKE 'e2e-sso-%@test.com'  (provisioner.e2e.spec)
  *   - tournaments under any test provider above
- *   - calendars under any test provider abbreviation above
+ *   - calendar_tournaments under any test provider above
  *   - audit_log rows for tournament_id LIKE 'audit-e2e-%'
  *
  * Cascade order is bottom-up so orphan FK references are removed first.
@@ -47,7 +47,7 @@ Usage:
 
 Options:
   --buckets    Comma-separated list of buckets to clean. Default: all.
-               Available: provisioners, providers, tournaments, calendars,
+               Available: provisioners, providers, tournaments, calendar_tournaments,
                           users, audit_log
   --execute    Actually delete. Without this flag the script runs in dry mode.
   -h, --help   Show this message.
@@ -57,7 +57,7 @@ Patterns matched (read-only, hard-coded):
   - providers WHERE organisation_abbreviation LIKE 'E2E%' OR 'AUDITE2E%'
   - users.email LIKE 'e2e-sso-%@test.com'
   - tournaments under any matched test provider
-  - calendars under any matched test provider abbreviation
+  - calendar_tournaments under any matched test provider
   - audit_log rows where tournament_id LIKE 'audit-e2e-%'
 
 Persistent fixtures (NEVER touched):
@@ -69,7 +69,7 @@ Persistent fixtures (NEVER touched):
 
 const dryRun = !args.execute;
 
-const ALL_BUCKETS = ['provisioners', 'providers', 'tournaments', 'calendars', 'users', 'audit_log'];
+const ALL_BUCKETS = ['provisioners', 'providers', 'tournaments', 'calendar_tournaments', 'users', 'audit_log'];
 const requestedBuckets = args.buckets
   ? String(args.buckets).split(',').map((s) => s.trim()).filter(Boolean)
   : ALL_BUCKETS;
@@ -138,8 +138,8 @@ async function preview(client) {
   rows.tournaments = (await client.query(
     `SELECT COUNT(*)::int AS n FROM tournaments WHERE provider_id IN (SELECT provider_id FROM providers WHERE ${PROVIDER_WHERE}) OR ${ORPHAN_TOURNAMENT_WHERE}`,
   )).rows[0].n;
-  rows.calendars = (await client.query(
-    `SELECT COUNT(*)::int AS n FROM calendars WHERE provider_abbr IN (SELECT organisation_abbreviation FROM providers WHERE ${PROVIDER_WHERE})`,
+  rows.calendar_tournaments = (await client.query(
+    `SELECT COUNT(*)::int AS n FROM calendar_tournaments WHERE provider_id IN (SELECT provider_id FROM providers WHERE ${PROVIDER_WHERE})`,
   )).rows[0].n;
 
   rows.users = (await client.query(
@@ -173,7 +173,7 @@ function printPreview(rows) {
   console.log(`    cascade: api_keys=${rows.provisionerCascade.apiKeys}  prov_providers=${rows.provisionerCascade.associations}  tournament_stamps=${rows.provisionerCascade.stamps}  user_assoc=${rows.provisionerCascade.userAssoc}`);
   console.log(`  providers (E2E* / AUDITE2E*):           ${rows.providers}`);
   console.log(`  tournaments under test providers:       ${rows.tournaments}`);
-  console.log(`  calendars under test providers:         ${rows.calendars}`);
+  console.log(`  calendar rows under test providers:     ${rows.calendar_tournaments}`);
   console.log(`  users (e2e-sso-*@test.com):             ${rows.users}`);
   console.log(`    cascade: sso_identities=${rows.userCascade.sso}  assignments=${rows.userCascade.assignments}  user_providers=${rows.userCascade.providers}  user_provisioners=${rows.userCascade.provisioners}`);
   console.log(`  audit_log (audit-e2e-* tournaments):    ${rows.auditRows}`);
@@ -202,9 +202,11 @@ async function deleteTournaments(client) {
   return { deleted: r.rowCount ?? 0 };
 }
 
-async function deleteCalendars(client) {
+// By provider_id, the immutable key `calendar_tournaments` uses (047). The retired
+// `calendars` table this addressed by abbreviation was dropped in 048.
+async function deleteCalendarTournaments(client) {
   const r = await client.query(
-    `DELETE FROM calendars WHERE provider_abbr IN (SELECT organisation_abbreviation FROM providers WHERE ${PROVIDER_WHERE})`,
+    `DELETE FROM calendar_tournaments WHERE provider_id IN (SELECT provider_id FROM providers WHERE ${PROVIDER_WHERE})`,
   );
   return { deleted: r.rowCount ?? 0 };
 }
@@ -252,8 +254,8 @@ async function main() {
       if (enabled('audit_log')) results.audit = await deleteAuditLog(client);
       // 2. tournaments — depends on providers (string FK, no constraint).
       if (enabled('tournaments')) results.tournaments = await deleteTournaments(client);
-      // 3. calendars — depends on provider_abbreviation (no FK).
-      if (enabled('calendars')) results.calendars = await deleteCalendars(client);
+      // 3. calendar_tournaments — depends on provider_id (no FK).
+      if (enabled('calendar_tournaments')) results.calendar_tournaments = await deleteCalendarTournaments(client);
       // 4. provisioners — cascade handles its child tables explicitly.
       if (enabled('provisioners')) results.provisioners = await deleteProvisioners(client);
       // 5. users — FK CASCADE via DB schema handles sso_identities, etc.
