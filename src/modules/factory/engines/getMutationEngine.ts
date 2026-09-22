@@ -279,7 +279,31 @@ export const subscriptionHandlers = {
       });
     }
   },
-  // the tournament went dark (neither order-of-play nor participants published)
+  // A tournament published for its REGISTRATION PHASE — information published, nothing inside it yet
+  // (factory 7.0.0, punch list P23). It is the first publish that can make a tournament public with no
+  // draw, so without these the read model would keep `published = false` for exactly the tournaments
+  // online search exists to find. No participant data changes, so no roster concern.
+  [topicConstants.PUBLISH_TOURNAMENT_INFO]: (params) => {
+    for (const item of params) {
+      clearCache(item.tournamentId);
+      recordTouchTournament(requestDeltaBuffer(), item.tournamentId); // refresh tournaments.published
+      requestPublicNotices()?.push({
+        topic: topicConstants.PUBLISH_TOURNAMENT_INFO,
+        tournamentId: item.tournamentId,
+      });
+    }
+  },
+  [topicConstants.UNPUBLISH_TOURNAMENT_INFO]: (params) => {
+    for (const item of params) {
+      clearCache(item.tournamentId);
+      recordTouchTournament(requestDeltaBuffer(), item.tournamentId);
+      requestPublicNotices()?.push({
+        topic: topicConstants.UNPUBLISH_TOURNAMENT_INFO,
+        tournamentId: item.tournamentId,
+      });
+    }
+  },
+  // the tournament went dark (no information, order-of-play, participants or published event)
   // → refresh the aggregate tournaments.published flag.
   [topicConstants.UNPUBLISH_TOURNAMENT]: (params) => {
     for (const item of params) {

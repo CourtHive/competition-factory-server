@@ -27,6 +27,31 @@ describe('getMutationEngine — projection subscription wiring', () => {
     fire(topicConstants.UNPUBLISH_EVENT_SEEDING, buffer, [{ tournamentId: 't1', eventId: 'e1' }]);
     expect(buffer.intents).toContainEqual({ kind: 'events', tournamentId: 't1' });
   });
+
+  // The information publish is the only one that can make a tournament public with no draw, so the
+  // tournaments row has to be refreshed on it or online search never sees a registration-phase
+  // tournament. `touchTournament` is what makes buildProjectionDeltas re-emit that row.
+  it('PUBLISH_TOURNAMENT_INFO is subscribed and touches the tournament', () => {
+    const buffer = createDeltaBuffer(['t1']);
+    fire(topicConstants.PUBLISH_TOURNAMENT_INFO, buffer, [{ tournamentId: 't1' }]);
+    expect(buffer.intents).toContainEqual({ kind: 'touchTournament', tournamentId: 't1' });
+  });
+
+  it('UNPUBLISH_TOURNAMENT_INFO is subscribed and touches the tournament', () => {
+    const buffer = createDeltaBuffer(['t1']);
+    fire(topicConstants.UNPUBLISH_TOURNAMENT_INFO, buffer, [{ tournamentId: 't1' }]);
+    expect(buffer.intents).toContainEqual({ kind: 'touchTournament', tournamentId: 't1' });
+  });
+
+  it('both information topics announce themselves to public subscribers', () => {
+    for (const topic of [topicConstants.PUBLISH_TOURNAMENT_INFO, topicConstants.UNPUBLISH_TOURNAMENT_INFO]) {
+      const publicNotices: any[] = [];
+      runWithRequestContext({ deltaBuffer: createDeltaBuffer(['t1']), publicNotices }, () =>
+        subscriptionHandlers[topic]([{ tournamentId: 't1' }]),
+      );
+      expect(publicNotices).toEqual([{ topic, tournamentId: 't1' }]);
+    }
+  });
 });
 
 // Cache-eviction attribution. These handlers decide which per-entity cache keys the controller is
