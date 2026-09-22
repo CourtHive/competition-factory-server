@@ -1,4 +1,4 @@
-import { CacheModule as CacheModule_ } from '@nestjs/cache-manager';
+import { CacheModule as CacheModule_, type CacheModuleOptions } from '@nestjs/cache-manager';
 import Keyv from 'keyv';
 import KeyvRedis from '@keyv/redis';
 import { Module, Global, Injectable, OnModuleDestroy } from '@nestjs/common';
@@ -24,8 +24,19 @@ export class KeyvStore implements OnModuleDestroy {
 @Module({
   imports: [
     CacheModule_.registerAsync({
-      useFactory: (store: KeyvStore) => ({
-        stores: [store.keyv],
+      // `stores` is typed against @nestjs/cache-manager's OWN view of Keyv, not ours.
+      //
+      // keyv ships two declaration files — `index.d.cts` for the `require` condition and
+      // `index.d.ts` for `import`. This project compiles as commonjs under node10 resolution, so our
+      // `Keyv` and the one inside `@nestjs/cache-manager/dist/index.d.ts` can be loaded from the
+      // same path yet remain nominally unrelated: "Two different types with this name exist, but
+      // they are unrelated." Same version, same file on disk, two identities.
+      //
+      // Taking the element type from `CacheModuleOptions` conforms to the consumer's declaration
+      // instead of asserting our own, so the cast is confined to one boundary and disappears the day
+      // keyv ships a single declaration or this project moves to node16 resolution.
+      useFactory: (store: KeyvStore): CacheModuleOptions => ({
+        stores: [store.keyv] as unknown as CacheModuleOptions['stores'],
         isGlobal: true,
         max: 10_000,
       }),
