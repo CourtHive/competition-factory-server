@@ -265,7 +265,7 @@ async function main() {
     restored.pending_saves = await insertRows(client, 'pending_saves', data.pending_saves);
     restored.provider_topologies = await insertRows(client, 'provider_topologies', data.provider_topologies);
     restored.provider_catalog_items = await insertRows(client, 'provider_catalog_items', data.provider_catalog_items);
-    // policies moved to AMS; archives taken after 2026-09-23 carry no policies.json
+    // policies are AMS rows, restored after this transaction commits (see below)
     restored.calendar_tournaments = await insertRows(client, 'calendar_tournaments', data.calendar_tournaments);
     // audit_log last — its tournament_id FKs are conceptually present
     // even though the column has no FK constraint.
@@ -278,6 +278,42 @@ async function main() {
     process.exit(4);
   } finally {
     client.release();
+  }
+
+  // Policies live in AMS (punch-list P31), so they cannot join the transaction above — a separate
+  // database reached over HTTP. Restored AFTER the commit: a failure here leaves the provider
+  // revived with its policies still soft-deleted, which is visible and repeatable. The other order
+  // would un-delete policies for a provider whose revive then rolled back.
+  //
+  // `archivedPolicyIds` is restored, NOT "everything soft-deleted for this provider" — a policy the
+  // provider had deleted themselves before the archive must stay deleted.
+  const policiesArchive = await readJson(archivePath, 'policies.json').catch(() => null);
+  const archivedPolicyIds = policiesArchive?.archivedPolicyIds ?? [];
+  if (policiesArchive?.unavailable) {
+    console.warn(
+      `  policies: NOT restored — the archive recorded none (AMS was unreachable at archive time: ${policiesArchive.unavailable})`,
+    );
+  } else if (archivedPolicyIds.length) {
+    const amsBaseUrl = process.env.AMS_BASE_URL ?? 'http://localhost:3130';
+    try {
+      const res = await fetch(`${amsBaseUrl}/policies/provider-lifecycle/restore`, {
+        method: 'POST',
+        headers: {
+          'x-service-token': process.env.AMS_SERVICE_TOKEN ?? '',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ policyIds: archivedPolicyIds }),
+      });
+      if (res.ok) {
+        const body = await res.json();
+        restored.policies = body?.restored ?? 0;
+        console.log(`  policies: ${restored.policies} restored in AMS`);
+      } else {
+        console.warn(`  policies: AMS restore failed (HTTP ${res.status}) — re-run or restore manually`);
+      }
+    } catch (err) {
+      console.warn(`  policies: AMS unreachable (${err.message}) — re-run or restore manually`);
+    }
   }
 
   // Mark the provider_archives row revived if we can find it.

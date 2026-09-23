@@ -1,6 +1,7 @@
 import { ProviderLifecycleService } from './provider-lifecycle.service';
 import { ProviderCleanupService } from './provider-cleanup.service';
 import { ProviderArchiveService } from './provider-archive.service';
+import { AmsPoliciesClient } from './ams-policies-client.service';
 import { ProvidersController } from './providers.controller';
 import { StorageModule } from 'src/storage/storage.module';
 import { ProvidersService } from './providers.service';
@@ -25,6 +26,9 @@ describe('ProvidersService', () => {
         ProviderCatalogService,
         ProviderArchiveService,
         ProviderCleanupService,
+        // Policies are AMS's (P31); archive/cleanup inject this client. The real one talks to AMS
+        // over HTTP, so the test module supplies it rather than reaching the network.
+        AmsPoliciesClient,
         ProviderLifecycleService,
         ConfigService,
       ],

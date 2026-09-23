@@ -25,7 +25,7 @@ describe('ProviderArchiveService — what a decommission preserves', () => {
 
   const PROVIDER = { providerId: 'p-uuid-1', providerAbbr: 'TESTORG', providerName: 'Test Org' };
 
-  function buildService() {
+  function buildService(amsOverrides?: any) {
     queries = [];
     const pool: any = {
       query: vi.fn(async (sql: string, params: any[] = []) => {
@@ -36,7 +36,13 @@ describe('ProviderArchiveService — what a decommission preserves', () => {
         return { rows: [] };
       }),
     };
-    return new ProviderArchiveService(pool);
+    // A stubbed AMS client: policies are AMS's (P31), and the archive must stay unit-testable
+    // without a live AMS. `amsOverrides` lets a test drive the unavailable path.
+    const amsPolicies: any = {
+      exportForProvider: vi.fn(async () => ({ ok: true, policies: [], archivedPolicyIds: [] })),
+      ...(amsOverrides ?? {}),
+    };
+    return new ProviderArchiveService(pool, amsPolicies);
   }
 
   beforeEach(async () => {
@@ -47,6 +53,55 @@ describe('ProviderArchiveService — what a decommission preserves', () => {
   afterEach(async () => {
     delete process.env.ARCHIVES_PATH;
     await fs.rm(archivesPath, { recursive: true, force: true });
+  });
+
+  // ── AMS policies in the archive (punch-list P31) ─────────────────────────
+
+  it('writes the AMS policies into the archive, with the ids a revive should restore', async () => {
+    const exportForProvider = vi.fn(async () => ({
+      ok: true,
+      policies: [
+        { policyId: 'live-1', deletedAt: null },
+        { policyId: 'already-deleted', deletedAt: '2026-03-01T00:00:00Z' },
+      ],
+      archivedPolicyIds: ['live-1'],
+    }));
+
+    const result = await buildService({ exportForProvider }).writeArchive(PROVIDER);
+    const written = JSON.parse(await fs.readFile(path.join(result.archivePath, 'policies.json'), 'utf8'));
+
+    expect(exportForProvider).toHaveBeenCalledWith(PROVIDER.providerId);
+    // both rows are preserved, so the archive reproduces the provider's state...
+    expect(written.policies).toHaveLength(2);
+    // ...but only the one archiving actually soft-deleted is marked for restore. Restoring the
+    // other would resurrect a deletion the provider made themselves.
+    expect(written.archivedPolicyIds).toEqual(['live-1']);
+  });
+
+  it('records that policies were UNAVAILABLE rather than writing an empty archive that looks complete', async () => {
+    const exportForProvider = vi.fn(async () => ({
+      ok: false,
+      policies: [],
+      archivedPolicyIds: [],
+      reason: 'HTTP 503',
+    }));
+
+    const result = await buildService({ exportForProvider }).writeArchive(PROVIDER);
+    const written = JSON.parse(await fs.readFile(path.join(result.archivePath, 'policies.json'), 'utf8'));
+
+    // The distinction that matters: "AMS was down" must not read as "this provider had no policies".
+    expect(written.unavailable).toEqual('HTTP 503');
+    expect(written.archivedPolicyIds).toEqual([]);
+  });
+
+  it('does not abort the decommission when AMS is unreachable', async () => {
+    const exportForProvider = vi.fn(async () => ({
+      ok: false,
+      policies: [],
+      archivedPolicyIds: [],
+      reason: 'ECONNREFUSED',
+    }));
+    await expect(buildService({ exportForProvider }).writeArchive(PROVIDER)).resolves.toBeDefined();
   });
 
   it('reads calendar_tournaments, scoped by the immutable provider_id', async () => {
