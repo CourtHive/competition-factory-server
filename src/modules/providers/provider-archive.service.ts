@@ -115,7 +115,8 @@ export class ProviderArchiveService {
       { rel: 'pending_saves.json',         sql: 'SELECT * FROM pending_saves WHERE provider_id = $1' },
       { rel: 'provider_topologies.json',   sql: 'SELECT * FROM provider_topologies WHERE provider_id = $1' },
       { rel: 'provider_catalog_items.json', sql: 'SELECT * FROM provider_catalog_items WHERE provider_id = $1' },
-      { rel: 'policies.json',              sql: 'SELECT * FROM policies WHERE provider_id = $1' },
+      // `policies.json` is gone: policy hosting moved to AMS (its migration 0096), so a provider's
+      // policies are no longer in this database to export. AMS owns archiving them — punch-list P31.
       // The calendar (migration 047). It joins this list rather than needing the
       // abbr-keyed special case the retired `calendars` table required: keyed by the
       // immutable provider_id, it is an ordinary by-provider export like every other row

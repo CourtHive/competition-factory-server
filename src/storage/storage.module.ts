@@ -20,7 +20,6 @@ import { TOPOLOGY_STORAGE } from './interfaces/topology-storage.interface';
 import { PROVIDER_CATALOG_STORAGE } from './interfaces/provider-catalog-storage.interface';
 import { CALENDAR_STORAGE } from './interfaces/calendar-storage.interface';
 import { PARTICIPATION_STORAGE } from './interfaces/participation-storage.interface';
-import { POLICY_STORAGE } from './interfaces/policy-storage.interface';
 import { AUDIT_STORAGE } from './interfaces/audit-storage.interface';
 import { USER_STORAGE } from './interfaces/user-storage.interface';
 
@@ -47,7 +46,6 @@ import { PostgresProviderCatalogStorage } from './postgres/postgres-provider-cat
 import { PostgresCalendarStorage } from './postgres/postgres-calendar.storage';
 import { PostgresParticipationStorage } from './postgres/postgres-participation.storage';
 import { PostgresAuthCodeStorage } from './postgres/postgres-auth-code.storage';
-import { PostgresPolicyStorage } from './postgres/postgres-policy.storage';
 import { PostgresUserStorage } from './postgres/postgres-user.storage';
 import { MigrationRunnerService } from './postgres/migration-runner.service';
 import { PG_POOL, getPostgresConfig } from './postgres/postgres.config';
@@ -111,7 +109,6 @@ const tournamentProvisionerStorageProvider = makeStorageProvider(TOURNAMENT_PROV
 const ssoIdentityStorageProvider = makeStorageProvider(SSO_IDENTITY_STORAGE, PostgresSsoIdentityStorage);
 const userProvisionerStorageProvider = makeStorageProvider(USER_PROVISIONER_STORAGE, PostgresUserProvisionerStorage);
 const providerArchiveStorageProvider = makeStorageProvider(PROVIDER_ARCHIVE_STORAGE, PostgresProviderArchiveStorage);
-const policyStorageProvider = makeStorageProvider(POLICY_STORAGE, PostgresPolicyStorage);
 const refreshTokenStorageProvider = makeStorageProvider(REFRESH_TOKEN_STORAGE, PostgresRefreshTokenStorage);
 const registrationEntryStorageProvider = makeStorageProvider(REGISTRATION_ENTRY_STORAGE, PostgresRegistrationEntryStorage);
 const chatStorageProvider = makeStorageProvider(CHAT_STORAGE, PostgresChatStorage);
@@ -143,7 +140,6 @@ const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_ST
     ssoIdentityStorageProvider,
     userProvisionerStorageProvider,
     providerArchiveStorageProvider,
-    policyStorageProvider,
     refreshTokenStorageProvider,
     registrationEntryStorageProvider,
     chatStorageProvider,
@@ -172,7 +168,6 @@ const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_ST
     SSO_IDENTITY_STORAGE,
     USER_PROVISIONER_STORAGE,
     PROVIDER_ARCHIVE_STORAGE,
-    POLICY_STORAGE,
     REFRESH_TOKEN_STORAGE,
     REGISTRATION_ENTRY_STORAGE,
     CHAT_STORAGE,

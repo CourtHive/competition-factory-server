@@ -20,7 +20,6 @@
  *   CASCADE (deleted automatically when providers row goes):
  *     provider_topologies      (FK ON DELETE CASCADE)
  *     provider_catalog_items   (FK ON DELETE CASCADE)
- *     policies                 (FK ON DELETE CASCADE)
  *
  *   Preserved (FK-free by design, survives provider deletion):
  *     audit_log                (referenced by tournament_id but no FK)
@@ -49,7 +48,6 @@ export interface CleanupCounts {
   // blast radius even though we don't issue explicit DELETEs for them.
   topologies: number;
   catalogItems: number;
-  policies: number;
   // Audit log row count for the tournaments owned by this provider.
   // NOT deleted — preserved by design. Included in counts so the
   // archive export knows how much audit history to ship.
@@ -80,7 +78,6 @@ export class ProviderCleanupService {
         (SELECT COUNT(*) FROM calendar_tournaments WHERE provider_id = $1)      AS calendar_tournaments,
         (SELECT COUNT(*) FROM provider_topologies WHERE provider_id = $1)       AS topologies,
         (SELECT COUNT(*) FROM provider_catalog_items WHERE provider_id = $1)    AS catalog_items,
-        (SELECT COUNT(*) FROM policies WHERE provider_id = $1)                  AS policies,
         (SELECT COUNT(*) FROM audit_log WHERE tournament_id IN (SELECT tournament_id FROM tournament_ids)) AS audit_log_rows
     `;
     const result = await this.pool.query(sql, [providerId]);
@@ -95,7 +92,6 @@ export class ProviderCleanupService {
       calendarTournaments: Number(row.calendar_tournaments ?? 0),
       topologies: Number(row.topologies ?? 0),
       catalogItems: Number(row.catalog_items ?? 0),
-      policies: Number(row.policies ?? 0),
       auditLogRows: Number(row.audit_log_rows ?? 0),
     };
   }
@@ -130,7 +126,6 @@ export class ProviderCleanupService {
       // report them in the returned counts.
       const topologies   = await client.query('SELECT COUNT(*)::int AS n FROM provider_topologies WHERE provider_id = $1', [providerId]);
       const catalogItems = await client.query('SELECT COUNT(*)::int AS n FROM provider_catalog_items WHERE provider_id = $1', [providerId]);
-      const policies     = await client.query('SELECT COUNT(*)::int AS n FROM policies WHERE provider_id = $1', [providerId]);
 
       // Audit log row count (preserved, not deleted) — query within the
       // same transaction so the answer is consistent with the live state
@@ -144,7 +139,8 @@ export class ProviderCleanupService {
       );
 
       // FINALLY: the providers row itself. ON DELETE CASCADE picks up
-      // provider_topologies + provider_catalog_items + policies.
+      // provider_topologies + provider_catalog_items. Policies are NOT among them any
+      // more: hosting moved to AMS, which has no provider-delete hook yet — punch-list P31.
       await client.query('DELETE FROM providers WHERE provider_id = $1', [providerId]);
 
       await client.query('COMMIT');
@@ -159,7 +155,6 @@ export class ProviderCleanupService {
         calendarTournaments: calendarTournaments.rowCount ?? 0,
         topologies: topologies.rows[0]?.n ?? 0,
         catalogItems: catalogItems.rows[0]?.n ?? 0,
-        policies: policies.rows[0]?.n ?? 0,
         auditLogRows: auditLogRows.rows[0]?.n ?? 0,
       };
     } catch (err) {

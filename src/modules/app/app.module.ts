@@ -15,7 +15,6 @@ import { ProvisionerModule } from '../provisioner/provisioner.module';
 // Mentat/planning/AMS_DEPLOY_AND_RETIREMENT.md §CFS retirement windows #1 + #2.
 import { MutationServicesModule } from '../mutation-services/mutation-services.module';
 import { TelemetryModule } from '../telemetry/telemetry.module';
-import { PoliciesModule } from '../policies/policies.module';
 import { AuditModule } from '../audit/audit.module';
 import { ConfigReadinessModule } from '../config-readiness/config-readiness.module';
 import { isModuleEnabled } from '../../config/server-profile';
@@ -99,7 +98,6 @@ const tournamentModules = isModuleEnabled('tournament')
   : [];
 
 // Provider modules — loaded for 'provider' and 'full' profiles
-const providerModules = isModuleEnabled('provider') ? [PoliciesModule] : [];
 
 // Global HTTP rate limiting: 300 requests / 60s per IP by default. HttpThrottlerGuard
 // skips the Socket.IO gateways (live-scoring must not be throttled) and provider/
@@ -108,7 +106,7 @@ const providerModules = isModuleEnabled('provider') ? [PoliciesModule] : [];
 const throttlerModule = ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]);
 
 @Module({
-  imports: [throttlerModule, ...coreModules, ...tournamentModules, ...providerModules],
+  imports: [throttlerModule, ...coreModules, ...tournamentModules],
   controllers: [AppController, RuntimeConfigController],
   providers: [AppService, { provide: APP_GUARD, useClass: HttpThrottlerGuard }],
 })
