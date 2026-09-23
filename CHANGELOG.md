@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.0](https://github.com/CourtHive/competition-factory-server/compare/v2.31.0...v3.0.0) (2026-09-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **policies:** CFS no longer serves /policies or /policies/catalog. TMX reads the catalog from AMS. The `policies` table is dropped by migration 049.
+
+### Bug Fixes
+
+* **migrations:** make 049 assert its own premise instead of trusting a census ([#990](https://github.com/CourtHive/competition-factory-server/issues/990)) ([4e5679d](https://github.com/CourtHive/competition-factory-server/commit/4e5679ddab1102628792c24e1eb3996dc4a4cfb4))
+
+
+### Refactor
+
+* **policies:** move policy hosting to AMS, and apply what it resolves ([#988](https://github.com/CourtHive/competition-factory-server/issues/988)) ([cc932df](https://github.com/CourtHive/competition-factory-server/commit/cc932df55cd5deda4af8adde145727da4b7dfd07))
+
 ## [2.31.0](https://github.com/CourtHive/competition-factory-server/compare/v2.30.3...v2.31.0) (2026-09-22)
 
 
