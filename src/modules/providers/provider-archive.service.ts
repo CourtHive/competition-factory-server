@@ -27,6 +27,7 @@ import { Pool } from 'pg';
 import fs from 'fs/promises';
 import path from 'path';
 
+import { AmsPoliciesClient } from './ams-policies-client.service';
 import { PG_POOL } from 'src/storage/postgres/postgres.config';
 
 export interface ArchiveManifest {
@@ -50,7 +51,10 @@ export interface ArchiveWriteResult {
 export class ProviderArchiveService {
   private readonly logger = new Logger(ProviderArchiveService.name);
 
-  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(PG_POOL) private readonly pool: Pool,
+    private readonly amsPolicies: AmsPoliciesClient,
+  ) {}
 
   private resolveBasePath(): string {
     const fromEnv = process.env.ARCHIVES_PATH;
@@ -107,16 +111,18 @@ export class ProviderArchiveService {
     // the revive flow: providers first, then association tables,
     // then tournaments + audit_log.
     const tablesByProviderId: Array<{ rel: string; sql: string }> = [
-      { rel: 'provider.json',              sql: 'SELECT * FROM providers WHERE provider_id = $1' },
-      { rel: 'user_providers.json',        sql: 'SELECT * FROM user_providers WHERE provider_id = $1' },
+      { rel: 'provider.json', sql: 'SELECT * FROM providers WHERE provider_id = $1' },
+      { rel: 'user_providers.json', sql: 'SELECT * FROM user_providers WHERE provider_id = $1' },
       { rel: 'provisioner_providers.json', sql: 'SELECT * FROM provisioner_providers WHERE provider_id = $1' },
       { rel: 'tournament_assignments.json', sql: 'SELECT * FROM tournament_assignments WHERE provider_id = $1' },
       { rel: 'tournament_provisioner.json', sql: 'SELECT * FROM tournament_provisioner WHERE provider_id = $1' },
-      { rel: 'pending_saves.json',         sql: 'SELECT * FROM pending_saves WHERE provider_id = $1' },
-      { rel: 'provider_topologies.json',   sql: 'SELECT * FROM provider_topologies WHERE provider_id = $1' },
+      { rel: 'pending_saves.json', sql: 'SELECT * FROM pending_saves WHERE provider_id = $1' },
+      { rel: 'provider_topologies.json', sql: 'SELECT * FROM provider_topologies WHERE provider_id = $1' },
       { rel: 'provider_catalog_items.json', sql: 'SELECT * FROM provider_catalog_items WHERE provider_id = $1' },
-      // `policies.json` is gone: policy hosting moved to AMS (its migration 0096), so a provider's
-      // policies are no longer in this database to export. AMS owns archiving them — punch-list P31.
+      // `policies.json` is no longer a SQL export: policy hosting moved to AMS (its migration
+      // 0096), so a provider's policies are not in this database. They are fetched from AMS below
+      // and written into the archive under the same name, so the archive's shape is unchanged and
+      // `revive-provider.mjs` still finds what it expects.
       // The calendar (migration 047). It joins this list rather than needing the
       // abbr-keyed special case the retired `calendars` table required: keyed by the
       // immutable provider_id, it is an ordinary by-provider export like every other row
@@ -129,6 +135,30 @@ export class ProviderArchiveService {
     for (const { rel, sql } of tablesByProviderId) {
       const result = await this.pool.query(sql, [provider.providerId]);
       await writeJson(rel, result.rows, result.rows.length);
+    }
+
+    // Policies live in AMS (punch-list P31). Fetched over the service-token channel and written
+    // under the same `policies.json` name the SQL export used, so the archive shape is unchanged.
+    //
+    // `archivedPolicyIds` is recorded ALONGSIDE the rows and is the thing a revive restores. It is
+    // not the same as "every soft-deleted policy for this provider": a policy the provider deleted
+    // themselves last March is already soft-deleted, and reviving that too would resurrect a
+    // deliberate deletion.
+    //
+    // A failure here does NOT abort the decommission — it is recorded. An archive that quietly
+    // omitted the policies while reporting success is the outcome worth avoiding.
+    const policiesResult = await this.amsPolicies.exportForProvider(provider.providerId);
+    if (policiesResult.ok) {
+      await writeJson(
+        'policies.json',
+        { policies: policiesResult.policies, archivedPolicyIds: policiesResult.archivedPolicyIds },
+        policiesResult.policies.length,
+      );
+    } else {
+      this.logger.warn(
+        `provider ${provider.providerId}: AMS policies NOT archived (${policiesResult.reason}) — revive will not restore them`,
+      );
+      await writeJson('policies.json', { policies: [], archivedPolicyIds: [], unavailable: policiesResult.reason }, 0);
     }
 
     // Tournaments — one file per record. Even for a large provider this

@@ -1,5 +1,6 @@
 import { ProviderLifecycleService } from './provider-lifecycle.service';
 import { ProviderCleanupService } from './provider-cleanup.service';
+import { AmsPoliciesClient } from './ams-policies-client.service';
 import { ProviderArchiveService } from './provider-archive.service';
 import { ProviderApiKeyService } from './provider-api-key.service';
 import { ProviderApiKeyMiddleware } from './provider-api-key.middleware';
@@ -22,6 +23,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
     ProviderCatalogService,
     ProviderArchiveService,
     ProviderCleanupService,
+    AmsPoliciesClient,
     ProviderLifecycleService,
     ProviderApiKeyService,
     ProviderApiKeyMiddleware,
