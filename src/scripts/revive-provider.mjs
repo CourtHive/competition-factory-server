@@ -243,7 +243,6 @@ async function main() {
     pending_saves: await readJson(archivePath, 'pending_saves.json'),
     provider_topologies: await readJson(archivePath, 'provider_topologies.json'),
     provider_catalog_items: await readJson(archivePath, 'provider_catalog_items.json'),
-    policies: await readJson(archivePath, 'policies.json'),
     calendar_tournaments: await readCalendarRows(archivePath),
     tournaments,
     audit_log: await readJsonl(archivePath, 'audit_log.jsonl'),
@@ -266,7 +265,7 @@ async function main() {
     restored.pending_saves = await insertRows(client, 'pending_saves', data.pending_saves);
     restored.provider_topologies = await insertRows(client, 'provider_topologies', data.provider_topologies);
     restored.provider_catalog_items = await insertRows(client, 'provider_catalog_items', data.provider_catalog_items);
-    restored.policies = await insertRows(client, 'policies', data.policies);
+    // policies moved to AMS; archives taken after 2026-09-23 carry no policies.json
     restored.calendar_tournaments = await insertRows(client, 'calendar_tournaments', data.calendar_tournaments);
     // audit_log last — its tournament_id FKs are conceptually present
     // even though the column has no FK constraint.

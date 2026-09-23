@@ -420,6 +420,60 @@ describe('RegistrationsService', () => {
 
       afterEach(() => vi.restoreAllMocks());
 
+      it('attaches the policies AMS resolved at approval, before persisting', async () => {
+        const attachSpy = vi
+          .spyOn(tournamentEngine as any, 'attachPolicies')
+          .mockReturnValue({ success: true, applied: ['seeding'] });
+        tournamentStorageService.findTournamentRecord
+          .mockResolvedValueOnce({ tournamentRecord: null })
+          .mockResolvedValue({ tournamentRecord: baseTournament });
+        sanctioningClient.getRecordByTournamentId.mockResolvedValue({
+          ...sanctioningRecord,
+          attachedPolicies: [
+            { policyType: 'seeding', name: 'ITA_SEEDING', version: '1.0.0', definition: { positioning: 'WATERFALL' } },
+          ],
+        });
+
+        await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
+
+        expect(attachSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ policyDefinitions: { seeding: { positioning: 'WATERFALL' } } }),
+        );
+        // applied BEFORE the save, so the tournament is persisted carrying its policies
+        expect(attachSpy.mock.invocationCallOrder[0]).toBeLessThan(
+          tournamentStorageService.saveTournamentRecord.mock.invocationCallOrder[0],
+        );
+      });
+
+      it('activates normally when the record carries no attached policies', async () => {
+        const attachSpy = vi.spyOn(tournamentEngine as any, 'attachPolicies');
+        tournamentStorageService.findTournamentRecord
+          .mockResolvedValueOnce({ tournamentRecord: null })
+          .mockResolvedValue({ tournamentRecord: baseTournament });
+        // `[]` — approved, and nothing differed from factory defaults
+        sanctioningClient.getRecordByTournamentId.mockResolvedValue({ ...sanctioningRecord, attachedPolicies: [] });
+
+        await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
+
+        expect(attachSpy).not.toHaveBeenCalled();
+        expect(tournamentStorageService.saveTournamentRecord).toHaveBeenCalled();
+      });
+
+      it('a failed attach does not block activation', async () => {
+        vi.spyOn(tournamentEngine as any, 'attachPolicies').mockReturnValue({ error: { message: 'bad policy' } });
+        tournamentStorageService.findTournamentRecord
+          .mockResolvedValueOnce({ tournamentRecord: null })
+          .mockResolvedValue({ tournamentRecord: baseTournament });
+        sanctioningClient.getRecordByTournamentId.mockResolvedValue({
+          ...sanctioningRecord,
+          attachedPolicies: [{ policyType: 'seeding', name: 'X', version: '1.0.0', definition: {} }],
+        });
+
+        await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
+
+        expect(tournamentStorageService.saveTournamentRecord).toHaveBeenCalled();
+      });
+
       it('skips activation when the tournamentRecord already exists', async () => {
         tournamentStorageService.findTournamentRecord.mockResolvedValue({ tournamentRecord: baseTournament });
         await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });

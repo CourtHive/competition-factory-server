@@ -458,6 +458,8 @@ export class RegistrationsService {
       );
     }
 
+    this.attachSanctionedPolicies(activated.tournamentRecord, sanctioningRecord);
+
     const saveResult: any = await this.tournamentStorageService.saveTournamentRecord({
       tournamentRecord: activated.tournamentRecord,
       userId: ctx.userContext.userId,
@@ -467,6 +469,41 @@ export class RegistrationsService {
     }
     this.logger.log(
       `lazy-activated tournamentRecord ${ctx.tournamentId} from sanctioning ${sanctioningRecord.sanctioningId} on first accept`,
+    );
+  }
+
+
+  /**
+   * Apply the policies AMS resolved when the record was approved.
+   *
+   * AMS owns WHICH policies apply — the governing body outranks the provider, and only policies
+   * differing from factory defaults are sent — so this applies what it is given and decides nothing.
+   * `rankingPoints` never arrives here by construction.
+   *
+   * Applied before the first save so the tournament is persisted with its policies already on it.
+   * Failures are logged rather than thrown: a tournament that activates without an optional policy
+   * override is recoverable; one that fails to activate blocks the first accepted registration.
+   */
+  private attachSanctionedPolicies(tournamentRecord: any, sanctioningRecord: SanctioningRecordSnapshot): void {
+    const attached = sanctioningRecord.attachedPolicies;
+    if (!attached?.length) return;
+
+    const policyDefinitions = Object.assign(
+      {},
+      ...attached.map(({ policyType, definition }) => ({ [policyType]: definition })),
+    );
+
+    const result: any = tournamentEngine.attachPolicies({ tournamentRecord, policyDefinitions });
+    if (result?.error) {
+      this.logger.warn(
+        `tournament ${tournamentRecord?.tournamentId}: could not attach sanctioned policies — ${result.error?.message ?? result.error}`,
+      );
+      return;
+    }
+    this.logger.log(
+      `tournament ${tournamentRecord?.tournamentId}: attached ${attached.length} sanctioned policy definition(s) (${attached
+        .map((p) => p.policyType)
+        .join(', ')})`,
     );
   }
 

@@ -28,6 +28,22 @@ export interface SanctioningRecordSnapshot {
    */
   sanctioningTier?: { system: string; value: string };
   policySnapshot?: unknown;
+  /**
+   * Policies resolved by AMS when the record was APPROVED: the provider's (or governing body's)
+   * policies that DIFFER from factory defaults. `rankingPoints` is never among them — those drive
+   * back-end ranking pipelines and are read per-provider by TMX instead.
+   *
+   * Definitions travel, not references, so activation needs no second call to AMS.
+   * `undefined` means the record was never approved; `[]` means resolved and nothing differed.
+   */
+  attachedPolicies?: Array<{
+    policyType: string;
+    name: string;
+    version: string;
+    definition: Record<string, unknown>;
+    sourceProviderId?: string;
+    sourceRole?: string;
+  }>;
   proposal: {
     tournamentId?: string;
     events?: Array<{ eventId?: string; eventName?: string }>;
