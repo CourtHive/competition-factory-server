@@ -1,18 +1,23 @@
-import { TournamentBroadcastService } from '../broadcast/tournament-broadcast.service';
-import { canViewTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
-import { TournamentStorageService } from 'src/storage/tournament-storage.service';
-import { buildUserContext } from 'src/modules/account/auth/helpers/buildUserContext';
 import { MutationServicesService } from 'src/modules/mutation-services/mutation-services.service';
 import { MutationAuthorizationService } from 'src/modules/factory/mutation-authorization.service';
 import { stampOperatorAttribution } from 'src/modules/messaging/tmx/stampOperatorAttribution';
+import { TournamentBroadcastService } from '../broadcast/tournament-broadcast.service';
+import { canViewTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
+import { buildUserContext } from 'src/modules/account/auth/helpers/buildUserContext';
+import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { AssignmentsService } from 'src/modules/factory/assignments.service';
-import { AuditService } from 'src/modules/audit/audit.service';
-import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
 import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/modules/account/auth/guards/socket.guard';
-import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
 import { Public } from '../../account/auth/decorators/public.decorator';
+import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
+import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
+import { AuditService } from 'src/modules/audit/audit.service';
+import { UsersService } from 'src/modules/users/users.service';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import { Namespace, Server, Socket } from 'socket.io';
+import { resolveCorsOrigins } from 'src/common/cors';
+import { tools } from 'tods-competition-factory';
+import { tmxMessages } from './tmxMessages';
 import {
   USER_PROVIDER_STORAGE,
   type IUserProviderStorage,
@@ -28,11 +33,6 @@ import {
   type IChatStorage,
   type ChatMessageRecord,
 } from 'src/storage/interfaces';
-import { UsersService } from 'src/modules/users/users.service';
-import { resolveCorsOrigins } from 'src/common/cors';
-import { tools } from 'tods-competition-factory';
-import { tmxMessages } from './tmxMessages';
-import { Namespace, Server, Socket } from 'socket.io';
 import {
   MessageBody,
   SubscribeMessage,
