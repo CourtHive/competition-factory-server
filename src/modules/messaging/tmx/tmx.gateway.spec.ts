@@ -27,8 +27,12 @@ function makeSocket(overrides: Partial<{ id: string; user: any }> = {}): MockSoc
     data: { user: overrides.user, tournamentJoinedAt: {} },
     rooms: new Set(),
     handshake: { headers: {} },
-    join: vi.fn(async (room: string) => { s.rooms.add(room); }),
-    leave: vi.fn(async (room: string) => { s.rooms.delete(room); }),
+    join: vi.fn(async (room: string) => {
+      s.rooms.add(room);
+    }),
+    leave: vi.fn(async (room: string) => {
+      s.rooms.delete(room);
+    }),
     emit: vi.fn(),
     to: vi.fn().mockReturnValue({ emit: vi.fn() }),
   };
@@ -77,7 +81,14 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
   const auditService: any = { recordMutation: vi.fn().mockResolvedValue(undefined) };
   const chatStorage: any = {
     appendMessage: vi.fn().mockResolvedValue({
-      record: { seq: 1, tournamentId: 't', userName: 'u', message: 'm', isAdmin: false, createdAt: new Date(0).toISOString() },
+      record: {
+        seq: 1,
+        tournamentId: 't',
+        userName: 'u',
+        message: 'm',
+        isAdmin: false,
+        createdAt: new Date(0).toISOString(),
+      },
     }),
     recentMessages: vi.fn().mockResolvedValue({ records: [] }),
     messagesSince: vi.fn().mockResolvedValue({ records: [] }),
@@ -97,15 +108,23 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     // Real builder over disabled collaborators — mirrors the production shape
     // (A1) so the gateway is exercised against the same bag it will receive in
     // prod, rather than against a stub that could drift from it.
-    new MutationServicesService({ isEnabled: false, enqueue: vi.fn() } as any, {
-      record: vi.fn(),
-      isEnabled: false,
-    } as any),
+    new MutationServicesService(
+      { isEnabled: false, enqueue: vi.fn() } as any,
+      {
+        record: vi.fn(),
+        isEnabled: false,
+      } as any,
+    ),
     broadcastService,
     assignmentsService,
     // Real gate over the same mocks — mirrors the production shape (A1) so the
     // gateway is exercised against the authorization path it actually uses.
-    new MutationAuthorizationService(providerStorage, { findForSubject: async () => [] } as any, tournamentStorageService, assignmentsService),
+    new MutationAuthorizationService(
+      providerStorage,
+      { findForSubject: async () => [] } as any,
+      tournamentStorageService,
+      assignmentsService,
+    ),
     usersService,
     auditService,
   );
@@ -116,7 +135,15 @@ describe('TmxGateway chat persistence', () => {
   it('persists a chatMessage, relays it with seq, and acks the sender', async () => {
     const { gateway, chatStorage } = buildGateway();
     chatStorage.appendMessage.mockResolvedValue({
-      record: { seq: 42, tournamentId: 't1', userName: 'u', message: 'hi', isAdmin: false, clientMsgId: 'c1', createdAt: new Date(1000).toISOString() },
+      record: {
+        seq: 42,
+        tournamentId: 't1',
+        userName: 'u',
+        message: 'hi',
+        isAdmin: false,
+        clientMsgId: 'c1',
+        createdAt: new Date(1000).toISOString(),
+      },
     });
     const socket = makeSocket();
     const relay = { emit: vi.fn() };
@@ -125,7 +152,9 @@ describe('TmxGateway chat persistence', () => {
 
     await gateway.chatMessage({ tournamentId: 't1', userName: 'u', message: 'hi', clientMsgId: 'c1' }, socket as any);
 
-    expect(chatStorage.appendMessage).toHaveBeenCalledWith(expect.objectContaining({ tournamentId: 't1', message: 'hi', clientMsgId: 'c1' }));
+    expect(chatStorage.appendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ tournamentId: 't1', message: 'hi', clientMsgId: 'c1' }),
+    );
     // Relayed to the room (sender excluded) with the persisted seq.
     expect(socket.to).toHaveBeenCalledWith('tournament:t1');
     expect(relay.emit).toHaveBeenCalledWith('chatMessage', expect.objectContaining({ seq: 42, message: 'hi' }));
@@ -151,7 +180,16 @@ describe('TmxGateway chat persistence', () => {
   it('backfills chat history to the joining socket', async () => {
     const { gateway, chatStorage } = buildGateway();
     chatStorage.recentMessages.mockResolvedValue({
-      records: [{ seq: 1, tournamentId: 't1', userName: 'a', message: 'm1', isAdmin: false, createdAt: new Date(0).toISOString() }],
+      records: [
+        {
+          seq: 1,
+          tournamentId: 't1',
+          userName: 'a',
+          message: 'm1',
+          isAdmin: false,
+          createdAt: new Date(0).toISOString(),
+        },
+      ],
     });
     const socket = makeSocket({ user: { email: 'me@test.com' } });
     gateway.server = makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] });
@@ -159,7 +197,10 @@ describe('TmxGateway chat persistence', () => {
     await gateway.joinTournament({ tournamentId: 't1' }, socket as any);
 
     expect(chatStorage.recentMessages).toHaveBeenCalledWith({ tournamentId: 't1' });
-    expect(socket.emit).toHaveBeenCalledWith('chatHistory', expect.objectContaining({ tournamentId: 't1', messages: expect.any(Array) }));
+    expect(socket.emit).toHaveBeenCalledWith(
+      'chatHistory',
+      expect.objectContaining({ tournamentId: 't1', messages: expect.any(Array) }),
+    );
   });
 
   it('chatSince only answers when the socket is in the tournament room', async () => {
@@ -181,7 +222,19 @@ describe('TmxGateway chat persistence', () => {
   it('backfills the most-recent cross-tournament page when an admin joins the monitor', async () => {
     const { gateway, chatStorage } = buildGateway();
     chatStorage.adminMessagesBefore.mockResolvedValue({
-      records: [{ seq: 7, tournamentId: 't9', providerId: 'p', providerAbbr: 'ACME', tournamentName: 'Open', userName: 'x', message: 'hey', isAdmin: false, createdAt: new Date(0).toISOString() }],
+      records: [
+        {
+          seq: 7,
+          tournamentId: 't9',
+          providerId: 'p',
+          providerAbbr: 'ACME',
+          tournamentName: 'Open',
+          userName: 'x',
+          message: 'hey',
+          isAdmin: false,
+          createdAt: new Date(0).toISOString(),
+        },
+      ],
     });
     const socket = makeSocket({ user: { email: 'admin@test.com', roles: ['superadmin'] } });
 
@@ -201,7 +254,18 @@ describe('TmxGateway chat persistence', () => {
   it('pages older cross-tournament history on adminChatLoadOlder (older: true)', async () => {
     const { gateway, chatStorage } = buildGateway();
     chatStorage.adminMessagesBefore.mockResolvedValue({
-      records: [{ seq: 3, tournamentId: 't9', providerAbbr: 'ACME', tournamentName: 'Open', userName: 'x', message: 'older', isAdmin: false, createdAt: new Date(0).toISOString() }],
+      records: [
+        {
+          seq: 3,
+          tournamentId: 't9',
+          providerAbbr: 'ACME',
+          tournamentName: 'Open',
+          userName: 'x',
+          message: 'older',
+          isAdmin: false,
+          createdAt: new Date(0).toISOString(),
+        },
+      ],
     });
     const socket = makeSocket({ user: { email: 'admin@test.com', roles: ['superadmin'] } });
     socket.rooms.add('admin:chatMonitor');
@@ -288,7 +352,10 @@ describe('TmxGateway.joinTournament', () => {
     const providerStorage = {
       updateLastAccess: vi.fn(),
       updateLastAccessByTournament: vi.fn().mockRejectedValue(new Error('db down')),
-      getProvider: vi.fn(), getProviders: vi.fn(), setProvider: vi.fn(), removeProvider: vi.fn(),
+      getProvider: vi.fn(),
+      getProviders: vi.fn(),
+      setProvider: vi.fn(),
+      removeProvider: vi.fn(),
     };
     const { gateway } = buildGateway({ userStorage, providerStorage });
     const socket = makeSocket({ user: { email: 'me@test.com', providerId: 'prov-1' } });
@@ -381,5 +448,42 @@ describe('TmxGateway executionQueue identity stamping', () => {
     );
     expect(passed.userId).toBeNull();
     expect(passed.userEmail).toBe('a@x.com');
+  });
+
+  // The same distrust, applied to a presence attestation's ATTESTER rather than the audit row.
+  // These go through messageHandler rather than calling the helper directly: the helper being
+  // correct proves nothing if the gateway never invokes it.
+  const checkIn = (attributedTo: any) => ({
+    methods: [{ method: 'toggleParticipantCheckInState', params: { matchUpId: 'm1', attributedTo } }],
+    tournamentIds: [],
+  });
+  const attesterOf = (payload: any) => payload.methods[0].params.attributedTo;
+
+  it('replaces an operator identity the client asserted for somebody else', async () => {
+    const passed = await capturePayload(
+      { email: 'desk@x.com', sub: 'verified-uuid' },
+      checkIn({ attributionType: 'USER', userId: 'someone-else', email: 'victim@x.com' }),
+    );
+    expect(attesterOf(passed)).toMatchObject({ attributionType: 'USER', userId: 'verified-uuid' });
+    expect(attesterOf(passed).email).toBe('desk@x.com');
+  });
+
+  it('drops a USER attester the token cannot substantiate', async () => {
+    const passed = await capturePayload(
+      { email: 'a@x.com' }, // email-only token: no id to name an operator with
+      checkIn({ attributionType: 'USER', userId: 'client-claimed' }),
+    );
+    expect(attesterOf(passed)).toBeUndefined();
+  });
+
+  it('leaves a DECLARED attester intact — a parent vouching for a junior is testimony', async () => {
+    const parent = { attributionType: 'DECLARED', relationship: 'PARENT', name: 'A. Guardian' };
+    const passed = await capturePayload({ email: 'desk@x.com', sub: 'verified-uuid' }, checkIn({ ...parent }));
+    expect(attesterOf(passed)).toEqual(parent);
+  });
+
+  it('invents no attester where the client sent none', async () => {
+    const passed = await capturePayload({ email: 'desk@x.com', sub: 'verified-uuid' }, checkIn(undefined));
+    expect(attesterOf(passed)).toBeUndefined();
   });
 });
