@@ -4,6 +4,7 @@ import { TournamentStorageService } from 'src/storage/tournament-storage.service
 import { buildUserContext } from 'src/modules/account/auth/helpers/buildUserContext';
 import { MutationServicesService } from 'src/modules/mutation-services/mutation-services.service';
 import { MutationAuthorizationService } from 'src/modules/factory/mutation-authorization.service';
+import { stampOperatorAttribution } from 'src/modules/messaging/tmx/stampOperatorAttribution';
 import { AssignmentsService } from 'src/modules/factory/assignments.service';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
@@ -297,6 +298,25 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       // is nullable UUID, so a client-supplied string must never survive into
       // attribution (it would either spoof `user_id` or crash the INSERT).
       payload.userId = verifiedUser?.userId ?? verifiedUser?.sub ?? null;
+
+      // The same rule, applied to the attestation rather than the audit row.
+      //
+      // A presence attestation (factory 7.0.0) can name who vouched for it, and when that attester is
+      // the desk operator it arrives as `attributionType: 'USER'` — a claim about the REQUESTER,
+      // which the client cannot be trusted to make about itself. `DECLARED` / `PARTICIPANT` /
+      // `PERSON` attesters are left alone: those are recorded statements about somebody else, such
+      // as a parent presenting a junior, and overwriting them would destroy the fact the feature
+      // exists to capture.
+      const restamped = stampOperatorAttribution(payload, verifiedUser);
+      if (restamped) {
+        // Logged rather than only corrected. A client sending an operator identity that is not its
+        // own is either a bug worth finding or an attempt worth seeing; silently fixing it would
+        // hide both.
+        this.logger.warn(
+          `[attribution] replaced ${restamped} client-asserted operator identit${restamped === 1 ? 'y' : 'ies'} ` +
+            `on ${methods} (actor=${userId})`,
+        );
+      }
 
       try {
         const result = await tmxMessages[type]({
