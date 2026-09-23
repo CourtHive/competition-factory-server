@@ -31,5 +31,40 @@
 --
 -- The rows are recoverable without a backup: re-running the AMS seed loader rebuilds
 -- them from the committed seed files, which is the same operation that created them.
+--
+-- ── WHY THIS ASSERTS ITS OWN PREMISE ─────────────────────────────────────────
+--
+-- The measurements above are from nest's prod DB and Button's (13 and 12 rows, every
+-- one `seed-loader`, none soft-deleted). That is exactly the reasoning that made
+-- `048-drop-legacy-calendars.sql` destroy 5,844 rows on Button: it argued from the
+-- state of the host its author had looked at, and ran somewhere else.
+--
+-- So this does not trust the census. It re-derives the premise on whatever host it
+-- runs against, and REFUSES rather than dropping if the premise does not hold there.
+-- `published_by` is the discriminator: the seed loader writes 'seed-loader', while
+-- anything authored through the API carries a userId. A host with authored policies
+-- gets a loud failure naming the count, not a silent loss.
 
-DROP TABLE IF EXISTS policies;
+DO $$
+DECLARE
+  authored bigint;
+BEGIN
+  IF to_regclass('public.policies') IS NULL THEN
+    RAISE NOTICE '049: policies table absent — nothing to drop';
+    RETURN;
+  END IF;
+
+  SELECT count(*) INTO authored
+    FROM policies
+   WHERE published_by IS DISTINCT FROM 'seed-loader';
+
+  IF authored > 0 THEN
+    RAISE EXCEPTION
+      '049 refuses to drop policies: % row(s) were not written by seed-loader. This migration''s '
+      'premise — that every row is a boot-time seed rebuildable from seeds/policies/ — does not '
+      'hold on this host. Export those rows into AMS before re-running.', authored;
+  END IF;
+
+  DROP TABLE policies;
+  RAISE NOTICE '049: dropped policies (all rows were seed-loader)';
+END $$;
