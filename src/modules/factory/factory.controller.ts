@@ -285,21 +285,38 @@ export class FactoryController {
   }
 
   /**
-   * The public tournament-info routes serve an UNPUBLISHED tournament only to a caller who could fetch it
-   * through the authenticated routes (punch list P1, P23 D7). Everyone else gets exactly the response a
-   * tournament that does not exist gets, so the route does not confirm that a withheld tournament exists.
+   * The public tournament-info routes serve a tournament that is not PUBLICLY VISIBLE only to a caller who
+   * could fetch it through the authenticated routes (punch list P1, P23 D7 and D4b). Everyone else gets
+   * exactly the response a tournament that does not exist gets, so the route does not confirm that a
+   * withheld tournament exists.
+   *
+   * Two reasons to withhold, and they are different questions:
+   *   - NOT PUBLISHED — nobody published anything (D7).
+   *   - PUBLISHED BUT EMBARGOED — information was published to be announced on a date, and that date has
+   *     not arrived (D4b). `visibleFrom` is the instant; null means "now", which is the normal case.
    *
    * Applied AFTER the cache, deliberately: the cached payload is caller-independent and the decision is
-   * per caller, so one cached entry can never answer for a different caller's access.
+   * per caller, so one cached entry can never answer for a different caller's access. The embargo is
+   * evaluated here for the same reason in the TIME dimension — `visibleFrom` is a fact about the record
+   * and safe to cache, while "is it visible now" is not, because an embargo lifting is not a mutation and
+   * evicts nothing.
    *
    * The withheld response is the storage layer's own not-found result (`findTournamentRecord`), not a
    * similar-looking constant — the e2e spec compares the two responses byte for byte.
    */
   private async withholdUnpublished(tournamentId: string, result: any, user?: any, userContext?: UserContext) {
     if (result?.error) return result;
-    if (result?.tournamentInfo?.publishState?.status?.published === true) return result;
+    if (this.publiclyVisible(result)) return result;
     if (await this.factoryService.canReadUnpublishedTournament(tournamentId, user, userContext)) return result;
     return { error: TOURNAMENT_NOT_FOUND };
+  }
+
+  /** Published AND not withheld until a future date. Both halves, evaluated per request. */
+  private publiclyVisible(result: any): boolean {
+    if (result?.tournamentInfo?.publishState?.status?.published !== true) return false;
+    const visibleFrom = result?.visibleFrom;
+    if (!visibleFrom) return true; // null / absent means "now" — the case for almost every tournament
+    return new Date(visibleFrom).getTime() <= Date.now();
   }
 
   @Public()

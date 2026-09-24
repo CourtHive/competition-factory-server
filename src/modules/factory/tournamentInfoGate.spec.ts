@@ -24,6 +24,18 @@ const UNPUBLISHED = {
   tournamentInfo: { tournamentId: 't1', publishState: { status: { published: false } } },
 };
 
+/** P23 D4b: published INTENT, withheld until a date. `visibleFrom` is an instant, not a boolean. */
+const EMBARGOED = {
+  success: true,
+  tournamentInfo: { tournamentId: 't1', publishState: { status: { published: true } } },
+  visibleFrom: new Date(Date.now() + 86_400_000).toISOString(),
+};
+const EMBARGO_LIFTED = {
+  success: true,
+  tournamentInfo: { tournamentId: 't1', publishState: { status: { published: true } } },
+  visibleFrom: new Date(Date.now() - 86_400_000).toISOString(),
+};
+
 const adminContext = {
   userId: 'u1',
   providerIds: ['P1'],
@@ -151,6 +163,60 @@ describe('public tournament info — who chooses usePublishState', () => {
     await controller.tournamentInfo({ tournamentId: 't1', usePublishState: false }, undefined, adminContext);
 
     expect(service.getTournamentInfo).toHaveBeenCalledWith({ tournamentId: 't1', usePublishState: false });
+  });
+});
+
+describe('public tournament info — the read-time embargo (P23 D4b)', () => {
+  it('WITHHOLDS a published tournament whose embargo has not lifted', async () => {
+    const { controller } = build(EMBARGOED);
+
+    const result: any = await controller.getTournamentInfo('t1', undefined, undefined);
+
+    // Indistinguishable from a tournament that does not exist: an embargoed announcement must not be
+    // confirmed to exist either, or the withholding leaks the thing it withholds.
+    expect(result).toEqual({ error: MISSING });
+  });
+
+  it('serves it once the embargo has lifted, with no mutation in between', async () => {
+    const { controller } = build(EMBARGO_LIFTED);
+
+    const result: any = await controller.getTournamentInfo('t1', undefined, undefined);
+
+    expect(result.tournamentInfo.tournamentId).toBe('t1');
+  });
+
+  it('serves an embargoed tournament to a caller entitled to read it unpublished', async () => {
+    const { controller } = build(EMBARGOED, true);
+
+    const result: any = await controller.getTournamentInfo('t1', undefined, adminContext);
+
+    // The director who scheduled the announcement can still see what they scheduled.
+    expect(result.tournamentInfo.tournamentId).toBe('t1');
+  });
+
+  it('treats a null or absent visibleFrom as visible now', async () => {
+    for (const payload of [{ ...PUBLISHED, visibleFrom: null }, PUBLISHED]) {
+      const { controller } = build(payload);
+      const result: any = await controller.getTournamentInfo('t1', undefined, undefined);
+      // If absent read as withheld, every tournament in the corpus would 404 from this route.
+      expect(result.tournamentInfo.tournamentId).toBe('t1');
+    }
+  });
+
+  it('re-decides per request rather than trusting the cached decision', async () => {
+    // The cached payload carries the INSTANT, so a second request after the embargo lifts serves the
+    // tournament from the same cache entry. An embargo lifting evicts nothing — it is not a mutation.
+    const justAhead = new Date(Date.now() + 40).toISOString();
+    const { controller, service } = build({ ...PUBLISHED, visibleFrom: justAhead });
+
+    const withheld: any = await controller.getTournamentInfo('t1', undefined, undefined);
+    expect(withheld).toEqual({ error: MISSING });
+
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    const served: any = await controller.getTournamentInfo('t1', undefined, undefined);
+
+    expect(served.tournamentInfo.tournamentId).toBe('t1');
+    expect(service.getTournamentInfo).toHaveBeenCalledTimes(1); // served from cache, re-judged
   });
 });
 
