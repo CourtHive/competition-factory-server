@@ -1,5 +1,6 @@
 import { generateTournamentRecord } from '../../../../services/fileSystem/generateTournamentRecord';
 import { removeTournamentRecords } from '../../../../services/fileSystem/removeTournamentRecords';
+import { publishingGovernor } from 'tods-competition-factory';
 import fileStorage from '../../../../services/fileSystem';
 import { getTournamentInfo } from './getTournamentInfo';
 import 'dotenv/config';
@@ -82,5 +83,51 @@ describe('getTournamentInfo for epixodic', () => {
     expect(result.tournamentInfo.tournamentName).toBeDefined();
     expect(result.tournamentInfo.startDate).toBeDefined();
     expect(result.tournamentInfo.endDate).toBeDefined();
+  });
+});
+
+/**
+ * The SEAM between this function and the controller's gate (P23 D4b).
+ *
+ * The controller decides visibility from `visibleFrom`, and reads an absent value as "visible now"
+ * — correctly, since that is the case for almost every tournament. The consequence is that if this
+ * function ever stops emitting the field, every embargo goes silently inert and no test of the
+ * controller notices, because those build their payloads by hand. This is the test that notices.
+ */
+describe('getTournamentInfo — visibleFrom (the embargo seam)', () => {
+  const EMBARGO_TID = 'test-info-embargo-visible-from';
+  const FUTURE = '2099-01-01T00:00:00Z';
+
+  beforeAll(async () => {
+    await removeTournamentRecords({ tournamentId: EMBARGO_TID });
+    const result = await generateTournamentRecord(
+      { tournamentAttributes: { tournamentId: EMBARGO_TID }, drawProfiles: [{ drawSize: 8 }] },
+      testUser,
+    );
+    expect(result.success).toEqual(true);
+  });
+
+  afterAll(async () => {
+    await removeTournamentRecords({ tournamentId: EMBARGO_TID });
+  });
+
+  it('is null for a tournament with no information embargo', async () => {
+    const result: any = await getTournamentInfo({ tournamentId: EMBARGO_TID }, storage);
+    expect(result.success).toEqual(true);
+    // Present and null — not absent. The field existing is what keeps the controller's gate live.
+    expect(result.visibleFrom).toEqual(null);
+  });
+
+  it('carries the instant when information is published with a future embargo', async () => {
+    const { tournamentRecord }: any = await storage.findTournamentRecord({ tournamentId: EMBARGO_TID });
+    // `let result: any` is this repo's convention for an engine result: the return is a union of
+    // success and several error shapes, so reading `.success` off it directly does not typecheck.
+    const published: any = publishingGovernor.publishTournamentInfo({ tournamentRecord, embargo: FUTURE });
+    expect(published.success).toEqual(true);
+    await (storage as any).saveTournamentRecords({ tournamentRecord });
+
+    const result: any = await getTournamentInfo({ tournamentId: EMBARGO_TID }, storage);
+
+    expect(result.visibleFrom).toEqual(FUTURE);
   });
 });
