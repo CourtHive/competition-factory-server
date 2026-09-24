@@ -120,7 +120,10 @@ describe('getTournamentInfo — visibleFrom (the embargo seam)', () => {
 
   it('carries the instant when information is published with a future embargo', async () => {
     const { tournamentRecord }: any = await storage.findTournamentRecord({ tournamentId: EMBARGO_TID });
-    expect(publishingGovernor.publishTournamentInfo({ tournamentRecord, embargo: FUTURE }).success).toEqual(true);
+    // `let result: any` is this repo's convention for an engine result: the return is a union of
+    // success and several error shapes, so reading `.success` off it directly does not typecheck.
+    const published: any = publishingGovernor.publishTournamentInfo({ tournamentRecord, embargo: FUTURE });
+    expect(published.success).toEqual(true);
     await (storage as any).saveTournamentRecords({ tournamentRecord });
 
     const result: any = await getTournamentInfo({ tournamentId: EMBARGO_TID }, storage);
