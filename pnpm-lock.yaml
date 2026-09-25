@@ -381,8 +381,8 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
       unplugin-swc:
-        specifier: ^1.5.11
-        version: 1.6.0(@swc/core@1.16.2)(esbuild@0.28.2)(rolldown@1.2.9)(vite@8.3.0(@types/node@25.9.8)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.51.2)(yaml@2.9.1))(webpack@5.111.1(@swc/core@1.16.2)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.28))
+        specifier: ^2.0.0
+        version: 2.0.0(@swc/core@1.16.2)(esbuild@0.28.2)(rolldown@1.2.9)(vite@8.3.0(@types/node@25.9.8)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.51.2)(yaml@2.9.1))(webpack@5.111.1(@swc/core@1.16.2)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.28))
       vitest:
         specifier: ^5.0.0
         version: 5.0.1(@types/node@25.9.8)(@vitest/coverage-v8@5.0.1)(vite@8.3.0(@types/node@25.9.8)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.51.2)(yaml@2.9.1))
@@ -4301,8 +4301,9 @@ packages:
     resolution: {integrity: sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ==}
     engines: {node: '>= 0.8'}
 
-  unplugin-swc@1.6.0:
-    resolution: {integrity: sha512-aOdzxAwJvz1GeQ8vwSNA2N8AreHYBrpwxqnwzxmB7LCdeZiXOBDj0rgjZod+lMxFsJGm8k6lF/1iKF/9wacLbw==}
+  unplugin-swc@2.0.0:
+    resolution: {integrity: sha512-hMdGJEtkwiJhzuXXx4Nb1XYDeD9KG4+P7KZOaErJTpZNYhTo1sbWIsXb+u410zXyaqH00veNX4UxOr6TpUwNiQ==}
+    engines: {node: ^20.19.0 || >=22.12.0}
     peerDependencies:
       '@swc/core': ^1.2.108
 
@@ -8298,7 +8299,7 @@ snapshots:
 
   unpipe@1.0.0: {}
 
-  unplugin-swc@1.6.0(@swc/core@1.16.2)(esbuild@0.28.2)(rolldown@1.2.9)(vite@8.3.0(@types/node@25.9.8)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.51.2)(yaml@2.9.1))(webpack@5.111.1(@swc/core@1.16.2)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.28)):
+  unplugin-swc@2.0.0(@swc/core@1.16.2)(esbuild@0.28.2)(rolldown@1.2.9)(vite@8.3.0(@types/node@25.9.8)(esbuild@0.28.2)(jiti@2.6.1)(terser@5.51.2)(yaml@2.9.1))(webpack@5.111.1(@swc/core@1.16.2)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.28)):
     dependencies:
       '@rollup/pluginutils': 5.4.0
       '@swc/core': 1.16.2
