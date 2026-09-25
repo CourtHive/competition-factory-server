@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.1.0](https://github.com/CourtHive/competition-factory-server/compare/v3.0.0...v3.1.0) (2026-09-24)
+
+
+### Features
+
+* **factory:** the public info route withholds an embargoed tournament ([#994](https://github.com/CourtHive/competition-factory-server/issues/994)) ([d566185](https://github.com/CourtHive/competition-factory-server/commit/d5661859b4f3166376ea06020668cf802f4a45a5))
+* **messaging:** the server decides who the operator was ([#992](https://github.com/CourtHive/competition-factory-server/issues/992)) ([7c2369c](https://github.com/CourtHive/competition-factory-server/commit/7c2369c1d61c705b22a96677db3647a51cfca16a))
+* **providers:** carry provider policy lifecycle through to AMS ([#991](https://github.com/CourtHive/competition-factory-server/issues/991)) ([df69593](https://github.com/CourtHive/competition-factory-server/commit/df69593e7dafb5f34f9029f36b482001b4fb183d))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.1.1 ([eec572b](https://github.com/CourtHive/competition-factory-server/commit/eec572beda4e18cb5f9c16c6afe5e5299451b656))
+
 ## [3.0.0](https://github.com/CourtHive/competition-factory-server/compare/v2.31.0...v3.0.0) (2026-09-23)
 
 
