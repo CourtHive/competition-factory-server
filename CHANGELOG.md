@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.1.1](https://github.com/CourtHive/competition-factory-server/compare/v3.1.0...v3.1.1) (2026-10-01)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.2.0 ([8283226](https://github.com/CourtHive/competition-factory-server/commit/8283226acbe30ca8e50e9dcc7f5f0e7331f9c976))
+* **deps:** update tods-competition-factory to 7.3.1 ([b6e0462](https://github.com/CourtHive/competition-factory-server/commit/b6e046289670757b74f80b2668d5226bf4f4cda9))
+* **deps:** update tods-competition-factory to 7.4.0 ([d16b9a4](https://github.com/CourtHive/competition-factory-server/commit/d16b9a49d0aceb7dd269a45f19e08e1f686cdfe7))
+
+
+### Documentation
+
+* **caching:** drop the vendor platform name from ResponseCaching ([#997](https://github.com/CourtHive/competition-factory-server/issues/997)) ([af8bd5f](https://github.com/CourtHive/competition-factory-server/commit/af8bd5f9aa2a02cf59d91dc380352841979cd4e4))
+
 ## [3.1.0](https://github.com/CourtHive/competition-factory-server/compare/v3.0.0...v3.1.0) (2026-09-24)
 
 
