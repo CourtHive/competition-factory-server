@@ -73,6 +73,12 @@ export class AuthMiddleware implements NestMiddleware {
           userProvisionerStorage: this.userProvisionerStorage,
           provisionerProviderStorage: this.provisionerProviderStorage,
         });
+        // the provider this session acts for comes from the TOKEN (chosen at login), never from `req.user`,
+        // which is the database row and carries only the legacy users.provider_id
+        if (typeof jwtPayload.providerId === 'string' && jwtPayload.providerId) {
+          req.userContext.actingProviderId = jwtPayload.providerId;
+        }
+        if (jwtPayload.providerSelectionRequired === true) req.userContext.providerSelectionPending = true;
       }
     }
 

@@ -39,6 +39,14 @@ export interface UserContext {
    */
   provisionerProviderIds?: string[];
   /**
+   * The provider this SESSION acts for: the token's `providerId` claim (chosen at login by a user with several
+   * providers; their only provider otherwise). Not the `users.provider_id` column. Set by AuthMiddleware from
+   * the verified token; see `actingProviderAllows`.
+   */
+  actingProviderId?: string;
+  /** The token is a session that has not chosen a provider yet: it may touch no provider's tournaments. */
+  providerSelectionPending?: boolean;
+  /**
    * Verified contact email — RFC 5322-shaped, distinct from `email`
    * (the login identifier). Set via POST /account/contact-email/set,
    * confirmed via the verification link. Used as the destination for
