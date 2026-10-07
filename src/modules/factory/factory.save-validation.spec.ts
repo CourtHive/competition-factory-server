@@ -129,6 +129,17 @@ describe('FactoryService.saveTournamentRecords L2 validation gate', () => {
     expect(call.validationLevel).toBe('L2');
   });
 
+  it("stamps a queued save with the RECORD's provider, not the saver's legacy home column", async () => {
+    process.env.FACTORY_SAVE_VALIDATION_THRESHOLD_BYTES = '100';
+    const { svc } = makeFactoryService();
+    const record = makeValidRecord({
+      tournamentName: 'X'.repeat(500),
+      parentOrganisation: { organisationId: 'record-provider' },
+    });
+    await svc.saveTournamentRecords({ tournamentRecord: record }, { ...SUPER_ADMIN_USER, providerId: 'saver-home' });
+    expect((insertPendingSave as Mock).mock.calls[0][1].providerId).toBe('record-provider');
+  });
+
   it('over-threshold records bypass even structural L2 errors (size escape hatch)', async () => {
     process.env.FACTORY_SAVE_VALIDATION_THRESHOLD_BYTES = '50';
     const { svc, tournamentStorageService } = makeFactoryService();

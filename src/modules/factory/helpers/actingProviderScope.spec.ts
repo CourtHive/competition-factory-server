@@ -1,4 +1,4 @@
-import { actingProviderAllows } from './actingProviderScope';
+import { actingProviderAllows, sessionProviderId } from './actingProviderScope';
 
 const ctx = (overrides: any = {}) => ({
   userId: 'u1',
@@ -27,5 +27,21 @@ describe('actingProviderAllows — a session touches only the provider it acts f
   it('a session with no provider claim (provisioner, pre-two-step token) is left to the membership gate', () => {
     expect(actingProviderAllows(ctx(), 'b')).toBe(true);
     expect(actingProviderAllows(undefined, 'b')).toBe(true);
+  });
+});
+
+describe('sessionProviderId — what a session stamps and attributes', () => {
+  it('is the chosen provider, never the database home', () => {
+    expect(sessionProviderId(ctx({ actingProviderId: 'b' }))).toBe('b');
+  });
+
+  it('is none for a session that has not chosen, and none for several with no choice', () => {
+    expect(sessionProviderId(ctx({ providerSelectionPending: true, actingProviderId: 'a' }))).toBeUndefined();
+    expect(sessionProviderId(ctx())).toBeUndefined();
+  });
+
+  it('is the only association when there is just one (not a choice)', () => {
+    expect(sessionProviderId(ctx({ providerIds: ['only'], providerRoles: { only: 'DIRECTOR' } }))).toBe('only');
+    expect(sessionProviderId(undefined)).toBeUndefined();
   });
 });

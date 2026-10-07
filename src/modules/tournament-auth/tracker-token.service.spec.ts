@@ -157,6 +157,29 @@ describe('TrackerTokenService', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
+  it("names the TOURNAMENT's provider, not the caller's legacy home column (subject and audit)", async () => {
+    // a JWT caller's `user.providerId` is the database row's home: here, a provider other than the tournament's
+    const result: any = await service.mintTrackerToken(
+      { tournamentId: TOURNAMENT_ID },
+      { userId: 'u-multi', providerId: 'legacy-home' },
+      makeContext({ userId: 'u-multi', actingProviderId: PROVIDER_ID }),
+    );
+    const claims: any = mockJwtService.decode(result.token);
+    expect(claims.sub).toBe(`provider:${PROVIDER_ID}`);
+    expect(mockAuditService.recordTrackerTokenIssued).toHaveBeenCalledWith(
+      expect.objectContaining({ providerId: PROVIDER_ID }),
+    );
+  });
+
+  it("a super-admin minting for some provider's tournament gets that provider in the token", async () => {
+    const result: any = await service.mintTrackerToken(
+      { tournamentId: TOURNAMENT_ID },
+      { userId: 'u-admin', providerId: 'admins-own-home' },
+      makeContext({ isSuperAdmin: true, providerRoles: {} }),
+    );
+    expect((mockJwtService.decode(result.token) as any).sub).toBe(`provider:${PROVIDER_ID}`);
+  });
+
   it('admits SUPER_ADMIN across any provider', async () => {
     const result = await service.mintTrackerToken(
       { tournamentId: TOURNAMENT_ID },

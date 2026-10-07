@@ -23,6 +23,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AuditService } from '../audit/audit.service';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import { sessionProviderId } from 'src/modules/factory/helpers/actingProviderScope';
 import { canMutateTournament } from '../factory/helpers/checkTournamentAccess';
 
 const DEFAULT_TTL_SECONDS = 3600;
@@ -104,7 +105,13 @@ export class TrackerTokenService {
       throw new ForbiddenException('caller does not own this tournament');
     }
 
-    const sub = user.providerId ? `provider:${user.providerId}` : user.userId ?? 'unknown';
+    // The token scopes ONE tournament, so it names that tournament's provider: never the caller's legacy home
+    // column (`user.providerId` from a JWT is the database row), which for a super-admin or a multi-provider
+    // user is some other provider altogether. The ownership gate above already confines a non-super-admin to
+    // tournaments of the provider their session acts for.
+    const providerId =
+      tournament?.parentOrganisation?.organisationId ?? sessionProviderId(userContext) ?? user.providerId;
+    const sub = providerId ? `provider:${providerId}` : user.userId ?? 'unknown';
     const now = Math.floor(Date.now() / 1000);
     const exp = now + ttlSeconds;
 
@@ -136,7 +143,7 @@ export class TrackerTokenService {
     try {
       await this.auditService.recordTrackerTokenIssued({
         tournamentId,
-        providerId: user.providerId,
+        providerId,
         provisionerId: user.provisionerId,
         audience: 'score',
         ttlSeconds,
@@ -175,14 +182,20 @@ export class TrackerTokenService {
       throw new ForbiddenException('caller does not own this tournament');
     }
 
-    const sub = user.providerId ? `provider:${user.providerId}` : user.userId ?? 'unknown';
+    // The token scopes ONE tournament, so it names that tournament's provider: never the caller's legacy home
+    // column (`user.providerId` from a JWT is the database row), which for a super-admin or a multi-provider
+    // user is some other provider altogether. The ownership gate above already confines a non-super-admin to
+    // tournaments of the provider their session acts for.
+    const providerId =
+      tournament?.parentOrganisation?.organisationId ?? sessionProviderId(userContext) ?? user.providerId;
+    const sub = providerId ? `provider:${providerId}` : user.userId ?? 'unknown';
     const now = Math.floor(Date.now() / 1000);
     const exp = now + ttlSeconds;
     const token = await this.splitTokenSigner.mint(this.jwtService, {
       claims: {
         sub,
         tournamentId,
-        providerId: user.providerId,
+        providerId,
         personId,
         displayName: params.displayName,
         email_verified: params.verified === true,
@@ -196,7 +209,7 @@ export class TrackerTokenService {
     try {
       await this.auditService.recordTrackerTokenIssued({
         tournamentId,
-        providerId: user.providerId,
+        providerId,
         provisionerId: user.provisionerId,
         audience: 'provider',
         ttlSeconds,
