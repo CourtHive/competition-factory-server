@@ -361,7 +361,7 @@ export class FactoryService {
   ) {
     const validUser = checkUser({ user, userContext });
     if (!validUser) return { error: 'Invalid user' };
-    const { tournamentRecord, tournamentRecords } = await gen(params, user);
+    const { tournamentRecord, tournamentRecords } = await gen(params, user, userContext);
 
     // Provisioner-origin extension on parentOrganisation. Matches the shape
     // stamped by executionQueue.ts:166-184 for newTournamentRecord mutations,
@@ -531,7 +531,8 @@ export class FactoryService {
         tournamentData: tournamentRecords[tid],
         userId: userContext?.userId,
         userEmail: user?.email,
-        providerId: user?.providerId,
+        // the provider the record belongs to, not the saver's legacy home column
+        providerId: tournamentRecords[tid]?.parentOrganisation?.organisationId,
         validationLevel: 'L2',
       }).catch((err) => Logger.error(`Failed to queue validation for ${tid}: ${err.message}`, 'FactoryService'));
     }

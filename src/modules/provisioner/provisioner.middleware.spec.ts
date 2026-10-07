@@ -125,6 +125,8 @@ describe('ProvisionerMiddleware', () => {
     expect(req.user.roles).toContain('client');
     expect(req.userContext.providerRoles).toEqual({ 'provider-abc': 'PROVIDER_ADMIN' });
     expect(req.userContext.providerIds).toEqual(['provider-abc']);
+    // the request names its provider: that is the provider it acts for
+    expect(req.userContext.actingProviderId).toBe('provider-abc');
   });
 
   it('sets synthetic user context with X-Provider-Id for subsidiary', async () => {
@@ -320,6 +322,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       providerRoles: { 'provider-abc': 'PROVIDER_ADMIN' },
       providerIds: ['provider-abc'],
       provisionerProviderIds: [],
+      actingProviderId: 'provider-abc',
     });
   });
 
@@ -411,6 +414,8 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       'provider-abc': 'PROVIDER_ADMIN',
     });
     expect(req.userContext.providerIds.sort()).toEqual(['other-provider', 'provider-abc']);
+    // the session token's provider (none here) yields to the provider this request names
+    expect(req.userContext.actingProviderId).toBe('provider-abc');
   });
 
   it('does not downgrade an existing direct provider role when merging', async () => {

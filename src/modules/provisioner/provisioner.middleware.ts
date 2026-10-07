@@ -138,6 +138,8 @@ export class ProvisionerMiddleware implements NestMiddleware {
           providerRoles: { [providerId]: 'PROVIDER_ADMIN' },
           providerIds: [providerId],
           provisionerProviderIds: [],
+          // the request names its provider (X-Provider-Id), verified above: that is the provider it acts for
+          actingProviderId: providerId,
         } satisfies UserContext;
       }
     }
@@ -231,6 +233,10 @@ export class ProvisionerMiddleware implements NestMiddleware {
               providerIds: req.userContext.providerIds?.includes(providerId)
                 ? req.userContext.providerIds
                 : [...(req.userContext.providerIds ?? []), providerId],
+              // this request names the provider it acts for, and the provisioner relationship is verified: it
+              // takes precedence over the provider the token was issued for, for this request only
+              actingProviderId: providerId,
+              providerSelectionPending: false,
             } satisfies UserContext;
           }
           return;
@@ -254,6 +260,7 @@ export class ProvisionerMiddleware implements NestMiddleware {
           providerRoles: { [providerId]: 'PROVIDER_ADMIN' },
           providerIds: [providerId],
           provisionerProviderIds: [],
+          actingProviderId: providerId,
         } satisfies UserContext;
       }
     }
