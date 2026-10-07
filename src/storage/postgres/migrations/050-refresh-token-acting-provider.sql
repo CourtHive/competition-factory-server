@@ -1,0 +1,13 @@
+-- 050-refresh-token-acting-provider.sql
+-- AFFECTS: admin
+-- A refresh token remembers the provider its session acts for, so a refreshed session keeps it.
+--
+-- WHY. A user associated with more than one provider chooses one at login
+-- (Mentat/planning/MULTI_PROVIDER_CONTEXT_COMPLETION.md, CA 2026-10-06): the access token is then
+-- scoped to that provider. Access tokens live 4h and are renewed by refresh; without this column a
+-- refresh could only rebuild the session from `users`, which knows no per-session choice. Reading
+-- `users.last_selected_provider_id` instead would move every device to whichever provider was
+-- chosen last on ANY device.
+--
+-- NULL for every existing row and for single-provider sessions: those rebuild exactly as before.
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS acting_provider_id TEXT;

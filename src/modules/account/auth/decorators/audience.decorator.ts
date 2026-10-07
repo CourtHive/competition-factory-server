@@ -2,7 +2,7 @@ import { SetMetadata } from '@nestjs/common';
 
 export const AUDIENCE_KEY = 'jwtAudience';
 
-export type AudienceClaim = 'admin' | 'hiveid' | 'score';
+export type AudienceClaim = 'admin' | 'hiveid' | 'score' | 'provider-selection';
 
 /**
  * Routes mark which JWT `aud` claim(s) they require. AuthGuard reads this

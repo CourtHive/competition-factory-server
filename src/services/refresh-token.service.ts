@@ -14,6 +14,8 @@ export interface RotationResult {
   email: string;
   /** The freshly minted plaintext refresh token to hand back to the client. */
   refreshToken: string;
+  /** The provider the session acts for, unchanged by rotation; null when the session made no choice. */
+  actingProviderId: string | null;
 }
 
 /**
@@ -45,7 +47,7 @@ export class RefreshTokenService {
   }
 
   /** Issue a brand-new refresh token that starts a fresh rotation family. */
-  async issue(userId: string, email: string, userAgent?: string): Promise<string> {
+  async issue(userId: string, email: string, userAgent?: string, actingProviderId?: string | null): Promise<string> {
     const token = this.mint();
     await this.storage.create({
       userId,
@@ -54,6 +56,7 @@ export class RefreshTokenService {
       familyId: randomUUID(),
       expiresAt: this.expiry(),
       userAgent,
+      actingProviderId: actingProviderId ?? null,
     });
     return token;
   }
@@ -93,10 +96,12 @@ export class RefreshTokenService {
       familyId: row.familyId,
       expiresAt: this.expiry(),
       userAgent,
+      // the session keeps the provider it chose: rotation never moves it
+      actingProviderId: row.actingProviderId ?? null,
     });
     await this.storage.revoke(row.tokenId, created.tokenId);
 
-    return { userId: row.userId, email: row.email, refreshToken: next };
+    return { userId: row.userId, email: row.email, refreshToken: next, actingProviderId: row.actingProviderId ?? null };
   }
 
   /** Revoke a single presented refresh token (logout). Idempotent and quiet. */

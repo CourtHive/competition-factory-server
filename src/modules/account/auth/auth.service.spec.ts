@@ -318,10 +318,19 @@ describe('AuthService', () => {
           organisationAbbreviation: 'BOBOCA',
         },
       ]);
+      // several providers: login answers with them and the last pick (the picker preselects it, CA 2026-10-06)
       const result: any = await authService.signIn('multi@test.com', 'secret');
-      const decoded = await jwtService.verifyAsync(result.token);
+      expect(result.token).toBeUndefined();
+      expect(result.providers).toHaveLength(2);
+      expect(result.providers[0].organisationAbbreviation).toBe('ION');
+      expect(result.lastSelectedProviderId).toBe('prov-BOBOCA');
+
+      // the session for the chosen provider carries every association, and remembers the choice
+      mockUserStorage.findByUserId.mockResolvedValue({ ...(await mockUsersService.findOne()) });
+      const session: any = await authService.selectProvider('prov-BOBOCA', jwtService.decode(result.selectionToken));
+      const decoded = await jwtService.verifyAsync(session.token);
       expect(decoded.providerAssociations).toHaveLength(2);
-      expect(decoded.providerAssociations[0].organisationAbbreviation).toBe('ION');
+      expect(decoded.providerId).toBe('prov-BOBOCA');
       expect(decoded.lastSelectedProviderId).toBe('prov-BOBOCA');
     });
 
@@ -353,8 +362,9 @@ describe('AuthService', () => {
     });
 
     // The counterpart the derivation must NOT overreach on: with several associations there is no
-    // single defensible home, so the claim stays null and TMX falls through to its provider switcher.
-    it('leaves the providerId claim null when several associations and no explicit home', async () => {
+    // single defensible home. Since 2026-10-06 (CA) there is no session at all until the user chooses:
+    // login answers with the providers and a selection token.
+    it('answers several associations and no explicit home with a provider selection, not a session', async () => {
       mockUsersService.findOne.mockResolvedValue({
         userId: 'u-multi',
         email: 'ambiguous@test.com',
@@ -379,12 +389,16 @@ describe('AuthService', () => {
         },
       ]);
       const result: any = await authService.signIn('ambiguous@test.com', 'secret');
-      const decoded = await jwtService.verifyAsync(result.token);
-      expect(decoded.providerId ?? null).toBeNull();
+      expect(result.providerSelectionRequired).toBe(true);
+      expect(result.token).toBeUndefined();
+      expect(result.providers.map((p: any) => p.providerId)).toEqual(['prov-A', 'prov-B']);
     });
 
-    // An explicit home must keep winning over the sole-association fallback.
-    it('keeps an explicit users.provider_id over the association fallback', async () => {
+    // A session acts for a provider the user is ASSOCIATED with (2026-10-06). The legacy home column
+    // naming a provider with no association row no longer wins over the user's only association:
+    // measured on prod that day, no user has a home that differs from their association rows (one has
+    // a home and no rows at all, and keeps the home — see the next case).
+    it('acts for the sole association even when users.provider_id names another provider', async () => {
       mockUsersService.findOne.mockResolvedValue({
         userId: 'u-explicit',
         email: 'explicit@test.com',
@@ -403,7 +417,21 @@ describe('AuthService', () => {
       ]);
       const result: any = await authService.signIn('explicit@test.com', 'secret');
       const decoded = await jwtService.verifyAsync(result.token);
-      expect(decoded.providerId).toBe('prov-EXPLICIT');
+      expect(decoded.providerId).toBe('prov-OTHER');
+    });
+
+    it('keeps the legacy users.provider_id when the user has no association rows at all', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        userId: 'u-legacy',
+        email: 'legacy@test.com',
+        password: 'secret',
+        providerId: 'prov-LEGACY',
+        roles: ['client'],
+      });
+      mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([]);
+      const result: any = await authService.signIn('legacy@test.com', 'secret');
+      const decoded = await jwtService.verifyAsync(result.token);
+      expect(decoded.providerId).toBe('prov-LEGACY');
     });
 
     it('nullifies lastSelectedProviderId when it is no longer a current association', async () => {
@@ -454,7 +482,9 @@ describe('AuthService', () => {
         },
       ]);
       const result: any = await authService.signIn('pids@test.com', 'secret');
-      const decoded = await jwtService.verifyAsync(result.token);
+      mockUserStorage.findByUserId.mockResolvedValue({ ...(await mockUsersService.findOne()) });
+      const session: any = await authService.selectProvider('prov-ION', jwtService.decode(result.selectionToken));
+      const decoded = await jwtService.verifyAsync(session.token);
       expect(decoded.providerIds).toEqual(['prov-ION', 'prov-BOBOCA']);
     });
 
@@ -494,8 +524,8 @@ describe('AuthService', () => {
       expect(mockProviderStorage.updateLastAccess).toHaveBeenCalledWith('prov-INTENNSE');
     });
 
-    it('leaves provider unset when users.provider_id is NULL and multiple user_providers rows exist', async () => {
-      // Ambiguous home — defer to TMX provider switcher rather than guess.
+    it('loads no provider when users.provider_id is NULL and multiple user_providers rows exist', async () => {
+      // Ambiguous home — the user chooses (provider selection) rather than the server guessing.
       mockUsersService.findOne.mockResolvedValue({
         userId: 'u-multi-null',
         email: 'multi-null@test.com',
@@ -520,12 +550,11 @@ describe('AuthService', () => {
         },
       ]);
       const result: any = await authService.signIn('multi-null@test.com', 'secret');
-      const decoded = await jwtService.verifyAsync(result.token);
 
       expect(mockProviderStorage.getProvider).not.toHaveBeenCalled();
-      expect(decoded.provider).toBeUndefined();
-      // providerIds still carries both — TMX can still validate mutations
-      expect(decoded.providerIds).toEqual(['prov-A', 'prov-B']);
+      expect(result.token).toBeUndefined();
+      // both are offered for the choice
+      expect(result.providers.map((p: any) => p.providerId)).toEqual(['prov-A', 'prov-B']);
     });
 
     it('returns a limited token when user.mustChangePassword=true', async () => {
@@ -1619,7 +1648,8 @@ describe('AuthService', () => {
       const result: any = await authService.signIn('a@test.com', 'secret', 'jest-agent');
       expect(result.token).toBeDefined();
       expect(result.refreshToken).toBe('rtok_test');
-      expect(mockRefreshTokenService.issue).toHaveBeenCalledWith('u-1', 'a@test.com', 'jest-agent');
+      // nothing pinned: a session that made no provider choice rebuilds on refresh as before
+      expect(mockRefreshTokenService.issue).toHaveBeenCalledWith('u-1', 'a@test.com', 'jest-agent', undefined);
       const decoded: any = await jwtService.verifyAsync(result.token);
       expect(decoded.exp - decoded.iat).toBe(4 * 60 * 60); // 4h, not the old 1d
     });
@@ -1780,7 +1810,7 @@ describe('AuthService', () => {
       expect(mockAuthCodeStorage.consumeAccessCode).toHaveBeenCalledWith('mlk_ok');
       expect(result.token).toBeDefined();
       expect(result.refreshToken).toBe('rtok_test');
-      expect(mockRefreshTokenService.issue).toHaveBeenCalledWith('u-1', 'a@test.com', 'jest-agent');
+      expect(mockRefreshTokenService.issue).toHaveBeenCalledWith('u-1', 'a@test.com', 'jest-agent', undefined);
     });
   });
 
