@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { REFRESH_TOKEN_STORAGE, type IRefreshTokenStorage } from 'src/storage/interfaces';
 import { UserCtx, type UserContext } from './decorators/user-context.decorator';
+import { Audience } from './decorators/audience.decorator';
 import { AdminCreateUserDto } from './dto/adminCreateUser.dto';
 import { ForgotPasswordDto } from './dto/forgotPassword.dto';
 import { ResetPasswordDto } from './dto/resetPassword.dto';
@@ -85,6 +86,19 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   signIn(@Body() signIn: SignInDto, @Req() req?: any) {
     return this.authService.signIn(signIn.email, signIn.password, req?.headers?.['user-agent']);
+  }
+
+  /**
+   * The session for a chosen provider: after login with the selection token, or to SWITCH with a full
+   * session token. No @Roles: the selection token carries none by design (see AuthService.selectProvider).
+   * Mirrors courthive-hiveid, which serves /auth in production; this copy is the rollback target.
+   */
+  @Post('select-provider')
+  @Audience(['provider-selection', 'admin'])
+  @Throttle(LOGIN_THROTTLE)
+  @HttpCode(HttpStatus.OK)
+  selectProvider(@Body() body: { providerId: string }, @User() caller: any, @Req() req?: any) {
+    return this.authService.selectProvider(body?.providerId, caller, req?.headers?.['user-agent']);
   }
 
   /**

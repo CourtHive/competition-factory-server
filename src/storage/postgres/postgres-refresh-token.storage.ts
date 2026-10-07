@@ -15,19 +15,30 @@ export class PostgresRefreshTokenStorage implements IRefreshTokenStorage {
     familyId: string;
     expiresAt: string;
     userAgent?: string;
+    actingProviderId?: string | null;
   }): Promise<RefreshTokenRow> {
     const result = await this.pool.query(
-      `INSERT INTO refresh_tokens (user_id, email, token_hash, family_id, expires_at, user_agent)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING token_id, user_id, email, token_hash, family_id, expires_at, created_at, revoked_at, replaced_by, user_agent`,
-      [input.userId, input.email, input.tokenHash, input.familyId, input.expiresAt, input.userAgent ?? null],
+      `INSERT INTO refresh_tokens (user_id, email, token_hash, family_id, expires_at, user_agent, acting_provider_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING token_id, user_id, email, token_hash, family_id, expires_at, created_at, revoked_at, replaced_by,
+                 user_agent, acting_provider_id`,
+      [
+        input.userId,
+        input.email,
+        input.tokenHash,
+        input.familyId,
+        input.expiresAt,
+        input.userAgent ?? null,
+        input.actingProviderId ?? null,
+      ],
     );
     return mapRow(result.rows[0]);
   }
 
   async findByHash(tokenHash: string): Promise<RefreshTokenRow | null> {
     const result = await this.pool.query(
-      `SELECT token_id, user_id, email, token_hash, family_id, expires_at, created_at, revoked_at, replaced_by, user_agent
+      `SELECT token_id, user_id, email, token_hash, family_id, expires_at, created_at, revoked_at, replaced_by,
+              user_agent, acting_provider_id
        FROM refresh_tokens
        WHERE token_hash = $1`,
       [tokenHash],
@@ -122,5 +133,6 @@ function mapRow(row: any): RefreshTokenRow {
     revokedAt: row.revoked_at?.toISOString?.() ?? row.revoked_at ?? null,
     replacedBy: row.replaced_by ?? null,
     userAgent: row.user_agent ?? null,
+    actingProviderId: row.acting_provider_id ?? null,
   };
 }

@@ -42,6 +42,12 @@ import { assertProviderEditor } from 'src/common/helpers/assertProviderEditor';
 import { verifyJwt } from 'src/common/auth/verifyJwt';
 import { signJwt } from 'src/common/auth/signJwt';
 import { RefreshTokenService } from 'src/services/refresh-token.service';
+import {
+  PROVIDER_SELECTION_AUDIENCE,
+  PROVIDER_SELECTION_PURPOSE,
+  PROVIDER_SELECTION_TTL,
+  resolveActingProviderId,
+} from 'src/common/auth/actingProvider';
 import type { UserContext } from './decorators/user-context.decorator';
 
 const PASSWORD_RESET_TOKEN_TTL = '1h';
@@ -55,7 +61,7 @@ const PASSWORD_RESET_PURPOSE = 'password-reset';
 // the window of a leaked access token. See RefreshTokenService for the refresh
 // side. Both the password-login path (signIn) and SSO handoff use this value.
 export const ACCESS_TOKEN_TTL = '4h';
-export type AudienceClaimValue = 'admin' | 'hiveid' | 'score';
+export type AudienceClaimValue = 'admin' | 'hiveid' | 'score' | 'provider-selection';
 
 // Magic-link login codes are short-lived and single-use. 15 minutes is long
 // enough to receive the email and click, short enough to limit the window if
@@ -195,8 +201,72 @@ export class AuthService {
       return { mustChangePassword: true, limitedToken };
     }
 
+    return this.startSession(user, userAgent);
+  }
+
+  /**
+   * The one place a credentialed login becomes a session (password, first-login, magic link).
+   *
+   * A user associated with MORE THAN ONE provider is never placed in one silently (CA, 2026-10-06): the
+   * answer is the list of their providers and a short-lived selection token, and `POST
+   * /auth/select-provider` returns the session for the provider they choose. Everyone else gets their
+   * session at once, as before.
+   */
+  async startSession(user: any, userAgent?: string) {
     const userDetails = await this.buildSessionPayload(user);
+    if (userDetails.providerSelectionRequired) return this.providerSelection(user, userDetails);
     return this.issueSession(userDetails, userAgent);
+  }
+
+  /**
+   * The selection answer. The token is good ONLY for `POST /auth/select-provider`: its audience is not
+   * `admin` (so every admin route refuses it), it carries a `purpose` (AMS refuses any token with one), and
+   * it holds no `userId`, `sub`, `email` or `roles`, so no verifier can read it as a user.
+   */
+  private async providerSelection(user: any, userDetails: any) {
+    const selectionToken = await signJwt(
+      this.jwtService,
+      { purpose: PROVIDER_SELECTION_PURPOSE, aud: PROVIDER_SELECTION_AUDIENCE, selectingUserId: user.userId },
+      { expiresIn: PROVIDER_SELECTION_TTL },
+    );
+    return {
+      providerSelectionRequired: true as const,
+      providers: userDetails.providerAssociations,
+      // preselected in the picker; the user still confirms (CA, 2026-10-06)
+      lastSelectedProviderId: userDetails.lastSelectedProviderId ?? null,
+      selectionToken,
+    };
+  }
+
+  /**
+   * POST /auth/select-provider — the session for a chosen provider. Called with the selection token after
+   * login, or with a full session token to SWITCH provider. The provider must be one the user is associated
+   * with, or one their provisioner manages; super-admins may choose any. The choice is remembered as
+   * `last_selected_provider_id` (it preselects the next picker) and pinned to the refresh token, so a
+   * refreshed session keeps it.
+   */
+  async selectProvider(providerId: string, caller: any, userAgent?: string) {
+    if (!providerId) throw new BadRequestException('providerId is required');
+    const fromSelection = caller?.purpose === PROVIDER_SELECTION_PURPOSE;
+    // any other purpose token (first-login, password reset) is refused outright
+    if (!fromSelection && caller?.purpose) throw new UnauthorizedException();
+    const userId = fromSelection ? caller?.selectingUserId : caller?.userId;
+    if (!userId) throw new UnauthorizedException();
+
+    const user = await this.userStorage.findByUserId(userId);
+    if (!user) throw new UnauthorizedException();
+
+    const userDetails = await this.buildSessionPayload(user, { actingProviderId: providerId });
+    if (userDetails.providerId !== providerId) throw new ForbiddenException('Not associated with that provider');
+
+    this.userStorage.updateLastSelectedProviderId(user.email, providerId).catch((err: any) => {
+      Logger.warn(
+        `selectProvider: remember ${providerId} for ${user.email} failed: ${err?.message ?? err}`,
+        AuthService.name,
+      );
+    });
+    userDetails.lastSelectedProviderId = providerId;
+    return this.issueSession(userDetails, userAgent, 'admin', providerId);
   }
 
   /**
@@ -207,7 +277,7 @@ export class AuthService {
    * Shared by signIn and refreshSession so that a silently-refreshed access
    * token carries exactly the same claims as the one minted at login.
    */
-  async buildSessionPayload(user: any): Promise<any> {
+  async buildSessionPayload(user: any, options?: { actingProviderId?: string | null }): Promise<any> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userDetails } = user ?? {};
     const email = user.email;
@@ -250,53 +320,7 @@ export class AuthService {
       if (!stillValid) userDetails.lastSelectedProviderId = null;
     }
 
-    // Effective home provider — explicit `users.provider_id`, otherwise
-    // the single user_providers association as a safe fallback for users
-    // created without an explicit home (the admin "Add User" flow doesn't
-    // always set it). Multi-association NULL-home users keep a NULL home
-    // and rely on TMX's provider switcher.
-    const effectiveHomeProviderId =
-      user.providerId ?? (associations.length === 1 ? associations[0].providerId : undefined);
-    // The `providerId` CLAIM must carry the effective home, not the raw column. `userDetails`
-    // spreads `user`, so without this it stays whatever `users.provider_id` holds — and the admin
-    // "Add User" flow creates the user_providers association WITHOUT setting that column, so every
-    // user created that way ships a NULL claim while `userDetails.provider` (derived just below
-    // from the same value) is populated. TMX reads the claim: `getLoginState()` returns the decoded
-    // JWT, and `editTournamentDrawer` only stamps `parentOrganisation` and calls `sendTournament()`
-    // when `state.providerId` is truthy. A NULL claim therefore means a new tournament is saved to
-    // IndexedDB and never reaches the server — silently, with no error anywhere. Deriving the claim
-    // here keeps it consistent with `provider` and `providerIds`, which already use this value.
-    if (effectiveHomeProviderId) {
-      userDetails.providerId = effectiveHomeProviderId;
-      const provider = await this.providerStorage.getProvider(effectiveHomeProviderId);
-      userDetails.provider = provider;
-      // Two-tier provider config: compute effective shape (caps ∩ settings)
-      // and embed in the login response so TMX can apply it immediately.
-      // Provider switcher / impersonation uses GET /api/provider/:id/effective-config
-      // for runtime refetch — see Mentat/planning/TMX_PROVIDER_CONFIG_FEATURES.md.
-      userDetails.activeProviderConfig = computeEffectiveConfig(
-        provider?.providerConfigCaps,
-        provider?.providerConfigSettings,
-      );
-    }
-
-    // Track last access time for user and effective home provider. Failures
-    // are non-fatal but must be visible — silent .catch() previously masked
-    // case-mismatch and connection bugs that produced stale `last_access`
-    // columns in the admin UI.
-    //
-    // Super-admin access never counts toward a provider's activity (they're
-    // operating on every provider; crediting their home would be misleading).
     const isSuperAdmin = (user.roles ?? []).includes(SUPER_ADMIN);
-    this.userStorage.updateLastAccess(email).catch((err: any) => {
-      Logger.warn(`updateLastAccess(user=${email}) failed: ${err?.message ?? err}`, AuthService.name);
-    });
-    if (effectiveHomeProviderId && !isSuperAdmin) {
-      const providerId = effectiveHomeProviderId;
-      this.providerStorage.updateLastAccess(providerId).catch((err: any) => {
-        Logger.warn(`updateLastAccess(provider=${providerId}) failed: ${err?.message ?? err}`, AuthService.name);
-      });
-    }
 
     // Phase 2A: PROVISIONER-role users carry their provisioner associations
     // in the JWT so the provisioner middleware can resolve them on every
@@ -304,6 +328,7 @@ export class AuthService {
     // name/abbreviation) so TMX can offer them in the provider switcher and
     // grant provider-admin UI when one is active — server authz already
     // honors provisionerProviderIds (see checkTournamentAccess / checkProvider).
+    // Loaded BEFORE the acting provider is resolved: a provisioner may act for these.
     if (user.userId && user.roles?.includes(PROVISIONER_ROLE)) {
       try {
         const provisionerIds = await this.userProvisionerStorage.findProvisionerIdsByUser(user.userId);
@@ -314,6 +339,47 @@ export class AuthService {
         userDetails.provisionerIds = [];
         userDetails.provisionerProviders = [];
       }
+    }
+
+    // THE PROVIDER THIS SESSION ACTS FOR (Mentat/planning/MULTI_PROVIDER_CONTEXT_COMPLETION.md). The
+    // `providerId` claim means exactly that. A user with several providers who has not chosen one acts for
+    // NONE: never the legacy `users.provider_id` home, and never the first association (CA, 2026-10-06).
+    // The claim is always derived, never the raw column: `userDetails` spreads `user`, and the admin
+    // "Add User" flow leaves `users.provider_id` NULL, so a raw claim reached TMX empty and a new
+    // tournament was kept in IndexedDB without ever reaching the server.
+    const actingProviderId = resolveActingProviderId({
+      requested: options?.actingProviderId ?? undefined,
+      associatedIds: associations.map((a) => a.providerId),
+      provisionerProviderIds: (userDetails.provisionerProviders ?? []).map((p: any) => p.providerId),
+      legacyProviderId: user.providerId ?? undefined,
+      isSuperAdmin,
+    });
+    delete userDetails.providerId;
+    delete userDetails.provider;
+    delete userDetails.activeProviderConfig;
+    userDetails.providerSelectionRequired = !actingProviderId && !isSuperAdmin && associations.length > 1;
+    if (actingProviderId) {
+      userDetails.providerId = actingProviderId;
+      const provider = await this.providerStorage.getProvider(actingProviderId);
+      userDetails.provider = provider;
+      // Two-tier provider config: compute effective shape (caps ∩ settings)
+      // and embed in the login response so TMX can apply it immediately.
+      userDetails.activeProviderConfig = computeEffectiveConfig(
+        provider?.providerConfigCaps,
+        provider?.providerConfigSettings,
+      );
+    }
+
+    // Track last access time for user and acting provider. Failures are non-fatal but must be visible.
+    // Super-admin access never counts toward a provider's activity.
+    this.userStorage.updateLastAccess(email).catch((err: any) => {
+      Logger.warn(`updateLastAccess(user=${email}) failed: ${err?.message ?? err}`, AuthService.name);
+    });
+    if (actingProviderId && !isSuperAdmin) {
+      const providerId = actingProviderId;
+      this.providerStorage.updateLastAccess(providerId).catch((err: any) => {
+        Logger.warn(`updateLastAccess(provider=${providerId}) failed: ${err?.message ?? err}`, AuthService.name);
+      });
     }
 
     return userDetails;
@@ -334,10 +400,12 @@ export class AuthService {
     userDetails: any,
     userAgent?: string,
     aud: AudienceClaimValue | AudienceClaimValue[] = 'admin',
+    chosenProviderId?: string,
   ): Promise<{ token: string; refreshToken: string }> {
     const token = await this.signAccessToken(userDetails, aud);
     const userId = userDetails.userId ?? userDetails.user_id ?? userDetails.email;
-    const refreshToken = await this.refreshTokenService.issue(userId, userDetails.email, userAgent);
+    // only an explicit CHOICE is pinned: a single-provider or legacy session rebuilds on refresh as before
+    const refreshToken = await this.refreshTokenService.issue(userId, userDetails.email, userAgent, chosenProviderId);
     return { token, refreshToken };
   }
 
@@ -365,7 +433,12 @@ export class AuthService {
     const rotated = await this.refreshTokenService.rotate(presentedRefreshToken, userAgent);
     const user = await this.usersService.findOne(rotated.email);
     if (!user) throw new UnauthorizedException();
-    const userDetails = await this.buildSessionPayload(user);
+    const chosen = rotated.actingProviderId ?? undefined;
+    const userDetails = await this.buildSessionPayload(user, { actingProviderId: chosen });
+    // the session's provider is no longer theirs (association removed since): sign in again, rather than
+    // carry on under a provider chosen for them
+    if (chosen && userDetails.providerId !== chosen)
+      throw new UnauthorizedException('Provider access changed; sign in again');
     const token = await this.signAccessToken(userDetails, 'admin');
     return { token, refreshToken: rotated.refreshToken };
   }
@@ -447,7 +520,7 @@ export class AuthService {
    * SSO-only accounts are blocked — consistent with the request gate and the
    * signIn SSO-only rejection.
    */
-  async consumeMagicLink(code: string, userAgent?: string): Promise<{ token: string; refreshToken: string }> {
+  async consumeMagicLink(code: string, userAgent?: string) {
     if (!code) throw new UnauthorizedException('Invalid or expired login link');
     const email = await this.authCodeStorage.consumeAccessCode(code);
     if (!email) throw new UnauthorizedException('Invalid or expired login link');
@@ -456,8 +529,7 @@ export class AuthService {
     // Block unknown and SSO-only (passwordless) accounts.
     if (!user || !user.password) throw new UnauthorizedException();
 
-    const userDetails = await this.buildSessionPayload(user);
-    return this.issueSession(userDetails, userAgent);
+    return this.startSession(user, userAgent);
   }
 
   /**

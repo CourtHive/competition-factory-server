@@ -18,6 +18,8 @@ export interface IRefreshTokenStorage {
     familyId: string;
     expiresAt: string;
     userAgent?: string;
+    /** The provider the session acts for, carried across rotations (migration 050). */
+    actingProviderId?: string | null;
   }): Promise<RefreshTokenRow>;
 
   /** Look up a token by its hash, regardless of state. Caller inspects revoked/expired. */
@@ -72,4 +74,5 @@ export interface RefreshTokenRow {
   revokedAt?: string | null;
   replacedBy?: string | null;
   userAgent?: string | null;
+  actingProviderId?: string | null;
 }

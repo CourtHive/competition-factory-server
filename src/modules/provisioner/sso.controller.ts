@@ -20,6 +20,7 @@ import {
   PROVIDER_STORAGE,
   type IProviderStorage,
 } from 'src/storage/interfaces';
+import { resolveActingProviderId } from 'src/common/auth/actingProvider';
 import { buildUserContext } from '../account/auth/helpers/buildUserContext';
 
 @Controller('auth/sso')
@@ -109,7 +110,24 @@ export class SsoController {
     // Issue JWT — strip password from payload
     const userDetails = { ...user };
     delete userDetails.password;
-    const jwtPayload = { ...userDetails, providerIds: userContext.providerIds, providerRoles: userContext.providerRoles };
+    // THE PROVIDER THIS SESSION ACTS FOR. The handoff token was issued by a provisioner's platform FOR one
+    // provider (`payload.providerId`): that is the session's provider, if the user may act for it. Never the
+    // raw `users.provider_id` column the spread above carries. See MULTI_PROVIDER_CONTEXT_COMPLETION.md.
+    const actingProviderId = resolveActingProviderId({
+      requested: payload.providerId ?? undefined,
+      associatedIds: userContext.providerIds,
+      provisionerProviderIds: userContext.provisionerProviderIds ?? [],
+      legacyProviderId: user.providerId ?? undefined,
+      isSuperAdmin: userContext.isSuperAdmin,
+    });
+    delete userDetails.providerId;
+    const jwtPayload = {
+      ...userDetails,
+      providerIds: userContext.providerIds,
+      providerRoles: userContext.providerRoles,
+      ...(actingProviderId ? { providerId: actingProviderId } : {}),
+      providerSelectionRequired: !actingProviderId && !userContext.isSuperAdmin && userContext.providerIds.length > 1,
+    };
     // Match the direct-login access-token lifetime (auth.service.ts ACCESS_TOKEN_TTL
     // = 4h) and its `aud: 'admin'` session audience — a bare session token is
     // treated as 'admin' at every verifier, so this is behaviorally identical and
@@ -130,6 +148,8 @@ export class SsoController {
       userContext.userId,
       userContext.email,
       req?.headers?.['user-agent'],
+      // pinned, so a refreshed session stays on the provider the handoff named
+      payload.providerId && actingProviderId === payload.providerId ? actingProviderId : undefined,
     );
 
     // Track last access for both user and the provider this SSO token resolved to.
