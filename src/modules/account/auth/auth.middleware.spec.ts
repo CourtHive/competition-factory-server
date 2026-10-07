@@ -71,7 +71,9 @@ describe('AuthMiddleware', () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it('falls back to legacy providerId when user_providers throws', async () => {
+  // Fails CLOSED since the shim was retired (2026-10-07): a storage error grants no provider role, where the
+  // shim used to fall back to DIRECTOR at the legacy users.provider_id home.
+  it('grants no provider role when user_providers throws, rather than falling back to the legacy home', async () => {
     const user = { email: 'test@test.com', userId: 'uuid-2', roles: ['client'], providerId: 'prov-2' };
     verifyJwtMock.mockResolvedValue({ email: 'test@test.com' });
     mockUsersService.findOne.mockResolvedValue(user);
@@ -82,7 +84,7 @@ describe('AuthMiddleware', () => {
     await middleware.use(req, {}, next);
 
     expect(req.userContext).toBeDefined();
-    expect(req.userContext.providerRoles).toEqual({ 'prov-2': 'DIRECTOR' });
+    expect(req.userContext.providerRoles).toEqual({});
     expect(next).toHaveBeenCalled();
   });
 
@@ -106,12 +108,10 @@ describe('AuthMiddleware', () => {
     expect(req.userContext.providerIds).toEqual(['prov-a', 'prov-b']);
   });
 
-  it('back-compat: legacy admin role overrides DIRECTOR in user_providers for the home provider', async () => {
-    // Reproduces tmx@courthive.com's drift: user_providers row was backfilled
-    // as DIRECTOR before 'admin' was added to users.roles, and the legacy
-    // role-edit flow doesn't sync to user_providers. The shim must promote
-    // unconditionally on every buildUserContext call so the legacy 'admin'
-    // role stays authoritative until it's fully retired.
+  it('the deprecated global admin role no longer promotes: user_providers rows are the only provider roles', async () => {
+    // The shim promoted a legacy 'admin' to PROVIDER_ADMIN at the home over a DIRECTOR row (tmx@courthive.com's
+    // drift). Retired 2026-10-07: migration 051 rewrote every such row as PROVIDER_ADMIN, and on prod none
+    // remained to rewrite. A DIRECTOR row now means DIRECTOR.
     const user = {
       email: 'admin@test.com',
       userId: 'uuid-4',
@@ -128,7 +128,7 @@ describe('AuthMiddleware', () => {
     const next = vi.fn();
     await middleware.use(req, {}, next);
 
-    expect(req.userContext.providerRoles).toEqual({ 'prov-home': 'PROVIDER_ADMIN' });
+    expect(req.userContext.providerRoles).toEqual({ 'prov-home': 'DIRECTOR' });
   });
 
   it('calls next without setting user when token decode fails', async () => {

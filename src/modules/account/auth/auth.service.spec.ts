@@ -156,7 +156,7 @@ describe('AuthService', () => {
       await expect(authService.canAccessApiDocs('pa@test.com', 'pw')).resolves.toBe(true);
     });
 
-    it('allows a legacy admin via the admin → PROVIDER_ADMIN shim', async () => {
+    it('allows a legacy admin through the PROVIDER_ADMIN row migration 051 writes for them', async () => {
       mockUsersService.findOne.mockResolvedValue({
         email: 'la@test.com',
         userId: 'u1',
@@ -164,7 +164,20 @@ describe('AuthService', () => {
         roles: ['admin'],
         providerId: 'p1',
       });
+      mockUserProviderStorage.findByUserId.mockResolvedValue([{ providerId: 'p1', providerRole: 'PROVIDER_ADMIN' }]);
       await expect(authService.canAccessApiDocs('la@test.com', 'pw')).resolves.toBe(true);
+    });
+
+    it('no longer lets the deprecated admin role alone stand in for a provider role (shim retired)', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        email: 'la@test.com',
+        userId: 'u1',
+        password: await hash('pw'),
+        roles: ['admin'],
+        providerId: 'p1',
+      });
+      mockUserProviderStorage.findByUserId.mockResolvedValue([]);
+      await expect(authService.canAccessApiDocs('la@test.com', 'pw')).resolves.toBe(false);
     });
 
     it('rejects a client-only user', async () => {
