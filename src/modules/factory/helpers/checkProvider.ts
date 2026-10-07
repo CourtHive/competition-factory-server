@@ -34,11 +34,7 @@ export function checkProvider({ tournamentRecords, user, userContext, write }: {
   // pass the gate (empty set for non-provisioner users).
   const directIds = userContext?.providerIds?.length
     ? userContext.providerIds
-    : user?.providerIds?.length
-      ? user.providerIds
-      : user?.providerId
-        ? [user.providerId]
-        : [];
+    : (user?.providerIds ?? []);
   const provisionerIds = userContext?.provisionerProviderIds ?? [];
   const providerIds = [...directIds, ...provisionerIds];
 

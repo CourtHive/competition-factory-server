@@ -11,7 +11,7 @@
  *
  * Commands:
  *   list                           List all users with their roles
- *   create --email <e> --password <p> [--provider-id <id>]
+ *   create --email <e> --password <p>
  *                                  Create a new superadmin user
  *   reset-password --email <e> --password <p>
  *                                  Reset an existing user's password
@@ -26,7 +26,7 @@ import 'dotenv/config';
 // Filter out bare '--' so that `pnpm admin:foo -- -e x` works the same as `node script.mjs foo -e x`
 const rawArgs = process.argv.slice(2).filter((arg) => arg !== '--');
 const args = minimist(rawArgs, {
-  string: ['email', 'password', 'provider-id', 'roles'],
+  string: ['email', 'password', 'roles'],
   alias: { e: 'email', p: 'password', r: 'roles' },
 });
 
@@ -43,11 +43,8 @@ async function hashPassword(plain) {
 function printUser(user, email) {
   const displayEmail = email || user?.email || user?.key || '(unknown)';
   const roles = user?.roles || user?.value?.roles || [];
-  const providerId = user?.providerId || user?.value?.providerId || '';
   const hasPassword = !!(user?.password || user?.value?.password);
-  console.log(
-    `  ${displayEmail.padEnd(35)} roles: [${roles.join(', ')}]${providerId ? `  provider: ${providerId}` : ''}${hasPassword ? '' : '  (no password!)'}`,
-  );
+  console.log(`  ${displayEmail.padEnd(35)} roles: [${roles.join(', ')}]${hasPassword ? '' : '  (no password!)'}`);
 }
 
 function usage() {
@@ -59,7 +56,7 @@ Usage:
 
 Commands:
   list                                         List all users
-  create  -e <email> -p <password> [--provider-id <id>]   Create superadmin
+  create  -e <email> -p <password>             Create superadmin
   reset-password  -e <email> -p <password>     Reset password
   set-roles  -e <email> -r <roles>             Set roles (comma-separated)
 
@@ -87,15 +84,12 @@ async function getPostgresBackend() {
 
   return {
     async listUsers() {
-      const result = await pool.query(
-        'SELECT email, password, provider_id, roles, permissions, data FROM users ORDER BY email',
-      );
+      const result = await pool.query('SELECT email, password, roles, permissions, data FROM users ORDER BY email');
       return result.rows.map((row) => ({
         key: row.email,
         value: {
           email: row.email,
           password: row.password,
-          providerId: row.provider_id,
           roles: row.roles || [],
           permissions: row.permissions || [],
           ...row.data,
@@ -104,16 +98,14 @@ async function getPostgresBackend() {
     },
 
     async getUser(email) {
-      const result = await pool.query(
-        'SELECT email, password, provider_id, roles, permissions, data FROM users WHERE email = $1',
-        [email],
-      );
+      const result = await pool.query('SELECT email, password, roles, permissions, data FROM users WHERE email = $1', [
+        email,
+      ]);
       if (!result.rows.length) return null;
       const row = result.rows[0];
       return {
         email: row.email,
         password: row.password,
-        providerId: row.provider_id,
         roles: row.roles || [],
         permissions: row.permissions || [],
         ...row.data,
@@ -121,25 +113,19 @@ async function getPostgresBackend() {
     },
 
     async saveUser(email, userData) {
-      const { password, providerId, roles = [], permissions = [], ...rest } = userData;
+      // users.provider_id is no longer written (multi-provider Phase 4); a provider is a user_providers row.
+      const { password, roles = [], permissions = [], ...rest } = userData;
+      delete rest.providerId;
       await pool.query(
-        `INSERT INTO users (email, password, provider_id, roles, permissions, data, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        `INSERT INTO users (email, password, roles, permissions, data, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
          ON CONFLICT (email) DO UPDATE SET
            password = EXCLUDED.password,
-           provider_id = EXCLUDED.provider_id,
            roles = EXCLUDED.roles,
            permissions = EXCLUDED.permissions,
            data = EXCLUDED.data,
            updated_at = NOW()`,
-        [
-          email,
-          password || '',
-          providerId ?? null,
-          JSON.stringify(roles),
-          JSON.stringify(permissions),
-          JSON.stringify(rest),
-        ],
+        [email, password || '', JSON.stringify(roles), JSON.stringify(permissions), JSON.stringify(rest)],
       );
     },
 
@@ -168,7 +154,6 @@ async function listUsers(backend) {
 
 async function createUser(backend) {
   const { email, password } = args;
-  const providerId = args['provider-id'];
 
   if (!email || !password) {
     console.error('\n  Error: --email and --password are required\n');
@@ -189,13 +174,11 @@ async function createUser(backend) {
     password: hashedPassword,
     roles: ['superadmin', 'admin', 'client'],
     permissions: [],
-    ...(providerId ? { providerId } : {}),
   };
 
   await backend.saveUser(email, userData);
   console.log(`\n  Created superadmin user: ${email}`);
   console.log(`  Roles: [superadmin, admin, client]`);
-  if (providerId) console.log(`  Provider: ${providerId}`);
   console.log();
 }
 

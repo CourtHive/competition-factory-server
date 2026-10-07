@@ -117,7 +117,6 @@ export class SsoController {
       requested: payload.providerId ?? undefined,
       associatedIds: userContext.providerIds,
       provisionerProviderIds: userContext.provisionerProviderIds ?? [],
-      legacyProviderId: user.providerId ?? undefined,
       isSuperAdmin: userContext.isSuperAdmin,
     });
     delete userDetails.providerId;

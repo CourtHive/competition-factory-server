@@ -20,5 +20,5 @@ export function checkUser({ user, userContext }: { user?: any; userContext?: Use
   if (userContext?.isSuperAdmin) return true;
   if (userContext?.providerIds?.length) return true;
   if (userContext?.provisionerProviderIds?.length) return true;
-  return !!(user?.roles?.includes(SUPER_ADMIN) || user?.providerIds?.length || user?.providerId);
+  return !!(user?.roles?.includes(SUPER_ADMIN) || user?.providerIds?.length);
 }

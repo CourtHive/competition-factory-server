@@ -11,7 +11,7 @@ export class PostgresUserStorage implements IUserStorage {
 
   async findOne(email: string): Promise<any | null> {
     const result = await this.pool.query(
-      'SELECT user_id, email, password, provider_id, last_selected_provider_id, must_change_password, contact_email, email_verified_at, roles, permissions, data, standard_given_name, standard_family_name FROM users WHERE email = $1',
+      'SELECT user_id, email, password, last_selected_provider_id, must_change_password, contact_email, email_verified_at, roles, permissions, data, standard_given_name, standard_family_name FROM users WHERE email = $1',
       [email],
     );
     if (!result.rows.length) return null;
@@ -20,7 +20,6 @@ export class PostgresUserStorage implements IUserStorage {
       userId: row.user_id,
       email: row.email,
       password: row.password,
-      providerId: row.provider_id,
       lastSelectedProviderId: row.last_selected_provider_id,
       mustChangePassword: row.must_change_password,
       contactEmail: row.contact_email,
@@ -40,7 +39,7 @@ export class PostgresUserStorage implements IUserStorage {
 
   async findByContactEmail(contactEmail: string): Promise<any | null> {
     const result = await this.pool.query(
-      `SELECT user_id, email, password, provider_id, last_selected_provider_id, must_change_password, contact_email, email_verified_at, roles, permissions, data, standard_given_name, standard_family_name
+      `SELECT user_id, email, password, last_selected_provider_id, must_change_password, contact_email, email_verified_at, roles, permissions, data, standard_given_name, standard_family_name
          FROM users
         WHERE LOWER(contact_email) = LOWER($1)
         LIMIT 1`,
@@ -52,7 +51,6 @@ export class PostgresUserStorage implements IUserStorage {
       userId: row.user_id,
       email: row.email,
       password: row.password,
-      providerId: row.provider_id,
       lastSelectedProviderId: row.last_selected_provider_id,
       mustChangePassword: row.must_change_password,
       contactEmail: row.contact_email,
@@ -66,13 +64,15 @@ export class PostgresUserStorage implements IUserStorage {
   }
 
   async create(user: { email: string; password: string; [key: string]: any }): Promise<any> {
-    const { email, password, providerId, roles = [], permissions = [], mustChangePassword, ...rest } = user;
+    // `providerId` is taken out and dropped: users.provider_id is no longer written, and it must not land in
+    // `data` either. A user's providers are user_providers rows (MULTI_PROVIDER_CONTEXT_COMPLETION.md, Phase 4).
+    const { email, password, roles = [], permissions = [], mustChangePassword, ...rest } = user;
+    delete rest.providerId;
     await this.pool.query(
-      `INSERT INTO users (email, password, provider_id, roles, permissions, must_change_password, data)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO users (email, password, roles, permissions, must_change_password, data)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (email) DO UPDATE SET
          password = EXCLUDED.password,
-         provider_id = EXCLUDED.provider_id,
          roles = EXCLUDED.roles,
          permissions = EXCLUDED.permissions,
          must_change_password = EXCLUDED.must_change_password,
@@ -81,7 +81,6 @@ export class PostgresUserStorage implements IUserStorage {
       [
         email,
         password,
-        providerId ?? null,
         JSON.stringify(roles),
         JSON.stringify(permissions),
         Boolean(mustChangePassword),
@@ -92,14 +91,15 @@ export class PostgresUserStorage implements IUserStorage {
   }
 
   async update(email: string, data: any): Promise<{ success: boolean }> {
-    const { password, providerId, roles = [], permissions = [], mustChangePassword, ...rest } = data;
+    // `providerId` is dropped, as in `create`: users.provider_id is no longer written.
+    const { password, roles = [], permissions = [], mustChangePassword, ...rest } = data;
+    delete rest.providerId;
     await this.pool.query(
-      `UPDATE users SET password = $2, provider_id = $3, roles = $4, permissions = $5, must_change_password = $6, data = $7, updated_at = NOW()
+      `UPDATE users SET password = $2, roles = $3, permissions = $4, must_change_password = $5, data = $6, updated_at = NOW()
        WHERE email = $1`,
       [
         email,
         password,
-        providerId ?? null,
         JSON.stringify(roles),
         JSON.stringify(permissions),
         Boolean(mustChangePassword),
@@ -151,7 +151,7 @@ export class PostgresUserStorage implements IUserStorage {
 
   async findByUserId(userId: string): Promise<any | null> {
     const result = await this.pool.query(
-      `SELECT user_id, email, password, provider_id, last_selected_provider_id, must_change_password, contact_email, email_verified_at, roles, permissions, data
+      `SELECT user_id, email, password, last_selected_provider_id, must_change_password, contact_email, email_verified_at, roles, permissions, data
          FROM users
         WHERE user_id = $1
         LIMIT 1`,
@@ -163,7 +163,6 @@ export class PostgresUserStorage implements IUserStorage {
       userId: row.user_id,
       email: row.email,
       password: row.password,
-      providerId: row.provider_id,
       lastSelectedProviderId: row.last_selected_provider_id,
       mustChangePassword: row.must_change_password,
       contactEmail: row.contact_email,
@@ -231,15 +230,12 @@ export class PostgresUserStorage implements IUserStorage {
 
   async findAll(): Promise<{ success: boolean; users?: any[]; message?: string }> {
     // LEFT JOIN user_providers so the admin UI can render multi-provider
-    // associations without a follow-up round trip. `provider_ids` is in
-    // addition to the legacy single `provider_id` column — both are kept
-    // for now (Phase 5 of the multi-provider plan retires the legacy
-    // column once all read paths have migrated).
+    // associations without a follow-up round trip. The legacy single
+    // users.provider_id column is no longer read (multi-provider Phase 4).
     const result = await this.pool.query(`
       SELECT
         u.user_id,
         u.email,
-        u.provider_id,
         u.roles,
         u.permissions,
         u.data,
@@ -252,7 +248,7 @@ export class PostgresUserStorage implements IUserStorage {
         ) AS provider_ids
       FROM users u
       LEFT JOIN user_providers up ON up.user_id = u.user_id
-      GROUP BY u.user_id, u.email, u.provider_id, u.roles, u.permissions, u.data, u.last_access, u.standard_given_name, u.standard_family_name
+      GROUP BY u.user_id, u.email, u.roles, u.permissions, u.data, u.last_access, u.standard_given_name, u.standard_family_name
     `);
     if (!result.rows.length) return { success: false, message: 'No users found' };
     // Spread `data` first so canonical column-derived fields win on conflict.
@@ -264,7 +260,6 @@ export class PostgresUserStorage implements IUserStorage {
         ...row.data,
         userId: row.user_id,
         email: row.email,
-        providerId: row.provider_id,
         providerIds: row.provider_ids,
         roles: row.roles,
         permissions: row.permissions,

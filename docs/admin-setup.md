@@ -39,18 +39,10 @@ node src/scripts/admin-user.mjs create \
 
 This creates a user with roles `[superadmin, admin, client]` — full access to all server features.
 
-### 3. (Optional) Associate with a provider
+A super admin needs no provider: at login they act for none, and they choose a provider (or switch) from the
+client. Every other user's providers are `user_providers` associations, managed in the AMS console.
 
-If you've already created a provider (organization), pass its ID:
-
-```bash
-node src/scripts/admin-user.mjs create \
-  --email admin@yourorg.com \
-  --password your-secure-password \
-  --provider-id your-provider-uuid
-```
-
-### 4. Start the server and log in
+### 3. Start the server and log in
 
 ```bash
 pnpm watch
@@ -121,7 +113,6 @@ node src/scripts/admin-user.mjs <command> [options]
 Commands:
   list                                    List all users with roles
   create   -e <email> -p <password>       Create a superadmin user
-           [--provider-id <id>]
   reset-password  -e <email> -p <password>  Reset password
   set-roles  -e <email> -r <roles>        Set roles (comma-separated)
 
@@ -129,7 +120,6 @@ Options:
   -e, --email                      User email address
   -p, --password                   Password (plain text, will be hashed)
   -r, --roles                      Comma-separated role list
-  --provider-id                    Provider/organization ID
 ```
 
 ### Examples

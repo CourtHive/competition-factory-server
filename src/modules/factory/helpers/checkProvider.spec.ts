@@ -16,9 +16,19 @@ describe('checkProvider', () => {
       tournamentRecords: {
         t1: { parentOrganisation: { organisationId: 'p1' } },
       },
-      user: { roles: ['admin'], providerId: 'p1' },
+      user: { roles: ['admin'], providerIds: ['p1'] },
     });
     expect(result).toBe(true);
+  });
+
+  it('does not read the legacy users.provider_id home: a providerId alone grants no provider', () => {
+    const result = checkProvider({
+      tournamentRecords: {
+        t1: { parentOrganisation: { organisationId: 'p1' } },
+      },
+      user: { roles: ['admin'], providerId: 'p1' },
+    });
+    expect(result).toBe(false);
   });
 
   it('returns false when tournament belongs to different provider', () => {

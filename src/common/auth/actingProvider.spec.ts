@@ -4,7 +4,7 @@ const base = { provisionerProviderIds: [] as string[], associatedIds: [] as stri
 
 describe('resolveActingProviderId — the provider a session acts for', () => {
   it('a user with several providers and no choice acts for NONE (never silently placed in one)', () => {
-    expect(resolveActingProviderId({ ...base, associatedIds: ['a', 'b'], legacyProviderId: 'a' })).toBeUndefined();
+    expect(resolveActingProviderId({ ...base, associatedIds: ['a', 'b'] })).toBeUndefined();
   });
 
   it('acts for the chosen provider when the user is associated with it', () => {
@@ -22,17 +22,17 @@ describe('resolveActingProviderId — the provider a session acts for', () => {
   });
 
   it('a single association is the session provider, as before', () => {
-    expect(resolveActingProviderId({ ...base, associatedIds: ['only'], legacyProviderId: 'stale' })).toBe('only');
+    expect(resolveActingProviderId({ ...base, associatedIds: ['only'] })).toBe('only');
   });
 
-  it('no association rows: the legacy home column, as before associations existed', () => {
-    expect(resolveActingProviderId({ ...base, legacyProviderId: 'home' })).toBe('home');
+  // users.provider_id, the legacy "home", is no longer read (multi-provider Phase 4): with no row there is no provider.
+  it('no association rows acts for NONE', () => {
+    expect(resolveActingProviderId(base)).toBeUndefined();
   });
 
-  it('a super-admin may choose any provider, and keeps their home when they choose none', () => {
+  it('a super-admin may choose any provider, and acts for none when they choose none', () => {
     expect(resolveActingProviderId({ ...base, isSuperAdmin: true, requested: 'any' })).toBe('any');
-    expect(
-      resolveActingProviderId({ ...base, isSuperAdmin: true, associatedIds: ['a', 'b'], legacyProviderId: 'home' }),
-    ).toBe('home');
+    expect(resolveActingProviderId({ ...base, isSuperAdmin: true, associatedIds: ['a', 'b'] })).toBeUndefined();
+    expect(resolveActingProviderId({ ...base, isSuperAdmin: true })).toBeUndefined();
   });
 });

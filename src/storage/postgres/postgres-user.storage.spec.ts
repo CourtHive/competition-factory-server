@@ -339,4 +339,38 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
       expect(result.users[1].value.lastName).toBe('Allen');
     });
   });
+
+  // Multi-provider Phase 4 (Mentat/planning/MULTI_PROVIDER_CONTEXT_COMPLETION.md): a user's providers are
+  // user_providers rows. users.provider_id is neither read nor written, so the column can be dropped.
+  describe('users.provider_id is retired', () => {
+    it('create neither writes provider_id nor stashes providerId in data', async () => {
+      pool.query.mockResolvedValueOnce({ rowCount: 1 });
+      await storage.create({ email: 'a@b.c', password: 'h', providerId: 'p1', roles: ['client'], firstName: 'A' });
+      const [sql, params] = pool.query.mock.calls[0];
+      expect(sql).not.toContain('provider_id');
+      expect(params).not.toContain('p1');
+      expect(JSON.parse(params[5])).toEqual({ firstName: 'A' });
+    });
+
+    it('update neither writes provider_id nor stashes providerId in data', async () => {
+      pool.query.mockResolvedValueOnce({ rowCount: 1 });
+      await storage.update('a@b.c', { password: 'h', providerId: 'p1', roles: [], firstName: 'A' });
+      const [sql, params] = pool.query.mock.calls[0];
+      expect(sql).not.toContain('provider_id');
+      expect(params).not.toContain('p1');
+      expect(JSON.parse(params[5])).toEqual({ firstName: 'A' });
+    });
+
+    it('the finders do not select provider_id', async () => {
+      pool.query.mockResolvedValue({ rows: [] });
+      await storage.findOne('a@b.c');
+      await storage.findByContactEmail('a@b.c');
+      await storage.findByUserId('u-1');
+      await storage.findAll();
+      for (const [sql] of pool.query.mock.calls) {
+        // `up.provider_id` / `provider_ids` are user_providers; `last_selected_provider_id` is a different column
+        expect(sql).not.toMatch(/(^|[^._a-z])(u\.)?provider_id\b(?!s)/);
+      }
+    });
+  });
 });

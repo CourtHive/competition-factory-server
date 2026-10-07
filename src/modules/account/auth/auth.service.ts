@@ -351,7 +351,6 @@ export class AuthService {
       requested: options?.actingProviderId ?? undefined,
       associatedIds: associations.map((a) => a.providerId),
       provisionerProviderIds: (userDetails.provisionerProviders ?? []).map((p: any) => p.providerId),
-      legacyProviderId: user.providerId ?? undefined,
       isSuperAdmin,
     });
     delete userDetails.providerId;
