@@ -108,4 +108,48 @@ describe('checkProvider', () => {
     });
     expect(result).toBe(false);
   });
+
+  describe('the session acts for one provider; a save needs a provider (CA, 2026-10-06)', () => {
+    const userContext: any = {
+      userId: 'u1',
+      email: 'u1@x.org',
+      isSuperAdmin: false,
+      globalRoles: [],
+      providerRoles: { a: 'PROVIDER_ADMIN', b: 'PROVIDER_ADMIN' },
+      providerIds: ['a', 'b'],
+      actingProviderId: 'a',
+    };
+    const records = (organisationId?: string) => ({
+      t1: organisationId ? { parentOrganisation: { organisationId } } : {},
+    });
+
+    it('allows the provider the session acts for', () => {
+      expect(checkProvider({ tournamentRecords: records('a'), userContext, write: true })).toBe(true);
+    });
+
+    it("refuses the user's OTHER provider, read or write: switch first", () => {
+      expect(checkProvider({ tournamentRecords: records('b'), userContext })).toBe(false);
+      expect(checkProvider({ tournamentRecords: records('b'), userContext, write: true })).toBe(false);
+    });
+
+    it('refuses to SAVE a tournament with no provider, and still lets one be read', () => {
+      expect(checkProvider({ tournamentRecords: records(), userContext, write: true })).toBe(false);
+      expect(checkProvider({ tournamentRecords: records(), userContext })).toBe(true);
+    });
+
+    it('lets a super-admin save a provider-less tournament', () => {
+      expect(
+        checkProvider({
+          tournamentRecords: records(),
+          userContext: { ...userContext, isSuperAdmin: true },
+          write: true,
+        }),
+      ).toBe(true);
+    });
+
+    it('refuses everything to a session that has not chosen its provider', () => {
+      const pending = { ...userContext, actingProviderId: undefined, providerSelectionPending: true };
+      expect(checkProvider({ tournamentRecords: records('a'), userContext: pending })).toBe(false);
+    });
+  });
 });

@@ -444,7 +444,7 @@ export class FactoryService {
     const validUser = checkUser({ user, userContext });
     if (!validUser) return { error: 'Invalid user' };
     const tournamentRecords = getTournamentRecords(params);
-    const allowUser = checkProvider({ tournamentRecords, user, userContext });
+    const allowUser = checkProvider({ tournamentRecords, user, userContext, write: true });
     if (!allowUser) return { error: 'User not allowed' };
 
     // Per-tournament mutation gate

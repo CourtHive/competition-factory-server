@@ -1,4 +1,5 @@
 import { SUPER_ADMIN } from 'src/common/constants/roles';
+import { actingProviderAllows } from './actingProviderScope';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
 /**
@@ -17,10 +18,12 @@ import type { UserContext } from 'src/modules/account/auth/decorators/user-conte
  * by providers their provisioner manages, even without a direct
  * user_providers row.
  */
-export function checkProvider({ tournamentRecords, user, userContext }: {
+export function checkProvider({ tournamentRecords, user, userContext, write }: {
   tournamentRecords: any;
   user?: any;
   userContext?: UserContext;
+  /** A save: a tournament with no provider is refused (CA, 2026-10-06), where a read still passes. */
+  write?: boolean;
 }) {
   // Super admin bypass — check both sources
   if (userContext?.isSuperAdmin) return true;
@@ -41,7 +44,14 @@ export function checkProvider({ tournamentRecords, user, userContext }: {
 
   for (const tournamentId in tournamentRecords ?? {}) {
     const providerId = tournamentRecords[tournamentId]?.parentOrganisation?.organisationId;
-    if (providerId && !providerIds.includes(providerId)) return false;
+    if (!providerId) {
+      // CA, 2026-10-06: "the server should NOT accept saving a tournament that has no provider"
+      if (write) return false;
+      continue;
+    }
+    if (!providerIds.includes(providerId)) return false;
+    // a member of the provider, but is it the provider THIS session acts for?
+    if (!actingProviderAllows(userContext, providerId)) return false;
   }
   return true;
 }

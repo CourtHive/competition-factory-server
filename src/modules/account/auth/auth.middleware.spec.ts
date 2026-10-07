@@ -193,4 +193,28 @@ describe('AuthMiddleware', () => {
     expect(req.userContext).toBeDefined();
     expect(req.userContext.providerRoles).toEqual({ 'prov-a': 'DIRECTOR' });
   });
+
+  it("carries the TOKEN's chosen provider into userContext, not the user row's legacy provider_id", async () => {
+    const user = { email: 'multi@test.com', userId: 'uuid-m', roles: ['client'], providerId: 'legacy-home' };
+    verifyJwtMock.mockResolvedValue({
+      email: 'multi@test.com',
+      aud: 'admin',
+      providerId: 'chosen',
+      providerSelectionRequired: false,
+    });
+    mockUsersService.findOne.mockResolvedValue(user);
+    const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer token' } };
+    await middleware.use(req, {}, vi.fn());
+    expect(req.userContext.actingProviderId).toBe('chosen');
+    expect(req.userContext.providerSelectionPending).toBeUndefined();
+  });
+
+  it('marks a session that has not chosen its provider', async () => {
+    verifyJwtMock.mockResolvedValue({ email: 'multi@test.com', aud: 'admin', providerSelectionRequired: true });
+    mockUsersService.findOne.mockResolvedValue({ email: 'multi@test.com', userId: 'uuid-m', roles: ['client'] });
+    const req: any = { baseUrl: '/api', headers: { authorization: 'Bearer token' } };
+    await middleware.use(req, {}, vi.fn());
+    expect(req.userContext.actingProviderId).toBeUndefined();
+    expect(req.userContext.providerSelectionPending).toBe(true);
+  });
 });

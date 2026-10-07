@@ -137,6 +137,50 @@ describe('MutationAuthorizationService.gate', () => {
   });
 });
 
+describe("MutationAuthorizationService.gate — the session's provider (CA, 2026-10-06)", () => {
+  it('lets a session write to the provider it acts for', async () => {
+    const { service } = build({ assignmentRole: 'DIRECTOR' });
+    const denial = await service.gate({
+      userContext: { ...director, actingProviderId: PROVIDER } as any,
+      tournamentIds: [TID],
+      requestedMethods: ['addEvent'],
+    });
+    expect(denial).toBeNull();
+  });
+
+  it("refuses a session acting for another of the user's providers: switch first", async () => {
+    const { service } = build({ assignmentRole: 'DIRECTOR' });
+    const denial = await service.gate({
+      userContext: { ...director, providerIds: [PROVIDER, 'prov-2'], actingProviderId: 'prov-2' } as any,
+      tournamentIds: [TID],
+      requestedMethods: ['addEvent'],
+    });
+    expect(denial).toBe('Not authorized to modify this tournament');
+  });
+
+  it('refuses a session that has not chosen its provider', async () => {
+    const { service } = build({ assignmentRole: 'DIRECTOR' });
+    const denial = await service.gate({
+      userContext: { ...director, providerSelectionPending: true } as any,
+      tournamentIds: [TID],
+      requestedMethods: ['addEvent'],
+    });
+    expect(denial).toBe('Not authorized to modify this tournament');
+  });
+
+  it('refuses to modify a tournament with no provider, except for a super-admin', async () => {
+    const { service, tournamentStorageService } = build({ assignmentRole: 'DIRECTOR' });
+    const unscoped = { ...makeTournament(), parentOrganisation: undefined };
+    tournamentStorageService.fetchTournamentRecords.mockResolvedValue({ tournamentRecords: { [TID]: unscoped } });
+    expect(await service.gate({ userContext: director, tournamentIds: [TID], requestedMethods: ['addEvent'] })).toBe(
+      'Not authorized to modify this tournament',
+    );
+    expect(
+      await service.gate({ userContext: superAdmin, tournamentIds: [TID], requestedMethods: ['addEvent'] }),
+    ).toBeNull();
+  });
+});
+
 describe('MutationAuthorizationService.gate — scoped grants', () => {
   const score = (matchUpId: string) => [{ method: 'setMatchUpStatus', params: { matchUpId, drawId: 'd1' } }];
 

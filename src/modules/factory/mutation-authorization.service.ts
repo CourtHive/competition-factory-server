@@ -33,6 +33,7 @@ import {
 } from './helpers/grantScope';
 import { windowDenialReason } from './helpers/grantWindowDenial';
 import { canMutateTournament } from './helpers/checkTournamentAccess';
+import { actingProviderAllows } from './helpers/actingProviderScope';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { GRANT_STORAGE, type IGrantStorage } from 'src/storage/interfaces';
 import { PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
@@ -105,6 +106,16 @@ export class MutationAuthorizationService {
       const result: any = await this.tournamentStorageService.fetchTournamentRecords({ tournamentId: tid });
       const tournament = result?.tournamentRecords?.[tid];
       if (!tournament) continue;
+
+      // Not behind ENABLE_TOURNAMENT_ACCESS_SCOPING: a provider-less tournament is not written by anyone but a
+      // super-admin, and a session writes only to the provider it acts for (CA, 2026-10-06).
+      if (!userContext.isSuperAdmin) {
+        const providerId = tournament?.parentOrganisation?.organisationId;
+        if (!providerId || !actingProviderAllows(userContext, providerId)) {
+          this.logger.warn(`[executionQueue] outside the session's provider for ${actor}: ${methodSummary} on ${tid}`);
+          return 'Not authorized to modify this tournament';
+        }
+      }
 
       if (!canMutateTournament(tournament, userContext, assignedRoles, requestedMethods)) {
         this.logger.warn(`[executionQueue] mutation denied for ${actor}: ${methodSummary} on ${tid}`);
