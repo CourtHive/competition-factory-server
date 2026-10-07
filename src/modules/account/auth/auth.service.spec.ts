@@ -251,14 +251,23 @@ describe('AuthService', () => {
       expect(result.token).toBeDefined();
     });
 
-    it('enriches user details with provider when providerId exists', async () => {
+    it('enriches user details with the provider the session acts for', async () => {
       const provider = { organisationName: 'TestOrg' };
       mockUsersService.findOne.mockResolvedValue({
+        userId: 'u1',
         email: 'admin@test.com',
         password: 'pass',
         roles: ['admin'],
-        providerId: 'p1',
       });
+      mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
+        {
+          userId: 'u1',
+          providerId: 'p1',
+          providerRole: 'PROVIDER_ADMIN',
+          organisationName: 'O',
+          organisationAbbreviation: 'O',
+        },
+      ]);
       mockProviderStorage.getProvider.mockResolvedValue(provider);
 
       const result: any = await authService.signIn('admin@test.com', 'pass');
@@ -268,11 +277,20 @@ describe('AuthService', () => {
 
     it('updates lastAccess for both user and provider on successful login', async () => {
       mockUsersService.findOne.mockResolvedValue({
+        userId: 'u1',
         email: 'la@test.com',
         password: 'pass',
         roles: ['admin'],
-        providerId: 'p1',
       });
+      mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([
+        {
+          userId: 'u1',
+          providerId: 'p1',
+          providerRole: 'PROVIDER_ADMIN',
+          organisationName: 'O',
+          organisationAbbreviation: 'O',
+        },
+      ]);
       mockProviderStorage.getProvider.mockResolvedValue({ organisationName: 'O' });
 
       await authService.signIn('la@test.com', 'pass');
@@ -433,7 +451,8 @@ describe('AuthService', () => {
       expect(decoded.providerId).toBe('prov-OTHER');
     });
 
-    it('keeps the legacy users.provider_id when the user has no association rows at all', async () => {
+    // users.provider_id is no longer read (multi-provider Phase 4): without an association row there is no provider.
+    it('acts for no provider when the user has no association rows, even with a legacy providerId', async () => {
       mockUsersService.findOne.mockResolvedValue({
         userId: 'u-legacy',
         email: 'legacy@test.com',
@@ -444,7 +463,8 @@ describe('AuthService', () => {
       mockUserProviderStorage.findByUserIdEnriched.mockResolvedValue([]);
       const result: any = await authService.signIn('legacy@test.com', 'secret');
       const decoded = await jwtService.verifyAsync(result.token);
-      expect(decoded.providerId).toBe('prov-LEGACY');
+      expect(decoded.providerId).toBeUndefined();
+      expect(decoded.providerSelectionRequired).toBe(false);
     });
 
     it('nullifies lastSelectedProviderId when it is no longer a current association', async () => {

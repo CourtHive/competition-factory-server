@@ -13,8 +13,8 @@ describe('checkUser', () => {
     expect(checkUser({ user: { roles: ['client'], providerIds: ['p1'] } })).toBe(true);
   });
 
-  it('returns true for user with providerId', () => {
-    expect(checkUser({ user: { roles: ['client'], providerId: 'p1' } })).toBe(true);
+  it('does not read the legacy users.provider_id home: a providerId alone is not a provider', () => {
+    expect(checkUser({ user: { roles: ['client'], providerId: 'p1' } })).toBe(false);
   });
 
   it('returns false for user without roles or provider', () => {

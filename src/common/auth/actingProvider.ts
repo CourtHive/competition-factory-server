@@ -13,15 +13,12 @@ export const PROVIDER_SELECTION_TTL = '10m';
 
 export function resolveActingProviderId({
   provisionerProviderIds,
-  legacyProviderId,
   associatedIds,
   isSuperAdmin,
   requested,
 }: {
   /** Providers the user's provisioners manage: a provisioner may act for these too. */
   provisionerProviderIds: string[];
-  /** `users.provider_id`, the pre-association "home" column. */
-  legacyProviderId?: string;
   associatedIds: string[];
   isSuperAdmin: boolean;
   /** An explicit choice: select-provider, or a refreshed session that made one. */
@@ -31,9 +28,7 @@ export function resolveActingProviderId({
     const allowed = isSuperAdmin || associatedIds.includes(requested) || provisionerProviderIds.includes(requested);
     return allowed ? requested : undefined;
   }
-  if (associatedIds.length === 1) return associatedIds[0];
-  // no association rows: the legacy home column, as before associations existed
-  if (associatedIds.length === 0) return legacyProviderId;
-  // more than one, and no choice made: a super-admin keeps their home; anyone else acts for NONE until they choose
-  return isSuperAdmin ? legacyProviderId : undefined;
+  // One association is the session's provider. None, or several with no choice made, acts for NONE: the
+  // legacy users.provider_id "home" is no longer read (Phase 4), so there is nothing to default to.
+  return associatedIds.length === 1 ? associatedIds[0] : undefined;
 }
