@@ -90,7 +90,7 @@ Emitted when an event, order of play, or participant list is published or unpubl
 
 ### liveScore (companion event)
 
-In addition to `publicUpdate`, each changed matchUp also emits a compact `liveScore` event to the same room (`PublicGateway.broadcastLiveScore`). This mirrors the score into the shape courthive-public's live-score handler consumes for non-INTENNSE formats; INTENNSE matchUps get `liveScore` from the bolt-history projector pipeline. Consumers that only care about `publicUpdate` can ignore it.
+In addition to `publicUpdate`, each changed matchUp also emits a compact `liveScore` event to the same room (`TournamentBroadcastService.broadcastPublicNotices`, published through the realtime port). This mirrors the score into the shape courthive-public's live-score handler consumes for non-INTENNSE formats; INTENNSE matchUps get `liveScore` from the bolt-history projector pipeline. Consumers that only care about `publicUpdate` can ignore it.
 
 Possible `action` values:
 
@@ -257,7 +257,7 @@ These logs can be parsed by any log aggregation tool (CloudWatch, Datadog, ELK, 
     <tr><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>src/modules/messaging/public/public.gateway.ts</code></td><td>Public namespace gateway — room management and <code>broadcastPublicUpdate()</code></td></tr>
+    <tr><td><code>src/modules/messaging/public/public.gateway.ts</code></td><td>Public namespace gateway — room management; broadcasts are published through <code>src/modules/messaging/realtime/</code></td></tr>
     <tr><td><code>src/modules/messaging/broadcast/tournament-broadcast.service.ts</code></td><td>Shared broadcast service — sanitizes factory notices into public payloads</td></tr>
     <tr><td><code>src/modules/factory/engines/getMutationEngine.ts</code></td><td>Engine subscriptions that collect public notices during mutations</td></tr>
   </tbody>

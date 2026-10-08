@@ -1,13 +1,13 @@
 import { computeFanOutTargets, isLinkGraphMutation, isScheduleAffecting, venueIdsFromMethods, venueIdsFromRecord } from './facility-schedule-broadcast.helpers';
 import { buildPublicLivePayloadFromMatchUp } from 'src/modules/projectors/transforms/public-live-from-matchup.transform';
+import { REALTIME_PRESENCE, REALTIME_PUBLISHER } from '../realtime/realtime.types';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import { publicTournamentChannel, tournamentChannel } from '../realtime/channels';
 import { ProjectorService } from 'src/modules/projectors/projector.service';
-import { PublicGateway } from '../public/public.gateway';
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { topicConstants, tools } from 'tods-competition-factory';
-import type { Server, Socket } from 'socket.io';
 
-const TOURNAMENT_ROOM_PREFIX = 'tournament:';
+import type { RealtimeChannel, RealtimePresence, RealtimePublisher } from '../realtime/realtime.types';
 
 // Collapse a burst (e.g. a bulk schedule = N addMatchUpScheduleItems) into one event per source.
 const FACILITY_FANOUT_DEBOUNCE_MS = 500;
@@ -22,7 +22,6 @@ interface PendingFacilityFanOut {
 @Injectable()
 export class TournamentBroadcastService {
   private readonly logger = new Logger(TournamentBroadcastService.name);
-  private tmxServer?: Server;
   // Debounce state keyed by source tournamentId. In-memory: a pending fan-out lost on restart is
   // negligible — the coordinating client's focus/reconnect re-fetch + long safety poll backstop it.
   private readonly pendingFacilityFanOut = new Map<string, PendingFacilityFanOut>();
@@ -30,32 +29,21 @@ export class TournamentBroadcastService {
   private readonly facilityBroadcastEnabled = process.env.ENABLE_FACILITY_SCHEDULE_BROADCAST === 'true';
 
   constructor(
-    private readonly publicGateway: PublicGateway,
+    @Inject(REALTIME_PUBLISHER) private readonly publisher: RealtimePublisher,
+    @Inject(REALTIME_PRESENCE) private readonly presence: RealtimePresence,
     @Optional() private readonly projectorService?: ProjectorService,
     @Optional() private readonly tournamentStorageService?: TournamentStorageService,
   ) {}
 
   /**
-   * Called by TmxGateway after the Socket.IO server initializes
-   * so the broadcast service can emit to /tmx namespace rooms.
-   */
-  setTmxServer(server: Server): void {
-    this.tmxServer = server;
-  }
-
-  /**
    * Broadcast an approved executionQueue to TMX clients in the affected
    * tournament room(s).
    *
-   * @param payload   The mutation payload (methods, tournamentIds, userId, timestamp)
-   * @param sender    Optional socket to exclude from the broadcast (Socket.IO origin path)
+   * @param payload  The mutation payload (methods, tournamentIds, userId, timestamp, originClientId)
+   * @param options  `excludeConnectionId`: the originating connection, which already has its ack.
+   *                 Absent on the REST path, where every client in the room is notified.
    */
-  async broadcastMutation(payload: any, sender?: Socket): Promise<void> {
-    if (!this.tmxServer) {
-      this.logger.warn('[broadcast] tmxServer not available — skipping mutation broadcast');
-      return;
-    }
-
+  async broadcastMutation(payload: any, options?: { excludeConnectionId?: string }): Promise<void> {
     const tournamentIds: string[] = payload?.tournamentIds || (payload?.tournamentId ? [payload.tournamentId] : []);
     const methods = payload?.methods;
     if (!methods?.length || !tournamentIds.length) {
@@ -63,31 +51,29 @@ export class TournamentBroadcastService {
       return;
     }
 
+    // `originClientId` lets a client recognise its own mutation on a transport that cannot exclude
+    // the sender server-side. Socket.IO still excludes it, so today the field is only carried.
     const broadcast = {
       methods,
       tournamentIds,
       userId: payload?.userId,
       timestamp: payload?.timestamp,
+      ...(payload?.originClientId && { originClientId: payload.originClientId }),
     };
 
+    const excludeConnectionId = options?.excludeConnectionId;
     for (const tournamentId of tournamentIds) {
-      const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
-      const roomMembers = await this.tmxServer.in(room).fetchSockets();
-      const memberIds = roomMembers?.map((s) => s.id) ?? [];
-      const senderInfo = sender ? ` — sender: ${sender.id}` : ' — no sender (REST)';
-      this.logger.log(`[broadcast] room ${room} has ${memberIds.length} member(s): [${memberIds.join(', ')}]${senderInfo}`);
-
-      if (sender) {
-        // Socket.IO path: exclude the sender (they already got an ack)
-        sender.to(room).emit('tournamentMutation', broadcast);
-      } else {
-        // REST path: notify all clients in the room
-        this.tmxServer.to(room).emit('tournamentMutation', broadcast);
-      }
+      const channel = tournamentChannel(tournamentId);
+      const memberIds = (await this.presence.members(channel)).map((m) => m.connectionId);
+      const senderInfo = excludeConnectionId ? ` — sender: ${excludeConnectionId}` : ' — no sender (REST)';
+      this.logger.log(
+        `[broadcast] room ${channel.room} has ${memberIds.length} member(s): [${memberIds.join(', ')}]${senderInfo}`,
+      );
+      this.publisher.publish(channel, 'tournamentMutation', broadcast, { excludeConnectionId });
     }
 
     const methodNames = tools.unique(methods.map((m) => m.method) ?? []).join('|');
-    const exclusionNote = sender ? ` (excluding sender ${sender.id})` : ' (all clients)';
+    const exclusionNote = excludeConnectionId ? ` (excluding sender ${excludeConnectionId})` : ' (all clients)';
     this.logger.log(
       `[broadcast] sent ${methods.length} mutation(s) [${methodNames}] to rooms: ${tournamentIds.join(', ')}${exclusionNote}`,
     );
@@ -104,7 +90,7 @@ export class TournamentBroadcastService {
    * Cheap + synchronous — the storage read + emit happen later, off the mutation path.
    */
   private scheduleFacilityScheduleFanOut(payload: any): void {
-    if (!this.facilityBroadcastEnabled || !this.tmxServer) return;
+    if (!this.facilityBroadcastEnabled) return;
 
     const methods = payload?.methods ?? [];
     const methodNames = methods.map((m: any) => m?.method).filter(Boolean);
@@ -141,7 +127,7 @@ export class TournamentBroadcastService {
   private flushFacilityScheduleFanOut(sourceId: string): void {
     const pending = this.pendingFacilityFanOut.get(sourceId);
     this.pendingFacilityFanOut.delete(sourceId);
-    if (!pending || !this.tmxServer) return;
+    if (!pending) return;
 
     Promise.resolve(this.tournamentStorageService?.fetchTournamentRecords({ tournamentId: sourceId }))
       .then((result: any) => this.emitFacilityScheduleChanged(sourceId, pending, result?.tournamentRecords?.[sourceId]))
@@ -151,14 +137,13 @@ export class TournamentBroadcastService {
   }
 
   private emitFacilityScheduleChanged(sourceId: string, pending: PendingFacilityFanOut, record: any): void {
-    if (!this.tmxServer) return;
     const targets = computeFanOutTargets(record, pending, sourceId);
     if (!targets.length) return;
 
     const venueIds = pending.venueIds.size ? [...pending.venueIds] : venueIdsFromRecord(record);
     const event = { venueIds, changedAt: Date.now() };
     for (const target of targets) {
-      this.tmxServer.to(TOURNAMENT_ROOM_PREFIX + target).emit('facilityScheduleChanged', event);
+      this.publisher.publish(tournamentChannel(target), 'facilityScheduleChanged', event);
     }
     this.logger.debug(
       `[facility-broadcast] facilityScheduleChanged from ${sourceId} → ${targets.length} room(s) [${targets.join(', ')}], venues [${venueIds.join(', ')}]`,
@@ -166,7 +151,7 @@ export class TournamentBroadcastService {
   }
 
   /**
-   * Sanitize factory notices and broadcast to public viewers via the /public namespace.
+   * Sanitize factory notices and broadcast them to each tournament's public channel.
    */
   broadcastPublicNotices(payload: any, publicNotices?: any[]): void {
     if (!publicNotices?.length) return;
@@ -183,11 +168,12 @@ export class TournamentBroadcastService {
     }
 
     for (const [tournamentId, notices] of noticesByTournament) {
+      const publicChannel = publicTournamentChannel(tournamentId);
       const matchUpNotices = notices.filter((n) => n.topic === topicConstants.MODIFY_MATCHUP);
       const positionNotices = notices.filter((n) => n.topic === topicConstants.MODIFY_POSITION_ASSIGNMENTS);
 
       if (matchUpNotices.length) {
-        this.publicGateway.broadcastPublicUpdate(tournamentId, {
+        this.publishPublicUpdate(publicChannel, {
           type: 'matchUpUpdate',
           tournamentId,
           matchUps: matchUpNotices.map((n) => n.matchUp),
@@ -207,7 +193,7 @@ export class TournamentBroadcastService {
         for (const notice of matchUpNotices) {
           const payload = buildPublicLivePayloadFromMatchUp(notice.matchUp, tournamentId);
           if (payload) {
-            this.publicGateway.broadcastLiveScore(tournamentId, payload);
+            this.publisher.publish(publicChannel, 'liveScore', payload);
           }
         }
 
@@ -226,7 +212,7 @@ export class TournamentBroadcastService {
         (n) => n.topic !== topicConstants.MODIFY_MATCHUP && n.topic !== topicConstants.MODIFY_POSITION_ASSIGNMENTS,
       );
       for (const notice of publishNotices) {
-        this.publicGateway.broadcastPublicUpdate(tournamentId, {
+        this.publishPublicUpdate(publicChannel, {
           type: 'publishChange',
           tournamentId,
           action: notice.topic,
@@ -234,5 +220,10 @@ export class TournamentBroadcastService {
         });
       }
     }
+  }
+
+  private publishPublicUpdate(channel: RealtimeChannel, payload: { type: string } & Record<string, any>): void {
+    this.publisher.publish(channel, 'publicUpdate', payload);
+    this.logger.log(`[broadcast] publicUpdate to ${channel.room} — type: ${payload.type}`);
   }
 }

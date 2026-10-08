@@ -10,9 +10,10 @@ export type ConsumerKind = 'scorebug' | 'video-board' | 'public-live' | 'matchup
  *   and the in-arena video-board renderer, which run in separate processes.
  *
  * - **Callback-dispatch** (Phase 1 of courthive-public live viewer): the
- *   projector calls a function reference in-process. Used for the
- *   PublicGateway broadcast, which lives in the same NestJS process as
- *   the projector and shouldn't need an HTTP self-loop.
+ *   projector calls a function reference in-process. Intended for the
+ *   public live broadcast (the realtime publisher's public channel), which
+ *   lives in the same NestJS process as the projector and shouldn't need
+ *   an HTTP self-loop.
  *
  * A consumer is one or the other — never both.
  *

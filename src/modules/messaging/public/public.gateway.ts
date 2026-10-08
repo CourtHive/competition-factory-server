@@ -1,4 +1,6 @@
+import { PUBLIC_TOURNAMENT_ROOM_PREFIX, publicTournamentChannel } from '../realtime/channels';
 import { Logger, Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { SocketIoRealtimeAdapter } from '../realtime/socket-io-realtime.adapter';
 import { resolveCorsOrigins } from 'src/common/cors';
 import { Server, Socket } from 'socket.io';
 import {
@@ -9,9 +11,8 @@ import {
   ConnectedSocket,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
 } from '@nestjs/websockets';
-
-const PUBLIC_ROOM_PREFIX = 'public:tournament:';
 
 @Injectable()
 @WebSocketGateway({
@@ -21,7 +22,9 @@ const PUBLIC_ROOM_PREFIX = 'public:tournament:';
   cors: { origin: resolveCorsOrigins(process.env.CFS_PUBLIC_CORS_ORIGINS) },
   namespace: 'public',
 })
-export class PublicGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit, OnModuleDestroy {
+export class PublicGateway
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit, OnModuleInit, OnModuleDestroy
+{
   private readonly logger = new Logger(PublicGateway.name);
   private readonly metricsEnabled = process.env.PUBLIC_METRICS_LOG === 'true';
   private readonly metricsIntervalMs = Number(process.env.PUBLIC_METRICS_INTERVAL) || 60_000;
@@ -29,6 +32,13 @@ export class PublicGateway implements OnGatewayConnection, OnGatewayDisconnect, 
 
   @WebSocketServer()
   server?: Server;
+
+  constructor(private readonly realtime: SocketIoRealtimeAdapter) {}
+
+  /** Publishing to `public:tournament:*` goes through the realtime port, which needs this namespace. */
+  afterInit(server: Server): void {
+    this.realtime.bind('public', server);
+  }
 
   onModuleInit(): void {
     if (!this.metricsEnabled) return;
@@ -72,7 +82,7 @@ export class PublicGateway implements OnGatewayConnection, OnGatewayDisconnect, 
       return;
     }
 
-    const room = PUBLIC_ROOM_PREFIX + tournamentId;
+    const { room } = publicTournamentChannel(tournamentId);
     await client.join(room);
     const roomMembers = await this.server?.in(room).fetchSockets();
     const count = roomMembers?.length ?? '?';
@@ -89,7 +99,7 @@ export class PublicGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     const tournamentId = data?.tournamentId;
     if (!tournamentId || typeof tournamentId !== 'string') return;
 
-    const room = PUBLIC_ROOM_PREFIX + tournamentId;
+    const { room } = publicTournamentChannel(tournamentId);
     await client.leave(room);
     const roomMembers = await this.server?.in(room).fetchSockets();
     const count = roomMembers?.length ?? '?';
@@ -99,29 +109,6 @@ export class PublicGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     } else {
       this.logger.log(`[room] Public client ${client.id} left ${room} — ${count} member(s)`);
     }
-  }
-
-  /**
-   * Broadcast a sanitized public update to all public clients in a tournament room.
-   * Called programmatically by TournamentBroadcastService after a successful mutation.
-   */
-  broadcastPublicUpdate(tournamentId: string, payload: any): void {
-    if (!tournamentId || !payload) return;
-    const room = PUBLIC_ROOM_PREFIX + tournamentId;
-    this.server?.to(room).emit('publicUpdate', payload);
-    this.logger.log(`[broadcast] publicUpdate to ${room} — type: ${payload.type}`);
-  }
-
-  /**
-   * Broadcast a compact PublicLivePayload to all public clients in a
-   * tournament room. Called by TournamentBroadcastService from the CODES
-   * matchUp-notice path (buildPublicLivePayloadFromMatchUp) after an
-   * authoritative mutation lands.
-   */
-  broadcastLiveScore(tournamentId: string, payload: any): void {
-    if (!tournamentId || !payload) return;
-    const room = PUBLIC_ROOM_PREFIX + tournamentId;
-    this.server?.to(room).emit('liveScore', payload);
   }
 
   /**
@@ -137,8 +124,8 @@ export class PublicGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     const roomCounts: Record<string, number> = {};
     for (const socket of allSockets) {
       for (const room of socket.rooms) {
-        if (room.startsWith(PUBLIC_ROOM_PREFIX)) {
-          const tournamentId = room.slice(PUBLIC_ROOM_PREFIX.length);
+        if (room.startsWith(PUBLIC_TOURNAMENT_ROOM_PREFIX)) {
+          const tournamentId = room.slice(PUBLIC_TOURNAMENT_ROOM_PREFIX.length);
           roomCounts[tournamentId] = (roomCounts[tournamentId] || 0) + 1;
         }
       }

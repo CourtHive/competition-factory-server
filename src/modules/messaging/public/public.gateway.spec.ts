@@ -1,7 +1,10 @@
+import { SocketIoRealtimeAdapter } from '../realtime/socket-io-realtime.adapter';
+import { publicTournamentChannel } from '../realtime/channels';
 import { PublicGateway } from './public.gateway';
 
 describe('PublicGateway', () => {
   let gateway: PublicGateway;
+  let realtime: SocketIoRealtimeAdapter;
 
   afterEach(() => {
     gateway?.onModuleDestroy();
@@ -10,38 +13,37 @@ describe('PublicGateway', () => {
   describe('without metrics', () => {
     beforeEach(() => {
       delete process.env.PUBLIC_METRICS_LOG;
-      gateway = new PublicGateway();
+      realtime = new SocketIoRealtimeAdapter();
+      gateway = new PublicGateway(realtime);
     });
 
     it('should be defined', () => {
       expect(gateway).toBeDefined();
     });
 
-    it('broadcastPublicUpdate emits to room', () => {
+    // Was `broadcastPublicUpdate emits to room`. Publishing moved to the realtime port; what the
+    // gateway still owns is binding /public, without which nothing published reaches the room.
+    it('a publicUpdate published to the public channel emits to the room once afterInit binds /public', () => {
       const emitFn = vi.fn();
-      (gateway as any).server = { to: vi.fn().mockReturnValue({ emit: emitFn }) };
+      const server: any = { to: vi.fn().mockReturnValue({ emit: emitFn }) };
+      gateway.afterInit(server);
 
-      gateway.broadcastPublicUpdate('t1', { type: 'matchUpUpdate' });
+      realtime.publish(publicTournamentChannel('t1'), 'publicUpdate', { type: 'matchUpUpdate' });
 
-      expect((gateway as any).server.to).toHaveBeenCalledWith('public:tournament:t1');
+      expect(server.to).toHaveBeenCalledWith('public:tournament:t1');
       expect(emitFn).toHaveBeenCalledWith('publicUpdate', { type: 'matchUpUpdate' });
     });
 
-    it('broadcastPublicUpdate skips when no tournamentId', () => {
-      const emitFn = vi.fn();
-      (gateway as any).server = { to: vi.fn().mockReturnValue({ emit: emitFn }) };
-
-      gateway.broadcastPublicUpdate('', { type: 'matchUpUpdate' });
-
-      expect((gateway as any).server.to).not.toHaveBeenCalled();
-    });
+    // The `skips when no tournamentId` case now lives with the code that decides it:
+    // tournament-broadcast.service.spec.ts › 'publishes nothing for a notice with no tournamentId'.
   });
 
   describe('with metrics enabled', () => {
     beforeEach(() => {
       process.env.PUBLIC_METRICS_LOG = 'true';
       process.env.PUBLIC_METRICS_INTERVAL = '600000'; // long interval to avoid firing during test
-      gateway = new PublicGateway();
+      realtime = new SocketIoRealtimeAdapter();
+      gateway = new PublicGateway(realtime);
     });
 
     afterEach(() => {
@@ -96,6 +98,27 @@ describe('PublicGateway', () => {
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining('[metrics:join] id=test-socket tournament=t1 roomSize=2'),
       );
+    });
+
+    it('logs leave with tournament and room size', async () => {
+      const logSpy = vi.spyOn((gateway as any).logger, 'log');
+      const mockClient = { id: 'test-socket', leave: vi.fn() };
+      (gateway as any).server = {
+        in: vi.fn().mockReturnValue({ fetchSockets: vi.fn().mockResolvedValue([{}]) }),
+      };
+
+      await gateway.leaveTournament({ tournamentId: 't1' }, mockClient as any);
+
+      expect(mockClient.leave).toHaveBeenCalledWith('public:tournament:t1');
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[metrics:leave] id=test-socket tournament=t1 roomSize=1'),
+      );
+    });
+
+    it('ignores a leave without a valid tournamentId', async () => {
+      const mockClient = { id: 'test-socket', leave: vi.fn() };
+      await gateway.leaveTournament({} as any, mockClient as any);
+      expect(mockClient.leave).not.toHaveBeenCalled();
     });
 
     it('logs metrics summary', async () => {

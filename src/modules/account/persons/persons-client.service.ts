@@ -25,7 +25,7 @@ import {
 } from '@nestjs/common';
 
 import { CachedPersonFields, IUserStorage, USER_STORAGE } from '../../../storage/interfaces/user-storage.interface';
-import { HiveIDGateway } from '../../messaging/hiveid/hiveid.gateway';
+import { PersonBroadcastService } from '../../messaging/hiveid/person-broadcast.service';
 import { consumeSseStream } from './sse-parser';
 
 const DEFAULT_PERSONS_BASE_URL = 'http://localhost:3100';
@@ -132,7 +132,7 @@ export class PersonsClient implements OnApplicationBootstrap, OnApplicationShutd
 
   constructor(
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
-    private readonly hiveIDGateway: HiveIDGateway,
+    private readonly personBroadcast: PersonBroadcastService,
   ) {
     this.baseUrl = process.env.PERSONS_BASE_URL ?? DEFAULT_PERSONS_BASE_URL;
   }
@@ -314,8 +314,8 @@ export class PersonsClient implements OnApplicationBootstrap, OnApplicationShutd
       occurredAt: new Date().toISOString(),
     };
     try {
-      this.hiveIDGateway.broadcastPersonUpdate(args.survivorId, payload);
-      this.hiveIDGateway.broadcastPersonUpdate(args.deprecatedId, payload);
+      this.personBroadcast.broadcastPersonUpdate(args.survivorId, payload);
+      this.personBroadcast.broadcastPersonUpdate(args.deprecatedId, payload);
     } catch (err) {
       // Fan-out is best-effort — never block the merge itself on a
       // broadcast failure (e.g. gateway not bound, server shutting down).
