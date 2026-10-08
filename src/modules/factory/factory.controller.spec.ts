@@ -205,8 +205,10 @@ describe('FactoryController', () => {
       const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined };
       await mockController.executionQueue(eqd as any, mockReq);
 
-      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(eqd);
-      expect(mockBroadcast.broadcastPublicNotices).toHaveBeenCalledWith(eqd, publicNotices);
+      // The stamped payload, not the raw body: the same object the socket path broadcasts.
+      const broadcast = expect.objectContaining({ ...eqd, userId: null });
+      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(broadcast);
+      expect(mockBroadcast.broadcastPublicNotices).toHaveBeenCalledWith(broadcast, publicNotices);
     });
 
     it('stamps the JWT-verified identity (userEmail/userId) onto the payload', async () => {
@@ -245,7 +247,59 @@ describe('FactoryController', () => {
 
       const passed = (mockService.executionQueue as Mock).mock.calls[0][0];
       expect(passed.userEmail).toBe('d@e.com');
-      expect(passed.userId).toBeUndefined();
+      expect(passed.userId).toBeNull();
+    });
+
+    // Parity with the socket path (stampVerifiedIdentity). This route set only the fields the token
+    // carried, so whatever `userId` the client posted reached the audit row.
+    it('never lets a client-supplied userId through', async () => {
+      const mockService = {
+        executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
+      } as unknown as FactoryService;
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+
+      const eqd = { tournamentIds: ['t1'], methods: [], userId: '99999999-0000-0000-0000-000000000000' };
+      const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined, user: { email: 'd@e.com' } };
+      await mockController.executionQueue(eqd as any, mockReq);
+
+      expect((mockService.executionQueue as Mock).mock.calls[0][0].userId).toBeNull();
+    });
+
+    // Parity with the socket path: the REST route never re-stamped attestations, so an operator
+    // identity that was not the caller's own was saved as posted.
+    it("replaces an operator attestation naming somebody else with the caller's own", async () => {
+      const mockService = {
+        executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
+      } as unknown as FactoryService;
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+
+      const callerId = '11111111-2222-3333-4444-555555555555';
+      const eqd = {
+        tournamentIds: ['t1'],
+        methods: [
+          {
+            method: 'addParticipantTimeItem',
+            params: { attributedTo: { attributionType: 'USER', userId: 'someone-else', email: 'x@y.com' } },
+          },
+        ],
+      };
+      const mockReq = { headers: {}, auditSource: undefined, user: { email: 'director@example.com', sub: callerId } };
+      await mockController.executionQueue(eqd as any, mockReq);
+
+      const passed = (mockService.executionQueue as Mock).mock.calls[0][0];
+      expect(passed.methods[0].params.attributedTo).toMatchObject({ attributionType: 'USER', userId: callerId });
+    });
+
+    it("broadcasts the sender's originClientId, so the sender recognises its own mutation", async () => {
+      const mockService = {
+        executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
+      } as unknown as FactoryService;
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+
+      const eqd = { tournamentIds: ['t1'], methods: [{ method: 'm', params: {} }], originClientId: 'tab-1' };
+      await mockController.executionQueue(eqd as any, { headers: {}, auditSource: undefined });
+
+      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(expect.objectContaining({ originClientId: 'tab-1' }));
     });
 
     it('does not broadcast after failed executionQueue', async () => {

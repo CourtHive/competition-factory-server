@@ -1,4 +1,4 @@
-import { operatorAttribution, stampOperatorAttribution } from './stampOperatorAttribution';
+import { operatorAttribution, stampOperatorAttribution, stampVerifiedIdentity } from './stampOperatorAttribution';
 
 const VERIFIED = { userId: 'uuid-real', email: 'desk@example.com', displayName: 'Desk One' };
 
@@ -126,5 +126,25 @@ describe('stampOperatorAttribution', () => {
     expect(stampOperatorAttribution({}, VERIFIED)).toEqual(0);
     expect(stampOperatorAttribution({ methods: null }, VERIFIED)).toEqual(0);
     expect(stampOperatorAttribution(undefined, VERIFIED)).toEqual(0);
+  });
+});
+
+describe('stampVerifiedIdentity', () => {
+  it('takes userEmail and userId from the token, whatever the client sent', () => {
+    const payload: any = { ...payloadWith(), userEmail: 'spoof@x.com', userId: 'spoof' };
+    stampVerifiedIdentity(payload, VERIFIED);
+    expect(payload).toMatchObject({ userEmail: 'desk@example.com', userId: 'uuid-real' });
+  });
+
+  it('nulls a client userId when the token carries no id', () => {
+    const payload: any = { ...payloadWith(), userId: 'spoof' };
+    stampVerifiedIdentity(payload, { email: 'desk@example.com' });
+    expect(payload.userId).toBeNull();
+  });
+
+  it('re-stamps operator attestations and reports how many it rewrote', () => {
+    const payload = payloadWith({ attributionType: 'USER', userId: 'someone-else' });
+    expect(stampVerifiedIdentity(payload, VERIFIED)).toBe(1);
+    expect(attesterOf(payload).userId).toBe('uuid-real');
   });
 });

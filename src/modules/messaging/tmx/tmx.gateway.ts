@@ -1,7 +1,7 @@
 import { initRoomJoins, recordRoomJoin, SocketIoRealtimeAdapter } from '../realtime/socket-io-realtime.adapter';
 import { MutationServicesService } from 'src/modules/mutation-services/mutation-services.service';
 import { MutationAuthorizationService } from 'src/modules/factory/mutation-authorization.service';
-import { stampOperatorAttribution } from 'src/modules/messaging/tmx/stampOperatorAttribution';
+import { stampVerifiedIdentity } from 'src/modules/messaging/tmx/stampOperatorAttribution';
 import { TournamentBroadcastService } from '../broadcast/tournament-broadcast.service';
 import { canViewTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { buildUserContext } from 'src/modules/account/auth/helpers/buildUserContext';
@@ -290,34 +290,10 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
         return;
       }
 
-      // Stamp the JWT-verified identity onto the payload so downstream
-      // consumers (audit hook, executionQueue) see the authenticated
-      // user rather than whatever the client happened to send.
-      //
-      // Only assign `userId` when the JWT actually carries a UUID-shaped
-      // identifier — `audit_log.user_id` is UUID-typed (and nullable),
-      // so falling back to `email` here would crash the INSERT with
-      // `invalid input syntax for type uuid: "..."`. The email belongs in
-      // `userEmail` (which maps to `audit_log.user_email TEXT`).
-      if (verifiedUser?.email) {
-        payload.userEmail = verifiedUser.email;
-      }
-      // Unconditionally replace `payload.userId` with the JWT-verified UUID —
-      // when the token carries no UUID-shaped identifier, null it out rather
-      // than leaving the client-supplied value in place. `audit_log.user_id`
-      // is nullable UUID, so a client-supplied string must never survive into
-      // attribution (it would either spoof `user_id` or crash the INSERT).
-      payload.userId = verifiedUser?.userId ?? verifiedUser?.sub ?? null;
-
-      // The same rule, applied to the attestation rather than the audit row.
-      //
-      // A presence attestation (factory 7.0.0) can name who vouched for it, and when that attester is
-      // the desk operator it arrives as `attributionType: 'USER'` — a claim about the REQUESTER,
-      // which the client cannot be trusted to make about itself. `DECLARED` / `PARTICIPANT` /
-      // `PERSON` attesters are left alone: those are recorded statements about somebody else, such
-      // as a parent presenting a junior, and overwriting them would destroy the fact the feature
-      // exists to capture.
-      const restamped = stampOperatorAttribution(payload, verifiedUser);
+      // Stamp the JWT-verified identity onto the payload so downstream consumers (audit hook,
+      // executionQueue, the attestation itself) see the authenticated user rather than whatever the
+      // client happened to send. Shared with POST /factory — see stampVerifiedIdentity.
+      const restamped = stampVerifiedIdentity(payload, verifiedUser);
       if (restamped) {
         // Logged rather than only corrected. A client sending an operator identity that is not its
         // own is either a bug worth finding or an attempt worth seeing; silently fixing it would
