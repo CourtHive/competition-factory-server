@@ -579,3 +579,90 @@ describe('TmxGateway executionQueue reply and broadcast', () => {
     });
   });
 });
+
+describe('TmxGateway room leave and admin replies', () => {
+  it('leaveTournament leaves the room and publishes the new count to it', async () => {
+    const { gateway } = buildGateway();
+    const socket = makeSocket({ user: { email: 'a@x.com' } });
+    const server = attachServer(gateway, makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [] }));
+
+    await gateway.leaveTournament({ tournamentId: 't1' }, socket as any);
+
+    expect(socket.leave).toHaveBeenCalledWith('tournament:t1');
+    expect(server.emitted).toContainEqual({
+      room: 'tournament:t1',
+      except: undefined,
+      event: 'roomPresence',
+      payload: { tournamentId: 't1', count: 0 },
+    });
+  });
+
+  it('leaveTournament ignores a malformed tournamentId', async () => {
+    const { gateway } = buildGateway();
+    const socket = makeSocket();
+    const server = attachServer(gateway, makeMockServer({}));
+
+    await gateway.leaveTournament({} as any, socket as any);
+
+    expect(socket.leave).not.toHaveBeenCalled();
+    expect(server.emitted).toHaveLength(0);
+  });
+
+  it('adminChatReply publishes to the whole room (sender included) and to the monitor feed', async () => {
+    const { gateway, chatStorage } = buildGateway();
+    chatStorage.appendMessage.mockResolvedValue({
+      record: {
+        seq: 9,
+        tournamentId: 't1',
+        userName: 'Admin',
+        message: 'hello',
+        isAdmin: true,
+        createdAt: new Date(0).toISOString(),
+      },
+    });
+    const socket = makeSocket({ user: { email: 'admin@x.com', roles: ['superadmin'] } });
+    const server = attachServer(gateway, makeMockServer({}));
+
+    await gateway.adminChatReply({ tournamentId: 't1', message: 'hello' }, socket as any);
+
+    expect(server.emitted).toContainEqual({
+      room: 'tournament:t1',
+      except: undefined,
+      event: 'chatMessage',
+      payload: expect.objectContaining({ seq: 9, message: 'hello', isAdmin: true }),
+    });
+    expect(server.emitted).toContainEqual({
+      room: 'admin:chatMonitor',
+      except: undefined,
+      event: 'adminChatFeed',
+      payload: expect.objectContaining({ seq: 9, tournamentId: 't1' }),
+    });
+  });
+
+  it('adminChatReply still relays when persisting fails, with the identity it was given', async () => {
+    const { gateway, chatStorage } = buildGateway();
+    chatStorage.appendMessage.mockResolvedValue({ error: 'db down' });
+    const socket = makeSocket({ user: { email: 'admin@x.com', roles: ['superadmin'] } });
+    const server = attachServer(gateway, makeMockServer({}));
+
+    await gateway.adminChatReply(
+      { tournamentId: 't1', message: 'hi', providerId: 'p1', providerAbbr: 'ACME', tournamentName: 'Open' },
+      socket as any,
+    );
+
+    expect(server.emitted).toContainEqual(
+      expect.objectContaining({
+        room: 'tournament:t1',
+        event: 'chatMessage',
+        payload: expect.objectContaining({ message: 'hi' }),
+      }),
+    );
+    expect(server.emitted).toContainEqual(
+      expect.objectContaining({
+        room: 'admin:chatMonitor',
+        event: 'adminChatFeed',
+        payload: expect.objectContaining({ tournamentId: 't1', providerAbbr: 'ACME', tournamentName: 'Open' }),
+      }),
+    );
+  });
+});

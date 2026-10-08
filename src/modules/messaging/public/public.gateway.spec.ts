@@ -100,6 +100,27 @@ describe('PublicGateway', () => {
       );
     });
 
+    it('logs leave with tournament and room size', async () => {
+      const logSpy = vi.spyOn((gateway as any).logger, 'log');
+      const mockClient = { id: 'test-socket', leave: vi.fn() };
+      (gateway as any).server = {
+        in: vi.fn().mockReturnValue({ fetchSockets: vi.fn().mockResolvedValue([{}]) }),
+      };
+
+      await gateway.leaveTournament({ tournamentId: 't1' }, mockClient as any);
+
+      expect(mockClient.leave).toHaveBeenCalledWith('public:tournament:t1');
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[metrics:leave] id=test-socket tournament=t1 roomSize=1'),
+      );
+    });
+
+    it('ignores a leave without a valid tournamentId', async () => {
+      const mockClient = { id: 'test-socket', leave: vi.fn() };
+      await gateway.leaveTournament({} as any, mockClient as any);
+      expect(mockClient.leave).not.toHaveBeenCalled();
+    });
+
     it('logs metrics summary', async () => {
       const logSpy = vi.spyOn((gateway as any).logger, 'log');
       (gateway as any).server = {
