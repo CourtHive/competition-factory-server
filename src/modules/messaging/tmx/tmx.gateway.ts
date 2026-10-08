@@ -139,26 +139,33 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     const hasAuth = !!client.handshake.headers.authorization;
     client.data.connectedAt = Date.now();
     initRoomJoins(client);
+    // Socket.IO empties `client.rooms` BEFORE it emits `disconnect` (`_onclose` runs `_cleanup()` →
+    // `leaveAll()` between the two events), so the rooms a departing socket was in can only be read
+    // on `disconnecting`. Reading them in handleDisconnect, as this did until 2026-10-08, always saw
+    // none: no `roomPresence` was ever rebroadcast when a tab closed or dropped, and the chat
+    // "online" count only fell when someone left a room explicitly.
+    client.on('disconnecting', () => this.rebroadcastPresenceOnLeave(client));
     this.logger.log(`[connect] Client ${client.id} connected (hasAuth: ${hasAuth})`);
   }
 
   handleDisconnect(client: Socket): void {
     this.logger.log(`[disconnect] Client ${client.id} disconnected`);
-    // Socket.IO automatically removes the client from all rooms on disconnect.
-    // Capture tournament rooms BEFORE the framework clears them so we can
-    // rebroadcast presence to remaining members.
+  }
+
+  private rebroadcastPresenceOnLeave(client: Socket): void {
     const leavingTournamentIds: string[] = [];
     for (const room of client.rooms) {
       if (typeof room === 'string' && room.startsWith(TOURNAMENT_ROOM_PREFIX)) {
         leavingTournamentIds.push(room.slice(TOURNAMENT_ROOM_PREFIX.length));
       }
     }
-    // Socket.IO removes the disconnecting client from rooms synchronously
-    // after this handler returns; defer the count + broadcast a tick so the
-    // departing socket is no longer counted.
+    // The socket leaves its rooms synchronously after `disconnecting`; count a tick later so the
+    // departing socket is no longer included.
     setImmediate(() => {
       for (const tournamentId of leavingTournamentIds) {
-        void this.broadcastRoomPresence(tournamentId);
+        this.broadcastRoomPresence(tournamentId).catch((err) =>
+          this.logger.warn(`[presence] rebroadcast failed for ${tournamentId}: ${(err as Error)?.message ?? err}`),
+        );
       }
     });
   }

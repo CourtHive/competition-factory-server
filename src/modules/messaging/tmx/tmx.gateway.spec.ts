@@ -20,6 +20,7 @@ interface MockSocket {
   join: Mock;
   leave: Mock;
   emit: Mock;
+  on: Mock;
   to: Mock;
 }
 
@@ -36,6 +37,7 @@ function makeSocket(overrides: Partial<{ id: string; user: any }> = {}): MockSoc
       s.rooms.delete(room);
     }),
     emit: vi.fn(),
+    on: vi.fn(),
     to: vi.fn().mockReturnValue({ emit: vi.fn() }),
   };
   return s as MockSocket;

@@ -250,4 +250,36 @@ describe('REST → Socket.IO broadcast', () => {
       tmxClient.disconnect();
     }
   });
+
+  // Live-run finding 2026-10-08: Socket.IO empties a socket's rooms before `disconnect`, so the
+  // gateway never rebroadcast presence when a client dropped. Real sockets, because a mock socket
+  // keeps its rooms and hid this for as long as it existed.
+  it('rebroadcasts roomPresence to the remaining clients when one disconnects', async () => {
+    const stays = await connectTmxClient();
+    const leaves = await connectTmxClient();
+
+    try {
+      stays.emit('joinTournament', { tournamentId });
+      await new Promise((r) => setTimeout(r, 200));
+      leaves.emit('joinTournament', { tournamentId });
+      await new Promise((r) => setTimeout(r, 300));
+
+      const afterLeave = new Promise<any>((resolve) => {
+        const timeout = setTimeout(() => resolve(null), 5000);
+        stays.on('roomPresence', (data) => {
+          if (data?.count === 1) {
+            clearTimeout(timeout);
+            resolve(data);
+          }
+        });
+      });
+
+      leaves.disconnect();
+
+      expect(await afterLeave).toEqual({ tournamentId, count: 1 });
+    } finally {
+      stays.disconnect();
+      leaves.disconnect();
+    }
+  });
 });
