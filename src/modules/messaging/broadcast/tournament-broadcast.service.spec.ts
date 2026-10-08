@@ -108,8 +108,12 @@ describe('TournamentBroadcastService', () => {
     // P49: the write time rides the broadcast, so a client that applies it is current up to there.
     it('carries serverUpdatedAt when the caller supplies it', async () => {
       const serverUpdatedAt = { 'tournament-123': '2026-10-08T19:30:00.123Z' };
-      await service.broadcastMutation(payload, { serverUpdatedAt });
-      expect(realtime.to('tournament:tournament-123')[0].payload.serverUpdatedAt).toEqual(serverUpdatedAt);
+      const previousServerUpdatedAt = { 'tournament-123': '2026-10-08T19:29:00.000Z' };
+      await service.broadcastMutation(payload, { serverUpdatedAt, previousServerUpdatedAt });
+      expect(realtime.to('tournament:tournament-123')[0].payload).toMatchObject({
+        serverUpdatedAt,
+        previousServerUpdatedAt,
+      });
     });
 
     it('omits originClientId when the mutation did not supply one', async () => {

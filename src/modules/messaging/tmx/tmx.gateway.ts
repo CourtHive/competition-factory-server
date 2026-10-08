@@ -299,6 +299,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
           this.broadcastService.broadcastMutation(payload, {
             excludeConnectionId: client.id,
             serverUpdatedAt: result.serverUpdatedAt,
+            previousServerUpdatedAt: result.previousServerUpdatedAt,
           });
           // Broadcast sanitized updates to public viewers
           this.broadcastService.broadcastPublicNotices(payload, publicNotices);

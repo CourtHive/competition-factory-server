@@ -207,7 +207,10 @@ describe('FactoryController', () => {
 
       // The stamped payload, not the raw body: the same object the socket path broadcasts.
       const broadcast = expect.objectContaining({ ...eqd, userId: null });
-      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(broadcast, { serverUpdatedAt: undefined });
+      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(broadcast, {
+        serverUpdatedAt: undefined,
+        previousServerUpdatedAt: undefined,
+      });
       expect(mockBroadcast.broadcastPublicNotices).toHaveBeenCalledWith(broadcast, publicNotices);
     });
 
@@ -309,15 +312,21 @@ describe('FactoryController', () => {
     // from the staleness probe, which reports the same value.
     it('broadcasts when the rows were written', async () => {
       const serverUpdatedAt = { t1: '2026-10-08T19:30:00.123Z' };
+      const previousServerUpdatedAt = { t1: '2026-10-08T19:29:00.000Z' };
       const mockService = {
-        executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [], serverUpdatedAt }),
+        executionQueue: vi
+          .fn()
+          .mockResolvedValue({ success: true, publicNotices: [], serverUpdatedAt, previousServerUpdatedAt }),
       } as unknown as FactoryService;
       mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
 
       const eqd = { tournamentIds: ['t1'], methods: [{ method: 'm', params: {} }] };
       const result: any = await mockController.executionQueue(eqd as any, { headers: {}, auditSource: undefined });
 
-      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(expect.anything(), { serverUpdatedAt });
+      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(expect.anything(), {
+        serverUpdatedAt,
+        previousServerUpdatedAt,
+      });
       expect(result.serverUpdatedAt).toEqual(serverUpdatedAt); // the sender's own sync point
     });
 

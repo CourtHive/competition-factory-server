@@ -104,9 +104,12 @@ export async function executionQueue(
           const mutationEngine = getMutationEngine();
           mutationEngine.setState(result.tournamentRecords);
           const innerResult = await mutationEngine.executionQueue(methods, rollbackOnError);
-          // When the saved rows were written: the ack and the broadcast carry it, so every client that
-          // applies this mutation knows it is current up to here (P49).
+          // When the saved rows were written, and when they had been written before this mutation (read
+          // inside the lock, so nothing came between). The ack and the broadcast carry both: a client that
+          // was current at `previousServerUpdatedAt` and applies this mutation is current at
+          // `serverUpdatedAt`; one that was behind stays behind, and its staleness probe says so (P49).
           let serverUpdatedAt: Record<string, string> | undefined;
+          const previousServerUpdatedAt: Record<string, string> | undefined = result.serverUpdatedAt;
 
           if (innerResult.success) {
             const mutatedTournamentRecords: any = mutationEngine.getState().tournamentRecords;
@@ -205,7 +208,7 @@ export async function executionQueue(
             }
           }
 
-          return serverUpdatedAt ? { ...innerResult, serverUpdatedAt } : innerResult;
+          return serverUpdatedAt ? { ...innerResult, serverUpdatedAt, previousServerUpdatedAt } : innerResult;
         }),
       ),
     );
