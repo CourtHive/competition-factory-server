@@ -16,22 +16,6 @@ describe('tmxMessages.executionQueue', () => {
     expect(result).toEqual({ ack: { ackId: 'a1', success: true }, publicNotices: [{ topic: 't' }] });
   });
 
-  // Defect fixed 2026-10-08: executionQueue returns the methods it appended (a provider's privacy
-  // policy on tournament creation) so TMX can replay them, but the ack was built as
-  // `{ ackId, success }` and dropped them. TMX's replay branch (mutationRequest.ts) never ran.
-  it('carries appliedServerMethods on a successful ack', async () => {
-    const appliedServerMethods = [{ method: 'attachPolicies', params: { policyDefinitions: {} } }];
-    vi.spyOn(executionQueueModule, 'executionQueue').mockResolvedValue({ success: true, appliedServerMethods });
-    const { ack } = await run({ ackId: 'a1' });
-    expect(ack.appliedServerMethods).toEqual(appliedServerMethods);
-  });
-
-  it('omits appliedServerMethods when the server appended none', async () => {
-    vi.spyOn(executionQueueModule, 'executionQueue').mockResolvedValue({ success: true, appliedServerMethods: [] });
-    const { ack } = await run({ ackId: 'a1' });
-    expect(ack).toEqual({ ackId: 'a1', success: true });
-  });
-
   it('returns the error detail on a failed mutation', async () => {
     vi.spyOn(executionQueueModule, 'executionQueue').mockResolvedValue({
       error: { message: 'nope' },

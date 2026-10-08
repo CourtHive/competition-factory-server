@@ -1,36 +1,36 @@
-import { generateTournamentRecord as gen } from './helpers/generateTournamentRecord';
+import { insertPendingSave, getPendingSaveStatus, getPendingSaveData, updatePendingSaveStatus } from './helpers/pendingSaves';
+import { BadRequestException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
 import { canViewTournament, canMutateTournament } from './helpers/checkTournamentAccess';
+import { MutationServicesService } from '../mutation-services/mutation-services.service';
+import { attachProviderPrivacyOnCreate } from './helpers/attachProviderPrivacyOnCreate';
+import { askEngine, factoryConstants, queryGovernor } from 'tods-competition-factory';
+import { generateTournamentRecord as gen } from './helpers/generateTournamentRecord';
+import { SnapshotProjectionService } from './projection/snapshot-projection.service';
 import { queryTournamentRecords } from './functions/private/queryTournamentRecords';
+import { MutationMirrorService } from '../tournament-sync/mutation-mirror.service';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { allTournamentMatchUps } from './functions/private/allTournamentMatchUps';
+import { selectPrivacyApplyTargets } from './helpers/selectPrivacyApplyTargets';
 import { executionQueue as eq } from './functions/private/executionQueue';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
-import { insertPendingSave, getPendingSaveStatus, getPendingSaveData, updatePendingSaveStatus } from './helpers/pendingSaves';
-import { validateL2 } from './helpers/validateTournamentRecord';
-import { SnapshotProjectionService } from './projection/snapshot-projection.service';
-import { MutationServicesService } from '../mutation-services/mutation-services.service';
-import { MutationMirrorService } from '../tournament-sync/mutation-mirror.service';
-import { withTournamentLock } from 'src/services/tournamentMutex';
-import { PG_POOL } from 'src/storage/postgres/postgres.config';
-import { checkEngineError } from '../../common/errors/engineError';
-import { AssignmentsService } from './assignments.service';
-import { AuditService } from '../audit/audit.service';
-import { checkProvider } from './helpers/checkProvider';
-import { attachProviderPrivacyOnCreate } from './helpers/attachProviderPrivacyOnCreate';
-import { selectPrivacyApplyTargets } from './helpers/selectPrivacyApplyTargets';
-import { BadRequestException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
 import { computeEffectiveConfig } from '@courthive/provider-config';
+import { checkEngineError } from '../../common/errors/engineError';
+import { withTournamentLock } from 'src/services/tournamentMutex';
+import { validateL2 } from './helpers/validateTournamentRecord';
+import { PG_POOL } from 'src/storage/postgres/postgres.config';
+import { AssignmentsService } from './assignments.service';
+import { checkProvider } from './helpers/checkProvider';
+import { AuditService } from '../audit/audit.service';
 import { checkUser } from './helpers/checkUser';
 import publicQueries from './functions/public';
-import { askEngine, factoryConstants, queryGovernor } from 'tods-competition-factory';
 
 const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PARTICIPANT;
 const EXISTING_POLICY_TYPE = factoryConstants.errorConditionConstants.EXISTING_POLICY_TYPE;
 
 // types and interfaces
-import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { TOURNAMENT_STORAGE, type ITournamentStorage, TOURNAMENT_PROVISIONER_STORAGE, type ITournamentProvisionerStorage, PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
 /**
  * Reduce a ScheduleCell to court occupancy only — no participant labels, round, event or matchUp
@@ -83,8 +83,6 @@ export class FactoryService {
       this.mutationServices.build(services ?? {}),
       this.tournamentStorageService,
       this.auditService,
-      this.tournamentProvisionerStorage,
-      this.providerStorage,
     );
     checkEngineError(result);
 
@@ -151,8 +149,6 @@ export class FactoryService {
         this.mutationServices.build(),
         this.tournamentStorageService,
         this.auditService,
-        this.tournamentProvisionerStorage,
-        this.providerStorage,
       ).catch((err) => ({ error: err?.message ?? String(err) }));
 
       // Factory error constants are objects ({ code, message }); the executionQueue
@@ -190,8 +186,6 @@ export class FactoryService {
       this.mutationServices.build({ cacheManager }),
       this.tournamentStorageService,
       this.auditService,
-      this.tournamentProvisionerStorage,
-      this.providerStorage,
     );
   }
 
@@ -363,10 +357,7 @@ export class FactoryService {
     if (!validUser) return { error: 'Invalid user' };
     const { tournamentRecord, tournamentRecords } = await gen(params, user, userContext);
 
-    // Provisioner-origin extension on parentOrganisation. Matches the shape
-    // stamped by executionQueue.ts:166-184 for newTournamentRecord mutations,
-    // so the audit trail looks identical regardless of which create path
-    // a provisioner uses.
+    // Provisioner-origin extension on parentOrganisation.
     if (provisionerContext?.provisionerId && tournamentRecord?.parentOrganisation) {
       const extensions = tournamentRecord.parentOrganisation.extensions ?? [];
       const ext = {

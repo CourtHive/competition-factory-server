@@ -1,27 +1,21 @@
-import { tournamentEngineAsync, factoryConstants } from 'tods-competition-factory';
-import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
 import { runWithRequestContext } from 'src/modules/factory/engines/requestContext';
-import { warmEventDataCache } from './warmEventDataCache';
-import { withTournamentLock } from 'src/services/tournamentMutex';
-import { getMutationEngine } from '../../engines/getMutationEngine';
-import { computeEffectiveConfig } from '@courthive/provider-config';
 import { buildProjectionDeltas } from '../../projection/buildProjectionDeltas';
+import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
+import { getMutationEngine } from '../../engines/getMutationEngine';
+import { withTournamentLock } from 'src/services/tournamentMutex';
+import { tournamentEngineAsync } from 'tods-competition-factory';
 import { createDeltaBuffer } from '../../projection/deltaBuffer';
+import { warmEventDataCache } from './warmEventDataCache';
 import { Logger } from '@nestjs/common';
 
-import type { ITournamentProvisionerStorage, IProviderStorage } from 'src/storage/interfaces';
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import type { AuditService } from 'src/modules/audit/audit.service';
-
-const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PARTICIPANT;
 
 export async function executionQueue(
   payload: any,
   services?: any,
   storage?: TournamentStorageService,
   auditService?: AuditService,
-  tournamentProvisionerStorage?: ITournamentProvisionerStorage,
-  providerStorage?: IProviderStorage,
 ): Promise<any> {
   const { methods = [], rollbackOnError } = payload ?? {};
   const tournamentIds = payload?.tournamentIds || (payload?.tournamentId && [payload.tournamentId]) || [];
@@ -111,17 +105,6 @@ export async function executionQueue(
           mutationEngine.setState(result.tournamentRecords);
           const innerResult = await mutationEngine.executionQueue(methods, rollbackOnError);
 
-          // PRIVACY ATTACH HOOK: when a new tournament is created, attach the
-          // owning provider's selected participant-privacy policy to the record
-          // BEFORE save so public reads (getParticipants) honor it immediately.
-          // The appended methods are returned as `appliedServerMethods` so the
-          // TMX client can replay them locally and keep its state in sync — a
-          // general server-directive mechanism, not privacy-specific. Fail-soft:
-          // a resolution error never blocks the create ack.
-          const appliedServerMethods = innerResult.success
-            ? await attachProviderPolicies({ methods, tournamentIds, mutationEngine, providerStorage })
-            : [];
-
           if (innerResult.success) {
             const mutatedTournamentRecords: any = mutationEngine.getState().tournamentRecords;
             const updateResult: any = await storage.saveTournamentRecords({
@@ -168,22 +151,6 @@ export async function executionQueue(
           // Now that save is complete, flush deferred cache deletions
           for (const key of cacheKeysToDelete) {
             services?.cacheManager?.del(key);
-          }
-
-          // PROVISIONER HOOK: stamp tournament_provisioner mapping and
-          // parentOrganisation.extensions when a provisioner creates a tournament.
-          // Fail-soft: errors are logged but never block the ack.
-          if (innerResult.success && payload?.provisioner?.provisionerId && tournamentProvisionerStorage) {
-            const hasNewTournament = methods.some((m: any) => m.method === 'newTournamentRecord');
-            if (hasNewTournament) {
-              stampProvisionerOrigin({
-                tournamentIds,
-                provisioner: payload.provisioner,
-                tournamentProvisionerStorage,
-                mutationEngine,
-                storage,
-              });
-            }
           }
 
           // AUDIT HOOK: record the mutation after save completes, inside the lock.
@@ -234,7 +201,7 @@ export async function executionQueue(
             }
           }
 
-          return appliedServerMethods.length ? { ...innerResult, appliedServerMethods } : innerResult;
+          return innerResult;
         }),
       ),
     );
@@ -412,127 +379,4 @@ async function resolveMatchUpReferences(
       if (found.matchUp.eventId) params.eventId = found.matchUp.eventId;
     }
   }
-}
-
-/**
- * On new-tournament creation, attach the owning provider's selected
- * participant-privacy policy to each created tournamentRecord (in the
- * already-executing mutationEngine, before save). Returns the method
- * descriptors that were actually applied, so the caller can hand them back
- * to the client as `appliedServerMethods` for local replay.
- *
- * Runs only when the batch contains a `newTournamentRecord` method. The
- * owning provider is resolved from the created record's
- * `parentOrganisation.organisationId` — the same field `getParticipants`
- * uses — so the provisioner and TMX creation paths resolve identically.
- * `attachPolicies` is idempotent per policy type (it skips a type already
- * present), so a record that somehow already carries the policy is a no-op.
- * Fail-soft: any provider-lookup or attach error is swallowed per-record and
- * never blocks the create.
- */
-export async function attachProviderPolicies({
-  methods,
-  tournamentIds,
-  mutationEngine,
-  providerStorage,
-}: {
-  methods: any[];
-  tournamentIds: string[];
-  mutationEngine: any;
-  providerStorage?: IProviderStorage;
-}): Promise<any[]> {
-  if (!providerStorage) return [];
-  const hasNewTournament = methods.some((m: any) => m?.method === 'newTournamentRecord');
-  if (!hasNewTournament) return [];
-
-  const applied: any[] = [];
-  const tournamentRecords: any = mutationEngine.getState().tournamentRecords ?? {};
-
-  for (const tournamentId of tournamentIds) {
-    const record = tournamentRecords[tournamentId];
-    const providerId = record?.parentOrganisation?.organisationId;
-    if (!providerId) continue;
-
-    let policy: Record<string, any> | undefined;
-    try {
-      const provider: any = await providerStorage.getProvider(providerId);
-      const effective = computeEffectiveConfig(provider?.providerConfigCaps, provider?.providerConfigSettings);
-      policy = effective?.participantPrivacyPolicy;
-    } catch (err: any) {
-      Logger.error(`Privacy policy resolve failed for provider ${providerId}: ${err?.message}`, 'executionQueue');
-      continue;
-    }
-    if (!policy || !Object.keys(policy).length) continue;
-
-    const attachMethod = {
-      method: 'attachPolicies',
-      params: { policyDefinitions: { [POLICY_TYPE_PARTICIPANT]: policy }, tournamentId },
-    };
-    try {
-      const res: any = await mutationEngine.executionQueue([attachMethod], false);
-      if (res?.success) applied.push(attachMethod);
-    } catch (err: any) {
-      Logger.error(`Privacy policy attach failed for ${tournamentId}: ${err?.message}`, 'executionQueue');
-    }
-  }
-
-  return applied;
-}
-
-/** Fire-and-forget: stamp tournament_provisioner table + parentOrganisation extension. */
-function stampProvisionerOrigin({
-  tournamentIds,
-  provisioner,
-  tournamentProvisionerStorage,
-  mutationEngine,
-  storage,
-}: {
-  tournamentIds: string[];
-  provisioner: { provisionerId: string; providerId: string; provisionerName?: string };
-  tournamentProvisionerStorage: ITournamentProvisionerStorage;
-  mutationEngine: any;
-  storage: TournamentStorageService;
-}) {
-  const { provisionerId, providerId } = provisioner;
-
-  // Insert relational mapping rows
-  for (const tid of tournamentIds) {
-    tournamentProvisionerStorage
-      .create({ tournamentId: tid, provisionerId, providerId })
-      .catch((err) => Logger.error(`Provisioner stamp failed for ${tid}: ${err.message}`, 'executionQueue'));
-  }
-
-  // Stamp provisionerOrigin extension on parentOrganisation
-  const mutatedRecords: any = mutationEngine.getState().tournamentRecords;
-  for (const tid of tournamentIds) {
-    const record = mutatedRecords?.[tid];
-    if (!record?.parentOrganisation) continue;
-
-    const extensions = record.parentOrganisation.extensions ?? [];
-    const ext = {
-      name: 'provisionerOrigin',
-      value: { provisionerId, provisionerName: provisioner.provisionerName, createdAt: new Date().toISOString() },
-    };
-    const idx = extensions.findIndex((e: any) => e.name === 'provisionerOrigin');
-    if (idx >= 0) {
-      extensions[idx] = ext;
-    } else {
-      extensions.push(ext);
-    }
-    record.parentOrganisation.extensions = extensions;
-  }
-
-  // Re-save with the extension stamped.
-  //
-  // `'deltas'`, not `'snapshot'`: this is a targeted extension stamp inside the
-  // executionQueue flow, not a wholesale replace, so re-projecting the entire
-  // tournament here would be a large cost for one field. It preserves the
-  // existing behaviour exactly (the facade projects nothing on this path).
-  //
-  // Pre-existing and NOT addressed here: this is fire-and-forget, so it can
-  // resolve after the tournament lock has been released.
-  const resaveRecords: any = mutationEngine.getState().tournamentRecords;
-  storage
-    .saveTournamentRecords({ tournamentRecords: resaveRecords, projectionMode: 'deltas' })
-    .catch((err) => Logger.error(`Provisioner extension re-save failed: ${err.message}`, 'executionQueue'));
 }

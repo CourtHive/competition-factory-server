@@ -15,8 +15,6 @@ export interface ExecutionQueueAck {
   info?: any;
   stack?: any;
   tournamentIds?: string[];
-  /** Methods the server appended and persisted (e.g. a provider's privacy policy); the client replays them. */
-  appliedServerMethods?: any[];
 }
 
 /**
@@ -55,11 +53,6 @@ export const tmxMessages = {
         : {
             ackId,
             success: mutationResult.success,
-            // TMX's server-first path replays these locally so its record matches what was saved.
-            // They were dropped here until 2026-10-08, so the replay branch never ran on this path.
-            ...(mutationResult.appliedServerMethods?.length && {
-              appliedServerMethods: mutationResult.appliedServerMethods,
-            }),
           };
       return { ack, publicNotices };
     } catch (err) {
