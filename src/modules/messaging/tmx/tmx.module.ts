@@ -1,9 +1,11 @@
 import { MutationAuthorizationService } from '../../factory/mutation-authorization.service';
 import { AssignmentsService } from '../../factory/assignments.service';
 import { AdminPresenceController } from './admin-presence.controller';
+import { TournamentChatService } from './tournament-chat.service';
 import { BroadcastModule } from '../broadcast/broadcast.module';
 import { ChatRetentionService } from './chat-retention.service';
 import { RealtimeModule } from '../realtime/realtime.module';
+import { TmxChatController } from './tmx-chat.controller';
 import { UsersModule } from '../../users/users.module';
 import { AuditModule } from '../../audit/audit.module';
 import { TmxGateway } from './tmx.gateway';
@@ -16,7 +18,13 @@ import { Module } from '@nestjs/common';
 // come from StorageModule which is @Global.
 @Module({
   imports: [BroadcastModule, RealtimeModule, UsersModule, AuditModule],
-  controllers: [AdminPresenceController],
-  providers: [TmxGateway, AssignmentsService, MutationAuthorizationService, ChatRetentionService],
+  controllers: [AdminPresenceController, TmxChatController],
+  providers: [
+    TmxGateway,
+    AssignmentsService,
+    MutationAuthorizationService,
+    ChatRetentionService,
+    TournamentChatService,
+  ],
 })
 export class TmxModule {}

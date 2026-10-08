@@ -1,6 +1,7 @@
 import { MutationAuthorizationService } from 'src/modules/factory/mutation-authorization.service';
 import { MutationServicesService } from 'src/modules/mutation-services/mutation-services.service';
 import { SocketIoRealtimeAdapter } from '../realtime/socket-io-realtime.adapter';
+import { TournamentChatService } from './tournament-chat.service';
 import { TOURNAMENT_ROOM_PREFIX } from '../realtime/channels';
 import type { Mock, MockInstance } from 'vitest';
 import { tmxMessages } from './tmxMessages';
@@ -128,6 +129,9 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     pruneOlderThan: vi.fn().mockResolvedValue({ deleted: 0 }),
   };
 
+  // One adapter for the gateway and the chat service, as in production (RealtimeModule binds both
+  // to the same instance).
+  const realtime = new SocketIoRealtimeAdapter();
   const gateway = new TmxGateway(
     cacheManager,
     userProviderStorage,
@@ -159,7 +163,8 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     ),
     usersService,
     auditService,
-    new SocketIoRealtimeAdapter(),
+    realtime,
+    new TournamentChatService(chatStorage, realtime, tournamentStorageService, assignmentsService),
   );
   return { gateway, userStorage, providerStorage, auditService, chatStorage, broadcastService };
 }

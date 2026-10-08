@@ -3,17 +3,19 @@ import { MutationServicesService } from 'src/modules/mutation-services/mutation-
 import { MutationAuthorizationService } from 'src/modules/factory/mutation-authorization.service';
 import { stampVerifiedIdentity } from 'src/modules/messaging/tmx/stampOperatorAttribution';
 import { TournamentBroadcastService } from '../broadcast/tournament-broadcast.service';
-import { canViewTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { buildUserContext } from 'src/modules/account/auth/helpers/buildUserContext';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import { MAX_CHAT_MESSAGE_LENGTH, toAdminFeed, toWireMessage } from './chatWire';
 import { AssignmentsService } from 'src/modules/factory/assignments.service';
 import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/modules/account/auth/guards/socket.guard';
 import { Public } from '../../account/auth/decorators/public.decorator';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
+import { TournamentChatService } from './tournament-chat.service';
 import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { UsersService } from 'src/modules/users/users.service';
+import { userCanViewTournament } from './tournamentVisibility';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { resolveCorsOrigins } from 'src/common/cors';
 import { tools } from 'tods-competition-factory';
@@ -38,7 +40,6 @@ import {
   type IProviderStorage,
   CHAT_STORAGE,
   type IChatStorage,
-  type ChatMessageRecord,
 } from 'src/storage/interfaces';
 import {
   MessageBody,
@@ -50,40 +51,6 @@ import {
   OnGatewayDisconnect,
   OnGatewayInit,
 } from '@nestjs/websockets';
-
-const MAX_CHAT_MESSAGE_LENGTH = 2000;
-
-/** Shape a persisted chat record into the `chatMessage`/`chatHistory` wire
- *  payload clients consume (timestamp in epoch ms, like the legacy relay). */
-function toWireMessage(record: ChatMessageRecord): {
-  seq: number;
-  userName: string;
-  message: string;
-  timestamp: number;
-  clientMsgId?: string;
-  isAdmin: boolean;
-} {
-  return {
-    seq: record.seq,
-    userName: record.userName,
-    message: record.message,
-    timestamp: Date.parse(record.createdAt),
-    clientMsgId: record.clientMsgId,
-    isAdmin: record.isAdmin,
-  };
-}
-
-/** Wire shape for the super-admin monitor — adds the provider/tournament
- *  identity used to render the grouping pills. */
-function toAdminFeed(record: ChatMessageRecord): Record<string, any> {
-  return {
-    ...toWireMessage(record),
-    tournamentId: record.tournamentId,
-    providerId: record.providerId,
-    providerAbbr: record.providerAbbr,
-    tournamentName: record.tournamentName,
-  };
-}
 
 export interface RoomMember {
   socketId: string;
@@ -123,6 +90,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     private readonly usersService: UsersService,
     private readonly auditService: AuditService,
     private readonly realtime: SocketIoRealtimeAdapter,
+    private readonly tournamentChat: TournamentChatService,
   ) {}
 
   private readonly logger = new Logger(TmxGateway.name);
@@ -190,18 +158,16 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     }
 
     // Visibility check: can this user see this tournament?
-    const userContext = await this.resolveUserContext(client);
-    if (userContext) {
-      const result: any = await this.tournamentStorageService.fetchTournamentRecords({ tournamentId });
-      const tournament = result?.tournamentRecords?.[tournamentId];
-      if (tournament) {
-        const assignedIds = await this.assignmentsService.getAssignedTournamentIds(userContext.userId);
-        if (!canViewTournament(tournament, userContext, assignedIds)) {
-          this.logger.warn(`[room] joinTournament denied for ${client.id} — user cannot view ${tournamentId}`);
-          client.emit('exception', { message: 'Not authorized to view this tournament' });
-          return;
-        }
-      }
+    const canView = await userCanViewTournament({
+      tournamentId,
+      userContext: await this.resolveUserContext(client),
+      storage: this.tournamentStorageService,
+      assignments: this.assignmentsService,
+    });
+    if (!canView) {
+      this.logger.warn(`[room] joinTournament denied for ${client.id} — user cannot view ${tournamentId}`);
+      client.emit('exception', { message: 'Not authorized to view this tournament' });
+      return;
     }
 
     const { room } = tournamentChannel(tournamentId);
@@ -352,39 +318,15 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   @SubscribeMessage('chatMessage')
   @Roles([CLIENT, SUPER_ADMIN])
   async chatMessage(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
-    const tournamentId = data?.tournamentId;
-    const message = typeof data?.message === 'string' ? data.message.slice(0, MAX_CHAT_MESSAGE_LENGTH) : '';
-    if (!tournamentId || !message.trim()) return;
-
-    // Persist first — the assigned seq is the authoritative ordering key that
-    // makes backfill + gap-detection work. Only relay what was durably stored.
-    const { record, error } = await this.chatStorage.appendMessage({
-      tournamentId,
-      providerId: data.providerId,
-      providerAbbr: data.providerAbbr,
-      tournamentName: data.tournamentName,
-      userName: data.userName,
-      message,
-      clientMsgId: data.clientMsgId,
+    // Shared with POST /tmx/chat (TournamentChatService). The relay excludes this connection; the
+    // sender reconciles its optimistic copy from the ack below.
+    const result = await this.tournamentChat.send(data, {
+      userContext: await this.resolveUserContext(client),
+      verifiedUser: client.data?.user,
+      excludeConnectionId: client.id,
     });
-    if (error || !record) {
-      this.logger.warn(`[chat] persist failed for ${tournamentId}: ${error}`);
-      client.emit('chatRejected', { clientMsgId: data.clientMsgId, error: error ?? 'persist failed' });
-      return;
-    }
-
-    const wire = toWireMessage(record);
-
-    // Relay to other clients in the room (sender excluded — it reconciles its
-    // optimistic copy via the ack below, avoiding a duplicate render).
-    this.realtime.publish(tournamentChannel(tournamentId), 'chatMessage', wire, { excludeConnectionId: client.id });
-
-    // Ack the sender with the authoritative seq so its optimistic message is
-    // confirmed and de-duplicated against any later history / gap fetch.
-    client.emit('chatAccepted', { clientMsgId: record.clientMsgId, seq: record.seq, timestamp: wire.timestamp });
-
-    // Mirror to the super-admin monitor room (live cross-tournament feed).
-    this.realtime.publish(adminChatMonitorChannel(), 'adminChatFeed', toAdminFeed(record));
+    if ('accepted' in result) client.emit('chatAccepted', result.accepted);
+    if ('rejected' in result) client.emit('chatRejected', result.rejected);
   }
 
   /**
