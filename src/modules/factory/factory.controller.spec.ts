@@ -1,21 +1,21 @@
 import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
-import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
-import { MutationAuthorizationService } from './mutation-authorization.service';
-import { GrantsService } from './grants.service';
-import { AssignmentsService } from './assignments.service';
-import { FactoryController } from './factory.controller';
-import { SnapshotProjectionService } from './projection/snapshot-projection.service';
 import { MutationServicesModule } from '../mutation-services/mutation-services.module';
+import { SnapshotProjectionService } from './projection/snapshot-projection.service';
+import { MutationAuthorizationService } from './mutation-authorization.service';
+import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
 import { TelemetryModule } from '../telemetry/telemetry.module';
+import { testTournamentId } from 'src/common/constants/test';
+import { AssignmentsService } from './assignments.service';
 import { StorageModule } from 'src/storage/storage.module';
-import { AuditModule } from '../audit/audit.module';
-import { Test, TestingModule } from '@nestjs/testing';
+import { FactoryController } from './factory.controller';
 import { ConfigsModule } from 'src/config/config.module';
+import { AuthModule } from '../account/auth/auth.module';
+import { Test, TestingModule } from '@nestjs/testing';
+import { AuditModule } from '../audit/audit.module';
 import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
 import { FactoryService } from './factory.service';
-import { AuthModule } from '../account/auth/auth.module';
-import { testTournamentId } from 'src/common/constants/test';
+import { GrantsService } from './grants.service';
 import type { Mock } from 'vitest';
 
 const tournamentId = testTournamentId(__filename);
@@ -207,7 +207,10 @@ describe('FactoryController', () => {
 
       // The stamped payload, not the raw body: the same object the socket path broadcasts.
       const broadcast = expect.objectContaining({ ...eqd, userId: null });
-      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(broadcast);
+      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(broadcast, {
+        serverUpdatedAt: undefined,
+        previousServerUpdatedAt: undefined,
+      });
       expect(mockBroadcast.broadcastPublicNotices).toHaveBeenCalledWith(broadcast, publicNotices);
     });
 
@@ -299,7 +302,32 @@ describe('FactoryController', () => {
       const eqd = { tournamentIds: ['t1'], methods: [{ method: 'm', params: {} }], originClientId: 'tab-1' };
       await mockController.executionQueue(eqd as any, { headers: {}, auditSource: undefined });
 
-      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(expect.objectContaining({ originClientId: 'tab-1' }));
+      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(
+        expect.objectContaining({ originClientId: 'tab-1' }),
+        expect.anything(),
+      );
+    });
+
+    // P49: a client that applies the broadcast is current up to the write; one that misses it learns so
+    // from the staleness probe, which reports the same value.
+    it('broadcasts when the rows were written', async () => {
+      const serverUpdatedAt = { t1: '2026-10-08T19:30:00.123Z' };
+      const previousServerUpdatedAt = { t1: '2026-10-08T19:29:00.000Z' };
+      const mockService = {
+        executionQueue: vi
+          .fn()
+          .mockResolvedValue({ success: true, publicNotices: [], serverUpdatedAt, previousServerUpdatedAt }),
+      } as unknown as FactoryService;
+      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+
+      const eqd = { tournamentIds: ['t1'], methods: [{ method: 'm', params: {} }] };
+      const result: any = await mockController.executionQueue(eqd as any, { headers: {}, auditSource: undefined });
+
+      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(expect.anything(), {
+        serverUpdatedAt,
+        previousServerUpdatedAt,
+      });
+      expect(result.serverUpdatedAt).toEqual(serverUpdatedAt); // the sender's own sync point
     });
 
     it('does not broadcast after failed executionQueue', async () => {
@@ -329,7 +357,10 @@ describe('FactoryController', () => {
       const sms = { tournamentId: 't1', matchUpId: 'm1', drawId: 'd1' };
       await mockController.scoreMatchUp(sms as any, {} as any);
 
-      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(expect.objectContaining({ tournamentIds: ['t1'] }));
+      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(
+        expect.objectContaining({ tournamentIds: ['t1'] }),
+        expect.anything(),
+      );
       expect(mockBroadcast.broadcastPublicNotices).toHaveBeenCalled();
     });
 

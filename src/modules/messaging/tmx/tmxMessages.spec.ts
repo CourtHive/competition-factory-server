@@ -16,6 +16,19 @@ describe('tmxMessages.executionQueue', () => {
     expect(result).toEqual({ ack: { ackId: 'a1', success: true }, publicNotices: [{ topic: 't' }] });
   });
 
+  // P49: the sender's own sync point — when its mutation's rows were written.
+  it('carries serverUpdatedAt on a successful ack', async () => {
+    const serverUpdatedAt = { t1: '2026-10-08T19:30:00.123Z' };
+    const previousServerUpdatedAt = { t1: '2026-10-08T19:29:00.000Z' };
+    vi.spyOn(executionQueueModule, 'executionQueue').mockResolvedValue({
+      success: true,
+      serverUpdatedAt,
+      previousServerUpdatedAt,
+    });
+    const { ack } = await run({ ackId: 'a1' });
+    expect(ack).toEqual({ ackId: 'a1', success: true, serverUpdatedAt, previousServerUpdatedAt });
+  });
+
   it('returns the error detail on a failed mutation', async () => {
     vi.spyOn(executionQueueModule, 'executionQueue').mockResolvedValue({
       error: { message: 'nope' },

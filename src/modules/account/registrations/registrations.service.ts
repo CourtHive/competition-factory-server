@@ -13,20 +13,21 @@
  * `Person.personOtherIds[]`, then marks the declaration ACCEPTED. The pending list
  * + reject/waitlist go TMX ↔ declarations directly.
  */
-import { BadRequestException, ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, Optional, UnauthorizedException } from '@nestjs/common';
 import { sanctioningEngine, tools, tournamentEngine } from 'tods-competition-factory';
 
-import { type RegistrationEntry } from 'src/storage/interfaces';
-import { TournamentStorageService } from 'src/storage/tournament-storage.service';
-import { AssignmentsService } from '../../factory/assignments.service';
-import { AuditService } from '../../audit/audit.service';
-import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
-import { canMutateTournament } from '../../factory/helpers/checkTournamentAccess';
-import { executionQueue as runExecutionQueue } from '../../factory/functions/private/executionQueue';
 import { SanctioningClient, SanctioningRecordSnapshot } from '../sanctioning/sanctioning-client.service';
 import { DeclarationsClient, RegistrationSnapshot } from '../declarations/declarations-client.service';
-import { PersonsClient } from '../persons/persons-client.service';
+import { executionQueue as runExecutionQueue } from '../../factory/functions/private/executionQueue';
+import { TournamentBroadcastService } from '../../messaging/broadcast/tournament-broadcast.service';
+import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import { canMutateTournament } from '../../factory/helpers/checkTournamentAccess';
 import type { UserContext } from '../auth/decorators/user-context.decorator';
+import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
+import { AssignmentsService } from '../../factory/assignments.service';
+import { PersonsClient } from '../persons/persons-client.service';
+import { type RegistrationEntry } from 'src/storage/interfaces';
+import { AuditService } from '../../audit/audit.service';
 
 // Declaration statuses (courthive-declarations) a registration may be accepted
 // from. Kept as literals CFS-side; the declarations service owns the vocabulary.
@@ -158,6 +159,8 @@ export class RegistrationsService {
     private readonly declarationsClient: DeclarationsClient,
     private readonly personsClient: PersonsClient,
     private readonly sanctioningClient: SanctioningClient,
+    // Optional so the existing specs, which build the service without it, still construct it.
+    @Optional() private readonly broadcastService?: TournamentBroadcastService,
   ) {}
 
   // -------------------------------------------------------------------
@@ -419,7 +422,19 @@ export class RegistrationsService {
       this.tournamentStorageService,
       this.auditService,
     );
-    return result?.success ? { success: true } : { success: false, error: result?.error ?? 'addParticipants failed' };
+    if (!result?.success) return { success: false, error: result?.error ?? 'addParticipants failed' };
+
+    // Every TMX tab with the tournament open applies the accept, as it applies any other mutation. It
+    // used to be told nothing: its copy lacked the new participants and entries until a reload, and once
+    // the staleness probe could see the server's write time (P49) it would have blocked the accepting
+    // director's next edit.
+    const broadcast = { tournamentIds: [ctx.tournamentId], methods, userId: ctx.userContext.userId };
+    this.broadcastService?.broadcastMutation(broadcast, {
+      serverUpdatedAt: result.serverUpdatedAt,
+      previousServerUpdatedAt: result.previousServerUpdatedAt,
+    });
+    this.broadcastService?.broadcastPublicNotices(broadcast, result.publicNotices);
+    return { success: true };
   }
 
   // -------------------------------------------------------------------

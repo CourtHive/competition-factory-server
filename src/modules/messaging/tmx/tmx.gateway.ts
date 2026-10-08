@@ -296,7 +296,11 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
         } else {
           this.logger.debug(`${type} message successful: ${userId}: ${methods}`);
           // Broadcast approved mutations to other TMX clients viewing the same tournament(s)
-          this.broadcastService.broadcastMutation(payload, { excludeConnectionId: client.id });
+          this.broadcastService.broadcastMutation(payload, {
+            excludeConnectionId: client.id,
+            serverUpdatedAt: result.serverUpdatedAt,
+            previousServerUpdatedAt: result.previousServerUpdatedAt,
+          });
           // Broadcast sanitized updates to public viewers
           this.broadcastService.broadcastPublicNotices(payload, publicNotices);
         }

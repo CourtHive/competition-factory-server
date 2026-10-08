@@ -88,6 +88,35 @@ describe('executionQueue', () => {
     expect(saveTournamentRecords).not.toHaveBeenCalled();
   });
 
+  // P49: the ack carries when the rows were written by this mutation, and when they had been written
+  // before it (read inside the lock). A client advances its sync point only from the one to the other.
+  it('reports the row write times before and after the mutation', async () => {
+    await removeTournamentRecords({ tournamentId });
+    const gen: any = await generateTournamentRecord({ tournamentAttributes: { tournamentId } }, testUser);
+    expect(gen.success).toEqual(true);
+
+    const storage = {
+      ...mockStorage,
+      fetchTournamentRecords: async (params) => ({
+        ...(await fileStorage.fetchTournamentRecords(params)),
+        serverUpdatedAt: { [tournamentId]: '2026-10-08T19:29:00.000Z' },
+      }),
+      saveTournamentRecords: async (params) => ({
+        ...(await fileStorage.saveTournamentRecords(params)),
+        serverUpdatedAt: { [tournamentId]: '2026-10-08T19:30:00.000Z' },
+      }),
+    } as unknown as TournamentStorageService;
+
+    const result: any = await executionQueue(
+      { methods: [{ method: 'setTournamentName', params: { tournamentName: 'P49' } }], tournamentIds: [tournamentId] },
+      undefined,
+      storage,
+    );
+    expect(result.success).toEqual(true);
+    expect(result.previousServerUpdatedAt).toEqual({ [tournamentId]: '2026-10-08T19:29:00.000Z' });
+    expect(result.serverUpdatedAt).toEqual({ [tournamentId]: '2026-10-08T19:30:00.000Z' });
+  });
+
   it('records the factory error CODE (not "[object Object]") on a rejected mutation', async () => {
     await removeTournamentRecords({ tournamentId });
     const gen: any = await generateTournamentRecord(

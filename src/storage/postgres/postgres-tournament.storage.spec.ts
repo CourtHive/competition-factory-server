@@ -139,3 +139,50 @@ describe('PostgresTournamentStorage — owner_epoch fencing', () => {
     expect(result.bytes['t-2']).toBe(JSON.stringify(records['t-2']).length);
   });
 });
+
+// P49: staleness must compare when the ROW was written (`tournaments.updated_at`, NOW() on every save),
+// not `data.updatedAt`, which almost no record carries. Reported as `serverUpdatedAt`, a new field.
+describe('PostgresTournamentStorage — serverUpdatedAt', () => {
+  const writtenAt = new Date('2026-10-08T19:30:00.123Z');
+  let pool: ReturnType<typeof makeMockPool>;
+  let storage: PostgresTournamentStorage;
+
+  beforeEach(() => {
+    pool = makeMockPool();
+    storage = new PostgresTournamentStorage(pool as any);
+  });
+
+  it('a save returns when its row was written', async () => {
+    pool.query.mockResolvedValue({ rowCount: 1, rows: [{ updated_at: writtenAt }] });
+    const result: any = await storage.saveTournamentRecord({ tournamentRecord: record() });
+
+    expect(pool.query.mock.calls[0][0]).toContain('RETURNING updated_at');
+    expect(result.serverUpdatedAt).toBe('2026-10-08T19:30:00.123Z');
+  });
+
+  it('a batch returns it per tournament', async () => {
+    pool.query.mockResolvedValue({ rowCount: 1, rows: [{ updated_at: writtenAt }] });
+    const result: any = await storage.saveTournamentRecords({
+      tournamentRecords: { 't-1': record({ tournamentId: 't-1' }), 't-2': record({ tournamentId: 't-2' }) },
+    });
+    expect(result.serverUpdatedAt).toEqual({ 't-1': writtenAt.toISOString(), 't-2': writtenAt.toISOString() });
+  });
+
+  it('a fetch returns it beside each record', async () => {
+    pool.query.mockResolvedValue({ rows: [{ tournament_id: 't-1', data: record(), updated_at: writtenAt }] });
+    const result: any = await storage.fetchTournamentRecords({ tournamentId: 't-1' });
+    expect(result.serverUpdatedAt).toEqual({ 't-1': writtenAt.toISOString() });
+  });
+
+  it('the probe reports the row time as serverUpdatedAt and leaves updatedAt as the record field', async () => {
+    pool.query.mockResolvedValue({
+      rows: [{ tournament_id: 't-1', updated_at: null, row_updated_at: writtenAt, provider_id: 'p', extensions: [] }],
+    });
+    const result: any = await storage.fetchTournamentUpdatedAt({ tournamentId: 't-1' });
+
+    expect(pool.query.mock.calls[0][0]).toContain('updated_at AS row_updated_at');
+    expect(result.serverUpdatedAt).toBe(writtenAt.toISOString());
+    // Unchanged for clients deployed before serverUpdatedAt: a real value here reads as permanently stale to them.
+    expect(result.updatedAt).toBeNull();
+  });
+});

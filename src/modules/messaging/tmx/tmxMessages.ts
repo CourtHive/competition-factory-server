@@ -15,6 +15,10 @@ export interface ExecutionQueueAck {
   info?: any;
   stack?: any;
   tournamentIds?: string[];
+  /** Per tournament, when the mutated row was written (`tournaments.updated_at`). */
+  serverUpdatedAt?: Record<string, string>;
+  /** Per tournament, when it had been written before this mutation. */
+  previousServerUpdatedAt?: Record<string, string>;
 }
 
 /**
@@ -53,6 +57,11 @@ export const tmxMessages = {
         : {
             ackId,
             success: mutationResult.success,
+            // When the rows were written — the sender's sync point (P49).
+            ...(mutationResult.serverUpdatedAt && {
+              serverUpdatedAt: mutationResult.serverUpdatedAt,
+              previousServerUpdatedAt: mutationResult.previousServerUpdatedAt,
+            }),
           };
       return { ack, publicNotices };
     } catch (err) {
