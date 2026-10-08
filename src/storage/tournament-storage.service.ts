@@ -1,19 +1,19 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
+import { PROJECTION_OUTBOX_STORAGE, type IProjectionOutboxStorage } from './interfaces/projection-outbox-storage.interface';
+import { PARTICIPATION_STORAGE, type IParticipationStorage } from './interfaces/participation-storage.interface';
+import { CREATED_BY_USER_ID, canDeleteTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { TOURNAMENT_STORAGE, type ITournamentStorage } from './interfaces/tournament-storage.interface';
 import { PROVIDER_STORAGE, type IProviderStorage } from './interfaces/provider-storage.interface';
 import { CALENDAR_STORAGE, type ICalendarStorage } from './interfaces/calendar-storage.interface';
-import { PARTICIPATION_STORAGE, type IParticipationStorage } from './interfaces/participation-storage.interface';
-import { PROJECTION_OUTBOX_STORAGE, type IProjectionOutboxStorage } from './interfaces/projection-outbox-storage.interface';
-import { CREATED_BY_USER_ID, canDeleteTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
-import { getCalendarEntry } from 'src/helpers/getCalendarEntry';
 import { toRow } from 'src/storage/postgres/calendarTournamentRow';
+import { getCalendarEntry } from 'src/helpers/getCalendarEntry';
 import { participantGovernor } from 'tods-competition-factory';
 import { isCalendarListed } from 'src/helpers/calendarListing';
-import { SUCCESS } from 'src/common/constants/app';
 import { isTestTournamentId } from 'src/common/constants/test';
+import { SUCCESS } from 'src/common/constants/app';
 
 /**
  * Facade over ITournamentStorage that adds domain side-effects:
@@ -125,6 +125,8 @@ export class TournamentStorageService {
     // (Stage 0). Measured by the storage layer during the write it was already
     // performing — never re-computed here.
     const bytes: Record<string, number> = {};
+    // When each row was written — what a client compares to know it is current (P49).
+    const serverUpdatedAt: Record<string, string> = {};
 
     for (const tournamentId of Object.keys(tournamentRecords)) {
       const result: any = await this.saveTournamentRecord({
@@ -134,9 +136,10 @@ export class TournamentStorageService {
       });
       if (result.error) return result;
       bytes[tournamentId] = result.bytes ?? 0;
+      if (result.serverUpdatedAt) serverUpdatedAt[tournamentId] = result.serverUpdatedAt;
     }
 
-    return { ...SUCCESS, bytes };
+    return { ...SUCCESS, bytes, serverUpdatedAt };
   }
 
   async removeTournamentRecords(

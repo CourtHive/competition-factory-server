@@ -43,7 +43,15 @@ export class TournamentBroadcastService {
    * @param options  `excludeConnectionId`: the originating connection, which already has its ack.
    *                 Absent on the REST path, where every client in the room is notified.
    */
-  async broadcastMutation(payload: any, options?: { excludeConnectionId?: string }): Promise<void> {
+  /**
+   * `serverUpdatedAt` is when the mutated rows were written. A client that applies the broadcast is
+   * current up to it, and one that misses the broadcast learns it is behind from the staleness probe,
+   * which reports the same value (P49).
+   */
+  async broadcastMutation(
+    payload: any,
+    options?: { excludeConnectionId?: string; serverUpdatedAt?: Record<string, string> },
+  ): Promise<void> {
     const tournamentIds: string[] = payload?.tournamentIds || (payload?.tournamentId ? [payload.tournamentId] : []);
     const methods = payload?.methods;
     if (!methods?.length || !tournamentIds.length) {
@@ -59,6 +67,7 @@ export class TournamentBroadcastService {
       userId: payload?.userId,
       timestamp: payload?.timestamp,
       ...(payload?.originClientId && { originClientId: payload.originClientId }),
+      ...(options?.serverUpdatedAt && { serverUpdatedAt: options.serverUpdatedAt }),
     };
 
     const excludeConnectionId = options?.excludeConnectionId;

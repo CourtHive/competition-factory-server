@@ -104,6 +104,9 @@ export async function executionQueue(
           const mutationEngine = getMutationEngine();
           mutationEngine.setState(result.tournamentRecords);
           const innerResult = await mutationEngine.executionQueue(methods, rollbackOnError);
+          // When the saved rows were written: the ack and the broadcast carry it, so every client that
+          // applies this mutation knows it is current up to here (P49).
+          let serverUpdatedAt: Record<string, string> | undefined;
 
           if (innerResult.success) {
             const mutatedTournamentRecords: any = mutationEngine.getState().tournamentRecords;
@@ -146,6 +149,7 @@ export async function executionQueue(
               elapsedMs: Date.now() - startedAt,
               bytes: updateResult.bytes ?? {},
             });
+            serverUpdatedAt = updateResult.serverUpdatedAt;
           }
 
           // Now that save is complete, flush deferred cache deletions
@@ -201,7 +205,7 @@ export async function executionQueue(
             }
           }
 
-          return innerResult;
+          return serverUpdatedAt ? { ...innerResult, serverUpdatedAt } : innerResult;
         }),
       ),
     );

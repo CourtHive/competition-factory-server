@@ -1,10 +1,21 @@
-import { FENCED_BY_NEWER_OWNER, SUCCESS } from 'src/common/constants/app';
 import { ITournamentStorage } from '../interfaces/tournament-storage.interface';
+import { FENCED_BY_NEWER_OWNER, SUCCESS } from 'src/common/constants/app';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { factoryConstants } from 'tods-competition-factory';
 import { PG_POOL } from './postgres.config';
 import { Pool } from 'pg';
+
+/**
+ * `tournaments.updated_at` as the ISO string clients compare: `NOW()` at every save, so it moves on every
+ * write whatever path made it. Reported as `serverUpdatedAt`, never as `updatedAt` — that name already
+ * carries the record's own `data.updatedAt`, which almost no record has (P49), and clients deployed before
+ * this field existed compare it against a local value that is absent: a real value there would read as
+ * permanently stale to them.
+ */
+function toIso(value: unknown): string {
+  return value instanceof Date ? value.toISOString() : String(value);
+}
 
 @Injectable()
 export class PostgresTournamentStorage implements ITournamentStorage {
@@ -40,13 +51,15 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     }
 
     const result = await this.pool.query(
-      'SELECT tournament_id, data FROM tournaments WHERE tournament_id = ANY($1)',
+      'SELECT tournament_id, data, updated_at FROM tournaments WHERE tournament_id = ANY($1)',
       [tournamentIds],
     );
 
     const tournamentRecords: Record<string, any> = {};
+    const serverUpdatedAt: Record<string, string> = {};
     for (const row of result.rows) {
       tournamentRecords[row.tournament_id] = row.data;
+      serverUpdatedAt[row.tournament_id] = toIso(row.updated_at);
     }
 
     const fetched = result.rows.length;
@@ -54,7 +67,7 @@ export class PostgresTournamentStorage implements ITournamentStorage {
 
     if (!fetched) return { error: factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD };
 
-    return { ...SUCCESS, tournamentRecords, fetched, notFound };
+    return { ...SUCCESS, tournamentRecords, serverUpdatedAt, fetched, notFound };
   }
 
   async fetchTournamentUpdatedAt({ tournamentId }: { tournamentId?: string }) {
@@ -67,6 +80,7 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     const result = await this.pool.query(
       `SELECT tournament_id,
               data->>'updatedAt' AS updated_at,
+              updated_at AS row_updated_at,
               data->'parentOrganisation'->>'organisationId' AS provider_id,
               data->'extensions' AS extensions
          FROM tournaments
@@ -83,6 +97,7 @@ export class PostgresTournamentStorage implements ITournamentStorage {
       ...SUCCESS,
       tournamentId: row.tournament_id,
       updatedAt: row.updated_at,
+      serverUpdatedAt: toIso(row.row_updated_at),
       providerId: row.provider_id,
       extensions: row.extensions ?? [],
     };
@@ -126,14 +141,16 @@ export class PostgresTournamentStorage implements ITournamentStorage {
          data = EXCLUDED.data,
          owner_epoch = EXCLUDED.owner_epoch,
          updated_at = NOW()
-       WHERE tournaments.owner_epoch <= EXCLUDED.owner_epoch`,
+       WHERE tournaments.owner_epoch <= EXCLUDED.owner_epoch
+       RETURNING updated_at`,
       [key, providerId, tournamentName, startDate, endDate, serialized, ownerEpoch],
     );
 
     if (!result.rowCount) return this.recordFenceRejection(key, ownerEpoch);
 
     this.recordFenceRecovery(key);
-    return { ...SUCCESS, bytes: serialized.length };
+    const writtenAt = result.rows?.[0]?.updated_at;
+    return { ...SUCCESS, bytes: serialized.length, ...(writtenAt && { serverUpdatedAt: toIso(writtenAt) }) };
   }
 
   /**
@@ -172,6 +189,7 @@ export class PostgresTournamentStorage implements ITournamentStorage {
   }) {
     const tournamentRecords = getTournamentRecords(params);
     const bytes: Record<string, number> = {};
+    const serverUpdatedAt: Record<string, string> = {};
 
     for (const tournamentId of Object.keys(tournamentRecords)) {
       const result: any = await this.saveTournamentRecord({
@@ -180,9 +198,10 @@ export class PostgresTournamentStorage implements ITournamentStorage {
       });
       if (result.error) return result;
       bytes[tournamentId] = result.bytes ?? 0;
+      if (result.serverUpdatedAt) serverUpdatedAt[tournamentId] = result.serverUpdatedAt;
     }
 
-    return { ...SUCCESS, bytes };
+    return { ...SUCCESS, bytes, serverUpdatedAt };
   }
 
   async removeTournamentRecords(params: { tournamentIds?: string[]; tournamentId?: string }) {

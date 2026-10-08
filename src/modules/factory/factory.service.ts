@@ -292,6 +292,8 @@ export class FactoryService {
       for (const tid of Object.keys(result.tournamentRecords)) {
         if (!canViewTournament(result.tournamentRecords[tid], userContext, assignedIds)) {
           delete result.tournamentRecords[tid];
+          // Its write time is as private as the record: a gated tournament leaks neither.
+          if (result.serverUpdatedAt) delete result.serverUpdatedAt[tid];
         }
       }
     }
@@ -344,7 +346,14 @@ export class FactoryService {
       }
     }
 
-    return { success: true, tournamentId, updatedAt: result.updatedAt };
+    // `updatedAt` stays the record's own field for clients deployed before `serverUpdatedAt` existed:
+    // a real value there would read as permanently stale to them (P49).
+    return {
+      success: true,
+      tournamentId,
+      updatedAt: result.updatedAt,
+      ...(result.serverUpdatedAt && { serverUpdatedAt: result.serverUpdatedAt }),
+    };
   }
 
   async generateTournamentRecord(

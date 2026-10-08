@@ -8,7 +8,15 @@ export interface ITournamentStorage {
   fetchTournamentRecords(params: {
     tournamentIds?: string[];
     tournamentId?: string;
-  }): Promise<{ success?: boolean; tournamentRecords?: Record<string, any>; fetched?: number; notFound?: number; error?: any }>;
+  }): Promise<{
+    success?: boolean;
+    tournamentRecords?: Record<string, any>;
+    /** Per tournament, when its row was last written (`tournaments.updated_at`). See P49. */
+    serverUpdatedAt?: Record<string, string>;
+    fetched?: number;
+    notFound?: number;
+    error?: any;
+  }>;
 
   /**
    * Lightweight staleness probe — returns only a tournament's `updatedAt`
@@ -21,7 +29,10 @@ export interface ITournamentStorage {
   }): Promise<{
     success?: boolean;
     tournamentId?: string;
+    /** The record's own `data.updatedAt` — almost always absent. Kept for clients that still read it. */
     updatedAt?: string;
+    /** When the row was last written (`tournaments.updated_at`): what staleness should compare. */
+    serverUpdatedAt?: string;
     providerId?: string;
     extensions?: any[];
     error?: any;
@@ -36,13 +47,13 @@ export interface ITournamentStorage {
   saveTournamentRecord(params: {
     tournamentRecord: any;
     ownerEpoch?: number;
-  }): Promise<{ success?: boolean; error?: string; fenced?: boolean }>;
+  }): Promise<{ success?: boolean; error?: string; fenced?: boolean; serverUpdatedAt?: string }>;
 
   saveTournamentRecords(params: {
     tournamentRecords?: Record<string, any>;
     tournamentRecord?: any;
     ownerEpoch?: number;
-  }): Promise<{ success?: boolean; error?: string; fenced?: boolean }>;
+  }): Promise<{ success?: boolean; error?: string; fenced?: boolean; serverUpdatedAt?: Record<string, string> }>;
 
   removeTournamentRecords(params: {
     tournamentIds?: string[];
