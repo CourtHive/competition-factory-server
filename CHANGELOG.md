@@ -1,5 +1,35 @@
 # Changelog
 
+## [3.2.0](https://github.com/CourtHive/competition-factory-server/compare/v3.1.0...v3.2.0) (2026-10-08)
+
+
+### Features
+
+* **auth:** a user with several providers chooses one at login, and the session acts for it ([#1012](https://github.com/CourtHive/competition-factory-server/issues/1012)) ([95d157a](https://github.com/CourtHive/competition-factory-server/commit/95d157a71a23f1d6b0c1a99a235ef9c0ac4833d6))
+* **factory:** a session touches only its provider's tournaments, and none without a provider ([#1013](https://github.com/CourtHive/competition-factory-server/issues/1013)) ([ce4b07f](https://github.com/CourtHive/competition-factory-server/commit/ce4b07f06afe40a3301ac10df1a7070a4142e552))
+* **messaging:** POST /tmx/chat; one chat send for both transports ([#1023](https://github.com/CourtHive/competition-factory-server/issues/1023)) ([30ff527](https://github.com/CourtHive/competition-factory-server/commit/30ff5279097815d367e52aee549c5496dd178397))
+
+
+### Bug Fixes
+
+* **auth:** provider roles come from user_providers rows only; retire the legacy shim ([#1015](https://github.com/CourtHive/competition-factory-server/issues/1015)) ([45fd79e](https://github.com/CourtHive/competition-factory-server/commit/45fd79e7541db94601257d4ac007dd4df3cec2cd))
+* **auth:** stop reading and writing users.provider_id; providers are association rows ([#1016](https://github.com/CourtHive/competition-factory-server/issues/1016)) ([1690600](https://github.com/CourtHive/competition-factory-server/commit/1690600a571e372578ca0f8d7fa981a897ec7974))
+* **deps:** update tods-competition-factory to 7.2.0 ([8283226](https://github.com/CourtHive/competition-factory-server/commit/8283226acbe30ca8e50e9dcc7f5f0e7331f9c976))
+* **deps:** update tods-competition-factory to 7.3.1 ([b6e0462](https://github.com/CourtHive/competition-factory-server/commit/b6e046289670757b74f80b2668d5226bf4f4cda9))
+* **deps:** update tods-competition-factory to 7.4.0 ([d16b9a4](https://github.com/CourtHive/competition-factory-server/commit/d16b9a49d0aceb7dd269a45f19e08e1f686cdfe7))
+* **deps:** update tods-competition-factory to 7.6.0 ([3c10348](https://github.com/CourtHive/competition-factory-server/commit/3c10348cbcb955b6b5a362695a11c70c1f26692e))
+* **deps:** update tods-competition-factory to 7.7.0 ([ebd174e](https://github.com/CourtHive/competition-factory-server/commit/ebd174ed0c19d96786143af0eeed87c6a6f040a1))
+* **deps:** update tods-competition-factory to 7.8.0 ([#1020](https://github.com/CourtHive/competition-factory-server/issues/1020)) ([4ac16bd](https://github.com/CourtHive/competition-factory-server/commit/4ac16bd25c583ed06555a0d949e9ef1d28156177))
+* **factory:** POST /factory stamps identity like the socket path ([#1022](https://github.com/CourtHive/competition-factory-server/issues/1022)) ([7236958](https://github.com/CourtHive/competition-factory-server/commit/72369581f420b99492bf49ec098a3f99c646c314))
+* **factory:** report when a tournament's row was written, as serverUpdatedAt (P49) ([#1024](https://github.com/CourtHive/competition-factory-server/issues/1024)) ([82b8a08](https://github.com/CourtHive/competition-factory-server/commit/82b8a08dad22ffee75bb576a542537c26268197a))
+* **factory:** what a session stamps and attributes is its provider, never the legacy home column ([#1014](https://github.com/CourtHive/competition-factory-server/issues/1014)) ([6720f2d](https://github.com/CourtHive/competition-factory-server/commit/6720f2d8501cc926031b3d24437ef381a253001f))
+* **messaging:** put socket.io behind a realtime port; hiveid joins its person room on connect ([#1019](https://github.com/CourtHive/competition-factory-server/issues/1019)) ([8c8e0c7](https://github.com/CourtHive/competition-factory-server/commit/8c8e0c7d7fc39b7475d5cfa04fe4dc04a9b68ce6))
+
+
+### Documentation
+
+* **caching:** drop the vendor platform name from ResponseCaching ([#997](https://github.com/CourtHive/competition-factory-server/issues/997)) ([af8bd5f](https://github.com/CourtHive/competition-factory-server/commit/af8bd5f9aa2a02cf59d91dc380352841979cd4e4))
+
 ## [3.1.0](https://github.com/CourtHive/competition-factory-server/compare/v3.0.0...v3.1.0) (2026-09-24)
 
 
