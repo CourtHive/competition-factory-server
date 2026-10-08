@@ -319,6 +319,34 @@ describe('RegistrationsService', () => {
         ).rejects.toThrow(/not found/);
       });
 
+      // An accept is a mutation like any other: every TMX tab with the tournament open applies it, and
+      // carries the row write times forward (P49). It used to be broadcast to nobody.
+      it('broadcasts the accepted participant and entries, with the write times', async () => {
+        declarationsClient.getRegistration.mockResolvedValue(
+          declarationsReg({ payload: { eventIds: ['e-2'], applicant: { givenName: 'Jane', familyName: 'Doe' } } }),
+        );
+        const serverUpdatedAt = { 't-1': '2026-10-08T19:30:00.000Z' };
+        const previousServerUpdatedAt = { 't-1': '2026-10-08T19:29:00.000Z' };
+        mockExecutionQueue.mockResolvedValueOnce({ success: true, serverUpdatedAt, previousServerUpdatedAt });
+        const broadcastService: any = { broadcastMutation: vi.fn(), broadcastPublicNotices: vi.fn() };
+        const broadcasting = new RegistrationsService(
+          tournamentStorageService,
+          assignmentsService,
+          auditService,
+          declarationsClient,
+          personsClient,
+          sanctioningClient,
+          broadcastService,
+        );
+
+        await broadcasting.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
+
+        const [payload, options] = broadcastService.broadcastMutation.mock.calls[0];
+        expect(payload.tournamentIds).toEqual(['t-1']);
+        expect(payload.methods.map((m: any) => m.method)).toEqual(['addParticipants', 'addEventEntries']);
+        expect(options).toEqual({ serverUpdatedAt, previousServerUpdatedAt });
+      });
+
       it('adds the participant (CANONICAL_PERSON), maps event NAMES → eventIds, and stamps ACCEPTED', async () => {
         declarationsClient.getRegistration.mockResolvedValue(
           declarationsReg({ payload: { eventIds: ["Men's Singles", 'e-2'], applicant: { givenName: 'Jane', familyName: 'Doe' } } }),
