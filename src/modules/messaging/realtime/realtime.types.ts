@@ -1,8 +1,7 @@
 /**
  * The realtime port: what the server needs from a push transport, with no
  * Socket.IO types in it. Socket.IO is the only implementation today
- * (`SocketIoRealtimeAdapter`); a managed pub/sub service (AWS AppSync Events,
- * API Gateway WebSocket, IoT Core) would be a second one.
+ * (`SocketIoRealtimeAdapter`); a managed pub/sub service would be a second one.
  *
  * Domain code publishes through `REALTIME_PUBLISHER` and reads presence
  * through `REALTIME_PRESENCE`. Only the gateways — which ARE the Socket.IO
