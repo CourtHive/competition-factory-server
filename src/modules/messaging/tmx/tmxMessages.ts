@@ -6,20 +6,36 @@ import type { AuditService } from 'src/modules/audit/audit.service';
 
 const logger = new Logger('TmxMessages');
 
+/** The reply to an executionQueue request, correlated by the client's `ackId`. */
+export interface ExecutionQueueAck {
+  ackId?: string;
+  success?: boolean;
+  error?: any;
+  context?: any;
+  info?: any;
+  stack?: any;
+  tournamentIds?: string[];
+  /** Methods the server appended and persisted (e.g. a provider's privacy policy); the client replays them. */
+  appliedServerMethods?: any[];
+}
+
+/**
+ * Transport-free message handlers. Each returns the reply rather than sending
+ * it, so the caller decides how the reply travels — a socket `ack` event today,
+ * an HTTP response body on a request/response transport.
+ */
 export const tmxMessages = {
   executionQueue: async ({
-    client,
     payload,
     services,
     storage,
     auditService,
   }: {
-    client: any;
     payload: any;
     services: any;
     storage: TournamentStorageService;
     auditService?: AuditService;
-  }) => {
+  }): Promise<{ ack: ExecutionQueueAck; publicNotices?: any[] }> => {
     const ackId = payload?.ackId;
     const tournamentIds = payload?.tournamentIds || (payload?.tournamentId && [payload.tournamentId]) || [];
 
@@ -27,7 +43,7 @@ export const tmxMessages = {
       const result = await executionQueue(payload, services, storage, auditService);
       const { publicNotices, ...mutationResult } = result;
 
-      const response = mutationResult.error
+      const ack: ExecutionQueueAck = mutationResult.error
         ? {
             ackId,
             error: mutationResult.error,
@@ -36,15 +52,20 @@ export const tmxMessages = {
             ...(mutationResult.stack && { stack: mutationResult.stack }),
             ...(mutationResult.tournamentIds && { tournamentIds: mutationResult.tournamentIds }),
           }
-        : { ackId, success: mutationResult.success };
-      client.emit('ack', response);
-      return { ...response, publicNotices };
+        : {
+            ackId,
+            success: mutationResult.success,
+            // TMX's server-first path replays these locally so its record matches what was saved.
+            // They were dropped here until 2026-10-08, so the replay branch never ran on this path.
+            ...(mutationResult.appliedServerMethods?.length && {
+              appliedServerMethods: mutationResult.appliedServerMethods,
+            }),
+          };
+      return { ack, publicNotices };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       logger.error(`Unexpected error in executionQueue message: ${message}`);
-      const response = { ackId, error: 'Server error', tournamentIds };
-      client.emit('ack', response);
-      return response;
+      return { ack: { ackId, error: 'Server error', tournamentIds } };
     }
   },
 };

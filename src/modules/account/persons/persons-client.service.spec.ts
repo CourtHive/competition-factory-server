@@ -12,12 +12,12 @@
 // (it's a side-effecting background loop). The runStreamLoop method is
 // exposed for future integration testing if needed.
 
+import { PersonBroadcastService } from '../../messaging/hiveid/person-broadcast.service';
 import { IUserStorage } from '../../../storage/interfaces/user-storage.interface';
-import { HiveIDGateway } from '../../messaging/hiveid/hiveid.gateway';
 import { PersonsClient } from './persons-client.service';
 import type { MockInstance, Mocked } from 'vitest';
 
-function makeGateway(): Mocked<HiveIDGateway> {
+function makeGateway(): Mocked<PersonBroadcastService> {
   return {
     broadcastPersonUpdate: vi.fn(),
   } as any;
@@ -55,7 +55,7 @@ function mockFetchResponse(body: any, ok = true, status = 200): Response {
 
 describe('PersonsClient', () => {
   let storage: Mocked<IUserStorage>;
-  let gateway: Mocked<HiveIDGateway>;
+  let gateway: Mocked<PersonBroadcastService>;
   let client: PersonsClient;
   let fetchSpy: MockInstance;
 

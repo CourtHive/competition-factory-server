@@ -1,10 +1,10 @@
 import { ProjectorsModule } from 'src/modules/projectors/projectors.module';
 import { TournamentBroadcastService } from './tournament-broadcast.service';
-import { PublicModule } from '../public/public.module';
+import { RealtimeModule } from '../realtime/realtime.module';
 import { Module } from '@nestjs/common';
 
 @Module({
-  imports: [PublicModule, ProjectorsModule],
+  imports: [RealtimeModule, ProjectorsModule],
   providers: [TournamentBroadcastService],
   exports: [TournamentBroadcastService],
 })

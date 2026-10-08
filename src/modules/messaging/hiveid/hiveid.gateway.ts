@@ -12,22 +12,26 @@
  * these rooms (entry-list updates, matchUp schedule changes for a
  * Participant the user has claimed, etc.).
  */
+import { SocketIoRealtimeAdapter } from '../realtime/socket-io-realtime.adapter';
+import { extractHandshakeToken } from 'src/common/auth/extractHandshakeToken';
+import { Audience } from '../../account/auth/decorators/audience.decorator';
+import { audienceMatches } from '../../account/auth/guards/auth.guard';
+import { SocketGuard } from '../../account/auth/guards/socket.guard';
 import { Injectable, Logger, UseGuards } from '@nestjs/common';
+import { verifyJwt } from 'src/common/auth/verifyJwt';
+import { resolveCorsOrigins } from 'src/common/cors';
+import { personChannel } from '../realtime/channels';
 import { Server, Socket } from 'socket.io';
+import { JwtService } from '@nestjs/jwt';
 import {
   ConnectedSocket,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-
-import { Audience } from '../../account/auth/decorators/audience.decorator';
-import { SocketGuard } from '../../account/auth/guards/socket.guard';
-import { resolveCorsOrigins } from 'src/common/cors';
-
-const PERSON_ROOM_PREFIX = 'hiveid:person:';
 
 @Injectable()
 @WebSocketGateway({
@@ -36,26 +40,64 @@ const PERSON_ROOM_PREFIX = 'hiveid:person:';
 })
 @UseGuards(SocketGuard)
 @Audience(['hiveid'])
-export class HiveIDGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class HiveIDGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   private readonly logger = new Logger(HiveIDGateway.name);
 
   @WebSocketServer()
   server?: Server;
 
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly realtime: SocketIoRealtimeAdapter,
+  ) {}
+
+  afterInit(server: Server): void {
+    this.realtime.bind('hiveid', server);
+  }
+
   /**
-   * On connection: the SocketGuard has already verified the JWT carries
-   * `aud: 'hiveid'` and stamped the decoded payload on `client.data.user`.
-   * Auto-join the per-person room so future personId-filtered broadcasts
-   * find this socket without an explicit subscribe.
+   * On connection: verify the handshake token here and auto-join the
+   * per-person room, so personId-filtered broadcasts find this socket
+   * without an explicit subscribe.
+   *
+   * This cannot rely on SocketGuard. Nest runs guards only around
+   * `@SubscribeMessage` handlers, never around `handleConnection`, so
+   * `client.data.user` is always empty at this point unless set here.
+   * Until this was fixed the auto-join never happened and clients received
+   * person updates only after calling `subscribePerson`.
    */
   async handleConnection(client: Socket): Promise<void> {
-    const user = (client.data as any)?.user;
+    const user = await this.authenticateConnection(client);
     const personId = user?.personId;
     if (typeof personId === 'string' && personId.length > 0) {
-      await client.join(PERSON_ROOM_PREFIX + personId);
+      await client.join(personChannel(personId).room);
       this.logger.log(`[connect] hiveid client ${client.id} joined person room ${personId}`);
     } else {
       this.logger.log(`[connect] hiveid client ${client.id} connected without a person link`);
+    }
+  }
+
+  /**
+   * The same checks SocketGuard applies — signature via `verifyJwt` and the
+   * `hiveid` audience — run once at connect. On success the user is stamped
+   * on `client.data.user`, where the guard would have put it. A connection
+   * without a valid token is left connected and unjoined; every message it
+   * sends still goes through SocketGuard and is rejected there.
+   */
+  private async authenticateConnection(client: Socket): Promise<any> {
+    const token = extractHandshakeToken(client.handshake);
+    if (!token) return undefined;
+    try {
+      const user = await verifyJwt(this.jwtService, token);
+      if (!audienceMatches(user?.aud, ['hiveid'])) {
+        this.logger.warn(`[connect] hiveid client ${client.id} presented a token without the hiveid audience`);
+        return undefined;
+      }
+      client.data.user = user;
+      return user;
+    } catch (err) {
+      this.logger.warn(`[connect] hiveid client ${client.id} token rejected: ${(err as Error)?.message ?? err}`);
+      return undefined;
     }
   }
 
@@ -76,32 +118,7 @@ export class HiveIDGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (typeof personId !== 'string' || personId.length === 0) {
       return { ok: false };
     }
-    await client.join(PERSON_ROOM_PREFIX + personId);
+    await client.join(personChannel(personId).room);
     return { ok: true, personId };
-  }
-
-  /**
-   * Phase-4 hook: broadcast a personId-scoped update to the matching
-   * person room. Wired by PersonsClient.handleMerge in Phase 4.0; later
-   * phases extend to roster/schedule/result kinds.
-   *
-   * If `this.server` is undefined (Nest hasn't bound the namespace yet
-   * — pre-bootstrap or mid-shutdown) we MUST log it. Without the warn,
-   * a personMerged is silently dropped: users.person_id was rewritten,
-   * the SSE cursor advanced, and zero downstream clients learned about
-   * it. The caller's try/catch never fires because we never throw.
-   *
-   * See Mentat/standards/architectural-standards.md A2 (fail-soft must
-   * surface) and A5 (cross-repo wire breaks need explicit visibility).
-   */
-  broadcastPersonUpdate(personId: string, payload: any): void {
-    if (!personId || !payload) return;
-    if (!this.server) {
-      this.logger.warn(
-        `personUpdate broadcast dropped for personId=${personId} — gateway server unbound (pre-bootstrap or mid-shutdown)`,
-      );
-      return;
-    }
-    this.server.to(PERSON_ROOM_PREFIX + personId).emit('personUpdate', payload);
   }
 }

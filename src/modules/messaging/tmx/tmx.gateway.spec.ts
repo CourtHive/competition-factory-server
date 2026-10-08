@@ -1,8 +1,10 @@
 import { MutationAuthorizationService } from 'src/modules/factory/mutation-authorization.service';
 import { MutationServicesService } from 'src/modules/mutation-services/mutation-services.service';
-import { TmxGateway, TOURNAMENT_ROOM_PREFIX } from './tmx.gateway';
+import { SocketIoRealtimeAdapter } from '../realtime/socket-io-realtime.adapter';
+import { TOURNAMENT_ROOM_PREFIX } from '../realtime/channels';
 import type { Mock, MockInstance } from 'vitest';
 import { tmxMessages } from './tmxMessages';
+import { TmxGateway } from './tmx.gateway';
 import { Logger } from '@nestjs/common';
 
 /**
@@ -24,7 +26,7 @@ interface MockSocket {
 function makeSocket(overrides: Partial<{ id: string; user: any }> = {}): MockSocket {
   const s: any = {
     id: overrides.id ?? 'sock-1',
-    data: { user: overrides.user, tournamentJoinedAt: {} },
+    data: { user: overrides.user, roomJoinedAt: {} },
     rooms: new Set(),
     handshake: { headers: {} },
     join: vi.fn(async (room: string) => {
@@ -39,11 +41,21 @@ function makeSocket(overrides: Partial<{ id: string; user: any }> = {}): MockSoc
   return s as MockSocket;
 }
 
+interface Emitted {
+  room: string;
+  except?: string;
+  event: string;
+  payload: any;
+}
+
 function makeMockServer(socketsByRoom: Record<string, MockSocket[]>) {
   const adapterRooms = new Map<string, Set<string>>();
   for (const [room, sockets] of Object.entries(socketsByRoom)) {
     adapterRooms.set(room, new Set(sockets.map((s) => s.id)));
   }
+  // Every `to(room)[.except(id)].emit(event, payload)` lands here, so a test
+  // can assert the room, the excluded sender, the event and the payload.
+  const emitted: Emitted[] = [];
   return {
     // Namespace shape — the gateway is registered to `namespace: 'tmx'`,
     // so the adapter is on the namespace itself, not nested under `.sockets`.
@@ -51,8 +63,26 @@ function makeMockServer(socketsByRoom: Record<string, MockSocket[]>) {
     in: (room: string) => ({
       fetchSockets: async () => socketsByRoom[room] ?? [],
     }),
-    to: vi.fn().mockReturnValue({ emit: vi.fn() }),
+    to: vi.fn((room: string) => {
+      let excluded: string | undefined;
+      const operator: any = {
+        except: vi.fn((id: string) => {
+          excluded = id;
+          return operator;
+        }),
+        emit: vi.fn((event: string, payload: any) => emitted.push({ room, except: excluded, event, payload })),
+      };
+      return operator;
+    }),
+    emitted,
   } as any;
+}
+
+/** Bind a mock namespace the way Nest does: set the property, then run afterInit. */
+function attachServer(gateway: TmxGateway, server: any) {
+  gateway.server = server;
+  gateway.afterInit(server);
+  return server;
 }
 
 function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
@@ -68,7 +98,7 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
   const tournamentStorageService: any = {
     fetchTournamentRecords: vi.fn().mockResolvedValue({ tournamentRecords: {} }),
   };
-  const broadcastService: any = { setTmxServer: vi.fn(), broadcastMutation: vi.fn(), broadcastPublicNotices: vi.fn() };
+  const broadcastService: any = { broadcastMutation: vi.fn(), broadcastPublicNotices: vi.fn() };
   const assignmentsService: any = {
     getAssignedTournamentIds: vi.fn().mockResolvedValue(new Set()),
     getAssignedRoles: vi.fn().mockResolvedValue(new Map()),
@@ -127,8 +157,9 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     ),
     usersService,
     auditService,
+    new SocketIoRealtimeAdapter(),
   );
-  return { gateway, userStorage, providerStorage, auditService, chatStorage };
+  return { gateway, userStorage, providerStorage, auditService, chatStorage, broadcastService };
 }
 
 describe('TmxGateway chat persistence', () => {
@@ -146,9 +177,7 @@ describe('TmxGateway chat persistence', () => {
       },
     });
     const socket = makeSocket();
-    const relay = { emit: vi.fn() };
-    socket.to.mockReturnValue(relay);
-    gateway.server = makeMockServer({});
+    const server = attachServer(gateway, makeMockServer({}));
 
     await gateway.chatMessage({ tournamentId: 't1', userName: 'u', message: 'hi', clientMsgId: 'c1' }, socket as any);
 
@@ -156,8 +185,12 @@ describe('TmxGateway chat persistence', () => {
       expect.objectContaining({ tournamentId: 't1', message: 'hi', clientMsgId: 'c1' }),
     );
     // Relayed to the room (sender excluded) with the persisted seq.
-    expect(socket.to).toHaveBeenCalledWith('tournament:t1');
-    expect(relay.emit).toHaveBeenCalledWith('chatMessage', expect.objectContaining({ seq: 42, message: 'hi' }));
+    expect(server.emitted).toContainEqual({
+      room: 'tournament:t1',
+      except: 'sock-1',
+      event: 'chatMessage',
+      payload: expect.objectContaining({ seq: 42, message: 'hi' }),
+    });
     // Sender gets the authoritative seq to reconcile its optimistic copy.
     expect(socket.emit).toHaveBeenCalledWith('chatAccepted', expect.objectContaining({ clientMsgId: 'c1', seq: 42 }));
   });
@@ -192,7 +225,7 @@ describe('TmxGateway chat persistence', () => {
       ],
     });
     const socket = makeSocket({ user: { email: 'me@test.com' } });
-    gateway.server = makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] });
+    attachServer(gateway, makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] }));
 
     await gateway.joinTournament({ tournamentId: 't1' }, socket as any);
 
@@ -291,7 +324,7 @@ describe('TmxGateway chat persistence', () => {
 });
 
 describe('TmxGateway.handleConnection', () => {
-  it('records connectedAt and an empty per-tournament joinedAt map', () => {
+  it('records connectedAt and an empty per-room joinedAt map', () => {
     const { gateway } = buildGateway();
     const socket = makeSocket();
     socket.data = {};
@@ -299,7 +332,7 @@ describe('TmxGateway.handleConnection', () => {
     gateway.handleConnection(socket as any);
 
     expect(typeof socket.data.connectedAt).toBe('number');
-    expect(socket.data.tournamentJoinedAt).toEqual({});
+    expect(socket.data.roomJoinedAt).toEqual({});
   });
 });
 
@@ -307,7 +340,7 @@ describe('TmxGateway.joinTournament', () => {
   it('updates user lastAccess + tournament-driven provider lastAccess for a JWT user', async () => {
     const { gateway, userStorage, providerStorage } = buildGateway();
     const socket = makeSocket({ user: { email: 'me@test.com', providerId: 'prov-1' } });
-    gateway.server = makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] });
+    attachServer(gateway, makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] }));
 
     await gateway.joinTournament({ tournamentId: 't1' }, socket as any);
     await Promise.resolve();
@@ -318,13 +351,13 @@ describe('TmxGateway.joinTournament', () => {
     // user's home providerId — covers multi-provider users / switcher flows.
     expect(providerStorage.updateLastAccessByTournament).toHaveBeenCalledWith('t1');
     expect(providerStorage.updateLastAccess).not.toHaveBeenCalled();
-    expect(socket.data.tournamentJoinedAt.t1).toEqual(expect.any(Number));
+    expect(socket.data.roomJoinedAt['tournament:t1']).toEqual(expect.any(Number));
   });
 
   it('skips provider lastAccess update for super-admins', async () => {
     const { gateway, userStorage, providerStorage } = buildGateway();
     const socket = makeSocket({ user: { email: 'admin@test.com', providerId: 'prov-1', roles: ['superadmin'] } });
-    gateway.server = makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] });
+    attachServer(gateway, makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] }));
 
     await gateway.joinTournament({ tournamentId: 't1' }, socket as any);
     await Promise.resolve();
@@ -338,7 +371,7 @@ describe('TmxGateway.joinTournament', () => {
   it('skips lastAccess update when socket is unauthenticated', async () => {
     const { gateway, userStorage, providerStorage } = buildGateway();
     const socket = makeSocket();
-    gateway.server = makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] });
+    attachServer(gateway, makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] }));
 
     await gateway.joinTournament({ tournamentId: 't1' }, socket as any);
     await Promise.resolve();
@@ -359,7 +392,7 @@ describe('TmxGateway.joinTournament', () => {
     };
     const { gateway } = buildGateway({ userStorage, providerStorage });
     const socket = makeSocket({ user: { email: 'me@test.com', providerId: 'prov-1' } });
-    gateway.server = makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] });
+    attachServer(gateway, makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] }));
     const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
 
     await gateway.joinTournament({ tournamentId: 't1' }, socket as any);
@@ -374,7 +407,7 @@ describe('TmxGateway.joinTournament', () => {
   it('rejects malformed input without touching lastAccess', async () => {
     const { gateway, userStorage } = buildGateway();
     const socket = makeSocket({ user: { email: 'me@test.com', providerId: 'prov-1' } });
-    gateway.server = makeMockServer({});
+    attachServer(gateway, makeMockServer({}));
 
     await gateway.joinTournament({} as any, socket as any);
 
@@ -386,7 +419,7 @@ describe('TmxGateway.joinTournament', () => {
 describe('TmxGateway.getActiveRoomPresence', () => {
   it('returns empty list when no tournament rooms exist', async () => {
     const { gateway } = buildGateway();
-    gateway.server = makeMockServer({ 'admin:chatMonitor': [makeSocket()] });
+    attachServer(gateway, makeMockServer({ 'admin:chatMonitor': [makeSocket()] }));
 
     const presence = await gateway.getActiveRoomPresence();
     expect(presence).toEqual([]);
@@ -395,14 +428,17 @@ describe('TmxGateway.getActiveRoomPresence', () => {
   it('reports per-room counts and member identities', async () => {
     const { gateway } = buildGateway();
     const a = makeSocket({ id: 'sa', user: { email: 'a@x.com', providerId: 'p1', userId: 'ua' } });
-    a.data.tournamentJoinedAt = { t1: 1700000000000 };
+    a.data.roomJoinedAt = { 'tournament:t1': 1700000000000 };
     const b = makeSocket({ id: 'sb', user: { email: 'b@x.com', providerId: 'p2', userId: 'ub' } });
-    b.data.tournamentJoinedAt = { t1: 1700000000500 };
+    b.data.roomJoinedAt = { 'tournament:t1': 1700000000500 };
     const c = makeSocket({ id: 'sc' });
-    gateway.server = makeMockServer({
-      [TOURNAMENT_ROOM_PREFIX + 't1']: [a, b],
-      [TOURNAMENT_ROOM_PREFIX + 't2']: [c],
-    });
+    attachServer(
+      gateway,
+      makeMockServer({
+        [TOURNAMENT_ROOM_PREFIX + 't1']: [a, b],
+        [TOURNAMENT_ROOM_PREFIX + 't2']: [c],
+      }),
+    );
 
     const presence = await gateway.getActiveRoomPresence();
     expect(presence).toHaveLength(2);
@@ -425,9 +461,9 @@ describe('TmxGateway executionQueue identity stamping', () => {
   // what messageHandler forwards to the downstream executionQueue handler.
   async function capturePayload(user: any, payload: any) {
     const { gateway } = buildGateway();
-    spy = vi.spyOn(tmxMessages, 'executionQueue').mockResolvedValue({} as any);
+    spy = vi.spyOn(tmxMessages, 'executionQueue').mockResolvedValue({ ack: {} });
     const socket = makeSocket({ user });
-    gateway.server = makeMockServer({});
+    attachServer(gateway, makeMockServer({}));
     await gateway.messageHandler({ type: 'executionQueue', payload }, socket as any);
     return spy.mock.calls[0][0].payload;
   }
@@ -485,5 +521,59 @@ describe('TmxGateway executionQueue identity stamping', () => {
   it('invents no attester where the client sent none', async () => {
     const passed = await capturePayload({ email: 'desk@x.com', sub: 'verified-uuid' }, checkIn(undefined));
     expect(attesterOf(passed)).toBeUndefined();
+  });
+});
+
+describe('TmxGateway executionQueue reply and broadcast', () => {
+  let spy: MockInstance;
+  afterEach(() => spy?.mockRestore());
+
+  const payload = () => ({ ackId: 'a1', methods: [], tournamentIds: [] });
+
+  it("emits the handler's ack to the sender and broadcasts to the room excluding the sender", async () => {
+    const { gateway, broadcastService } = buildGateway();
+    const ack = { ackId: 'a1', success: true, appliedServerMethods: [{ method: 'attachPolicies' }] };
+    const publicNotices = [{ topic: 'publishEvent' }];
+    spy = vi.spyOn(tmxMessages, 'executionQueue').mockResolvedValue({ ack, publicNotices });
+    const socket = makeSocket({ user: { email: 'a@x.com', sub: 'u-1' } });
+    attachServer(gateway, makeMockServer({}));
+    const sent = payload();
+
+    await gateway.messageHandler({ type: 'executionQueue', payload: sent }, socket as any);
+
+    expect(socket.emit).toHaveBeenCalledWith('ack', ack);
+    expect(broadcastService.broadcastMutation).toHaveBeenCalledWith(sent, { excludeConnectionId: 'sock-1' });
+    expect(broadcastService.broadcastPublicNotices).toHaveBeenCalledWith(sent, publicNotices);
+  });
+
+  it('emits an error ack and broadcasts nothing when the mutation fails', async () => {
+    const { gateway, broadcastService } = buildGateway();
+    const ack = { ackId: 'a1', error: { message: 'boom' } };
+    spy = vi.spyOn(tmxMessages, 'executionQueue').mockResolvedValue({ ack });
+    const socket = makeSocket({ user: { email: 'a@x.com', sub: 'u-1' } });
+    attachServer(gateway, makeMockServer({}));
+    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+    await gateway.messageHandler({ type: 'executionQueue', payload: payload() }, socket as any);
+    errorSpy.mockRestore();
+
+    expect(socket.emit).toHaveBeenCalledWith('ack', ack);
+    expect(broadcastService.broadcastMutation).not.toHaveBeenCalled();
+    expect(broadcastService.broadcastPublicNotices).not.toHaveBeenCalled();
+  });
+
+  it('publishes roomPresence to the tournament room after a join', async () => {
+    const { gateway } = buildGateway();
+    const socket = makeSocket({ user: { email: 'a@x.com' } });
+    const server = attachServer(gateway, makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] }));
+
+    await gateway.joinTournament({ tournamentId: 't1' }, socket as any);
+
+    expect(server.emitted).toContainEqual({
+      room: 'tournament:t1',
+      except: undefined,
+      event: 'roomPresence',
+      payload: { tournamentId: 't1', count: 1 },
+    });
   });
 });

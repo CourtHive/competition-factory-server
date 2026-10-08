@@ -1,39 +1,26 @@
 import { TournamentBroadcastService } from './tournament-broadcast.service';
 import { ProjectorService } from 'src/modules/projectors/projector.service';
-import { PublicGateway } from '../public/public.gateway';
+import { RecordingRealtime } from 'src/tests/helpers/recordingRealtime';
 import { topicConstants } from 'tods-competition-factory';
 import type { Mock } from 'vitest';
 
 describe('TournamentBroadcastService', () => {
   let service: TournamentBroadcastService;
-  let publicGateway: { broadcastPublicUpdate: Mock; broadcastLiveScore: Mock };
+  let realtime: RecordingRealtime;
   let projectorService: { projectMatchUpFinalized: Mock };
-  let mockServer: { to: Mock; in: Mock };
-  let mockSocket: { id: string; to: Mock };
+
+  // What the public room received, per event — the old PublicGateway.broadcast* call arguments.
+  const publicUpdates = (tournamentId: string) =>
+    realtime.to(`public:tournament:${tournamentId}`, 'publicUpdate').map((p) => p.payload);
+  const liveScores = (tournamentId: string) =>
+    realtime.to(`public:tournament:${tournamentId}`, 'liveScore').map((p) => p.payload);
+  const allPublicUpdates = () => realtime.published.filter((p) => p.event === 'publicUpdate');
+  const allLiveScores = () => realtime.published.filter((p) => p.event === 'liveScore');
 
   beforeEach(() => {
-    publicGateway = { broadcastPublicUpdate: vi.fn(), broadcastLiveScore: vi.fn() };
+    realtime = new RecordingRealtime();
     projectorService = { projectMatchUpFinalized: vi.fn() };
-    service = new TournamentBroadcastService(
-      publicGateway as unknown as PublicGateway,
-      projectorService as unknown as ProjectorService,
-    );
-
-    // Mock Socket.IO server — server.to(room).emit() and server.in(room).fetchSockets()
-    const emitFn = vi.fn();
-    mockServer = {
-      to: vi.fn().mockReturnValue({ emit: emitFn }),
-      in: vi.fn().mockReturnValue({ fetchSockets: vi.fn().mockResolvedValue([]) }),
-    };
-
-    // Mock sender socket — sender.to(room).emit() excludes sender
-    const senderEmitFn = vi.fn();
-    mockSocket = {
-      id: 'sender-socket-id',
-      to: vi.fn().mockReturnValue({ emit: senderEmitFn }),
-    };
-
-    service.setTmxServer(mockServer as any);
+    service = new TournamentBroadcastService(realtime, realtime, projectorService as unknown as ProjectorService);
   });
 
   describe('broadcastMutation', () => {
@@ -47,67 +34,81 @@ describe('TournamentBroadcastService', () => {
     it('broadcasts to all clients when no sender (REST path)', async () => {
       await service.broadcastMutation(payload);
 
-      expect(mockServer.to).toHaveBeenCalledWith('tournament:tournament-123');
-      expect(mockServer.to('tournament:tournament-123').emit).toHaveBeenCalledWith(
-        'tournamentMutation',
+      const sent = realtime.to('tournament:tournament-123', 'tournamentMutation');
+      expect(sent).toHaveLength(1);
+      expect(sent[0].channel.namespace).toBe('tmx');
+      expect(sent[0].payload).toEqual(
         expect.objectContaining({
           methods: payload.methods,
           tournamentIds: payload.tournamentIds,
           userId: payload.userId,
         }),
       );
+      // Nobody is excluded on the REST path.
+      expect(sent[0].options?.excludeConnectionId).toBeUndefined();
     });
 
     it('broadcasts excluding sender when sender provided (Socket.IO path)', async () => {
-      await service.broadcastMutation(payload, mockSocket as any);
+      await service.broadcastMutation(payload, { excludeConnectionId: 'sender-socket-id' });
 
-      expect(mockSocket.to).toHaveBeenCalledWith('tournament:tournament-123');
-      expect(mockSocket.to('tournament:tournament-123').emit).toHaveBeenCalledWith(
-        'tournamentMutation',
+      const sent = realtime.to('tournament:tournament-123', 'tournamentMutation');
+      expect(sent).toHaveLength(1);
+      expect(sent[0].payload).toEqual(
         expect.objectContaining({
           methods: payload.methods,
           tournamentIds: payload.tournamentIds,
         }),
       );
-      // Server.to should NOT have been called for the broadcast
-      // (only for fetchSockets via server.in)
-      expect(mockServer.to).not.toHaveBeenCalled();
+      // The one broadcast excludes the sender — there is no second, unexcluded emit.
+      expect(sent[0].options).toEqual({ excludeConnectionId: 'sender-socket-id' });
     });
 
     it('skips broadcast when methods are empty', async () => {
       await service.broadcastMutation({ ...payload, methods: [] });
 
-      expect(mockServer.to).not.toHaveBeenCalled();
-      expect(mockSocket.to).not.toHaveBeenCalled();
+      expect(realtime.published).toHaveLength(0);
     });
 
     it('skips broadcast when tournamentIds are empty', async () => {
       await service.broadcastMutation({ ...payload, tournamentIds: [] });
 
-      expect(mockServer.to).not.toHaveBeenCalled();
+      expect(realtime.published).toHaveLength(0);
     });
 
     it('broadcasts to multiple tournament rooms', async () => {
       const multiPayload = { ...payload, tournamentIds: ['t1', 't2'] };
       await service.broadcastMutation(multiPayload);
 
-      expect(mockServer.to).toHaveBeenCalledWith('tournament:t1');
-      expect(mockServer.to).toHaveBeenCalledWith('tournament:t2');
-      expect(mockServer.to).toHaveBeenCalledTimes(2);
+      expect(realtime.to('tournament:t1')).toHaveLength(1);
+      expect(realtime.to('tournament:t2')).toHaveLength(1);
+      expect(realtime.published).toHaveLength(2);
     });
 
     it('handles tournamentId (singular) in payload', async () => {
       const singlePayload = { tournamentId: 'tid-1', methods: payload.methods };
       await service.broadcastMutation(singlePayload);
 
-      expect(mockServer.to).toHaveBeenCalledWith('tournament:tid-1');
+      expect(realtime.to('tournament:tid-1')).toHaveLength(1);
     });
 
-    it('warns when tmxServer is not set', async () => {
-      const freshService = new TournamentBroadcastService(publicGateway as unknown as PublicGateway);
-      // Should not throw, just warn and return
-      await freshService.broadcastMutation(payload);
-      expect(mockServer.to).not.toHaveBeenCalled();
+    it('does not throw when the transport cannot deliver', async () => {
+      // An unbound namespace makes publish return false; the adapter owns the warning (see its spec).
+      const undeliverable = new RecordingRealtime();
+      vi.spyOn(undeliverable, 'publish').mockReturnValue(false);
+      const freshService = new TournamentBroadcastService(undeliverable, undeliverable);
+      await expect(freshService.broadcastMutation(payload)).resolves.toBeUndefined();
+    });
+
+    it('carries originClientId when the mutation supplied one', async () => {
+      await service.broadcastMutation({ ...payload, originClientId: 'tab-1' });
+
+      expect(realtime.to('tournament:tournament-123')[0].payload.originClientId).toBe('tab-1');
+    });
+
+    it('omits originClientId when the mutation did not supply one', async () => {
+      await service.broadcastMutation(payload);
+
+      expect(realtime.to('tournament:tournament-123')[0].payload).not.toHaveProperty('originClientId');
     });
   });
 
@@ -124,7 +125,7 @@ describe('TournamentBroadcastService', () => {
 
       service.broadcastPublicNotices(payload, publicNotices);
 
-      expect(publicGateway.broadcastPublicUpdate).toHaveBeenCalledWith('t1', {
+      expect(publicUpdates('t1')).toContainEqual({
         type: 'matchUpUpdate',
         tournamentId: 't1',
         matchUps: [{ matchUpId: 'm1', matchUpStatus: 'COMPLETED' }],
@@ -140,7 +141,7 @@ describe('TournamentBroadcastService', () => {
 
       service.broadcastPublicNotices(payload, publicNotices);
 
-      expect(publicGateway.broadcastPublicUpdate).toHaveBeenCalledWith('t1', {
+      expect(publicUpdates('t1')).toContainEqual({
         type: 'publishChange',
         tournamentId: 't1',
         action: topicConstants.PUBLISH_EVENT,
@@ -150,12 +151,18 @@ describe('TournamentBroadcastService', () => {
 
     it('does nothing when publicNotices is empty', () => {
       service.broadcastPublicNotices({ tournamentIds: ['t1'] }, []);
-      expect(publicGateway.broadcastPublicUpdate).not.toHaveBeenCalled();
+      expect(realtime.published).toHaveLength(0);
     });
 
     it('does nothing when publicNotices is undefined', () => {
       service.broadcastPublicNotices({ tournamentIds: ['t1'] }, undefined);
-      expect(publicGateway.broadcastPublicUpdate).not.toHaveBeenCalled();
+      expect(realtime.published).toHaveLength(0);
+    });
+
+    // Moved from public.gateway.spec.ts ('broadcastPublicUpdate skips when no tournamentId').
+    it('publishes nothing for a notice with no tournamentId', () => {
+      service.broadcastPublicNotices({}, [{ topic: topicConstants.MODIFY_MATCHUP, matchUp: { matchUpId: 'm1' } }]);
+      expect(realtime.published).toHaveLength(0);
     });
 
     it('groups notices by tournamentId', () => {
@@ -167,9 +174,9 @@ describe('TournamentBroadcastService', () => {
 
       service.broadcastPublicNotices(payload, publicNotices);
 
-      expect(publicGateway.broadcastPublicUpdate).toHaveBeenCalledTimes(2);
-      expect(publicGateway.broadcastPublicUpdate).toHaveBeenCalledWith('t1', expect.objectContaining({ matchUps: [{ matchUpId: 'm1' }] }));
-      expect(publicGateway.broadcastPublicUpdate).toHaveBeenCalledWith('t2', expect.objectContaining({ matchUps: [{ matchUpId: 'm2' }] }));
+      expect(allPublicUpdates()).toHaveLength(2);
+      expect(publicUpdates('t1')).toContainEqual(expect.objectContaining({ matchUps: [{ matchUpId: 'm1' }] }));
+      expect(publicUpdates('t2')).toContainEqual(expect.objectContaining({ matchUps: [{ matchUpId: 'm2' }] }));
     });
 
     it('includes position assignment notices alongside matchUp notices', () => {
@@ -181,7 +188,7 @@ describe('TournamentBroadcastService', () => {
 
       service.broadcastPublicNotices(payload, publicNotices);
 
-      expect(publicGateway.broadcastPublicUpdate).toHaveBeenCalledWith('t1', {
+      expect(publicUpdates('t1')).toContainEqual({
         type: 'matchUpUpdate',
         tournamentId: 't1',
         matchUps: [{ matchUpId: 'm1' }],
@@ -210,9 +217,8 @@ describe('TournamentBroadcastService', () => {
 
         service.broadcastPublicNotices(payload, publicNotices);
 
-        expect(publicGateway.broadcastLiveScore).toHaveBeenCalledTimes(1);
-        const [tid, livePayload] = publicGateway.broadcastLiveScore.mock.calls[0];
-        expect(tid).toBe('t1');
+        expect(allLiveScores()).toHaveLength(1);
+        const [livePayload] = liveScores('t1');
         expect(livePayload.matchUpId).toBe('m1');
         expect(livePayload.tournamentId).toBe('t1');
         expect(livePayload.format).toBe('STANDARD');
@@ -244,9 +250,9 @@ describe('TournamentBroadcastService', () => {
 
         service.broadcastPublicNotices(payload, publicNotices);
 
-        expect(publicGateway.broadcastLiveScore).toHaveBeenCalledTimes(3);
-        const matchUpIds = publicGateway.broadcastLiveScore.mock.calls.map(([, p]) => p.matchUpId);
-        expect(matchUpIds.sort()).toEqual(['m1', 'm2', 'm3']);
+        expect(allLiveScores()).toHaveLength(3);
+        const matchUpIds = liveScores('t1').map((p) => p.matchUpId);
+        expect(matchUpIds.sort((a, b) => a.localeCompare(b))).toEqual(['m1', 'm2', 'm3']);
       });
 
       it('does not emit broadcastLiveScore when there are no matchUp notices', () => {
@@ -257,7 +263,7 @@ describe('TournamentBroadcastService', () => {
 
         service.broadcastPublicNotices(payload, publicNotices);
 
-        expect(publicGateway.broadcastLiveScore).not.toHaveBeenCalled();
+        expect(allLiveScores()).toHaveLength(0);
       });
 
       it('emits broadcastLiveScore per tournament when notices span multiple tournaments', () => {
@@ -277,9 +283,9 @@ describe('TournamentBroadcastService', () => {
 
         service.broadcastPublicNotices(payload, publicNotices);
 
-        expect(publicGateway.broadcastLiveScore).toHaveBeenCalledTimes(2);
-        expect(publicGateway.broadcastLiveScore).toHaveBeenCalledWith('t1', expect.objectContaining({ matchUpId: 'm1' }));
-        expect(publicGateway.broadcastLiveScore).toHaveBeenCalledWith('t2', expect.objectContaining({ matchUpId: 'm2' }));
+        expect(allLiveScores()).toHaveLength(2);
+        expect(liveScores('t1')).toContainEqual(expect.objectContaining({ matchUpId: 'm1' }));
+        expect(liveScores('t2')).toContainEqual(expect.objectContaining({ matchUpId: 'm2' }));
       });
 
       it('skips matchUps that the transform rejects (e.g. missing matchUpId)', () => {
@@ -294,9 +300,9 @@ describe('TournamentBroadcastService', () => {
 
         service.broadcastPublicNotices(payload, publicNotices);
 
-        expect(publicGateway.broadcastLiveScore).not.toHaveBeenCalled();
+        expect(allLiveScores()).toHaveLength(0);
         // The publicUpdate batch still fires even though the live transform rejects
-        expect(publicGateway.broadcastPublicUpdate).toHaveBeenCalled();
+        expect(allPublicUpdates().length).toBeGreaterThan(0);
       });
     });
 
@@ -366,11 +372,11 @@ describe('TournamentBroadcastService', () => {
 
         expect(() => service.broadcastPublicNotices(payload, publicNotices)).not.toThrow();
         // Ensure broadcastPublicUpdate still fired (no shortcut)
-        expect(publicGateway.broadcastPublicUpdate).toHaveBeenCalled();
+        expect(allPublicUpdates().length).toBeGreaterThan(0);
       });
 
       it('works when the projector service is not injected (disabled state)', () => {
-        const standaloneService = new TournamentBroadcastService(publicGateway as unknown as PublicGateway);
+        const standaloneService = new TournamentBroadcastService(realtime, realtime);
         const payload = { tournamentIds: ['t1'] };
         const publicNotices = [
           {
@@ -381,7 +387,7 @@ describe('TournamentBroadcastService', () => {
         ];
 
         expect(() => standaloneService.broadcastPublicNotices(payload, publicNotices)).not.toThrow();
-        expect(publicGateway.broadcastPublicUpdate).toHaveBeenCalled();
+        expect(allPublicUpdates().length).toBeGreaterThan(0);
       });
     });
   });

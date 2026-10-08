@@ -9,8 +9,8 @@
  * This is the third projector consumer kind alongside scorebug
  * (Expression broadcast graphic) and video-board (in-arena renderer).
  * Where the other two go out via HTTP POST to external consumers, this
- * one is dispatched in-process to PublicGateway.broadcastLiveScore via
- * the new callback-style consumer registration.
+ * one is published in-process as `liveScore` on the tournament's public
+ * realtime channel (see TournamentBroadcastService.broadcastPublicNotices).
  */
 
 export type PublicLiveFormat = 'STANDARD' | 'INTENNSE';

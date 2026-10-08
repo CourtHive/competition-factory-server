@@ -2,10 +2,11 @@ import { CanActivate, Injectable, ExecutionContext } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
 import { AUDIENCE_KEY, AudienceClaim } from '../decorators/audience.decorator';
+import { extractHandshakeToken } from 'src/common/auth/extractHandshakeToken';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import { audienceMatches } from './auth.guard';
 import { verifyJwt } from 'src/common/auth/verifyJwt';
 import { Roles } from '../decorators/roles.decorator';
+import { audienceMatches } from './auth.guard';
 import { Reflector } from '@nestjs/core';
 import { Socket } from 'socket.io';
 
@@ -26,7 +27,7 @@ export class SocketGuard implements CanActivate {
     if (isPublic) return true;
 
     const client: Socket = context.switchToWs().getClient();
-    const token = this.extractTokenFromClient(client);
+    const token = extractHandshakeToken(client.handshake);
 
     if (!token) {
       client.emit('exception', { message: 'Not logged in or token expired' });
@@ -64,17 +65,5 @@ export class SocketGuard implements CanActivate {
       client.emit('exception', { message: exception });
       return false;
     }
-  }
-
-  private extractTokenFromClient(client: Socket): string | undefined {
-    // Prefer handshake.auth.token — socket.io-client's `auth` callback
-    // re-runs on every reconnect attempt, so this is the path that
-    // survives JWT rotation (the Authorization header gets baked in at
-    // initial connect and goes stale on the first reconnect after a
-    // refresh — fixed for /hiveid socket clients on 2026-06-01).
-    const authToken = (client.handshake.auth as { token?: unknown } | undefined)?.token;
-    if (typeof authToken === 'string' && authToken.length > 0) return authToken;
-    const [type, token] = client.handshake.headers.authorization?.split(' ') ?? '';
-    return type === 'Bearer' ? token : undefined;
   }
 }

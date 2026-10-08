@@ -1,7 +1,7 @@
+import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { TournamentBroadcastService } from './tournament-broadcast.service';
 import { ProjectorService } from 'src/modules/projectors/projector.service';
-import { TournamentStorageService } from 'src/storage/tournament-storage.service';
-import { PublicGateway } from '../public/public.gateway';
+import { RecordingRealtime } from 'src/tests/helpers/recordingRealtime';
 import type { Mock } from 'vitest';
 
 /**
@@ -16,26 +16,25 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
   const FLAG = 'ENABLE_FACILITY_SCHEDULE_BROADCAST';
   let originalFlag: string | undefined;
 
-  let publicGateway: { broadcastPublicUpdate: Mock; broadcastLiveScore: Mock };
+  let realtime: RecordingRealtime;
   let projectorService: { projectMatchUpFinalized: Mock };
   let storage: { fetchTournamentRecords: Mock };
-  let emitCalls: Array<{ room: string; event: string; data: any }>;
-  let mockServer: any;
 
   const records: Record<string, any> = {};
 
   function buildService(): TournamentBroadcastService {
-    const service = new TournamentBroadcastService(
-      publicGateway as unknown as PublicGateway,
+    return new TournamentBroadcastService(
+      realtime,
+      realtime,
       projectorService as unknown as ProjectorService,
       storage as unknown as TournamentStorageService,
     );
-    service.setTmxServer(mockServer);
-    return service;
   }
 
   function facilityEmits(): Array<{ room: string; data: any }> {
-    return emitCalls.filter((c) => c.event === 'facilityScheduleChanged').map((c) => ({ room: c.room, data: c.data }));
+    return realtime.published
+      .filter((p) => p.event === 'facilityScheduleChanged')
+      .map((p) => ({ room: p.channel.room, data: p.payload }));
   }
 
   beforeEach(() => {
@@ -43,17 +42,12 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
     process.env[FLAG] = 'true';
     vi.useFakeTimers();
 
-    publicGateway = { broadcastPublicUpdate: vi.fn(), broadcastLiveScore: vi.fn() };
+    realtime = new RecordingRealtime();
     projectorService = { projectMatchUpFinalized: vi.fn() };
     storage = {
       fetchTournamentRecords: vi.fn(async ({ tournamentId }: any) => ({
         tournamentRecords: { [tournamentId]: records[tournamentId] },
       })),
-    };
-    emitCalls = [];
-    mockServer = {
-      to: vi.fn((room: string) => ({ emit: (event: string, data: any) => emitCalls.push({ room, event, data }) })),
-      in: vi.fn(() => ({ fetchSockets: vi.fn().mockResolvedValue([]) })),
     };
 
     for (const key of Object.keys(records)) delete records[key];

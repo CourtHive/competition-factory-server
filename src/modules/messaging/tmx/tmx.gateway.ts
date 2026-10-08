@@ -1,3 +1,4 @@
+import { initRoomJoins, recordRoomJoin, SocketIoRealtimeAdapter } from '../realtime/socket-io-realtime.adapter';
 import { MutationServicesService } from 'src/modules/mutation-services/mutation-services.service';
 import { MutationAuthorizationService } from 'src/modules/factory/mutation-authorization.service';
 import { stampOperatorAttribution } from 'src/modules/messaging/tmx/stampOperatorAttribution';
@@ -14,10 +15,16 @@ import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { UsersService } from 'src/modules/users/users.service';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { Namespace, Server, Socket } from 'socket.io';
 import { resolveCorsOrigins } from 'src/common/cors';
 import { tools } from 'tods-competition-factory';
 import { tmxMessages } from './tmxMessages';
+import { Server, Socket } from 'socket.io';
+import {
+  TOURNAMENT_ROOM_PREFIX,
+  ADMIN_CHAT_MONITOR_ROOM,
+  tournamentChannel,
+  adminChatMonitorChannel,
+} from '../realtime/channels';
 import {
   USER_PROVIDER_STORAGE,
   type IUserProviderStorage,
@@ -44,8 +51,6 @@ import {
   OnGatewayInit,
 } from '@nestjs/websockets';
 
-export const TOURNAMENT_ROOM_PREFIX = 'tournament:';
-const ADMIN_CHAT_MONITOR_ROOM = 'admin:chatMonitor';
 const MAX_CHAT_MESSAGE_LENGTH = 2000;
 
 /** Shape a persisted chat record into the `chatMessage`/`chatHistory` wire
@@ -117,6 +122,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     private readonly mutationAuthorization: MutationAuthorizationService,
     private readonly usersService: UsersService,
     private readonly auditService: AuditService,
+    private readonly realtime: SocketIoRealtimeAdapter,
   ) {}
 
   private readonly logger = new Logger(TmxGateway.name);
@@ -125,14 +131,14 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   server?: Server;
 
   afterInit(server: Server): void {
-    this.broadcastService.setTmxServer(server);
-    this.logger.log('TmxGateway initialized — broadcast service registered');
+    this.realtime.bind('tmx', server);
+    this.logger.log('TmxGateway initialized — /tmx bound to the realtime port');
   }
 
   handleConnection(client: Socket): void {
     const hasAuth = !!client.handshake.headers.authorization;
     client.data.connectedAt = Date.now();
-    client.data.tournamentJoinedAt = {} as Record<string, number>;
+    initRoomJoins(client);
     this.logger.log(`[connect] Client ${client.id} connected (hasAuth: ${hasAuth})`);
   }
 
@@ -157,12 +163,11 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     });
   }
 
-  /** Count current sockets in a tournament room and emit `roomPresence` to that room. */
+  /** Count current connections in a tournament room and publish `roomPresence` to that room. */
   private async broadcastRoomPresence(tournamentId: string): Promise<void> {
-    if (!this.server) return;
-    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
-    const sockets = await this.server.in(room).fetchSockets();
-    this.server.to(room).emit('roomPresence', { tournamentId, count: sockets.length });
+    const channel = tournamentChannel(tournamentId);
+    const members = await this.realtime.members(channel);
+    this.realtime.publish(channel, 'roomPresence', { tournamentId, count: members.length });
   }
 
   // ── Tournament room management ──
@@ -192,13 +197,11 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       }
     }
 
-    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
+    const { room } = tournamentChannel(tournamentId);
     await client.join(room);
-    if (client.data.tournamentJoinedAt) {
-      client.data.tournamentJoinedAt[tournamentId] = Date.now();
-    }
-    const roomMembers = await this.server?.in(room).fetchSockets();
-    this.logger.log(`[room] Client ${client.id} joined ${room} — room now has ${roomMembers?.length ?? '?'} member(s)`);
+    recordRoomJoin(client, room);
+    const roomMembers = await this.realtime.members(tournamentChannel(tournamentId));
+    this.logger.log(`[room] Client ${client.id} joined ${room} — room now has ${roomMembers.length} member(s)`);
     await this.broadcastRoomPresence(tournamentId);
 
     // Backfill recent chat to the joining socket only. The visibility check
@@ -238,10 +241,10 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     const tournamentId = data?.tournamentId;
     if (!tournamentId || typeof tournamentId !== 'string') return;
 
-    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
+    const { room } = tournamentChannel(tournamentId);
     await client.leave(room);
-    const roomMembers = await this.server?.in(room).fetchSockets();
-    this.logger.log(`[room] Client ${client.id} left ${room} — room now has ${roomMembers?.length ?? '?'} member(s)`);
+    const roomMembers = await this.realtime.members(tournamentChannel(tournamentId));
+    this.logger.log(`[room] Client ${client.id} left ${room} — room now has ${roomMembers.length} member(s)`);
     await this.broadcastRoomPresence(tournamentId);
   }
 
@@ -319,8 +322,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       }
 
       try {
-        const result = await tmxMessages[type]({
-          client,
+        const { ack: result, publicNotices } = await tmxMessages[type]({
           payload,
           // Assembled by MutationServicesService, never as a literal here — a
           // per-callsite bag is what let the REST path silently lose the
@@ -330,6 +332,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
           storage: this.tournamentStorageService,
           auditService: this.auditService,
         });
+        client.emit('ack', result);
         if (result.error) {
           const tournamentInfo = result.tournamentIds ? ` | tournaments: ${JSON.stringify(result.tournamentIds)}` : '';
           const contextInfo = result.context ? ` | context: ${JSON.stringify(result.context)}` : '';
@@ -344,9 +347,9 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
         } else {
           this.logger.debug(`${type} message successful: ${userId}: ${methods}`);
           // Broadcast approved mutations to other TMX clients viewing the same tournament(s)
-          this.broadcastService.broadcastMutation(payload, client);
+          this.broadcastService.broadcastMutation(payload, { excludeConnectionId: client.id });
           // Broadcast sanitized updates to public viewers
-          this.broadcastService.broadcastPublicNotices(payload, result.publicNotices);
+          this.broadcastService.broadcastPublicNotices(payload, publicNotices);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -388,18 +391,17 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     }
 
     const wire = toWireMessage(record);
-    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
 
     // Relay to other clients in the room (sender excluded — it reconciles its
     // optimistic copy via the ack below, avoiding a duplicate render).
-    client.to(room).emit('chatMessage', wire);
+    this.realtime.publish(tournamentChannel(tournamentId), 'chatMessage', wire, { excludeConnectionId: client.id });
 
     // Ack the sender with the authoritative seq so its optimistic message is
     // confirmed and de-duplicated against any later history / gap fetch.
     client.emit('chatAccepted', { clientMsgId: record.clientMsgId, seq: record.seq, timestamp: wire.timestamp });
 
     // Mirror to the super-admin monitor room (live cross-tournament feed).
-    this.server?.to(ADMIN_CHAT_MONITOR_ROOM).emit('adminChatFeed', toAdminFeed(record));
+    this.realtime.publish(adminChatMonitorChannel(), 'adminChatFeed', toAdminFeed(record));
   }
 
   /**
@@ -414,8 +416,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     const tournamentId = data?.tournamentId;
     const afterSeq = Number(data?.afterSeq);
     if (!tournamentId || !Number.isFinite(afterSeq)) return;
-    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
-    if (!client.rooms.has(room)) return;
+    if (!client.rooms.has(tournamentChannel(tournamentId).room)) return;
 
     const { records } = await this.chatStorage.messagesSince({ tournamentId, afterSeq });
     client.emit('chatHistory', { tournamentId, gap: true, messages: (records ?? []).map(toWireMessage) });
@@ -479,8 +480,6 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     const userName = data.userName || verifiedUser?.email || 'Admin';
     const message = String(data.message).slice(0, MAX_CHAT_MESSAGE_LENGTH);
 
-    const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
-
     // Persist the admin reply too (is_admin) so it appears in tournament
     // backfill and gap fills like any other message. Tolerate persist failure
     // — still relay so the live experience degrades gracefully.
@@ -496,10 +495,11 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     const wire = record ? toWireMessage(record) : { userName, message, timestamp: Date.now(), isAdmin: true };
 
     // Send to the tournament room (all clients including the admin if they're in that room)
-    this.server?.to(room).emit('chatMessage', wire);
+    this.realtime.publish(tournamentChannel(tournamentId), 'chatMessage', wire);
 
     // Also echo back to the monitor room so other monitoring admins see it
-    this.server?.to(ADMIN_CHAT_MONITOR_ROOM).emit(
+    this.realtime.publish(
+      adminChatMonitorChannel(),
       'adminChatFeed',
       record
         ? toAdminFeed(record)
@@ -536,36 +536,17 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
    * Backs the GET /admin/presence endpoint. Read-only — no broadcast.
    */
   async getActiveRoomPresence(): Promise<RoomPresence[]> {
-    if (!this.server) return [];
-    // `this.server` is typed as `Server`, but with `namespace: 'tmx'` NestJS
-    // injects a `Namespace` at runtime. On a Namespace the adapter sits
-    // directly on the instance — `this.server.sockets` is a Map<id,Socket>,
-    // not a default-namespace shim, so the previous chain
-    // `this.server.sockets.adapter.rooms` produced
-    // "Cannot read properties of undefined (reading 'rooms')" in prod.
-    const rooms = (this.server as unknown as Namespace).adapter.rooms;
-    const tournamentIds: string[] = [];
-    for (const room of rooms.keys()) {
-      if (room.startsWith(TOURNAMENT_ROOM_PREFIX)) {
-        tournamentIds.push(room.slice(TOURNAMENT_ROOM_PREFIX.length));
-      }
-    }
-
+    const rooms = await this.realtime.rooms('tmx', TOURNAMENT_ROOM_PREFIX);
     const result: RoomPresence[] = [];
-    for (const tournamentId of tournamentIds) {
-      const room = TOURNAMENT_ROOM_PREFIX + tournamentId;
-      const sockets = await this.server.in(room).fetchSockets();
-      const members: RoomMember[] = sockets.map((s) => {
-        const jwtUser = (s.data as any)?.user;
-        const joinedAt = (s.data as any)?.tournamentJoinedAt?.[tournamentId];
-        return {
-          socketId: s.id,
-          userId: jwtUser?.userId ?? jwtUser?.sub,
-          email: jwtUser?.email,
-          providerId: jwtUser?.providerId,
-          joinedAt,
-        };
-      });
+    for (const room of rooms) {
+      const tournamentId = room.slice(TOURNAMENT_ROOM_PREFIX.length);
+      const members: RoomMember[] = (await this.realtime.members(tournamentChannel(tournamentId))).map((m) => ({
+        socketId: m.connectionId,
+        userId: m.user?.userId ?? m.user?.sub,
+        email: m.user?.email,
+        providerId: m.user?.providerId,
+        joinedAt: m.joinedAt,
+      }));
       result.push({ tournamentId, count: members.length, members });
     }
     return result;
