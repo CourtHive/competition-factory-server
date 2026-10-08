@@ -7,13 +7,28 @@ import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
 import { GetScheduleProjectionDto } from './dto/getScheduleProjection.dto';
 import { GetTournamentInfoDto } from './dto/getTournamentInfo.dto';
 import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
+import { GetStructureDataDto } from './dto/getStructureData.dto';
 import { GetParticipantsDto } from './dto/getParticipants.dto';
 import { ExecutionQueueDto } from './dto/executionQueue.dto';
-import { GetStructureDataDto } from './dto/getStructureData.dto';
-import { GetDrawDataDto } from './dto/getDrawData.dto';
 import { GetEventDataDto } from './dto/getEventData.dto';
+import { GetDrawDataDto } from './dto/getDrawData.dto';
 import { GetMatchUpsDto } from './dto/getMatchUps.dto';
 
+import { ADMIN, CLIENT, GENERATE, PROVIDER_ADMIN, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
+import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
+import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
+import { Audience } from 'src/modules/account/auth/decorators/audience.decorator';
+import { MutationAuthorizationService } from './mutation-authorization.service';
+import { Public } from 'src/modules/account/auth/decorators/public.decorator';
+import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
+import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
+import { ApplyPrivacyPolicyDto } from './dto/applyPrivacyPolicy.dto';
+import { User } from '../account/auth/decorators/user.decorator';
+import { ROSTER_SAFE_TOPICS } from './engines/getMutationEngine';
+import { PayloadProfileEnum } from 'tods-competition-factory';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import { FactoryService } from './factory.service';
+import { GrantsService } from './grants.service';
 import {
   Controller,
   Get,
@@ -28,21 +43,6 @@ import {
   Req,
   ForbiddenException,
 } from '@nestjs/common';
-import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
-import { ADMIN, CLIENT, GENERATE, PROVIDER_ADMIN, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
-import { ApplyPrivacyPolicyDto } from './dto/applyPrivacyPolicy.dto';
-import { Audience } from 'src/modules/account/auth/decorators/audience.decorator';
-import { Public } from 'src/modules/account/auth/decorators/public.decorator';
-import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
-import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
-import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
-import { User } from '../account/auth/decorators/user.decorator';
-import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
-import { MutationAuthorizationService } from './mutation-authorization.service';
-import { PayloadProfileEnum } from 'tods-competition-factory';
-import { ROSTER_SAFE_TOPICS } from './engines/getMutationEngine';
-import { GrantsService } from './grants.service';
-import { FactoryService } from './factory.service';
 
 /**
  * Cache-key prefixes scoped to ONE entity rather than the whole tournament. These are the only keys
@@ -441,14 +441,10 @@ export class FactoryController {
   async scoreMatchUp(@Body() sms: SetMatchUpStatusDto, @Req() req: any) {
     // Stamp the authenticated identity + source onto the payload so this score
     // submission is audited and broadcast exactly like the socket and /factory
-    // paths. Provisioner context is threaded when API-key / X-Provider-Id auth
-    // was used. Mirrors the executionQueue() controller below — without this the
+    // paths. Mirrors the executionQueue() controller below — without this the
     // audit hook records a null actor (and previously never fired at all).
-    const provisioner = req.provisioner
-      ? { provisionerId: req.provisioner.provisionerId, providerId: req.headers?.['x-provider-id'] }
-      : undefined;
     const verifiedUser = req.user;
-    const enriched: any = { ...sms, provisioner, auditSource: req.auditSource, source: 'api' };
+    const enriched: any = { ...sms, auditSource: req.auditSource, source: 'api' };
     if (verifiedUser?.email) enriched.userEmail = verifiedUser.email;
     if (verifiedUser?.userId || verifiedUser?.sub) enriched.userId = verifiedUser.userId ?? verifiedUser.sub;
 
@@ -497,10 +493,6 @@ export class FactoryController {
     @Req() req: any,
     @UserCtx() userContext?: UserContext,
   ) {
-    // Thread provisioner context so executionQueue can stamp tournament ownership
-    const provisioner = req.provisioner
-      ? { provisionerId: req.provisioner.provisionerId, providerId: req.headers?.['x-provider-id'] }
-      : undefined;
     // Stamp the JWT-verified identity onto the payload so the audit hook records
     // the authenticated user. Mirrors tmx.gateway.ts — without it, REST-path
     // mutations land in audit_log with a null user_email/user_id (the socket
@@ -523,7 +515,7 @@ export class FactoryController {
     if (denial) throw new ForbiddenException(denial);
 
     const verifiedUser = req.user;
-    const payload: any = { ...eqd, provisioner, auditSource: req.auditSource };
+    const payload: any = { ...eqd, auditSource: req.auditSource };
     if (verifiedUser?.email) payload.userEmail = verifiedUser.email;
     if (verifiedUser?.userId || verifiedUser?.sub) payload.userId = verifiedUser.userId ?? verifiedUser.sub;
     const result = await this.factoryService.executionQueue(payload, {
@@ -582,7 +574,7 @@ export class FactoryController {
   ) {
     // Thread provisioner context so the service can stamp the
     // tournament_provisioner ownership row + parentOrganisation
-    // provisionerOrigin extension. Mirrors the executionQueue route above.
+    // provisionerOrigin extension.
     const provisionerContext = req?.provisioner
       ? {
           provisionerId: req.provisioner.provisionerId,

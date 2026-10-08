@@ -1,15 +1,9 @@
 import { Inject, Injectable, Logger, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
 
+import { AUDIT_STORAGE, type IAuditStorage, type AuditRow } from 'src/storage/interfaces';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
-import { executionQueue } from '../factory/functions/private/executionQueue';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
-import {
-  AUDIT_STORAGE,
-  type IAuditStorage,
-  type AuditRow,
-  TOURNAMENT_PROVISIONER_STORAGE,
-  type ITournamentProvisionerStorage,
-} from 'src/storage/interfaces';
+import { executionQueue } from '../factory/functions/private/executionQueue';
 import { tools } from 'tods-competition-factory';
 
 import { toActor } from './audit-actor';
@@ -52,8 +46,6 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(AUDIT_STORAGE) private readonly auditStorage: IAuditStorage,
     @Optional() private readonly tournamentStorageService?: TournamentStorageService,
-    @Optional() @Inject(TOURNAMENT_PROVISIONER_STORAGE)
-    private readonly tournamentProvisionerStorage?: ITournamentProvisionerStorage,
     // Optional to match the constructor's existing style (several specs build
     // AuditService with storage alone). The restore path below degrades to an
     // empty bag when it is absent, which is exactly the prior behaviour — but
@@ -550,7 +542,6 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       this.mutationServices?.build() ?? {},
       this.tournamentStorageService,
       this,
-      this.tournamentProvisionerStorage,
     );
 
     if (result?.error) {

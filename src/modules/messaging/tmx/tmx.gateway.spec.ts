@@ -534,7 +534,7 @@ describe('TmxGateway executionQueue reply and broadcast', () => {
 
   it("emits the handler's ack to the sender and broadcasts to the room excluding the sender", async () => {
     const { gateway, broadcastService } = buildGateway();
-    const ack = { ackId: 'a1', success: true, appliedServerMethods: [{ method: 'attachPolicies' }] };
+    const ack = { ackId: 'a1', success: true };
     const publicNotices = [{ topic: 'publishEvent' }];
     spy = vi.spyOn(tmxMessages, 'executionQueue').mockResolvedValue({ ack, publicNotices });
     const socket = makeSocket({ user: { email: 'a@x.com', sub: 'u-1' } });

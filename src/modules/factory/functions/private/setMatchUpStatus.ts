@@ -1,7 +1,6 @@
 import { executionQueue } from './executionQueue';
 
 // types
-import type { ITournamentProvisionerStorage, IProviderStorage } from 'src/storage/interfaces';
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import type { AuditService } from 'src/modules/audit/audit.service';
 
@@ -22,8 +21,6 @@ export async function setMatchUpStatus(
   services: any,
   storage: TournamentStorageService,
   auditService?: AuditService,
-  tournamentProvisionerStorage?: ITournamentProvisionerStorage,
-  providerStorage?: IProviderStorage,
 ) {
   const hasLegacyWrapper = payload?.params && !payload?.matchUpId;
   const flat = hasLegacyWrapper ? payload.params : payload ?? {};
@@ -41,12 +38,11 @@ export async function setMatchUpStatus(
     userEmail: payload?.userEmail,
     source: payload?.source,
     auditSource: payload?.auditSource,
-    provisioner: payload?.provisioner,
     ackId: payload?.ackId,
     tmxVersion: payload?.tmxVersion,
     factoryVersion: payload?.factoryVersion,
     timestamp: payload?.timestamp,
   };
 
-  return await executionQueue(eqPayload, services, storage, auditService, tournamentProvisionerStorage, providerStorage);
+  return await executionQueue(eqPayload, services, storage, auditService);
 }
