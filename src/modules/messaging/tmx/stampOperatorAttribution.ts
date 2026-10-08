@@ -93,3 +93,23 @@ export function stampOperatorAttribution(payload: any, verifiedUser?: VerifiedUs
 
   return rewritten;
 }
+
+/**
+ * Every identity a mutation payload carries, taken from the authenticated user and never from the
+ * client: `userEmail` and `userId` for the audit row, and the operator attestations above.
+ *
+ * One function for both transports. The REST route stamped only the fields its token carried, so a
+ * client-supplied `userId` survived into the audit row, and it never re-stamped attestations at
+ * all — a caller could post an operator identity that was not its own to `POST /factory`.
+ *
+ * `userId` is replaced unconditionally: when the token carries no UUID-shaped identifier it becomes
+ * `null`, because `audit_log.user_id` is a nullable UUID and a client string there would either
+ * spoof the column or crash the INSERT.
+ *
+ * Returns the number of attestations rewritten (see `stampOperatorAttribution`).
+ */
+export function stampVerifiedIdentity(payload: any, verifiedUser?: VerifiedUser): number {
+  if (verifiedUser?.email) payload.userEmail = verifiedUser.email;
+  payload.userId = verifiedUser?.userId ?? verifiedUser?.sub ?? null;
+  return stampOperatorAttribution(payload, verifiedUser);
+}

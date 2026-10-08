@@ -17,6 +17,7 @@ import { GetMatchUpsDto } from './dto/getMatchUps.dto';
 import { ADMIN, CLIENT, GENERATE, PROVIDER_ADMIN, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
 import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
+import { stampVerifiedIdentity } from 'src/modules/messaging/tmx/stampOperatorAttribution';
 import { Audience } from 'src/modules/account/auth/decorators/audience.decorator';
 import { MutationAuthorizationService } from './mutation-authorization.service';
 import { Public } from 'src/modules/account/auth/decorators/public.decorator';
@@ -493,12 +494,6 @@ export class FactoryController {
     @Req() req: any,
     @UserCtx() userContext?: UserContext,
   ) {
-    // Stamp the JWT-verified identity onto the payload so the audit hook records
-    // the authenticated user. Mirrors tmx.gateway.ts — without it, REST-path
-    // mutations land in audit_log with a null user_email/user_id (the socket
-    // path stamps it; this path previously did not). userId is only assigned
-    // when present: audit_log.user_id is UUID-typed, so an email fallback would
-    // crash the INSERT — the email belongs in userEmail.
     // Per-tournament access + provider-permission gate. The socket transport
     // applies these in TmxGateway; this route previously applied NEITHER, so a
     // CLIENT could post the same `methods` array over HTTP and bypass both.
@@ -514,10 +509,18 @@ export class FactoryController {
     });
     if (denial) throw new ForbiddenException(denial);
 
-    const verifiedUser = req.user;
+    // The same identity stamping as the socket path (stampVerifiedIdentity). This route used to set
+    // only the fields the token carried, so a client `userId` survived into the audit row and an
+    // operator attestation naming somebody else was saved as sent.
     const payload: any = { ...eqd, auditSource: req.auditSource };
-    if (verifiedUser?.email) payload.userEmail = verifiedUser.email;
-    if (verifiedUser?.userId || verifiedUser?.sub) payload.userId = verifiedUser.userId ?? verifiedUser.sub;
+    const restamped = stampVerifiedIdentity(payload, req.user);
+    if (restamped) {
+      Logger.warn(
+        `[attribution] replaced ${restamped} client-asserted operator identit${restamped === 1 ? 'y' : 'ies'} ` +
+          `on POST /factory (actor=${req.user?.email ?? req.user?.userId})`,
+        'FactoryController',
+      );
+    }
     const result = await this.factoryService.executionQueue(payload, {
       cacheManager: this.cacheManager,
       // Lets a warmed key enter the side-table. The WS path has no side-table and passes nothing.
@@ -525,8 +528,10 @@ export class FactoryController {
     });
     if (result?.success) {
       const { publicNotices } = result;
-      this.broadcastService.broadcastMutation(eqd);
-      this.broadcastService.broadcastPublicNotices(eqd, publicNotices);
+      // The stamped payload, as the socket path broadcasts: it carries the verified userId, and the
+      // sender's `originClientId` so the sender recognises its own mutation (no connection to exclude).
+      this.broadcastService.broadcastMutation(payload);
+      this.broadcastService.broadcastPublicNotices(payload, publicNotices);
       this.invalidateTournamentCache(
         eqd.tournamentIds ?? [],
         result?.evictedEventKeys,
