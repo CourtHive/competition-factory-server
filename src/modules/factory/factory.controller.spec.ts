@@ -126,7 +126,13 @@ describe('FactoryController', () => {
     } as unknown as any;
 
     beforeEach(() => {
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
       vi.clearAllMocks();
     });
 
@@ -196,7 +202,13 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
 
       const eqd = {
         tournamentIds: ['t1'],
@@ -218,7 +230,13 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
 
       const eqd = { tournamentIds: ['t1'], methods: [{ method: 'setMatchUpStatus', params: {} }] };
       const mockReq = {
@@ -242,7 +260,13 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
 
       const eqd = { tournamentIds: ['t1'], methods: [] };
       const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined, user: { email: 'd@e.com' } };
@@ -259,7 +283,13 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
 
       const eqd = { tournamentIds: ['t1'], methods: [], userId: '99999999-0000-0000-0000-000000000000' };
       const mockReq = { provisioner: undefined, headers: {}, auditSource: undefined, user: { email: 'd@e.com' } };
@@ -274,7 +304,13 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
 
       const callerId = '11111111-2222-3333-4444-555555555555';
       const eqd = {
@@ -293,11 +329,66 @@ describe('FactoryController', () => {
       expect(passed.methods[0].params.attributedTo).toMatchObject({ attributionType: 'USER', userId: callerId });
     });
 
+    // Moved from the socket handler's spec when that path was retired (2026-10-09): the helper being
+    // correct proves nothing unless the route that executes commands invokes it.
+    const attesterPassed = async (user: any, attributedTo: any) => {
+      const mockService = {
+        executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
+      } as unknown as FactoryService;
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
+      const eqd = {
+        tournamentIds: ['t1'],
+        methods: [{ method: 'toggleParticipantCheckInState', params: { matchUpId: 'm1', attributedTo } }],
+      };
+      await mockController.executionQueue(eqd as any, { headers: {}, auditSource: undefined, user });
+      return (mockService.executionQueue as Mock).mock.calls[0][0].methods[0].params.attributedTo;
+    };
+
+    it('drops a USER attester the token cannot substantiate', async () => {
+      // an email-only token has no id to name an operator with
+      const attester = await attesterPassed(
+        { email: 'a@x.com' },
+        { attributionType: 'USER', userId: 'client-claimed' },
+      );
+      expect(attester).toBeUndefined();
+    });
+
+    it('leaves a DECLARED attester intact — a parent vouching for a junior is testimony', async () => {
+      const parent = { attributionType: 'DECLARED', relationship: 'PARENT', name: 'A. Guardian' };
+      const attester = await attesterPassed(
+        { email: 'desk@x.com', sub: '11111111-2222-3333-4444-555555555555' },
+        {
+          ...parent,
+        },
+      );
+      expect(attester).toEqual(parent);
+    });
+
+    it('invents no attester where the client sent none', async () => {
+      const attester = await attesterPassed(
+        { email: 'desk@x.com', sub: '11111111-2222-3333-4444-555555555555' },
+        undefined,
+      );
+      expect(attester).toBeUndefined();
+    });
+
     it("broadcasts the sender's originClientId, so the sender recognises its own mutation", async () => {
       const mockService = {
         executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [] }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
 
       const eqd = { tournamentIds: ['t1'], methods: [{ method: 'm', params: {} }], originClientId: 'tab-1' };
       await mockController.executionQueue(eqd as any, { headers: {}, auditSource: undefined });
@@ -318,7 +409,13 @@ describe('FactoryController', () => {
           .fn()
           .mockResolvedValue({ success: true, publicNotices: [], serverUpdatedAt, previousServerUpdatedAt }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
 
       const eqd = { tournamentIds: ['t1'], methods: [{ method: 'm', params: {} }] };
       const result: any = await mockController.executionQueue(eqd as any, { headers: {}, auditSource: undefined });
@@ -334,7 +431,13 @@ describe('FactoryController', () => {
       const mockService = {
         executionQueue: vi.fn().mockResolvedValue({ error: 'something failed' }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
 
       const eqd = {
         tournamentIds: ['t1'],
@@ -352,7 +455,13 @@ describe('FactoryController', () => {
       const mockService = {
         score: vi.fn().mockResolvedValue({ success: true, publicNotices }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
 
       const sms = { tournamentId: 't1', matchUpId: 'm1', drawId: 'd1' };
       await mockController.scoreMatchUp(sms as any, {} as any);
@@ -368,7 +477,13 @@ describe('FactoryController', () => {
       const mockService = {
         score: vi.fn().mockResolvedValue({ error: 'invalid score' }),
       } as unknown as FactoryService;
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
 
       const sms = { tournamentId: 't1', matchUpId: 'm1', drawId: 'd1' };
       await mockController.scoreMatchUp(sms as any, {} as any);
@@ -425,7 +540,13 @@ describe('FactoryController', () => {
 
     beforeEach(() => {
       vi.clearAllMocks();
-      mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
     });
 
     it('tracks every cache key issued for a tournament and deletes them all on executionQueue', async () => {
@@ -439,7 +560,9 @@ describe('FactoryController', () => {
       await mockController.executionQueue(eqd as any, mockReq);
 
       const deletedKeys = mockCache.del.mock.calls.map((c: any[]) => c[0]).sort();
-      expect(deletedKeys).toEqual(['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|msps', 'gtm|t1', 'gtp|t1'].sort());
+      expect(deletedKeys).toEqual(
+        ['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|msps', 'gtm|t1', 'gtp|t1'].sort(),
+      );
     });
 
     it('deletes flag-variant keys (gti|<tid>|<flags>) on invalidation', async () => {
@@ -692,7 +815,9 @@ describe('FactoryController', () => {
       await mockController.scoreMatchUp(sms as any, {} as any);
 
       const deletedKeys = mockCache.del.mock.calls.map((c: any[]) => c[0]).sort();
-      expect(deletedKeys).toEqual(['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|msps', 'gtm|t1', 'gtp|t1'].sort());
+      expect(deletedKeys).toEqual(
+        ['gac|t1', 'ged|t1|e1', 'gmr|t1', 'gti|t1', 'gti|t1|msps', 'gtm|t1', 'gtp|t1'].sort(),
+      );
     });
 
     it('does not delete cache keys when the mutation fails', async () => {
@@ -700,7 +825,13 @@ describe('FactoryController', () => {
         ...mockService,
         executionQueue: vi.fn().mockResolvedValue({ error: 'fail' }),
       } as unknown as FactoryService;
-      const failingController = new FactoryController(failingService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+      const failingController = new FactoryController(
+        failingService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
       await populateCacheForTid(failingController, 't1');
 
       const eqd = { tournamentIds: ['t1'], methods: [] };
@@ -817,7 +948,13 @@ describe('FactoryController eventdata — participantsVersion', () => {
     vi.clearAllMocks();
     (mockService.getEventData as Mock).mockResolvedValue(cachedPayload);
     mockCache.get.mockResolvedValue(undefined);
-    mockController = new FactoryController(mockService, mockBroadcast, permissiveMutationAuth(), stubGrants(), mockCache);
+    mockController = new FactoryController(
+      mockService,
+      mockBroadcast,
+      permissiveMutationAuth(),
+      stubGrants(),
+      mockCache,
+    );
   });
 
   it('includes participants when the caller supplies no version', async () => {

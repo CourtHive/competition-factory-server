@@ -1,8 +1,4 @@
 import { initRoomJoins, recordRoomJoin, SocketIoRealtimeAdapter } from '../realtime/socket-io-realtime.adapter';
-import { MutationServicesService } from 'src/modules/mutation-services/mutation-services.service';
-import { MutationAuthorizationService } from 'src/modules/factory/mutation-authorization.service';
-import { stampVerifiedIdentity } from 'src/modules/messaging/tmx/stampOperatorAttribution';
-import { TournamentBroadcastService } from '../broadcast/tournament-broadcast.service';
 import { buildUserContext } from 'src/modules/account/auth/helpers/buildUserContext';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { MAX_CHAT_MESSAGE_LENGTH, toAdminFeed, toWireMessage } from './chatWire';
@@ -13,13 +9,10 @@ import { Public } from '../../account/auth/decorators/public.decorator';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
 import { TournamentChatService } from './tournament-chat.service';
 import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
-import { AuditService } from 'src/modules/audit/audit.service';
 import { UsersService } from 'src/modules/users/users.service';
 import { userCanViewTournament } from './tournamentVisibility';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { resolveCorsOrigins } from 'src/common/cors';
-import { tools } from 'tods-competition-factory';
-import { tmxMessages } from './tmxMessages';
 import { Server, Socket } from 'socket.io';
 import {
   TOURNAMENT_ROOM_PREFIX,
@@ -83,12 +76,8 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     @Inject(CHAT_STORAGE) private readonly chatStorage: IChatStorage,
     private readonly tournamentStorageService: TournamentStorageService,
-    private readonly mutationServices: MutationServicesService,
-    private readonly broadcastService: TournamentBroadcastService,
     private readonly assignmentsService: AssignmentsService,
-    private readonly mutationAuthorization: MutationAuthorizationService,
     private readonly usersService: UsersService,
-    private readonly auditService: AuditService,
     private readonly realtime: SocketIoRealtimeAdapter,
     private readonly tournamentChat: TournamentChatService,
   ) {}
@@ -221,101 +210,12 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     await this.broadcastRoomPresence(tournamentId);
   }
 
-  // ── Mutation handling with broadcast ──
-
-  @SubscribeMessage('executionQueue')
-  @Roles([CLIENT, SUPER_ADMIN])
-  async messageHandler(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<any> {
-    if (typeof data !== 'object') return { notFound: data };
-    const { type, payload = {} } = data;
-
-    // Use the JWT-verified user identity from the SocketGuard, NOT the
-    // client-supplied payload.userId. The guard stores the verified user
-    // on client.data.user — see socket.guard.ts.
-    const verifiedUser = client.data?.user;
-    const userId = verifiedUser?.email ?? payload.userId;
-
-    if (tmxMessages[type]) {
-      const methods = tools.unique(payload?.methods?.map((directive) => directive.method) ?? []).join('|');
-      const ackId = payload?.ackId;
-
-      // Per-tournament gates: tournament-access (canMutateTournament) +
-      // provider-permission (MUTATION_PERMISSIONS). Returns an error
-      // string if any gate rejects, or null when all tournaments pass.
-      const userContext = await this.resolveUserContext(client);
-      const requestedMethods: string[] = (payload?.methods ?? []).map((m: any) => m?.method).filter(Boolean);
-      const denial = await this.mutationAuthorization.gate({
-        userContext,
-        tournamentIds: payload.tournamentIds ?? [],
-        requestedMethods,
-        methods: payload?.methods ?? [],
-        actor: userId,
-      });
-      if (denial) {
-        client.emit('ack', { ackId, error: denial });
-        return;
-      }
-
-      // Stamp the JWT-verified identity onto the payload so downstream consumers (audit hook,
-      // executionQueue, the attestation itself) see the authenticated user rather than whatever the
-      // client happened to send. Shared with POST /factory — see stampVerifiedIdentity.
-      const restamped = stampVerifiedIdentity(payload, verifiedUser);
-      if (restamped) {
-        // Logged rather than only corrected. A client sending an operator identity that is not its
-        // own is either a bug worth finding or an attempt worth seeing; silently fixing it would
-        // hide both.
-        this.logger.warn(
-          `[attribution] replaced ${restamped} client-asserted operator identit${restamped === 1 ? 'y' : 'ies'} ` +
-            `on ${methods} (actor=${userId})`,
-        );
-      }
-
-      try {
-        const { ack: result, publicNotices } = await tmxMessages[type]({
-          payload,
-          // Assembled by MutationServicesService, never as a literal here — a
-          // per-callsite bag is what let the REST path silently lose the
-          // projection outbox. This path contributes only its request-scoped
-          // half (no cache-key side-table on the socket path).
-          services: this.mutationServices.build({ cacheManager: this.cacheManager }),
-          storage: this.tournamentStorageService,
-          auditService: this.auditService,
-        });
-        client.emit('ack', result);
-        if (result.error) {
-          const tournamentInfo = result.tournamentIds ? ` | tournaments: ${JSON.stringify(result.tournamentIds)}` : '';
-          const contextInfo = result.context ? ` | context: ${JSON.stringify(result.context)}` : '';
-          // Include ackId + full methods (params and all) in error logs so
-          // production incidents are triageable without needing the audit
-          // DB. Capped at 2000 chars per log to avoid excessive spam from
-          // large batches.
-          const methodsDetail = safeJson(payload?.methods, 2000);
-          this.logger.error(
-            `${type} message errored: ${userId}: ${methods}${tournamentInfo} | ackId: ${ackId} | error: ${JSON.stringify(result.error)}${contextInfo} | methods: ${methodsDetail}`,
-          );
-        } else {
-          this.logger.debug(`${type} message successful: ${userId}: ${methods}`);
-          // Broadcast approved mutations to other TMX clients viewing the same tournament(s)
-          this.broadcastService.broadcastMutation(payload, {
-            excludeConnectionId: client.id,
-            serverUpdatedAt: result.serverUpdatedAt,
-            previousServerUpdatedAt: result.previousServerUpdatedAt,
-          });
-          // Broadcast sanitized updates to public viewers
-          this.broadcastService.broadcastPublicNotices(payload, publicNotices);
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        const methodsDetail = safeJson(payload?.methods, 2000);
-        this.logger.error(
-          `${type} message threw: ${userId}: ${methods} | ackId: ${ackId} | error: ${message} | methods: ${methodsDetail}`,
-        );
-        client.emit('ack', { ackId, error: message });
-      }
-    } else {
-      this.logger.debug(`Not found: ${type}`);
-    }
-  }
+  // ── Mutations ──
+  //
+  // Commands are not accepted on the socket. A mutation is `POST /factory` (FactoryController), which
+  // authorizes, stamps identity, executes, broadcasts to this namespace and evicts the public caches.
+  // The socket `executionQueue` handler was retired on 2026-10-09 (CA): it duplicated that path and
+  // could not evict the cache tiers whose keys only the controller tracks.
 
   // ── Chat relay ──
 
@@ -516,15 +416,5 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
 
     this.logger.debug(`test route successful`);
     return { event: 'ack', data }; // emit to client
-  }
-}
-
-function safeJson(value: unknown, maxLen: number): string {
-  try {
-    const s = JSON.stringify(value);
-    if (s == null) return String(s);
-    return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s;
-  } catch {
-    return '[unserializable]';
   }
 }

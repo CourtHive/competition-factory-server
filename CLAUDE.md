@@ -73,14 +73,19 @@ src/
 ### Mutation Flow
 
 ```
-Client (Socket.IO) -> TmxGateway.messageHandler()
-  -> tmxMessages.executionQueue()
+Client -> POST /factory -> FactoryController.executionQueue()
+  -> mutationAuthorization.gate() + stampVerifiedIdentity()
+  -> factoryService.executionQueue()
     -> withTournamentLock()
     -> fetchTournamentRecords()
     -> mutationEngine.executionQueue(methods)
     -> saveTournamentRecords()
-  -> client.emit('ack')
+  -> broadcastMutation() to the /tmx room, invalidateTournamentCache()
+  -> HTTP response (TMX turns it into the ack)
 ```
+
+The socket `executionQueue` handler was retired 2026-10-09 (CA). The `/tmx` socket carries
+subscriptions and server push only.
 
 ## Key Conventions
 

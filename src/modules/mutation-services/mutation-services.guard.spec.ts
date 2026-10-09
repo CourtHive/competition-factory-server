@@ -51,9 +51,7 @@ describe('executionQueue services bag — divergence guard', () => {
     const built = makeService().build();
     const requestScoped = new Set<string>(REQUEST_SCOPED_SERVICE_KEYS);
 
-    const missing = servicesKeysReadByExecutionQueue().filter(
-      (key) => !requestScoped.has(key) && !(key in built),
-    );
+    const missing = servicesKeysReadByExecutionQueue().filter((key) => !requestScoped.has(key) && !(key in built));
 
     // A key here means executionQueue reads something no call site is
     // guaranteed to provide — exactly the projectionOutbox bug, recurring.
@@ -92,25 +90,29 @@ describe('executionQueue services bag — divergence guard', () => {
 /**
  * The bag must be assembled through the builder, never as a literal. A future
  * call site that hand-rolls `services: { ... }` reintroduces the divergence no
- * matter how correct the builder is, so assert both entry points route through
- * it.
+ * matter how correct the builder is, so assert the entry point routes through it.
+ *
+ * There is ONE mutation entry point: `POST /factory` (factory.service.ts). The
+ * socket gateway's executionQueue handler was retired on 2026-10-09, and the
+ * last case here keeps it retired: a second entry point is how the bag diverged.
  */
 describe('mutation entry points route through the builder', () => {
-  it.each([
-    ['tmx.gateway.ts', GATEWAY_PATH],
-    ['factory.service.ts', FACTORY_SERVICE_PATH],
-  ])('%s builds its services bag via MutationServicesService', (_name, path) => {
-    const source = readFileSync(path, 'utf-8');
+  it('factory.service.ts builds its services bag via MutationServicesService', () => {
+    const source = readFileSync(FACTORY_SERVICE_PATH, 'utf-8');
     expect(source).toContain('mutationServices.build(');
   });
 
-  it('neither entry point passes projectionOutbox as a hand-rolled literal', () => {
-    for (const path of [GATEWAY_PATH, FACTORY_SERVICE_PATH]) {
-      const source = readFileSync(path, 'utf-8');
-      // `services: { ... projectionOutbox ... }` is the exact shape that
-      // diverged. The builder owns this key now.
-      expect(source).not.toMatch(/services:\s*\{[^}]*projectionOutbox/);
-    }
+  it('the entry point passes no projectionOutbox as a hand-rolled literal', () => {
+    const source = readFileSync(FACTORY_SERVICE_PATH, 'utf-8');
+    // `services: { ... projectionOutbox ... }` is the exact shape that
+    // diverged. The builder owns this key now.
+    expect(source).not.toMatch(/services:\s*\{[^}]*projectionOutbox/);
+  });
+
+  it('the socket gateway accepts no executionQueue', () => {
+    const source = readFileSync(GATEWAY_PATH, 'utf-8');
+    expect(source).not.toMatch(/@SubscribeMessage\(\s*['"]executionQueue['"]\s*\)/);
+    expect(source).not.toContain('mutationServices.build(');
   });
 });
 

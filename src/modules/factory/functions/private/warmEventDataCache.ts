@@ -36,8 +36,8 @@ type WarmArgs = {
  * every bracket side to TBD for the full TTL. Duplicating this logic per transport would reintroduce
  * exactly that risk.
  *
- * Called from `executionQueue()` so BOTH transports get it: HTTP (`factory.controller` →
- * `factory.service` → here) and WebSocket (`tmxMessages` → here). Opt-in via `payload.warmCache`.
+ * Called from `executionQueue()` (`factory.controller` → `factory.service` → here), the one path a
+ * mutation takes since the socket executionQueue was retired (2026-10-09). Opt-in via `payload.warmCache`.
  *
  * @returns the keys actually seeded — the HTTP controller must spare these from its sweep, since a
  * re-seeded key is by definition also in `evictedEventKeys` and would otherwise be deleted again.

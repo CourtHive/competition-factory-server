@@ -137,9 +137,6 @@ const evictStructureData = (tournamentId, structureId) => {
  * the publish state applied, so it lists only what is visible AFTER the change: the draw or
  * structure just withheld is exactly the one it omits. The controller sweeps an unnarrowable tier
  * tournament-wide, which is the fail-safe direction.
- *
- * The WebSocket path keeps no key side-table and does not consume this, so a publish sent over the
- * socket still leaves these tiers to the TTL, as it already does for flag-variant `gti|` keys.
  */
 const sweepPublishTiers = () => {
   getRequestContext().unnarrowablePrefixes?.add('gdd|');
@@ -148,18 +145,10 @@ const sweepPublishTiers = () => {
 
 const clearCache = (tournamentId) => {
   if (!tournamentId || typeof tournamentId !== 'string') return;
-  // Evict every fixed-shape per-tournament cache key on every
-  // mutation-triggered notice. Covers both the WebSocket path
-  // (tmxMessages → executionQueue → getMutationEngine subscriptions
-  // → here) AND the HTTP path (controller's invalidateTournamentCache
-  // catches the same shapes via its side-table). Flag-variant
-  // gti|<tid>|<flags> keys are NOT evicted here — they're only
-  // tracked in the HTTP controller's side-table. WS-driven mutations
-  // therefore leave flag-variant tournamentInfo reads stale until
-  // the 3-minute cache-manager TTL elapses (acceptable: the live
-  // broadcast already notifies interactive clients, and polling
-  // consumers that need consistency should re-read via the
-  // no-flags route).
+  // Evict every fixed-shape per-tournament cache key on every mutation-triggered notice. Mutations
+  // arrive only as `POST /factory` (the socket executionQueue was retired 2026-10-09), whose
+  // invalidateTournamentCache then sweeps everything else through its key side-table, flag-variant
+  // gti|<tid>|<flags> keys included.
   requestServices()?.cacheManager?.del(`gti|${tournamentId}`);
   requestServices()?.cacheManager?.del(`gtm|${tournamentId}`);
   requestServices()?.cacheManager?.del(`gac|${tournamentId}`);
