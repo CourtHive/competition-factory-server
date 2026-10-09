@@ -15,7 +15,7 @@
     "dotenv": "^18.0.0",
     "express": "^5.1.0",
     "pg": "^8.16.0",
-    "tods-competition-factory": "7.8.0"
+    "tods-competition-factory": "7.9.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
