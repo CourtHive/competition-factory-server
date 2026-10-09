@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.0.1](https://github.com/CourtHive/competition-factory-server/compare/v4.0.0...v4.0.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.9.0 ([8762fe2](https://github.com/CourtHive/competition-factory-server/commit/8762fe25097f5c919c568385c4fa8f0d23128ebb))
+
+
+### Documentation
+
+* add AGENTS.md as a pointer to CLAUDE.md for agents that read it ([bf0053d](https://github.com/CourtHive/competition-factory-server/commit/bf0053db5cffef94b7dd799f093fb713a4f389ce))
+
 ## [4.0.0](https://github.com/CourtHive/competition-factory-server/compare/v3.2.0...v4.0.0) (2026-10-09)
 
 
