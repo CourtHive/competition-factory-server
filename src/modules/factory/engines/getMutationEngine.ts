@@ -125,6 +125,27 @@ const evictStructureData = (tournamentId, structureId) => {
   evictKey(`gsd|${tournamentId}|${structureId}`);
 };
 
+/**
+ * Publishing changes which draws, structures and rounds the public may see, and the public reads
+ * them through the DRAW (`gdd|`) and STRUCTURE (`gsd|`) tiers as well as the event tier. Evicting
+ * only `ged|` left courthive-public serving a structure, draw or round for the full 3-minute TTL
+ * after it was withheld: found by the Guidon publishing journey, where unpublishing a qualifying
+ * draw's MAIN reached the stored publish state and `eventdata`, while `drawdata` answered from cache
+ * with both structures.
+ *
+ * Both tiers are marked unnarrowable rather than targeted. The notice's `eventData` is built with
+ * the publish state applied, so it lists only what is visible AFTER the change: the draw or
+ * structure just withheld is exactly the one it omits. The controller sweeps an unnarrowable tier
+ * tournament-wide, which is the fail-safe direction.
+ *
+ * The WebSocket path keeps no key side-table and does not consume this, so a publish sent over the
+ * socket still leaves these tiers to the TTL, as it already does for flag-variant `gti|` keys.
+ */
+const sweepPublishTiers = () => {
+  getRequestContext().unnarrowablePrefixes?.add('gdd|');
+  getRequestContext().unnarrowablePrefixes?.add('gsd|');
+};
+
 const clearCache = (tournamentId) => {
   if (!tournamentId || typeof tournamentId !== 'string') return;
   // Evict every fixed-shape per-tournament cache key on every
@@ -198,6 +219,7 @@ export const subscriptionHandlers = {
   [topicConstants.PUBLISH_EVENT]: (params) => {
     if (Array.isArray(params)) {
       recordEvents(requestDeltaBuffer(), params); // event.published flag on the events row
+      sweepPublishTiers();
       for (const item of params) {
         const eventId = item.eventData?.eventInfo?.eventId;
         if (item.tournamentId && eventId) {
@@ -220,6 +242,7 @@ export const subscriptionHandlers = {
   },
   [topicConstants.UNPUBLISH_EVENT]: (params) => {
     recordEvents(requestDeltaBuffer(), params); // event.published flag on the events row
+    sweepPublishTiers();
     for (const item of params) {
       evictEventData(item.tournamentId, item.eventId);
       clearCache(item.tournamentId);
