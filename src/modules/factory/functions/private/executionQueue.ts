@@ -214,8 +214,8 @@ export async function executionQueue(
     );
 
     Logger.debug(`[executionQueue] publicNotices: ${publicNotices.length}`);
-    // Opt-in cache warming. Lives here rather than in the controller so BOTH transports get it —
-    // TMX publishes over WebSocket (tmxMessages -> here) and never touches factory.controller.
+    // Opt-in cache warming, here rather than in the controller so it stays beside the mutation it
+    // follows; the controller passes `trackCacheKey` so a warmed key enters its side-table.
     // Runs after the mutation has been saved, so the rebuilt payload reflects the write.
     const warmedEventKeys = payload?.warmCache
       ? await warmEventDataCache({

@@ -1,7 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
-import { io, Socket } from 'socket.io-client';
 import { mocksEngine } from 'tods-competition-factory';
 import request from 'supertest';
 
@@ -16,39 +15,28 @@ const TOURNAMENT_A = 'mutex-stress-a';
 const TOURNAMENT_B = 'mutex-stress-b';
 const ACK_TIMEOUT_MS = 40_000;
 
-function connectSocket(port: number, token: string): Socket {
-  return io(`http://localhost:${port}/tmx`, {
-    extraHeaders: { authorization: `Bearer ${token}` },
-    transports: ['websocket'],
-    forceNew: true,
-  });
-}
-
+/**
+ * Commands are `POST /factory` (the socket executionQueue was retired 2026-10-09). Concurrent
+ * requests race into the same per-tournament lock the socket clients used to, so the lock is what
+ * these tests exercise; the transport only delivers the requests at once.
+ */
 function sendExecutionQueue(
-  socket: Socket,
+  server: any,
+  token: string,
   payload: Record<string, any>,
   timeoutMs = ACK_TIMEOUT_MS,
 ): Promise<Record<string, any>> {
-  const ackId = randomUUID();
-  const fullPayload = { ...payload, ackId };
-
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      socket.off('ack', handler);
-      reject(new Error(`Ack timeout after ${timeoutMs}ms (ackId: ${ackId})`));
-    }, timeoutMs);
-
-    function handler(response: any) {
-      if (response?.ackId === ackId) {
-        clearTimeout(timer);
-        socket.off('ack', handler);
-        resolve(response);
-      }
-    }
-
-    socket.on('ack', handler);
-    socket.emit('executionQueue', { type: 'executionQueue', payload: fullPayload });
-  });
+  return request(server)
+    .post('/factory')
+    .set('Authorization', `Bearer ${token}`)
+    .timeout(timeoutMs)
+    .send({ ...payload, ackId: randomUUID() })
+    .then((res) => {
+      // A refusal is a non-2xx response whose body IS the error (checkEngineError's
+      // { message, code, ... }, or the mutation gate's 403), as TMX's toCommandOutcome reads it.
+      const ok = res.status >= 200 && res.status < 300;
+      return ok ? res.body : { ...res.body, error: res.body?.error ?? res.body };
+    });
 }
 
 function makeDatesMutation(tournamentId: string) {
@@ -67,11 +55,11 @@ function makeDatesMutation(tournamentId: string) {
   };
 }
 
-describe('Mutex Stress Test — E2E WebSocket', () => {
+describe('Mutex Stress Test — E2E HTTP', () => {
   let app: INestApplication;
   let token: string;
-  let port: number;
-  const sockets: Socket[] = [];
+  let server: any;
+  const send = (payload: Record<string, any>) => sendExecutionQueue(server, token, payload);
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -81,9 +69,7 @@ describe('Mutex Stress Test — E2E WebSocket', () => {
     app = moduleRef.createNestApplication();
     await app.listen(0);
 
-    const server = app.getHttpServer();
-    const address = server.address();
-    port = typeof address === 'string' ? Number.parseInt(address, 10) : address.port;
+    server = app.getHttpServer();
 
     // Authenticate
     const loginRes = await request(server)
@@ -109,15 +95,7 @@ describe('Mutex Stress Test — E2E WebSocket', () => {
   });
 
   afterAll(async () => {
-    // Disconnect all sockets and wait for transport close
-    for (const s of sockets) {
-      s.removeAllListeners();
-      if (s.connected) s.disconnect();
-      s.close();
-    }
-
     // Remove test tournaments
-    const server = app.getHttpServer();
     await request(server)
       .post('/factory/remove')
       .set('Authorization', `Bearer ${token}`)
@@ -130,34 +108,11 @@ describe('Mutex Stress Test — E2E WebSocket', () => {
     await app.close();
   });
 
-  function createSocket(): Socket {
-    const s = connectSocket(port, token);
-    sockets.push(s);
-    return s;
-  }
-
-  async function waitForConnect(socket: Socket): Promise<void> {
-    if (socket.connected) return;
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Socket connect timeout')), 10_000);
-      socket.on('connect', () => {
-        clearTimeout(timer);
-        resolve();
-      });
-      socket.on('connect_error', (err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-    });
-  }
-
   it('serializes 10 concurrent requests to the same tournament', async () => {
     const promises: Promise<Record<string, any>>[] = [];
 
     for (let i = 0; i < CONCURRENCY; i++) {
-      const s = createSocket();
-      await waitForConnect(s);
-      promises.push(sendExecutionQueue(s, makeDatesMutation(TOURNAMENT_A)));
+      promises.push(send(makeDatesMutation(TOURNAMENT_A)));
     }
 
     const results = await Promise.all(promises);
@@ -169,14 +124,7 @@ describe('Mutex Stress Test — E2E WebSocket', () => {
   });
 
   it('allows concurrent requests to different tournaments', async () => {
-    const s1 = createSocket();
-    const s2 = createSocket();
-    await Promise.all([waitForConnect(s1), waitForConnect(s2)]);
-
-    const [r1, r2] = await Promise.all([
-      sendExecutionQueue(s1, makeDatesMutation(TOURNAMENT_A)),
-      sendExecutionQueue(s2, makeDatesMutation(TOURNAMENT_B)),
-    ]);
+    const [r1, r2] = await Promise.all([send(makeDatesMutation(TOURNAMENT_A)), send(makeDatesMutation(TOURNAMENT_B))]);
 
     expect(r1.success).toBeDefined();
     expect(r1.error).toBeUndefined();
@@ -185,10 +133,7 @@ describe('Mutex Stress Test — E2E WebSocket', () => {
   });
 
   it('returns error for nonexistent tournament without hanging', async () => {
-    const s = createSocket();
-    await waitForConnect(s);
-
-    const result = await sendExecutionQueue(s, makeDatesMutation('nonexistent-tournament-xyz'));
+    const result = await send(makeDatesMutation('nonexistent-tournament-xyz'));
 
     expect(result.error).toBeDefined();
   });
@@ -198,9 +143,7 @@ describe('Mutex Stress Test — E2E WebSocket', () => {
     const promises: Promise<Record<string, any>>[] = [];
 
     for (let i = 0; i < burstSize; i++) {
-      const s = createSocket();
-      await waitForConnect(s);
-      promises.push(sendExecutionQueue(s, makeDatesMutation(TOURNAMENT_A)));
+      promises.push(send(makeDatesMutation(TOURNAMENT_A)));
     }
 
     const results = await Promise.all(promises);
@@ -217,9 +160,7 @@ describe('Mutex Stress Test — E2E WebSocket', () => {
 
     for (let i = 0; i < count; i++) {
       const tid = i % 2 === 0 ? TOURNAMENT_A : TOURNAMENT_B;
-      const s = createSocket();
-      await waitForConnect(s);
-      promises.push(sendExecutionQueue(s, makeDatesMutation(tid)));
+      promises.push(send(makeDatesMutation(tid)));
     }
 
     const results = await Promise.all(promises);
@@ -231,10 +172,6 @@ describe('Mutex Stress Test — E2E WebSocket', () => {
   });
 
   it('prevents deadlock when locking [A,B] and [B,A] concurrently', async () => {
-    const s1 = createSocket();
-    const s2 = createSocket();
-    await Promise.all([waitForConnect(s1), waitForConnect(s2)]);
-
     const payloadAB = {
       tournamentIds: [TOURNAMENT_A, TOURNAMENT_B],
       methods: [
@@ -263,7 +200,7 @@ describe('Mutex Stress Test — E2E WebSocket', () => {
       ],
     };
 
-    const [r1, r2] = await Promise.all([sendExecutionQueue(s1, payloadAB), sendExecutionQueue(s2, payloadBA)]);
+    const [r1, r2] = await Promise.all([send(payloadAB), send(payloadBA)]);
 
     expect(r1.success).toBeDefined();
     expect(r1.error).toBeUndefined();

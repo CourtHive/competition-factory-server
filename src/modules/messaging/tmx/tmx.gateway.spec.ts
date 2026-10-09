@@ -1,10 +1,7 @@
-import { MutationAuthorizationService } from 'src/modules/factory/mutation-authorization.service';
-import { MutationServicesService } from 'src/modules/mutation-services/mutation-services.service';
 import { SocketIoRealtimeAdapter } from '../realtime/socket-io-realtime.adapter';
 import { TournamentChatService } from './tournament-chat.service';
 import { TOURNAMENT_ROOM_PREFIX } from '../realtime/channels';
-import type { Mock, MockInstance } from 'vitest';
-import { tmxMessages } from './tmxMessages';
+import type { Mock } from 'vitest';
 import { TmxGateway } from './tmx.gateway';
 import { Logger } from '@nestjs/common';
 
@@ -101,7 +98,6 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
   const tournamentStorageService: any = {
     fetchTournamentRecords: vi.fn().mockResolvedValue({ tournamentRecords: {} }),
   };
-  const broadcastService: any = { broadcastMutation: vi.fn(), broadcastPublicNotices: vi.fn() };
   const assignmentsService: any = {
     getAssignedTournamentIds: vi.fn().mockResolvedValue(new Set()),
     getAssignedRoles: vi.fn().mockResolvedValue(new Map()),
@@ -111,7 +107,6 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
   const userProviderStorage: any = { findByEmail: vi.fn().mockResolvedValue([]) };
   const userProvisionerStorage: any = { findProvisionerIdsByUser: vi.fn().mockResolvedValue([]) };
   const provisionerProviderStorage: any = { findByProvisioner: vi.fn().mockResolvedValue([]) };
-  const auditService: any = { recordMutation: vi.fn().mockResolvedValue(undefined) };
   const chatStorage: any = {
     appendMessage: vi.fn().mockResolvedValue({
       record: {
@@ -141,32 +136,12 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     providerStorage,
     chatStorage,
     tournamentStorageService,
-    // Real builder over disabled collaborators — mirrors the production shape
-    // (A1) so the gateway is exercised against the same bag it will receive in
-    // prod, rather than against a stub that could drift from it.
-    new MutationServicesService(
-      { isEnabled: false, enqueue: vi.fn() } as any,
-      {
-        record: vi.fn(),
-        isEnabled: false,
-      } as any,
-    ),
-    broadcastService,
     assignmentsService,
-    // Real gate over the same mocks — mirrors the production shape (A1) so the
-    // gateway is exercised against the authorization path it actually uses.
-    new MutationAuthorizationService(
-      providerStorage,
-      { findForSubject: async () => [] } as any,
-      tournamentStorageService,
-      assignmentsService,
-    ),
     usersService,
-    auditService,
     realtime,
     new TournamentChatService(chatStorage, realtime, tournamentStorageService, assignmentsService),
   );
-  return { gateway, userStorage, providerStorage, auditService, chatStorage, broadcastService };
+  return { gateway, userStorage, providerStorage, chatStorage };
 }
 
 describe('TmxGateway chat persistence', () => {
@@ -459,116 +434,7 @@ describe('TmxGateway.getActiveRoomPresence', () => {
   });
 });
 
-describe('TmxGateway executionQueue identity stamping', () => {
-  let spy: MockInstance;
-  afterEach(() => spy?.mockRestore());
-
-  // Empty tournamentIds makes gatePerTournament pass unconditionally, so these
-  // exercise the identity-stamping block in isolation. The captured payload is
-  // what messageHandler forwards to the downstream executionQueue handler.
-  async function capturePayload(user: any, payload: any) {
-    const { gateway } = buildGateway();
-    spy = vi.spyOn(tmxMessages, 'executionQueue').mockResolvedValue({ ack: {} });
-    const socket = makeSocket({ user });
-    attachServer(gateway, makeMockServer({}));
-    await gateway.messageHandler({ type: 'executionQueue', payload }, socket as any);
-    return spy.mock.calls[0][0].payload;
-  }
-
-  it('overrides the client-supplied userId with the JWT-verified UUID', async () => {
-    const passed = await capturePayload(
-      { email: 'a@x.com', sub: 'verified-uuid' },
-      { userId: 'client-spoofed', userEmail: 'evil@x.com', methods: [], tournamentIds: [] },
-    );
-    expect(passed.userId).toBe('verified-uuid');
-    expect(passed.userEmail).toBe('a@x.com');
-  });
-
-  it('nulls userId when the verified token is email-only, never trusting the client value', async () => {
-    const passed = await capturePayload(
-      { email: 'a@x.com' }, // no userId/sub claim
-      { userId: 'client-spoofed', methods: [], tournamentIds: [] },
-    );
-    expect(passed.userId).toBeNull();
-    expect(passed.userEmail).toBe('a@x.com');
-  });
-
-  // The same distrust, applied to a presence attestation's ATTESTER rather than the audit row.
-  // These go through messageHandler rather than calling the helper directly: the helper being
-  // correct proves nothing if the gateway never invokes it.
-  const checkIn = (attributedTo: any) => ({
-    methods: [{ method: 'toggleParticipantCheckInState', params: { matchUpId: 'm1', attributedTo } }],
-    tournamentIds: [],
-  });
-  const attesterOf = (payload: any) => payload.methods[0].params.attributedTo;
-
-  it('replaces an operator identity the client asserted for somebody else', async () => {
-    const passed = await capturePayload(
-      { email: 'desk@x.com', sub: 'verified-uuid' },
-      checkIn({ attributionType: 'USER', userId: 'someone-else', email: 'victim@x.com' }),
-    );
-    expect(attesterOf(passed)).toMatchObject({ attributionType: 'USER', userId: 'verified-uuid' });
-    expect(attesterOf(passed).email).toBe('desk@x.com');
-  });
-
-  it('drops a USER attester the token cannot substantiate', async () => {
-    const passed = await capturePayload(
-      { email: 'a@x.com' }, // email-only token: no id to name an operator with
-      checkIn({ attributionType: 'USER', userId: 'client-claimed' }),
-    );
-    expect(attesterOf(passed)).toBeUndefined();
-  });
-
-  it('leaves a DECLARED attester intact — a parent vouching for a junior is testimony', async () => {
-    const parent = { attributionType: 'DECLARED', relationship: 'PARENT', name: 'A. Guardian' };
-    const passed = await capturePayload({ email: 'desk@x.com', sub: 'verified-uuid' }, checkIn({ ...parent }));
-    expect(attesterOf(passed)).toEqual(parent);
-  });
-
-  it('invents no attester where the client sent none', async () => {
-    const passed = await capturePayload({ email: 'desk@x.com', sub: 'verified-uuid' }, checkIn(undefined));
-    expect(attesterOf(passed)).toBeUndefined();
-  });
-});
-
-describe('TmxGateway executionQueue reply and broadcast', () => {
-  let spy: MockInstance;
-  afterEach(() => spy?.mockRestore());
-
-  const payload = () => ({ ackId: 'a1', methods: [], tournamentIds: [] });
-
-  it("emits the handler's ack to the sender and broadcasts to the room excluding the sender", async () => {
-    const { gateway, broadcastService } = buildGateway();
-    const ack = { ackId: 'a1', success: true };
-    const publicNotices = [{ topic: 'publishEvent' }];
-    spy = vi.spyOn(tmxMessages, 'executionQueue').mockResolvedValue({ ack, publicNotices });
-    const socket = makeSocket({ user: { email: 'a@x.com', sub: 'u-1' } });
-    attachServer(gateway, makeMockServer({}));
-    const sent = payload();
-
-    await gateway.messageHandler({ type: 'executionQueue', payload: sent }, socket as any);
-
-    expect(socket.emit).toHaveBeenCalledWith('ack', ack);
-    expect(broadcastService.broadcastMutation).toHaveBeenCalledWith(sent, { excludeConnectionId: 'sock-1' });
-    expect(broadcastService.broadcastPublicNotices).toHaveBeenCalledWith(sent, publicNotices);
-  });
-
-  it('emits an error ack and broadcasts nothing when the mutation fails', async () => {
-    const { gateway, broadcastService } = buildGateway();
-    const ack = { ackId: 'a1', error: { message: 'boom' } };
-    spy = vi.spyOn(tmxMessages, 'executionQueue').mockResolvedValue({ ack });
-    const socket = makeSocket({ user: { email: 'a@x.com', sub: 'u-1' } });
-    attachServer(gateway, makeMockServer({}));
-    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-
-    await gateway.messageHandler({ type: 'executionQueue', payload: payload() }, socket as any);
-    errorSpy.mockRestore();
-
-    expect(socket.emit).toHaveBeenCalledWith('ack', ack);
-    expect(broadcastService.broadcastMutation).not.toHaveBeenCalled();
-    expect(broadcastService.broadcastPublicNotices).not.toHaveBeenCalled();
-  });
-
+describe('TmxGateway room presence', () => {
   it('publishes roomPresence to the tournament room after a join', async () => {
     const { gateway } = buildGateway();
     const socket = makeSocket({ user: { email: 'a@x.com' } });
