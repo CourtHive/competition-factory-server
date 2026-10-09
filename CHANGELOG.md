@@ -1,5 +1,21 @@
 # Changelog
 
+## [4.0.0](https://github.com/CourtHive/competition-factory-server/compare/v3.2.0...v4.0.0) (2026-10-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **messaging:** the /tmx socket no longer accepts executionQueue and emits no ack. A TMX build older than 8.32.0, or one built with VITE_COMMANDS_OVER_HTTP=false, can no longer mutate. Deploy TMX#1576 first.
+
+### Features
+
+* **messaging:** retire the socket executionQueue; POST /factory is the one mutation path ([#1027](https://github.com/CourtHive/competition-factory-server/issues/1027)) ([89a74e5](https://github.com/CourtHive/competition-factory-server/commit/89a74e5da56319e5d7bc46af885c2b260ea56d1c))
+
+
+### Bug Fixes
+
+* **factory:** publishing evicts the draw and structure cache tiers ([#1025](https://github.com/CourtHive/competition-factory-server/issues/1025)) ([f7050b6](https://github.com/CourtHive/competition-factory-server/commit/f7050b6615a3d24f283d0e82b9206a7e3b84347b))
+
 ## [3.2.0](https://github.com/CourtHive/competition-factory-server/compare/v3.1.0...v3.2.0) (2026-10-08)
 
 
