@@ -24,62 +24,41 @@ function storage() {
   };
 }
 
-it('stamps before engine execution and returns precisely those commands for acknowledgement and broadcast', async () => {
+it.each(['settleRotatingPartnerResult', 'checkInParticipant'])(
+  'returns appliedMethods for a stamped %s',
+  async (method) => {
+    const persisted = storage();
+    const methods = [{ method, params: { drawId: 'd', recordedBy: 'verified', recordedAt: '2026-10-11T12:00:00Z' } }];
+    const result = await executionQueue(
+      { tournamentIds: ['t'], methods, serverStamped: true },
+      undefined,
+      persisted as unknown as TournamentStorageService,
+    );
+    expect(result.success).toBe(true);
+    expect(result.appliedMethods).toEqual(methods);
+    expect(result.appliedMethods).not.toBe(methods);
+    expect(persisted.saveTournamentRecords).toHaveBeenCalledTimes(1);
+  },
+);
+
+it('preserves a retry timestamp until the factory metadata change is released', async () => {
   const persisted = storage();
+  const recordedAt = '2026-10-10T12:00:00Z';
+  Object.assign((h.records as any).t.events[0].drawDefinitions[0], {
+    competitionSettlements: [{ requestId: 'r', recordedAt }],
+  });
   const methods = [
     {
       method: 'settleRotatingPartnerResult',
-      params: { drawId: 'd', requestId: 'r', recordedBy: 'spoofed', recordedAt: 'old' },
+      params: { drawId: 'd', requestId: 'r', recordedBy: 'verified', recordedAt: '2026-10-11T12:00:00Z' },
     },
   ];
-  h.execute.mockImplementation(async (directives) => {
-    const params = directives[0].params;
-    Object.assign((h.records as { t: { events: { drawDefinitions: object[] }[] } }).t.events[0].drawDefinitions[0], {
-      competitionSettlements: [
-        { requestId: 'r', matchUpId: 'm', recordedBy: params.recordedBy, recordedAt: params.recordedAt },
-      ],
-    });
-    return { success: true };
-  });
   const result = await executionQueue(
-    { tournamentIds: ['t'], userId: 'verified', methods },
+    { tournamentIds: ['t'], methods, serverStamped: true },
     undefined,
     persisted as unknown as TournamentStorageService,
   );
-  expect(result.success).toBe(true);
-  expect(h.execute).toHaveBeenCalledWith(methods, undefined);
-  expect(methods[0].params.recordedBy).toBe('verified');
-  expect(methods[0].params.recordedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-  expect(result.appliedMethods).toEqual(methods);
-  expect(result.settlementAudits).toEqual([
-    {
-      tournamentId: 't',
-      drawId: 'd',
-      requestId: 'r',
-      matchUpId: 'm',
-      recordedBy: 'verified',
-      recordedAt: methods[0].params.recordedAt,
-    },
-  ]);
-  expect(result.appliedMethods).not.toBe(methods);
-  expect(persisted.saveTournamentRecords).toHaveBeenCalledTimes(1);
-});
-
-it('refuses unverified settlement identity before executing or saving', async () => {
-  const persisted = storage();
-  const result = await executionQueue(
-    {
-      tournamentIds: ['t'],
-      methods: [
-        { method: 'settleRotatingPartnerResult', params: { drawId: 'd', requestId: 'r', recordedBy: 'client' } },
-      ],
-    },
-    undefined,
-    persisted as unknown as TournamentStorageService,
-  );
-  expect(result.error).toBe('Authenticated actor required for settlement');
-  expect(h.execute).not.toHaveBeenCalled();
-  expect(persisted.saveTournamentRecords).not.toHaveBeenCalled();
+  expect(result.appliedMethods[0].params.recordedAt).toBe(recordedAt);
 });
 
 it('returns no audit confirmation when persistence fails', async () => {
@@ -89,6 +68,7 @@ it('returns no audit confirmation when persistence fails', async () => {
     {
       tournamentIds: ['t'],
       userId: 'verified',
+      serverStamped: true,
       methods: [{ method: 'settleRotatingPartnerResult', params: { drawId: 'd', requestId: 'r' } }],
     },
     undefined,
@@ -96,7 +76,6 @@ it('returns no audit confirmation when persistence fails', async () => {
   );
   expect(result.error).toBe('Could not persist tournament record(s)');
   expect(result.appliedMethods).toBeUndefined();
-  expect(result.settlementAudits).toBeUndefined();
 });
 
 it('does not stamp or return settlement payloads for an ordinary mutation', async () => {
@@ -111,22 +90,22 @@ it('does not stamp or return settlement payloads for an ordinary mutation', asyn
   expect(result.success).toBe(true);
   expect(methods).toEqual(before);
   expect(result.appliedMethods).toBeUndefined();
-  expect(result.settlementAudits).toBeUndefined();
 });
 
-it('returns no receipts for a refused factory operation', async () => {
+it('returns no applied methods for a refused factory operation', async () => {
   const persisted = storage();
   h.execute.mockResolvedValue({ error: { code: 'ERR_INVALID_VALUES' } });
   const result = await executionQueue(
     {
       tournamentIds: ['t'],
       userId: 'verified',
+      serverStamped: true,
       methods: [{ method: 'settleRotatingPartnerResult', params: { drawId: 'd', requestId: 'r' } }],
     },
     undefined,
     persisted as unknown as TournamentStorageService,
   );
   expect(result.error).toEqual({ code: 'ERR_INVALID_VALUES' });
+  expect(result.appliedMethods).toBeUndefined();
   expect(persisted.saveTournamentRecords).not.toHaveBeenCalled();
-  expect(result.settlementAudits).toBeUndefined();
 });

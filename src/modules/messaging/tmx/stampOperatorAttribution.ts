@@ -1,3 +1,5 @@
+import { ForbiddenException } from '@nestjs/common';
+
 /**
  * Replace a client-asserted OPERATOR identity with the one the server authenticated.
  *
@@ -70,9 +72,23 @@ export function stampOperatorAttribution(payload: any, verifiedUser?: VerifiedUs
   if (!Array.isArray(methods)) return 0;
 
   const attester = operatorAttribution(verifiedUser);
+  const settlements = methods.filter((directive) => directive?.method === 'settleRotatingPartnerResult');
+  if (settlements.length && (!attester || typeof attester.userId !== 'string' || !attester.userId.trim()))
+    throw new ForbiddenException('Authenticated actor required for settlement');
+  const recordedAt = new Date().toISOString();
+  // Commands are shared with the broadcast payload: edits here deliberately reach every receiver.
+  // This marker is server-owned; stampVerifiedIdentity clears any client-supplied value first.
+
   let rewritten = 0;
 
   for (const directive of methods) {
+    if (directive?.method === 'settleRotatingPartnerResult' && directive.params) {
+      if (directive.params.recordedBy !== attester!.userId) rewritten += 1;
+      if (directive.params.recordedBy !== attester!.userId || directive.params.recordedAt !== recordedAt)
+        payload.serverStamped = true;
+      directive.params.recordedBy = attester!.userId;
+      directive.params.recordedAt = recordedAt;
+    }
     const attributedTo = directive?.params?.attributedTo;
     if (attributedTo?.attributionType !== USER_ATTRIBUTION) continue;
 
@@ -80,12 +96,14 @@ export function stampOperatorAttribution(payload: any, verifiedUser?: VerifiedUs
       // Count only a genuine substitution: re-stamping a claim that already matches is not a
       // correction and should not read as one in the logs.
       const differs = attributedTo.userId !== attester.userId;
+      if (JSON.stringify(attributedTo) !== JSON.stringify(attester)) payload.serverStamped = true;
       directive.params.attributedTo = { ...attester };
       if (differs) rewritten += 1;
     } else {
       // A USER claim the server cannot substantiate is worse than no attester: it would read as
       // authenticated when nothing authenticated it. Recording who was present is unaffected —
       // only the claim about WHO VOUCHED is dropped.
+      payload.serverStamped = true;
       delete directive.params.attributedTo;
       rewritten += 1;
     }
@@ -109,6 +127,7 @@ export function stampOperatorAttribution(payload: any, verifiedUser?: VerifiedUs
  * Returns the number of attestations rewritten (see `stampOperatorAttribution`).
  */
 export function stampVerifiedIdentity(payload: any, verifiedUser?: VerifiedUser): number {
+  delete payload.serverStamped;
   if (verifiedUser?.email) payload.userEmail = verifiedUser.email;
   payload.userId = verifiedUser?.userId ?? verifiedUser?.sub ?? null;
   return stampOperatorAttribution(payload, verifiedUser);

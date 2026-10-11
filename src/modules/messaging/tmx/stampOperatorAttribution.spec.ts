@@ -148,3 +148,49 @@ describe('stampVerifiedIdentity', () => {
     expect(attesterOf(payload).userId).toBe('uuid-real');
   });
 });
+
+describe('settlement stamping at the verified identity boundary', () => {
+  const settlementPayload = (recordedBy = 'spoofed') => ({
+    methods: [{ method: 'settleRotatingPartnerResult', params: { recordedBy, recordedAt: 'client-time' } }],
+  });
+
+  it('replaces actor and time, counts a genuine substitution and marks canonical commands', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-11T12:00:00Z'));
+    try {
+      const payload: any = settlementPayload();
+      expect(stampVerifiedIdentity(payload, VERIFIED)).toBe(1);
+      expect(payload.methods[0].params).toEqual({
+        recordedBy: VERIFIED.userId,
+        recordedAt: '2026-10-11T12:00:00.000Z',
+      });
+      expect(payload.serverStamped).toBe(true);
+      const repeated = settlementPayload(VERIFIED.userId);
+      expect(stampVerifiedIdentity(repeated, VERIFIED)).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('refuses an unverified settlement before changing any command', () => {
+    const payload = settlementPayload();
+    const before = structuredClone(payload.methods);
+    expect(() => stampVerifiedIdentity(payload, { email: 'no-id@example.com' })).toThrow(
+      'Authenticated actor required for settlement',
+    );
+    expect(payload.methods).toEqual(before);
+  });
+
+  it('marks changed attestation fields even when the operator id already matches', () => {
+    const payload: any = payloadWith({ attributionType: 'USER', userId: VERIFIED.userId, email: 'spoofed' });
+    expect(stampVerifiedIdentity(payload, VERIFIED)).toBe(0);
+    expect(payload.serverStamped).toBe(true);
+    expect(attesterOf(payload).email).toBe(VERIFIED.email);
+  });
+
+  it('does not trust a client supplied stamping flag on ordinary batches', () => {
+    const payload: any = { ...payloadWith(undefined, 'addEvent'), serverStamped: true };
+    stampVerifiedIdentity(payload, VERIFIED);
+    expect(payload.serverStamped).toBeUndefined();
+  });
+});

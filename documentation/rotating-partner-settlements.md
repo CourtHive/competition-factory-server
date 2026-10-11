@@ -1,37 +1,18 @@
 # Rotating-partner settlement audit
 
-## Execution boundary
+## One verified identity boundary
 
-POST /factory already verifies mutation authorization and stamps the request identity.
-`executionQueue` stamps settleRotatingPartnerResult actor/time inside the tournament lock,
-after fetching the current records and before invoking the factory. Client-asserted
-recordedBy and recordedAt cannot override the authenticated actor or server clock.
+stampVerifiedIdentity / stampOperatorAttribution replaces client identity claims before execution. Settlement recordedBy comes from the authenticated operator and recordedAt from the server clock. A settlement with no usable verified identity is refused. Genuine actor substitutions are counted alongside USER presence-attestation substitutions. Commands are edited in place deliberately: the broadcast shares those command objects and carries their stamped values to other clients.
 
-An existing requestId reuses its persisted timestamp. The actor always comes from the
-current verified request; factory idempotency rejects another operator borrowing an old
-requestId. The factory remains responsible for terminal-status eligibility, stale sporting
-outcomes, treatment validation, supersession and append-only settlement history.
+The server-owned serverStamped marker records changes to any command parameter, including attestation email/name changes. Client-supplied markers are cleared at the boundary. After successful factory execution and persistence, acknowledgements include a detached appliedMethods copy when stamping changed commands. Ordinary batches keep their existing acknowledgement shape. Refusals and persistence failures return no appliedMethods. Settlement receipts have been removed.
 
-## Confirmation contract
+## Local-first policy
 
-A successfully persisted settlement batch returns:
+Server present ⇒ the server’s identity wins. Server absent ⇒ the client’s claim stands.
+The syncing operator is the identity the server can verify; the server timestamp is receipt time. TMX server-first replays the canonical commands. Local-first still executes immediately with local claims and does not rewrite records through a settlement-specific reconciliation layer. General convergence of local-first copies is a separate synchronization decision.
 
-- `appliedMethods`: the stamped commands, also carried in the controller's normal broadcast.
-- `settlementAudits`: confirmed tournamentId, drawId, requestId, matchUpId, recordedBy and
-  recordedAt, read from the final persisted engine state.
+## Published dependency and retry sequencing
 
-Factory refusals and persistence failures return no audit confirmation. Ordinary batches
-keep their existing acknowledgement shape. Nothing here requires TMX to wait for the
-server when configured local-first: that client reconciles confirmed audit metadata later.
+This branch depends on published factory 7.11.0. That version still compares audit metadata on repeated requestIds. Until a later CA-authorized release carries the factory retry change, preserveSettlementRetryTime retains the prior timestamp inside the tournament lock. It does not stamp identity or create receipts. A different operator retry still conflicts under 7.11.0. Remove this compatibility lookup only in the consumer bump to the release that returns the original settlement regardless of new retry actor/time.
 
-## Verification and rollout
-
-Focused tests cover identity replacement/refusal, retry timestamps, ambiguous draw IDs,
-stamping before execution, persistence ordering, ordinary-command compatibility and no
-receipts after rejection/failure. Existing affected execution, authorization, locking and
-async-isolation suites also run. Types, lint and the Nest build are checked separately.
-
-These changes do not publish or merge the factory. The actual settlement method requires
-the upcoming factory release; the current package pin is unchanged. Complete PostgreSQL/
-HTTP integration still requires the configured external review environment, and socket
-permission failures are not passing gates.
+Browser and HTTP/Postgres integration and all gates under published dependency resolution must pass before merge. Linked-source tests alone are insufficient.

@@ -1,6 +1,6 @@
-import { stampSettlementAudit, settlementAuditReceipts } from './stampSettlementAudit';
 import { runWithRequestContext } from 'src/modules/factory/engines/requestContext';
 import { buildProjectionDeltas } from '../../projection/buildProjectionDeltas';
+import { preserveSettlementRetryTime } from './preserveSettlementRetryTime';
 import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
 import { getMutationEngine } from '../../engines/getMutationEngine';
 import { withTournamentLock } from 'src/services/tournamentMutex';
@@ -102,13 +102,8 @@ export async function executionQueue(
           // setMatchUpStatus.ts that doubled the storage round-trip.
           await resolveMatchUpReferences(methods, result.tournamentRecords);
 
-          const settlementAudit = stampSettlementAudit({
-            methods,
-            tournamentRecords: result.tournamentRecords,
-            actor: payload?.userId,
-            recordedAt: new Date().toISOString(),
-          });
-          if (settlementAudit.error) return { error: settlementAudit.error };
+          // Compatibility with published factory 7.11.0. Remove after the retry-metadata fix is released.
+          preserveSettlementRetryTime(methods, result.tournamentRecords);
           const mutationEngine = getMutationEngine();
           mutationEngine.setState(result.tournamentRecords);
           const innerResult = await mutationEngine.executionQueue(methods, rollbackOnError);
@@ -217,11 +212,10 @@ export async function executionQueue(
           }
 
           const canonicalResult =
-            settlementAudit.stamped && innerResult.success
+            payload?.serverStamped && innerResult.success
               ? {
                   ...innerResult,
                   appliedMethods: structuredClone(methods),
-                  settlementAudits: settlementAuditReceipts(methods, mutationEngine.getState().tournamentRecords),
                 }
               : innerResult;
           return serverUpdatedAt ? { ...canonicalResult, serverUpdatedAt, previousServerUpdatedAt } : canonicalResult;
