@@ -41,11 +41,12 @@ it.each(['settleRotatingPartnerResult', 'checkInParticipant'])(
   },
 );
 
-it('preserves a retry timestamp until the factory metadata change is released', async () => {
+// The factory keeps a repeated requestId's original recordedBy/recordedAt (#5382(factory)), so the server no longer
+// looks up the prior settlement: a retry's stamped values pass through untouched and the factory answers with the original.
+it('leaves a retry timestamp to the factory', async () => {
   const persisted = storage();
-  const recordedAt = '2026-10-10T12:00:00Z';
   Object.assign((h.records as any).t.events[0].drawDefinitions[0], {
-    competitionSettlements: [{ requestId: 'r', recordedAt }],
+    competitionSettlements: [{ requestId: 'r', recordedAt: '2026-10-10T12:00:00Z' }],
   });
   const methods = [
     {
@@ -58,7 +59,9 @@ it('preserves a retry timestamp until the factory metadata change is released', 
     undefined,
     persisted as unknown as TournamentStorageService,
   );
-  expect(result.appliedMethods[0].params.recordedAt).toBe(recordedAt);
+  expect(result.success).toBe(true);
+  expect(methods[0].params.recordedAt).toBe('2026-10-11T12:00:00Z');
+  expect(result.appliedMethods).toBeUndefined();
 });
 
 it('returns no audit confirmation when persistence fails', async () => {
