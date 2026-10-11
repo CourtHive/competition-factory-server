@@ -103,7 +103,7 @@ export async function executionQueue(
           await resolveMatchUpReferences(methods, result.tournamentRecords);
 
           // Compatibility with published factory 7.11.0. Remove after the retry-metadata fix is released.
-          preserveSettlementRetryTime(methods, result.tournamentRecords);
+          if (preserveSettlementRetryTime(methods, result.tournamentRecords)) payload.serverStamped = true;
           const mutationEngine = getMutationEngine();
           mutationEngine.setState(result.tournamentRecords);
           const innerResult = await mutationEngine.executionQueue(methods, rollbackOnError);

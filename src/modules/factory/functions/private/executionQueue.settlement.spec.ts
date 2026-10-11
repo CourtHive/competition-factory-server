@@ -54,7 +54,7 @@ it('preserves a retry timestamp until the factory metadata change is released', 
     },
   ];
   const result = await executionQueue(
-    { tournamentIds: ['t'], methods, serverStamped: true },
+    { tournamentIds: ['t'], methods },
     undefined,
     persisted as unknown as TournamentStorageService,
   );

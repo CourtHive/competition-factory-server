@@ -5,6 +5,7 @@ export function preserveSettlementRetryTime(
   methods: { method?: string; params?: any }[],
   records: Record<string, Tournament>,
 ) {
+  let rewritten = false;
   for (const directive of methods) {
     if (directive.method !== 'settleRotatingPartnerResult' || !directive.params) continue;
     const params = directive.params;
@@ -14,6 +15,10 @@ export function preserveSettlementRetryTime(
       .filter((draw) => draw.drawId === params.drawId);
     if (draws.length !== 1) continue;
     const prior = draws[0].competitionSettlements?.find((settlement) => settlement.requestId === params.requestId);
-    if (prior) params.recordedAt = prior.recordedAt;
+    if (prior && params.recordedAt !== prior.recordedAt) {
+      params.recordedAt = prior.recordedAt;
+      rewritten = true;
+    }
   }
+  return rewritten;
 }
