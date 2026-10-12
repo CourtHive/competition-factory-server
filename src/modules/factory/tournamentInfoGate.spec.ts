@@ -1,4 +1,5 @@
 import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
+import { configureCompetitionClock, resetCompetitionClock } from './engines/competitionClockConfig';
 import { FactoryController } from './factory.controller';
 import { FactoryService } from './factory.service';
 
@@ -183,6 +184,17 @@ describe('public tournament info — the read-time embargo (P23 D4b)', () => {
     const result: any = await controller.getTournamentInfo('t1', undefined, undefined);
 
     expect(result.tournamentInfo.tournamentId).toBe('t1');
+  });
+
+  it('reads the embargo on the competition clock: a demo pinned past it serves the tournament (0-d.5)', async () => {
+    configureCompetitionClock({ COMPETITION_CLOCK_PAUSED_AT: new Date(Date.now() + 2 * 86_400_000).toISOString() });
+    try {
+      const { controller } = build(EMBARGOED);
+      const result: any = await controller.getTournamentInfo('t1', undefined, undefined);
+      expect(result.tournamentInfo.tournamentId).toBe('t1');
+    } finally {
+      resetCompetitionClock();
+    }
   });
 
   it('serves an embargoed tournament to a caller entitled to read it unpublished', async () => {

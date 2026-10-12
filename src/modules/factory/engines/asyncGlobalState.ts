@@ -3,7 +3,10 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 // `capturedClock` is declared locally so this compiles against a factory that predates it; the
 // factory calls the two hooks below only once it captures the clock per engine call (#5399(factory)).
-type ImplemtationGlobalStateTypes = globalState.ImplemtationGlobalStateTypes & { capturedClock?: number };
+type ImplemtationGlobalStateTypes = globalState.ImplemtationGlobalStateTypes & {
+  capturedClock?: number;
+  capturedCompetitionClock?: number;
+};
 
 const INVALID_VALUES = 'Invalid values';
 const SUCCESS = { success: true };
@@ -97,6 +100,8 @@ export default {
   cycleMutationStatus,
   getCapturedClock,
   setCapturedClock,
+  getCapturedCompetitionClock,
+  setCapturedCompetitionClock,
   deleteNotice,
   deleteNotices,
   disableNotifications,
@@ -128,6 +133,15 @@ export function getCapturedClock(): number | undefined {
 
 export function setCapturedClock(timeStamp?: number) {
   getInstanceState().capturedClock = timeStamp;
+}
+
+/** The competition instant, captured only while a competition clock is installed (a pinned demo process). */
+export function getCapturedCompetitionClock(): number | undefined {
+  return asyncLocalStorage.getStore()?.capturedCompetitionClock;
+}
+
+export function setCapturedCompetitionClock(timeStamp?: number) {
+  getInstanceState().capturedCompetitionClock = timeStamp;
 }
 
 export function disableNotifications() {

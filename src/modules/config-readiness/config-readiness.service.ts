@@ -1,3 +1,4 @@
+import { COMPETITION_CLOCK_ENV, getPinnedCompetitionClock } from '../factory/engines/competitionClockConfig';
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 
 /**
@@ -33,13 +34,7 @@ export interface ReadinessReport {
   checks: ReadinessCheck[];
 }
 
-const PLACEHOLDER_SECRET_HINTS = [
-  'replace this',
-  'placeholder',
-  'change me',
-  'changeme',
-  'your-secret-here',
-];
+const PLACEHOLDER_SECRET_HINTS = ['replace this', 'placeholder', 'change me', 'changeme', 'your-secret-here'];
 
 // Letter-boundary heuristics: a placeholder must appear surrounded by
 // non-letter characters (string boundaries, digits, hyphens, underscores,
@@ -98,8 +93,21 @@ export class ConfigReadinessService implements OnApplicationBootstrap {
 
   // ── Check definitions ──
 
+  /** A pinned clock is a demo configuration: WARN, so it is never mistaken for a live server. */
+  private checkCompetitionClock(): ReadinessCheck {
+    const pinnedAt = getPinnedCompetitionClock();
+    if (!pinnedAt) return { name: 'competition-clock', level: 'INFO', status: 'ok', detail: 'device clock' };
+    return {
+      name: 'competition-clock',
+      level: 'WARN',
+      status: 'warn',
+      detail: `factory clocks pinned at ${pinnedAt} (${COMPETITION_CLOCK_ENV}); demo process only`,
+    };
+  }
+
   private gatherChecks(): ReadinessCheck[] {
     return [
+      this.checkCompetitionClock(),
       this.checkRequiredEnv('JWT_SECRET', { critical: true, suspectPlaceholder: true }),
       this.checkRequiredEnv('DATABASE_URL', { critical: false, fallbackHint: 'PG_* variables' }),
       this.checkRequiredEnv('EMAIL_FROM', {
@@ -108,8 +116,7 @@ export class ConfigReadinessService implements OnApplicationBootstrap {
       }),
       this.checkRequiredEnv('APP_BASE_URL', {
         critical: false,
-        warningWhenMissing:
-          'Email-verification + password-reset link emails will use a placeholder URL.',
+        warningWhenMissing: 'Email-verification + password-reset link emails will use a placeholder URL.',
       }),
       this.checkRequiredEnv('PERSONS_BASE_URL', {
         critical: false,
