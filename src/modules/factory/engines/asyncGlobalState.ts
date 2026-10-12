@@ -1,7 +1,9 @@
 import { factoryConstants, globalState } from 'tods-competition-factory';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-type ImplemtationGlobalStateTypes = globalState.ImplemtationGlobalStateTypes;
+// `capturedClock` is declared locally so this compiles against a factory that predates it; the
+// factory calls the two hooks below only once it captures the clock per engine call (#5399(factory)).
+type ImplemtationGlobalStateTypes = globalState.ImplemtationGlobalStateTypes & { capturedClock?: number };
 
 const INVALID_VALUES = 'Invalid values';
 const SUCCESS = { success: true };
@@ -93,6 +95,8 @@ export default {
   callListener,
   createInstanceState,
   cycleMutationStatus,
+  getCapturedClock,
+  setCapturedClock,
   deleteNotice,
   deleteNotices,
   disableNotifications,
@@ -112,6 +116,19 @@ export default {
   setTournamentRecords,
   handleCaughtError,
 };
+
+/**
+ * The instant the factory captured for the engine call in flight (its tools/clock.ts). Per request,
+ * like the rest of the instance state, so overlapping requests never share one. The read does not
+ * create a store, so it cannot trip the implicit-context warning on its own.
+ */
+export function getCapturedClock(): number | undefined {
+  return asyncLocalStorage.getStore()?.capturedClock;
+}
+
+export function setCapturedClock(timeStamp?: number) {
+  getInstanceState().capturedClock = timeStamp;
+}
 
 export function disableNotifications() {
   const instanceState = getInstanceState();

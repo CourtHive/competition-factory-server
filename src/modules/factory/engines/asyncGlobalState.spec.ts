@@ -185,6 +185,33 @@ describe('asyncGlobalState per-context isolation', () => {
  * to be asserted here too — fixing only factory would leave the SERVER path, the one that actually
  * drives invalidation, on the old behaviour.
  */
+describe('asyncGlobalState — captured clock', () => {
+  it('overlapping requests each keep the instant they captured', async () => {
+    const request = (timeStamp: number, delay: number) =>
+      asyncGlobalState.runWithInstanceState(async () => {
+        asyncGlobalState.setCapturedClock(timeStamp);
+        await tick(delay);
+        const held = asyncGlobalState.getCapturedClock();
+        asyncGlobalState.setCapturedClock(undefined);
+        return { held, released: asyncGlobalState.getCapturedClock() };
+      });
+
+    // the slower request starts first, so the faster one captures and releases inside its await
+    const [slow, fast] = await Promise.all([request(1000, 20), request(2000, 1)]);
+    expect(slow).toEqual({ held: 1000, released: undefined });
+    expect(fast).toEqual({ held: 2000, released: undefined });
+  });
+
+  it('a fresh request starts with nothing captured, and reading creates no implicit state', async () => {
+    const before = asyncGlobalState.implicitContextCreations();
+    await asyncGlobalState.runWithInstanceState(async () => {
+      expect(asyncGlobalState.getCapturedClock()).toBeUndefined();
+    });
+    expect(asyncGlobalState.getCapturedClock()).toBeUndefined();
+    expect(asyncGlobalState.implicitContextCreations()).toEqual(before);
+  });
+});
+
 describe('asyncGlobalState — keyed notice de-dup preserves identity', () => {
   it('a later notice missing identity inherits it from the one it supersedes', async () => {
     await asyncGlobalState.runWithInstanceState(async () => {
