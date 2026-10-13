@@ -1,6 +1,7 @@
 import type { MockInstance } from 'vitest';
 import { Logger } from '@nestjs/common';
 
+import { configureCompetitionClock, resetCompetitionClock } from '../factory/engines/competitionClockConfig';
 import { ConfigReadinessService } from './config-readiness.service';
 
 // F2 (architectural-standards.md A6): the previous wipe-and-restore-on-
@@ -40,11 +41,30 @@ describe('ConfigReadinessService', () => {
     process.env = realEnv;
   });
 
-  function get(name: string, report = service.runAndLog('manual')): ReturnType<ConfigReadinessService['runAndLog']>['checks'][number] {
+  function get(
+    name: string,
+    report = service.runAndLog('manual'),
+  ): ReturnType<ConfigReadinessService['runAndLog']>['checks'][number] {
     const found = report.checks.find((c) => c.name === name);
     if (!found) throw new Error(`expected check ${name}`);
     return found;
   }
+
+  it('reports the device clock when no competition clock is pinned', () => {
+    const c = get('competition-clock');
+    expect(c.status).toBe('ok');
+  });
+
+  it('warns, with the instant, when a demo process pinned the competition clock', () => {
+    configureCompetitionClock({ COMPETITION_CLOCK_PAUSED_AT: '2026-05-17T15:30:00.000Z' });
+    try {
+      const c = get('competition-clock');
+      expect(c.level).toBe('WARN');
+      expect(c.detail).toMatch(/2026-05-17T15:30:00.000Z/);
+    } finally {
+      resetCompetitionClock();
+    }
+  });
 
   it('flags an unset JWT_SECRET as CRITICAL', () => {
     delete process.env.JWT_SECRET;

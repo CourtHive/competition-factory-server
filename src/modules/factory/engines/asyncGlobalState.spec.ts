@@ -212,6 +212,21 @@ describe('asyncGlobalState — captured clock', () => {
   });
 });
 
+describe('asyncGlobalState — captured competition clock', () => {
+  it('overlapping requests each keep the competition instant they captured', async () => {
+    const request = (timeStamp: number, delay: number) =>
+      asyncGlobalState.runWithInstanceState(async () => {
+        asyncGlobalState.setCapturedCompetitionClock(timeStamp);
+        await tick(delay);
+        const held = asyncGlobalState.getCapturedCompetitionClock();
+        asyncGlobalState.setCapturedCompetitionClock(undefined);
+        return held;
+      });
+    const [slow, fast] = await Promise.all([request(1000, 20), request(2000, 1)]);
+    expect([slow, fast]).toEqual([1000, 2000]);
+  });
+});
+
 describe('asyncGlobalState — keyed notice de-dup preserves identity', () => {
   it('a later notice missing identity inherits it from the one it supersedes', async () => {
     await asyncGlobalState.runWithInstanceState(async () => {
