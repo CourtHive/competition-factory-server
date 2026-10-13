@@ -1,5 +1,28 @@
 # Changelog
 
+## [4.1.0](https://github.com/CourtHive/competition-factory-server/compare/v4.0.0...v4.1.0) (2026-10-13)
+
+
+### Features
+
+* **factory:** competition clock hooks and a paused demo pin ([#1032](https://github.com/CourtHive/competition-factory-server/issues/1032)) ([9d9d986](https://github.com/CourtHive/competition-factory-server/commit/9d9d9866ee888495742649077121b205c2fc39e3))
+* **factory:** stamp rotating-partner settlement audits at the identity boundary ([#1029](https://github.com/CourtHive/competition-factory-server/issues/1029)) ([649e805](https://github.com/CourtHive/competition-factory-server/commit/649e8050cadfc3f2460240efbb2bdd4afabe7738))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.10.0 ([f5ea5b4](https://github.com/CourtHive/competition-factory-server/commit/f5ea5b4ac678f681d078f12391a8144c8b1994a2))
+* **deps:** update tods-competition-factory to 7.11.0 ([757de0c](https://github.com/CourtHive/competition-factory-server/commit/757de0cf7c9c86a86e98da0c3c9488c49ca5eec0))
+* **deps:** update tods-competition-factory to 7.12.0 ([da5ffd5](https://github.com/CourtHive/competition-factory-server/commit/da5ffd59caf6ae48146fcf74eb10b6ae45494011))
+* **deps:** update tods-competition-factory to 7.13.0 ([50c8242](https://github.com/CourtHive/competition-factory-server/commit/50c82428c4fe2433012c0df210048da8d3476d71))
+* **deps:** update tods-competition-factory to 7.9.0 ([8762fe2](https://github.com/CourtHive/competition-factory-server/commit/8762fe25097f5c919c568385c4fa8f0d23128ebb))
+* **factory:** give the async state provider the clock-capture hooks ([#1031](https://github.com/CourtHive/competition-factory-server/issues/1031)) ([dd6f26a](https://github.com/CourtHive/competition-factory-server/commit/dd6f26a1412856ac505191711cb018ed3093dda1))
+
+
+### Documentation
+
+* add AGENTS.md as a pointer to CLAUDE.md for agents that read it ([bf0053d](https://github.com/CourtHive/competition-factory-server/commit/bf0053db5cffef94b7dd799f093fb713a4f389ce))
+
 ## [4.0.0](https://github.com/CourtHive/competition-factory-server/compare/v3.2.0...v4.0.0) (2026-10-09)
 
 
