@@ -17,9 +17,10 @@ pnpm install              # Install dependencies (pnpm only)
 pnpm build                # NestJS CLI compile to build/ (rimraf + nest build)
 pnpm start                # Production server (NODE_ENV=production)
 pnpm watch                # Dev server with watch (NODE_ENV=development)
-pnpm test                 # Jest tests
-pnpm test:watch           # Jest watch mode
-pnpm test:cov             # Jest with coverage
+pnpm test                 # Vitest: the full suite, incl. the *.e2e.spec.ts that need a live stack
+pnpm test:unit            # Vitest: everything except the specs that need a live stack
+pnpm test:watch           # Vitest watch mode
+pnpm test:cov             # Vitest with coverage
 pnpm test:e2e             # Playwright end-to-end tests
 pnpm lint                 # ESLint — non-mutating, fails on any warning
 pnpm lint:fix             # ESLint with auto-fix (rewrites source)
@@ -55,7 +56,7 @@ src/
   scripts/       -- admin CLI scripts (admin-user.mjs, migrate-to-postgres.mjs)
   services/      -- cross-cutting services
   storage/       -- storage interfaces + implementations (leveldb, postgres)
-  tests/         -- Jest test config and specs
+  tests/         -- test helpers, generators and specs (Vitest: vitest.config.mts, unit subset vitest.unit.config.mts)
 ```
 
 ### Storage Abstraction
