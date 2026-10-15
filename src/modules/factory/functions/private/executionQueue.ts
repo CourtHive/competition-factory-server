@@ -1,10 +1,10 @@
 import { runWithRequestContext } from 'src/modules/factory/engines/requestContext';
+import { tournamentEngineAsync, factoryConstants } from 'tods-competition-factory';
 import { buildProjectionDeltas } from '../../projection/buildProjectionDeltas';
 import { preserveSettlementRetryTime } from './preserveSettlementRetryTime';
 import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
 import { getMutationEngine } from '../../engines/getMutationEngine';
 import { withTournamentLock } from 'src/services/tournamentMutex';
-import { tournamentEngineAsync } from 'tods-competition-factory';
 import { createDeltaBuffer } from '../../projection/deltaBuffer';
 import { warmEventDataCache } from './warmEventDataCache';
 import { Logger } from '@nestjs/common';
@@ -104,8 +104,10 @@ export async function executionQueue(
 
           // Compatibility with published factory 7.11.0. Remove after the retry-metadata fix is released.
           if (preserveSettlementRetryTime(methods, result.tournamentRecords)) payload.serverStamped = true;
+          // After getMutationEngine(): constructing the engine resets this request's instance state.
           const mutationEngine = getMutationEngine();
-          mutationEngine.setState(result.tournamentRecords);
+          const loaded = loadFetchedRecords(result.tournamentRecords);
+          if (loaded.error) return loaded;
           const innerResult = await mutationEngine.executionQueue(methods, rollbackOnError);
           // When the saved rows were written, and when they had been written before this mutation (read
           // inside the lock, so nothing came between). The ack and the broadcast carry both: a client that
@@ -113,9 +115,12 @@ export async function executionQueue(
           // `serverUpdatedAt`; one that was behind stays behind, and its staleness probe says so (P49).
           let serverUpdatedAt: Record<string, string> | undefined;
           const previousServerUpdatedAt: Record<string, string> | undefined = result.serverUpdatedAt;
+          // The engine's live records, read without a copy: the save serialises them and the projection
+          // below only reads them. Read from the provider rather than from `result.tournamentRecords`,
+          // because the queue may have replaced the object it was given.
+          const mutatedTournamentRecords: any = asyncGlobalState.getTournamentRecords();
 
           if (innerResult.success) {
-            const mutatedTournamentRecords: any = mutationEngine.getState().tournamentRecords;
             const updateResult: any = await storage.saveTournamentRecords({
               tournamentRecords: mutatedTournamentRecords,
               // This path raised factory notices, so the delta buffer below
@@ -188,20 +193,26 @@ export async function executionQueue(
           // error is logged but never blocks the ack — reconciliation/rebuild backstops.
           if (deltaBuffer && projectionOutbox && innerResult.success) {
             try {
-              const finalRecords: any = mutationEngine.getState().tournamentRecords;
               const deltas = await buildProjectionDeltas({
                 intents: deltaBuffer.intents,
-                tournamentRecords: finalRecords,
+                tournamentRecords: mutatedTournamentRecords,
                 // Bounded per-draw flatten against the mutation's FINAL saved state.
                 // Uses tournamentEngineAsync (per-request async_hooks isolation — the
                 // same engine resolveMatchUpReferences uses) because the mutation
-                // engine instance does not expose query methods. Runs post-save, so
-                // re-setState on the isolated engine can't perturb the committed record.
+                // engine instance does not expose query methods. It shares this
+                // request's instance state, which already holds the saved records, so
+                // the query reads them in place instead of copying the whole record
+                // once per draw. Runs post-save, and the query writes nothing.
                 flattenDraw: async (tournamentId: string, drawId: string) => {
-                  const record = finalRecords?.[tournamentId];
-                  if (!record) return [];
-                  await tournamentEngineAsync.setState(record);
-                  const res: any = await tournamentEngineAsync.allDrawMatchUps({ drawId, inContext: true });
+                  if (!mutatedTournamentRecords?.[tournamentId]) return [];
+                  if (asyncGlobalState.getTournamentRecords() !== mutatedTournamentRecords) {
+                    asyncGlobalState.setTournamentRecords(mutatedTournamentRecords);
+                  }
+                  const res: any = await tournamentEngineAsync.allDrawMatchUps({
+                    tournamentId,
+                    drawId,
+                    inContext: true,
+                  });
                   return res?.matchUps ?? [];
                 },
               });
@@ -266,6 +277,29 @@ export async function executionQueue(
     }
     return { error: message, tournamentIds };
   }
+}
+
+/**
+ * Hand the fetched records to this request's engine state without copying them.
+ *
+ * `engine.setState(records)` copies every record, and `setState(records, false)` would avoid that
+ * only by turning copying off for the whole process: the factory keeps that flag in module scope,
+ * not in the per-request instance state, so every concurrent request would lose its copies too.
+ * Storage parses each fetch from its own row, so nothing else holds these objects and the copy
+ * protects nothing. The rollback snapshot is unaffected: the factory still copies for it.
+ *
+ * Mirrors the checks `setState` makes on a keyed object, which the provider call does not.
+ */
+function loadFetchedRecords(tournamentRecords: Record<string, any> | undefined) {
+  const valid =
+    !!tournamentRecords &&
+    typeof tournamentRecords === 'object' &&
+    Object.keys(tournamentRecords).every((id) => tournamentRecords[id]?.tournamentId === id);
+  if (!valid) return { error: factoryConstants.errorConditionConstants.INVALID_RECORDS };
+
+  asyncGlobalState.setTournamentId(undefined);
+  asyncGlobalState.setTournamentRecords(tournamentRecords);
+  return { success: true };
 }
 
 /**

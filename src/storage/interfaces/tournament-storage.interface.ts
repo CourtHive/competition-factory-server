@@ -5,6 +5,10 @@ export interface ITournamentStorage {
     tournamentId: string;
   }): Promise<{ tournamentRecord?: any; error?: string }>;
 
+  /**
+   * Every call returns objects that no other caller holds: never a cached or shared instance.
+   * `executionQueue` mutates them in place, without a copy, on that guarantee.
+   */
   fetchTournamentRecords(params: {
     tournamentIds?: string[];
     tournamentId?: string;

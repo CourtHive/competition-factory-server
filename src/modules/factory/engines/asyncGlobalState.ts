@@ -107,6 +107,7 @@ export default {
   disableNotifications,
   enableNotifications,
   getMethods,
+  getNoticeBuffer,
   getNotices,
   getPayloads: getNotices, // canonical alias matching factory 5.0.0+
   getTopics,
@@ -115,6 +116,7 @@ export default {
   getTournamentRecords,
   removeTournamentRecord,
   setMethods,
+  setNoticeBuffer,
   setSubscriptions,
   setTournamentId,
   setTournamentRecord,
@@ -296,6 +298,16 @@ function getNotices({ topic }) {
 function deleteNotices() {
   const instanceState = getInstanceState();
   instanceState.notices = [];
+}
+
+// Optional provider methods: a factory rollback restores the buffer it found instead of deleting
+// every notice. A factory without them, or a provider without them, falls back to deleteNotices.
+function getNoticeBuffer() {
+  return [...getInstanceState().notices];
+}
+
+function setNoticeBuffer(notices: any[]) {
+  getInstanceState().notices = [...notices];
 }
 
 function deleteNotice({ key, topic }) {
