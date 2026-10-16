@@ -53,7 +53,8 @@ executionQueue()  (inside the per-tournament lock)
   │
   ├─ saveTournamentRecords()               ← record committed to storage
   │
-  └─ POST-COMMIT FLUSH (still inside the lock, only if innerResult.success):
+  └─ FLUSH AFTER THE SAVE (inside the lock, only if innerResult.success; inside a
+     durable command, inside its transaction — see COMMAND_RECEIPTS.md):
         buildProjectionDeltas({ intents, finalRecords, flattenDraw })
           │  turns intents → concrete ProjectionDelta[] against the FINAL saved state
           └─ projectionOutbox.enqueue(deltas)     → projection_queue (single bulk INSERT)
@@ -68,13 +69,19 @@ executionQueue()  (inside the per-tournament lock)
 
 The subscription handlers fire **during** the mutation and have no reference to the engine state or the final
 record — they can only note *what* changed (a lightweight `ProjectionIntent` such as
-`flattenDraw` with a `tournamentId` + `drawId`). The concrete rows are built **after commit**, from the
+`flattenDraw` with a `tournamentId` + `drawId`). The concrete rows are built **after the save**, from the
 mutation's final saved state, by `buildProjectionDeltas`. This keeps the hot mutation path cheap and guarantees deltas reflect the committed
 record, not an intermediate state.
 
-The flush is **fail-soft**: it runs post-commit and post-ack-eligible, so an outbox error is logged and never
-blocks the mutation ack. A rolled-back or failed mutation skips the flush entirely (`innerResult.success` is
-false), so the read model can never get *ahead* of the record — at worst it lags, and a rebuild reconciles.
+The flush is **fail-soft**: an outbox error is logged and never blocks the mutation ack. A failed mutation skips
+the flush entirely (`innerResult.success` is false), so the read model can never get *ahead* of the record — at
+worst it lags, and a rebuild reconciles.
+
+Inside a **durable command** (a mutation sent with a `commandId`) the enqueue runs on the command's own connection
+— a **transactional outbox**: the deltas commit or roll back with the record and its receipt, so a crash between
+COMMIT and publication can no longer lose them. A savepoint keeps a failed span from aborting the command. Because
+`seq` is assigned at INSERT and the transaction commits later, a lower `seq` can become visible after a higher one;
+the consumer's seq-gap guard (courthive-query #93) is what makes that safe.
 
 ## Byte-identity: one row shape, three producers
 
@@ -236,10 +243,10 @@ bring the read model back into agreement with the record.
   <tbody>
     <tr><td>CFS</td><td><code>src/modules/factory/engines/getMutationEngine.ts</code></td><td>Wires each factory topic → projection recorder (flag-gated via the delta buffer)</td></tr>
     <tr><td>CFS</td><td><code>src/modules/factory/projection/deltaBuffer.ts</code></td><td>Recorders — push lightweight dirty intents during the mutation</td></tr>
-    <tr><td>CFS</td><td><code>src/modules/factory/projection/buildProjectionDeltas.ts</code></td><td>Post-commit: intents → concrete <code>ProjectionDelta[]</code> against the final record</td></tr>
+    <tr><td>CFS</td><td><code>src/modules/factory/projection/buildProjectionDeltas.ts</code></td><td>After the save: intents → concrete <code>ProjectionDelta[]</code> against the final record</td></tr>
     <tr><td>CFS</td><td><code>src/modules/factory/projection/rebuild.ts</code></td><td><code>buildRebuildIntents</code> — full-record intent set for backfill/reconciliation</td></tr>
     <tr><td>CFS</td><td><code>src/modules/factory/projection/projection-conformance.spec.ts</code></td><td>Byte-identity capstone: incremental ≡ rebuild ≡ <code>cast()</code></td></tr>
-    <tr><td>CFS</td><td><code>src/modules/factory/functions/private/executionQueue.ts</code></td><td>Post-commit flush + <code>projectionOutbox.enqueue</code> (fail-soft)</td></tr>
+    <tr><td>CFS</td><td><code>src/modules/factory/functions/private/executionQueue.ts</code></td><td>Flush after the save + <code>projectionOutbox.enqueue</code> (fail-soft; transactional inside a durable command)</td></tr>
     <tr><td>CFS</td><td><code>src/storage/interfaces/projection-outbox-storage.interface.ts</code></td><td><code>ProjectionDelta</code> contract + outbox storage interface</td></tr>
     <tr><td>factory</td><td><code>src/query/readModel/</code> (<code>cast</code>, <code>readModelRows</code>, row builders)</td><td>Single source of the read-model row shape — shared by all three producers</td></tr>
     <tr><td>courthive-query</td><td><code>src/modules/projection/deltaApplier.ts</code> + <code>tableMeta.ts</code></td><td>Table-agnostic consumer — applies deltas by <code>delta.table</code>, gated on the allow-list</td></tr>

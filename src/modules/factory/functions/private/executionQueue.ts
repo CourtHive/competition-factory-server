@@ -163,6 +163,45 @@ export async function executionQueue(
               serverUpdatedAt = updateResult.serverUpdatedAt;
             }
 
+            // READ-MODEL PROJECTION FLUSH: after the save, inside the lock. Build per-row deltas
+            // from the mutation's FINAL saved state and enqueue them to the outbox. Inside a
+            // durable command the enqueue joins the command's transaction (transactional
+            // outbox, C2): the deltas commit or roll back with the record and its receipt, so
+            // a crash after COMMIT cannot lose them and a rolled-back command leaves none.
+            // Failed mutations skip this (innerResult.success false) so the read model can
+            // never get ahead of the record. Fail-soft: an outbox error is logged but never
+            // blocks the ack — reconciliation/rebuild backstops.
+            if (deltaBuffer && projectionOutbox && innerResult.success) {
+              try {
+                const deltas = await buildProjectionDeltas({
+                  intents: deltaBuffer.intents,
+                  tournamentRecords: mutatedTournamentRecords,
+                  // Bounded per-draw flatten against the mutation's FINAL saved state.
+                  // Uses tournamentEngineAsync (per-request async_hooks isolation — the
+                  // same engine resolveMatchUpReferences uses) because the mutation
+                  // engine instance does not expose query methods. It shares this
+                  // request's instance state, which already holds the saved records, so
+                  // the query reads them in place instead of copying the whole record
+                  // once per draw. Runs post-save, and the query writes nothing.
+                  flattenDraw: async (tournamentId: string, drawId: string) => {
+                    if (!mutatedTournamentRecords?.[tournamentId]) return [];
+                    if (asyncGlobalState.getTournamentRecords() !== mutatedTournamentRecords) {
+                      asyncGlobalState.setTournamentRecords(mutatedTournamentRecords);
+                    }
+                    const res: any = await tournamentEngineAsync.allDrawMatchUps({
+                      tournamentId,
+                      drawId,
+                      inContext: true,
+                    });
+                    return res?.matchUps ?? [];
+                  },
+                });
+                await projectionOutbox.enqueue(deltas);
+              } catch (err: any) {
+                Logger.error(`Projection outbox flush failed: ${err?.message}`, 'executionQueue');
+              }
+            }
+
             await afterCommandCommit(async () => {
               // Now that save is complete, flush deferred cache deletions
               for (const key of cacheKeysToDelete) {
@@ -184,43 +223,6 @@ export async function executionQueue(
                     metadata: buildAuditMetadata(payload),
                   })
                   .catch((err) => Logger.error(`Audit hook failed: ${err.message}`, 'executionQueue'));
-              }
-
-              // READ-MODEL PROJECTION FLUSH: post-commit, inside the lock (the exact
-              // seam the audit hook + deferred cache-clear use). Build per-row deltas
-              // from the mutation's FINAL saved state and enqueue them to the outbox.
-              // Rolled-back / failed mutations skip this (innerResult.success false) so
-              // the read model can never get ahead of the record. Fail-soft: an outbox
-              // error is logged but never blocks the ack — reconciliation/rebuild backstops.
-              if (deltaBuffer && projectionOutbox && innerResult.success) {
-                try {
-                  const deltas = await buildProjectionDeltas({
-                    intents: deltaBuffer.intents,
-                    tournamentRecords: mutatedTournamentRecords,
-                    // Bounded per-draw flatten against the mutation's FINAL saved state.
-                    // Uses tournamentEngineAsync (per-request async_hooks isolation — the
-                    // same engine resolveMatchUpReferences uses) because the mutation
-                    // engine instance does not expose query methods. It shares this
-                    // request's instance state, which already holds the saved records, so
-                    // the query reads them in place instead of copying the whole record
-                    // once per draw. Runs post-save, and the query writes nothing.
-                    flattenDraw: async (tournamentId: string, drawId: string) => {
-                      if (!mutatedTournamentRecords?.[tournamentId]) return [];
-                      if (asyncGlobalState.getTournamentRecords() !== mutatedTournamentRecords) {
-                        asyncGlobalState.setTournamentRecords(mutatedTournamentRecords);
-                      }
-                      const res: any = await tournamentEngineAsync.allDrawMatchUps({
-                        tournamentId,
-                        drawId,
-                        inContext: true,
-                      });
-                      return res?.matchUps ?? [];
-                    },
-                  });
-                  await projectionOutbox.enqueue(deltas);
-                } catch (err: any) {
-                  Logger.error(`Projection outbox flush failed: ${err?.message}`, 'executionQueue');
-                }
               }
             });
 

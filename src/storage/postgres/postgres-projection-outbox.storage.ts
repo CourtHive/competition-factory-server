@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Pool, PoolClient } from 'pg';
 
+import { commandClient } from './commandTransaction';
 import { PG_POOL } from './postgres.config';
 import {
   FencedEnqueueResult,
@@ -35,6 +36,21 @@ export class PostgresProjectionOutboxStorage implements IProjectionOutboxStorage
     if (!deltas.length) return;
     if (options?.client) {
       await this.insertChunks(options.client, deltas);
+      return;
+    }
+    // Inside a durable command the span commits with the record and its receipt: a crash after COMMIT can no longer
+    // lose it (C2). A savepoint keeps a failed span from aborting the command's transaction; the caller logs it, as
+    // it always has, and reconciliation backstops the read model.
+    const borrowed = commandClient(this.pool);
+    if (borrowed) {
+      await borrowed.query('SAVEPOINT projection_enqueue');
+      try {
+        await this.insertChunks(borrowed, deltas);
+        await borrowed.query('RELEASE SAVEPOINT projection_enqueue');
+      } catch (err) {
+        await borrowed.query('ROLLBACK TO SAVEPOINT projection_enqueue');
+        throw err;
+      }
       return;
     }
     // One transaction even when the span needs several statements: the consumer must never see part of a span.
