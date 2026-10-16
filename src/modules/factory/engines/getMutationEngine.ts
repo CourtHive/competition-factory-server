@@ -1,4 +1,5 @@
 import { auditConstants, governors, asyncEngine, globalState, topicConstants } from 'tods-competition-factory';
+import { afterCommandCommit } from 'src/storage/postgres/commandTransaction';
 import type { FactoryEngineTyped } from 'tods-competition-factory';
 import { Logger } from '@nestjs/common';
 import asyncGlobalState from './asyncGlobalState';
@@ -28,7 +29,6 @@ import {
   recordVenue,
 } from '../projection/deltaBuffer';
 import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
-import { afterCommandCommit } from 'src/storage/postgres/commandTransaction';
 
 const traverse = true;
 const global = true;
