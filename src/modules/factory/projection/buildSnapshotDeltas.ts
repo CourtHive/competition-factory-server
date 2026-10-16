@@ -43,13 +43,25 @@ export async function buildSnapshotDeltas({
   const tournamentId = tournamentRecord?.tournamentId;
   if (!tournamentId) return [];
 
+  // The record is loaded and hydrated ONCE for all its draws, and each draw is handed its own matchUps. Both used to
+  // run per draw: a whole-record `setState` copy and an in-context flatten that rebuilt the participant context each
+  // time, on the request path. Measured on the 120 corpus records over 1 MiB: p50 148 -> 62 ms, max 509 -> 298 ms,
+  // with byte-identical deltas on every record (Mentat/planning/CFS_LARGE_SAVES.md, A2).
+  let byDrawId: Map<string, any[]> | undefined;
   const body = await buildProjectionDeltas({
     intents: buildRebuildIntents(tournamentRecord),
     tournamentRecords: { [tournamentId]: tournamentRecord },
     flattenDraw: async (_tid: string, drawId: string) => {
-      await tournamentEngineAsync.setState(tournamentRecord);
-      const res: any = await tournamentEngineAsync.allDrawMatchUps({ drawId, inContext: true });
-      return res?.matchUps ?? [];
+      if (!byDrawId) {
+        await tournamentEngineAsync.setState(tournamentRecord);
+        const res: any = await tournamentEngineAsync.allTournamentMatchUps({ inContext: true });
+        byDrawId = new Map();
+        for (const matchUp of res?.matchUps ?? []) {
+          if (!byDrawId.has(matchUp.drawId)) byDrawId.set(matchUp.drawId, []);
+          byDrawId.get(matchUp.drawId)?.push(matchUp);
+        }
+      }
+      return byDrawId.get(drawId) ?? [];
     },
   });
 

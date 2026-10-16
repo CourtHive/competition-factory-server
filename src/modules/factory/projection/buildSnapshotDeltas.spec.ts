@@ -91,6 +91,47 @@ describe('buildSnapshotDeltas', () => {
     expect(snapshot.slice(1, -1)).toEqual(rebuild);
   });
 
+  // The snapshot hydrates the record once for all its draws, where the rebuild path flattens draw by draw. Their bodies
+  // must still match on every draw shape: round robin groups, feed-in and consolation links, doubles and TEAM ties.
+  it('emits the rebuild body on a record of mixed draw types, though it hydrates once', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [
+        { drawSize: 8, drawType: 'ROUND_ROBIN_WITH_PLAYOFF' },
+        { drawSize: 16, drawType: 'FEED_IN_CHAMPIONSHIP' },
+        { drawSize: 8, drawType: 'FIRST_MATCH_LOSER_CONSOLATION', eventType: 'DOUBLES' },
+        { drawSize: 4, eventType: 'TEAM' },
+      ],
+      completeAllMatchUps: true,
+      nonRandom: 1,
+    });
+
+    const snapshot = await buildSnapshotDeltas({ tournamentRecord, snapshotId: 'snap-1', source: 'test' });
+    const rebuild = await buildProjectionDeltas({
+      intents: buildRebuildIntents(tournamentRecord),
+      tournamentRecords: { [tournamentRecord.tournamentId]: tournamentRecord },
+      flattenDraw: flattenDraw(tournamentRecord),
+    });
+
+    expect(snapshot.slice(1, -1).length).toBeGreaterThan(0);
+    expect(snapshot.slice(1, -1)).toEqual(rebuild);
+  });
+
+  // A whole-record copy per draw was most of a large save's snapshot cost, on the request path (CFS_LARGE_SAVES A2)
+  it('loads and hydrates the record once, however many draws it has', async () => {
+    const tournamentRecord = makeRecord();
+    const setState = vi.spyOn(tournamentEngineAsync, 'setState');
+    const allTournamentMatchUps = vi.spyOn(tournamentEngineAsync, 'allTournamentMatchUps');
+    try {
+      await buildSnapshotDeltas({ tournamentRecord, snapshotId: 'snap-1', source: 'test' });
+      expect(tournamentRecord.events.flatMap((event: any) => event.drawDefinitions ?? []).length).toBeGreaterThan(1);
+      expect(setState).toHaveBeenCalledTimes(1);
+      expect(allTournamentMatchUps).toHaveBeenCalledTimes(1);
+    } finally {
+      setState.mockRestore();
+      allTournamentMatchUps.mockRestore();
+    }
+  });
+
   it('every purged table carries tournament_id, so a delete-by-tournament is valid', async () => {
     const tournamentRecord = makeRecord();
     const deltas = await buildSnapshotDeltas({ tournamentRecord, snapshotId: 'snap-1', source: 'test' });
