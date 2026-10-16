@@ -43,6 +43,7 @@ import {
   Logger,
   Req,
   ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
 
 /**
@@ -651,8 +652,10 @@ export class FactoryController {
   async commitSave(@Body() body: { saveId: string }, @Req() req: any) {
     const internalKey = process.env.INTERNAL_API_KEY;
     const providedKey = req.headers['x-internal-key'];
+    // A refusal is a 401, never a 200 carrying `{ error }`: the worker that calls this checks `res.ok`, and would
+    // have recorded an unauthorised call as a committed save.
     if (!internalKey || providedKey !== internalKey) {
-      return { error: 'Unauthorized' };
+      throw new UnauthorizedException('Invalid internal key');
     }
     return this.factoryService.commitSave(body.saveId);
   }

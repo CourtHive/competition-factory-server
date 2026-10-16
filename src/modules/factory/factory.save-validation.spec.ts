@@ -113,64 +113,40 @@ describe('FactoryService.saveTournamentRecords L2 validation gate', () => {
     }
   });
 
-  it('over-threshold records skip sync L2 and are queued for async validation', async () => {
-    process.env.FACTORY_SAVE_VALIDATION_THRESHOLD_BYTES = '100';
+  // Records over a byte threshold used to skip validation, be saved as-is, and be queued for an async pass that never
+  // ran (Mentat/planning/CFS_LARGE_SAVES.md). Every record is validated now, whatever its size.
+  const OVER_ONE_MIB = 'X'.repeat(1_100_000);
+
+  it('refuses an invalid record of any size, and persists and queues nothing', async () => {
     const { svc, tournamentStorageService } = makeFactoryService();
-    const record = makeValidRecord({
-      tournamentName: 'X'.repeat(500), // pushes JSON well over the 100-byte threshold
-    });
+    const record = { ...makeInvalidRecord(), padding: OVER_ONE_MIB };
+
+    await expect(svc.saveTournamentRecords({ tournamentRecord: record }, SUPER_ADMIN_USER)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(tournamentStorageService.saveTournamentRecords).not.toHaveBeenCalled();
+    expect(insertPendingSave).not.toHaveBeenCalled();
+  });
+
+  it('persists a valid record over 1 MiB once, and queues nothing for a later pass', async () => {
+    const { svc, tournamentStorageService } = makeFactoryService();
+    const record = makeValidRecord({ tournamentName: OVER_ONE_MIB });
 
     const result = await svc.saveTournamentRecords({ tournamentRecord: record }, SUPER_ADMIN_USER);
     expect(result.success).toBe(true);
     expect(tournamentStorageService.saveTournamentRecords).toHaveBeenCalledTimes(1);
-    expect(insertPendingSave).toHaveBeenCalledTimes(1);
-    const call = (insertPendingSave as Mock).mock.calls[0][1];
-    expect(call.tournamentId).toBe('t-1');
-    expect(call.validationLevel).toBe('L2');
+    expect(insertPendingSave).not.toHaveBeenCalled();
   });
 
-  it("stamps a queued save with the RECORD's provider, not the saver's legacy home column", async () => {
-    process.env.FACTORY_SAVE_VALIDATION_THRESHOLD_BYTES = '100';
-    const { svc } = makeFactoryService();
-    const record = makeValidRecord({
-      tournamentName: 'X'.repeat(500),
-      parentOrganisation: { organisationId: 'record-provider' },
-    });
-    await svc.saveTournamentRecords({ tournamentRecord: record }, { ...SUPER_ADMIN_USER, providerId: 'saver-home' });
-    expect((insertPendingSave as Mock).mock.calls[0][1].providerId).toBe('record-provider');
-  });
-
-  it('over-threshold records bypass even structural L2 errors (size escape hatch)', async () => {
+  it('ignores the retired threshold variable: a small threshold no longer lets an invalid record through', async () => {
     process.env.FACTORY_SAVE_VALIDATION_THRESHOLD_BYTES = '50';
     const { svc, tournamentStorageService } = makeFactoryService();
-    // Malformed record padded to exceed threshold — sync L2 would reject it,
-    // but the size gate routes it to the async queue instead.
     const record = { ...makeInvalidRecord(), padding: 'X'.repeat(500) };
 
-    const result = await svc.saveTournamentRecords({ tournamentRecord: record }, SUPER_ADMIN_USER);
-    expect(result.success).toBe(true);
-    expect(tournamentStorageService.saveTournamentRecords).toHaveBeenCalledTimes(1);
-    expect(insertPendingSave).toHaveBeenCalledTimes(1);
-  });
-
-  it('falls back to the 1 MB default when the env var is unset', async () => {
-    delete process.env.FACTORY_SAVE_VALIDATION_THRESHOLD_BYTES;
-    const { svc, tournamentStorageService } = makeFactoryService();
-    const record = makeValidRecord(); // tiny, well under 1 MB
-
-    await svc.saveTournamentRecords({ tournamentRecord: record }, SUPER_ADMIN_USER);
-    expect(tournamentStorageService.saveTournamentRecords).toHaveBeenCalledTimes(1);
-    expect(insertPendingSave).not.toHaveBeenCalled();
-  });
-
-  it('ignores a non-numeric env var and uses the default threshold', async () => {
-    process.env.FACTORY_SAVE_VALIDATION_THRESHOLD_BYTES = 'not-a-number';
-    const { svc } = makeFactoryService();
-    const record = makeValidRecord();
-
-    const result = await svc.saveTournamentRecords({ tournamentRecord: record }, SUPER_ADMIN_USER);
-    expect(result.success).toBe(true);
-    expect(insertPendingSave).not.toHaveBeenCalled();
+    await expect(svc.saveTournamentRecords({ tournamentRecord: record }, SUPER_ADMIN_USER)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(tournamentStorageService.saveTournamentRecords).not.toHaveBeenCalled();
   });
 
   it('rejects on the first invalid record in a multi-tournament payload and persists none', async () => {
