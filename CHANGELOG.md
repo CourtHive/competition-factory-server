@@ -1,5 +1,37 @@
 # Changelog
 
+## [4.2.0](https://github.com/CourtHive/competition-factory-server/compare/v4.1.0...v4.2.0) (2026-10-16)
+
+
+### Features
+
+* **projection:** build wholesale-save snapshots off the request path (P2, P3, P4 + producer) ([#1049](https://github.com/CourtHive/competition-factory-server/issues/1049)) ([deb98b6](https://github.com/CourtHive/competition-factory-server/commit/deb98b64a7050a0d1c0e9974a4571c05577e4a91))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.14.0 ([3c2e537](https://github.com/CourtHive/competition-factory-server/commit/3c2e537bb7c523c215d29e20e9fa32d225fc242e))
+* **deps:** update tods-competition-factory to 7.14.1 ([8ef6b8c](https://github.com/CourtHive/competition-factory-server/commit/8ef6b8cfadc3ceabcec94ac8c587565e56dc19aa))
+* **deps:** update tods-competition-factory to 7.15.0 ([9adfdad](https://github.com/CourtHive/competition-factory-server/commit/9adfdad358540d7d62cdb6bcb21ca00d8e660e19))
+* durable command receipts, committed atomically with tournament writes (T9) ([#1050](https://github.com/CourtHive/competition-factory-server/issues/1050)) ([bf982ff](https://github.com/CourtHive/competition-factory-server/commit/bf982ff8fe08a947c528875e661c67a825516ccb))
+* **factory:** let a provider DIRECTOR create a tournament through /factory/save ([#1045](https://github.com/CourtHive/competition-factory-server/issues/1045)) ([7b3107f](https://github.com/CourtHive/competition-factory-server/commit/7b3107fe3158ab158c64c450a7049680feeffdcf))
+* **factory:** remove the async save-validation path and drop pending_saves ([#1048](https://github.com/CourtHive/competition-factory-server/issues/1048)) ([ee48b93](https://github.com/CourtHive/competition-factory-server/commit/ee48b939da10a2cb41109edc914f279f6d94dd26))
+* **factory:** validate every saved record, whatever its size ([#1046](https://github.com/CourtHive/competition-factory-server/issues/1046)) ([59cbf80](https://github.com/CourtHive/competition-factory-server/commit/59cbf805d784857b29fe06bbb76a5b127481a161))
+* **logging:** write Logger.log messages — the log level was left out of the list ([#1038](https://github.com/CourtHive/competition-factory-server/issues/1038)) ([26df758](https://github.com/CourtHive/competition-factory-server/commit/26df758d47151eb197b1505388afd4755995dc49))
+* **projection:** a durable command's deltas commit with its record (transactional outbox, C2) ([#1051](https://github.com/CourtHive/competition-factory-server/issues/1051)) ([e390184](https://github.com/CourtHive/competition-factory-server/commit/e390184c7a969268023d9bea787d397899892439))
+* **save:** a wholesale save can be durable and conditional (C3) ([#1052](https://github.com/CourtHive/competition-factory-server/issues/1052)) ([97af226](https://github.com/CourtHive/competition-factory-server/commit/97af22615823060d74f139e003a6698df3cc8207))
+
+
+### Performance
+
+* **factory:** stop copying the whole record on every mutation ([#1037](https://github.com/CourtHive/competition-factory-server/issues/1037)) ([361fbc5](https://github.com/CourtHive/competition-factory-server/commit/361fbc52b222bf4fb2b028a9107076b56984a802))
+* **projection:** a snapshot loads and hydrates its record once, not once per draw ([#1047](https://github.com/CourtHive/competition-factory-server/issues/1047)) ([a522f02](https://github.com/CourtHive/competition-factory-server/commit/a522f0206b1be9b6640ef5848163ab7c6d418524))
+
+
+### Documentation
+
+* name vitest, not jest, as the test runner in CLAUDE.md ([#1039](https://github.com/CourtHive/competition-factory-server/issues/1039)) ([f44a040](https://github.com/CourtHive/competition-factory-server/commit/f44a0406b6504d05966439d7083ccad1f6574e8c))
+
 ## [4.1.0](https://github.com/CourtHive/competition-factory-server/compare/v4.0.0...v4.1.0) (2026-10-13)
 
 
