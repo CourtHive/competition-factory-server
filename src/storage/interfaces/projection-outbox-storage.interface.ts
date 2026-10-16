@@ -46,11 +46,66 @@ export interface ProjectionDelta {
   key: Record<string, any>;
   row?: Record<string, any>;
   topic?: string;
+  /**
+   * The span this row belongs to, on every BODY row of a snapshot span (migration 055). The consumer selects a span's
+   * rows by it rather than by the seq range between the markers. Absent on incremental deltas.
+   */
+  snapshotId?: string;
+}
+
+/** A stored record as the projection reads it, with its row version as Postgres holds it (microseconds intact). */
+export interface ProjectionSource {
+  tournamentRecord: any;
+  /** `tournaments.updated_at::text`. Compared IN SQL by the fence; a JS Date would drop the microseconds. */
+  updatedAt: string;
+}
+
+export type FencedEnqueueResult = 'enqueued' | 'changed' | 'missing';
+
+/** A tournament waiting for its snapshot to be built off the request path (migration 055). */
+export interface SnapshotRequest {
+  tournamentId: string;
+  /** `requested_at::text`: a request re-made while its span was being built must survive that build. */
+  requestedAt: string;
+  source?: string;
+  attempts: number;
 }
 
 export interface IProjectionOutboxStorage {
   /** True only when a pg pool exists AND PROJECTION_OUTBOX_ENABLED=true. */
   readonly isEnabled: boolean;
-  /** Bulk-append deltas to `projection_queue` in a single INSERT. No-op on []. */
-  enqueue(deltas: ProjectionDelta[]): Promise<void>;
+  /**
+   * Append deltas to `projection_queue` in ONE transaction, chunked so no statement exceeds Postgres's bind-parameter
+   * limit. Uses `client` (and its open transaction) when given. No-op on [].
+   */
+  enqueue(deltas: ProjectionDelta[], options?: { client?: any }): Promise<void>;
+  /** Read a record and its row version for projecting outside the tournament lock. Undefined when absent. */
+  readForProjection(tournamentId: string): Promise<ProjectionSource | undefined>;
+  /**
+   * Enqueue deltas built from a record read outside the lock, only if that record is still the stored one. In one
+   * transaction: `SELECT … FOR SHARE` the tournaments row, compare `updated_at` with `updatedAt` in SQL, insert the
+   * deltas. A save landing after the fence blocks on the share lock and enqueues after these rows; a save that landed
+   * between the read and the fence changes `updated_at`, and nothing is written ('changed': rebuild and retry).
+   */
+  enqueueIfUnchanged(params: { tournamentId: string; updatedAt: string; deltas: ProjectionDelta[] }): Promise<FencedEnqueueResult>;
+  /**
+   * Record, inside the save's tournament lock, that these tournaments need a snapshot; the producer builds it. One
+   * pending request per tournament: a repeat save refreshes `requested_at` and resets the attempt count.
+   */
+  requestSnapshots(tournamentIds: string[], source: string, options?: { client?: any }): Promise<void>;
+  /** The oldest pending requests, at most `limit`. */
+  pendingSnapshotRequests(limit: number): Promise<SnapshotRequest[]>;
+  /**
+   * The producer's commit, in ONE transaction: the `enqueueIfUnchanged` fence, the span, and the deletion of the
+   * request it served. The request is deleted only if it is still the one read: a save that re-requested the
+   * snapshot meanwhile leaves it pending. 'missing' (the tournament is gone) deletes the request.
+   */
+  completeSnapshot(params: {
+    tournamentId: string;
+    requestedAt: string;
+    updatedAt: string;
+    deltas: ProjectionDelta[];
+  }): Promise<FencedEnqueueResult>;
+  /** Count a failed build against its request, keeping the error for /health/projection and an operator. */
+  recordSnapshotFailure(tournamentId: string, error: string): Promise<void>;
 }

@@ -28,6 +28,17 @@ import { buildSnapshotDeltas } from './buildSnapshotDeltas';
  * throttled milestones and a recovery line, because a silently-failing projector
  * looks exactly like a system with nothing to project.
  */
+const DEFERRED = 'deferred';
+
+/**
+ * `PROJECTION_SNAPSHOT_MODE`: `inline` (default) builds a wholesale save's snapshot span in the request, as before;
+ * `deferred` records a request for the Projection-Producer process to build. Read per call, so a restart is not needed
+ * to switch, and the default leaves behaviour unchanged until a deploy turns it on.
+ */
+export function snapshotMode(): string {
+  return process.env.PROJECTION_SNAPSHOT_MODE === DEFERRED ? DEFERRED : 'inline';
+}
+
 @Injectable()
 export class SnapshotProjectionService {
   private readonly logger = new Logger(SnapshotProjectionService.name);
@@ -51,6 +62,19 @@ export class SnapshotProjectionService {
     source: string;
   }): Promise<number> {
     if (!this.outbox.isEnabled) return 0;
+
+    // DEFERRED: record that these tournaments need a snapshot and leave the build to the producer process, off this
+    // request and off CFS's event loop (Mentat/planning/CFS_LARGE_SAVES.md §10). The caller is inside the tournament
+    // lock, so the request is recorded in the same order as the save; the producer's fence does the rest.
+    if (snapshotMode() === DEFERRED) {
+      try {
+        await this.outbox.requestSnapshots(Object.keys(tournamentRecords ?? {}), source);
+        this.recordRecovery();
+      } catch (err: any) {
+        for (const tournamentId of Object.keys(tournamentRecords ?? {})) this.recordFailure(tournamentId, err);
+      }
+      return 0;
+    }
 
     let enqueued = 0;
     for (const tournamentId of Object.keys(tournamentRecords ?? {})) {
