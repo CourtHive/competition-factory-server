@@ -5,6 +5,7 @@ import { FetchTournamentRecordsDto } from './dto/fetchTournamentRecords.dto';
 import { QueryTournamentRecordsDto } from './dto/queryTournamentRecords.dto';
 import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
 import { GetScheduleProjectionDto } from './dto/getScheduleProjection.dto';
+import { commandFingerprint } from 'src/storage/postgres/commandReceipts';
 import { GetTournamentInfoDto } from './dto/getTournamentInfo.dto';
 import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
 import { GetStructureDataDto } from './dto/getStructureData.dto';
@@ -24,9 +25,9 @@ import { Public } from 'src/modules/account/auth/decorators/public.decorator';
 import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
 import { ApplyPrivacyPolicyDto } from './dto/applyPrivacyPolicy.dto';
+import { PayloadProfileEnum, tools } from 'tods-competition-factory';
 import { User } from '../account/auth/decorators/user.decorator';
 import { ROSTER_SAFE_TOPICS } from './engines/getMutationEngine';
-import { PayloadProfileEnum, tools } from 'tods-competition-factory';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { FactoryService } from './factory.service';
 import { GrantsService } from './grants.service';
@@ -451,7 +452,7 @@ export class FactoryController {
     if (verifiedUser?.userId || verifiedUser?.sub) enriched.userId = verifiedUser.userId ?? verifiedUser.sub;
 
     const result = await this.factoryService.score(enriched, this.cacheManager);
-    if (result?.success) {
+    if (result?.success && !result.deduplicated) {
       const { publicNotices } = result;
       const tournamentId = enriched.tournamentId || enriched.params?.tournamentId;
       const payload = {
@@ -498,6 +499,8 @@ export class FactoryController {
     // applies these in TmxGateway; this route previously applied NEITHER, so a
     // CLIENT could post the same `methods` array over HTTP and bypass both.
     // Same gate, one implementation (A10).
+    if (eqd?.commandId !== undefined && (eqd as any).commandUser !== req.user?.email)
+      throw new ForbiddenException('Durable command belongs to another user');
     const requestedMethods: string[] = (eqd?.methods ?? []).map((m: any) => m?.method).filter(Boolean);
     const tournamentIds: string[] = eqd?.tournamentIds ?? (eqd?.tournamentId ? [eqd.tournamentId] : []);
     const denial = await this.mutationAuthorization.gate({
@@ -512,7 +515,12 @@ export class FactoryController {
     // The same identity stamping as the socket path (stampVerifiedIdentity). This route used to set
     // only the fields the token carried, so a client `userId` survived into the audit row and an
     // operator attestation naming somebody else was saved as sent.
-    const payload: any = { ...eqd, auditSource: req.auditSource };
+    const payload: any = {
+      ...eqd,
+      auditSource: req.auditSource,
+      commandActor: req.user?.userId ?? req.user?.sub ?? req.user?.email,
+      commandFingerprint: commandFingerprint(eqd),
+    };
     const restamped = stampVerifiedIdentity(payload, req.user);
     if (restamped) {
       Logger.warn(
@@ -526,7 +534,7 @@ export class FactoryController {
       // Lets a warmed key enter the side-table. The WS path has no side-table and passes nothing.
       trackCacheKey: (key: string) => this.trackTournamentKey(key),
     });
-    if (result?.success) {
+    if (result?.success && !result.deduplicated) {
       const { publicNotices } = result;
       // The stamped payload, as the socket path broadcasts: it carries the verified userId, and the
       // sender's `originClientId` so the sender recognises its own mutation (no connection to exclude).

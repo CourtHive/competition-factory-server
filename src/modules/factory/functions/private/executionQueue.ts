@@ -1,12 +1,14 @@
+import { HttpException, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { runWithRequestContext } from 'src/modules/factory/engines/requestContext';
 import { tournamentEngineAsync, factoryConstants } from 'tods-competition-factory';
 import { buildProjectionDeltas } from '../../projection/buildProjectionDeltas';
+import { afterCommandCommit } from 'src/storage/postgres/commandTransaction';
 import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
+import { runDurableCommand } from 'src/storage/postgres/commandReceipts';
 import { getMutationEngine } from '../../engines/getMutationEngine';
 import { withTournamentLock } from 'src/services/tournamentMutex';
 import { createDeltaBuffer } from '../../projection/deltaBuffer';
 import { warmEventDataCache } from './warmEventDataCache';
-import { Logger } from '@nestjs/common';
 
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import type { AuditService } from 'src/modules/audit/audit.service';
@@ -83,151 +85,155 @@ export async function executionQueue(
 
     const mutationResult = await runWithRequestContext(requestContext, async () =>
       asyncGlobalState.runWithInstanceState(async () =>
-        withTournamentLock(tournamentIds, async () => {
-          // LOAD PROFILE (Stage 0 of tournament-affinity sharding): the clock
-          // starts after the lock is acquired, so what is measured is the work
-          // itself — fetch, mutate, save — and not time spent queueing behind
-          // another mutation on the same tournament. Lock-wait is a different
-          // measurement with a different meaning and mixing them would make a
-          // contended tournament look expensive when it is merely popular.
-          const startedAt = Date.now();
+        withTournamentLock(tournamentIds, () =>
+          runDurableCommand(payload, services?.commandReceipts, async () => {
+            // LOAD PROFILE (Stage 0 of tournament-affinity sharding): the clock
+            // starts after the lock is acquired, so what is measured is the work
+            // itself — fetch, mutate, save — and not time spent queueing behind
+            // another mutation on the same tournament. Lock-wait is a different
+            // measurement with a different meaning and mixing them would make a
+            // contended tournament look expensive when it is merely popular.
+            const startedAt = Date.now();
 
-          const result: any = await storage.fetchTournamentRecords({ tournamentIds });
-          if (result.error) return result;
+            const result: any = await storage.fetchTournamentRecords({ tournamentIds });
+            if (result.error) return result;
 
-          // Backfill drawId/eventId for matchUpId-only setMatchUpStatus calls
-          // (score-relay-style producers don't know the drawId). Runs against
-          // the lock-acquired record, replacing the prior pre-lock fetch in
-          // setMatchUpStatus.ts that doubled the storage round-trip.
-          await resolveMatchUpReferences(methods, result.tournamentRecords);
+            // Backfill drawId/eventId for matchUpId-only setMatchUpStatus calls
+            // (score-relay-style producers don't know the drawId). Runs against
+            // the lock-acquired record, replacing the prior pre-lock fetch in
+            // setMatchUpStatus.ts that doubled the storage round-trip.
+            await resolveMatchUpReferences(methods, result.tournamentRecords);
 
-          // After getMutationEngine(): constructing the engine resets this request's instance state.
-          const mutationEngine = getMutationEngine();
-          const loaded = loadFetchedRecords(result.tournamentRecords);
-          if (loaded.error) return loaded;
-          const innerResult = await mutationEngine.executionQueue(methods, rollbackOnError);
-          // When the saved rows were written, and when they had been written before this mutation (read
-          // inside the lock, so nothing came between). The ack and the broadcast carry both: a client that
-          // was current at `previousServerUpdatedAt` and applies this mutation is current at
-          // `serverUpdatedAt`; one that was behind stays behind, and its staleness probe says so (P49).
-          let serverUpdatedAt: Record<string, string> | undefined;
-          const previousServerUpdatedAt: Record<string, string> | undefined = result.serverUpdatedAt;
-          // The engine's live records, read without a copy: the save serialises them and the projection
-          // below only reads them. Read from the provider rather than from `result.tournamentRecords`,
-          // because the queue may have replaced the object it was given.
-          const mutatedTournamentRecords: any = asyncGlobalState.getTournamentRecords();
+            // After getMutationEngine(): constructing the engine resets this request's instance state.
+            const mutationEngine = getMutationEngine();
+            const loaded = loadFetchedRecords(result.tournamentRecords);
+            if (loaded.error) return loaded;
+            const innerResult = await mutationEngine.executionQueue(methods, rollbackOnError);
+            // When the saved rows were written, and when they had been written before this mutation (read
+            // inside the lock, so nothing came between). The ack and the broadcast carry both: a client that
+            // was current at `previousServerUpdatedAt` and applies this mutation is current at
+            // `serverUpdatedAt`; one that was behind stays behind, and its staleness probe says so (P49).
+            let serverUpdatedAt: Record<string, string> | undefined;
+            const previousServerUpdatedAt: Record<string, string> | undefined = result.serverUpdatedAt;
+            // The engine's live records, read without a copy: the save serialises them and the projection
+            // below only reads them. Read from the provider rather than from `result.tournamentRecords`,
+            // because the queue may have replaced the object it was given.
+            const mutatedTournamentRecords: any = asyncGlobalState.getTournamentRecords();
 
-          if (innerResult.success) {
-            const updateResult: any = await storage.saveTournamentRecords({
-              tournamentRecords: mutatedTournamentRecords,
-              // This path raised factory notices, so the delta buffer below
-              // already holds the incremental projection — the facade must not
-              // re-project the whole tournament on every mutation.
-              projectionMode: 'deltas',
-            });
-            if (!updateResult.success) {
-              // A fenced save is NOT a retryable persistence failure — it means
-              // this process was deposed as owner of the tournament and the
-              // record it just mutated represents a history that no longer
-              // exists. Surfaced distinctly (`fenced: true`) so the caller
-              // re-resolves its route rather than retrying, and so the ack
-              // carries the real reason. Both paths return early, which is what
-              // keeps the cache-clear, audit, and projection-flush hooks below
-              // from running against a write that never landed.
-              if (updateResult.fenced) {
-                recordLoadProfile({
-                  services,
-                  tournamentIds,
-                  tournamentRecords: result.tournamentRecords,
-                  methodCount: methods.length,
-                  elapsedMs: Date.now() - startedAt,
-                  bytes: {},
-                  fenced: true,
-                });
-                return { error: updateResult.error, fenced: true, tournamentIds };
-              }
-              return { error: 'Could not persist tournament record(s)' };
-            }
-
-            recordLoadProfile({
-              services,
-              tournamentIds,
-              tournamentRecords: mutatedTournamentRecords,
-              methodCount: methods.length,
-              elapsedMs: Date.now() - startedAt,
-              bytes: updateResult.bytes ?? {},
-            });
-            serverUpdatedAt = updateResult.serverUpdatedAt;
-          }
-
-          // Now that save is complete, flush deferred cache deletions
-          for (const key of cacheKeysToDelete) {
-            services?.cacheManager?.del(key);
-          }
-
-          // AUDIT HOOK: record the mutation after save completes, inside the lock.
-          // Fail-soft: audit errors are logged but never block the ack.
-          if (auditService) {
-            auditService
-              .recordMutation({
-                tournamentIds,
-                userId: payload?.userId,
-                userEmail: payload?.userEmail,
-                source: payload?.auditSource?.type === 'provisioner' ? 'provisioner' : (payload?.source ?? 'tmx'),
-                methods: methods.map((m: any) => ({ method: m.method, params: m.params })),
-                status: innerResult.success ? 'applied' : innerResult.error ? 'rejected' : 'partial',
-                errorCode: serializeErrorCode(innerResult.error),
-                metadata: buildAuditMetadata(payload),
-              })
-              .catch((err) => Logger.error(`Audit hook failed: ${err.message}`, 'executionQueue'));
-          }
-
-          // READ-MODEL PROJECTION FLUSH: post-commit, inside the lock (the exact
-          // seam the audit hook + deferred cache-clear use). Build per-row deltas
-          // from the mutation's FINAL saved state and enqueue them to the outbox.
-          // Rolled-back / failed mutations skip this (innerResult.success false) so
-          // the read model can never get ahead of the record. Fail-soft: an outbox
-          // error is logged but never blocks the ack — reconciliation/rebuild backstops.
-          if (deltaBuffer && projectionOutbox && innerResult.success) {
-            try {
-              const deltas = await buildProjectionDeltas({
-                intents: deltaBuffer.intents,
+            if (innerResult.success) {
+              const updateResult: any = await storage.saveTournamentRecords({
                 tournamentRecords: mutatedTournamentRecords,
-                // Bounded per-draw flatten against the mutation's FINAL saved state.
-                // Uses tournamentEngineAsync (per-request async_hooks isolation — the
-                // same engine resolveMatchUpReferences uses) because the mutation
-                // engine instance does not expose query methods. It shares this
-                // request's instance state, which already holds the saved records, so
-                // the query reads them in place instead of copying the whole record
-                // once per draw. Runs post-save, and the query writes nothing.
-                flattenDraw: async (tournamentId: string, drawId: string) => {
-                  if (!mutatedTournamentRecords?.[tournamentId]) return [];
-                  if (asyncGlobalState.getTournamentRecords() !== mutatedTournamentRecords) {
-                    asyncGlobalState.setTournamentRecords(mutatedTournamentRecords);
-                  }
-                  const res: any = await tournamentEngineAsync.allDrawMatchUps({
-                    tournamentId,
-                    drawId,
-                    inContext: true,
-                  });
-                  return res?.matchUps ?? [];
-                },
+                // This path raised factory notices, so the delta buffer below
+                // already holds the incremental projection — the facade must not
+                // re-project the whole tournament on every mutation.
+                projectionMode: 'deltas',
               });
-              await projectionOutbox.enqueue(deltas);
-            } catch (err: any) {
-              Logger.error(`Projection outbox flush failed: ${err?.message}`, 'executionQueue');
-            }
-          }
-
-          const canonicalResult =
-            payload?.serverStamped && innerResult.success
-              ? {
-                  ...innerResult,
-                  appliedMethods: structuredClone(methods),
+              if (!updateResult.success) {
+                // A fenced save is NOT a retryable persistence failure — it means
+                // this process was deposed as owner of the tournament and the
+                // record it just mutated represents a history that no longer
+                // exists. Surfaced distinctly (`fenced: true`) so the caller
+                // re-resolves its route rather than retrying, and so the ack
+                // carries the real reason. Both paths return early, which is what
+                // keeps the cache-clear, audit, and projection-flush hooks below
+                // from running against a write that never landed.
+                if (updateResult.fenced) {
+                  recordLoadProfile({
+                    services,
+                    tournamentIds,
+                    tournamentRecords: result.tournamentRecords,
+                    methodCount: methods.length,
+                    elapsedMs: Date.now() - startedAt,
+                    bytes: {},
+                    fenced: true,
+                  });
+                  return { error: updateResult.error, fenced: true, tournamentIds };
                 }
-              : innerResult;
-          return serverUpdatedAt ? { ...canonicalResult, serverUpdatedAt, previousServerUpdatedAt } : canonicalResult;
-        }),
+                return { error: 'Could not persist tournament record(s)', retryable: true };
+              }
+
+              recordLoadProfile({
+                services,
+                tournamentIds,
+                tournamentRecords: mutatedTournamentRecords,
+                methodCount: methods.length,
+                elapsedMs: Date.now() - startedAt,
+                bytes: updateResult.bytes ?? {},
+              });
+              serverUpdatedAt = updateResult.serverUpdatedAt;
+            }
+
+            await afterCommandCommit(async () => {
+              // Now that save is complete, flush deferred cache deletions
+              for (const key of cacheKeysToDelete) {
+                services?.cacheManager?.del(key);
+              }
+
+              // AUDIT HOOK: record the mutation after save completes, inside the lock.
+              // Fail-soft: audit errors are logged but never block the ack.
+              if (auditService) {
+                auditService
+                  .recordMutation({
+                    tournamentIds,
+                    userId: payload?.userId,
+                    userEmail: payload?.userEmail,
+                    source: payload?.auditSource?.type === 'provisioner' ? 'provisioner' : (payload?.source ?? 'tmx'),
+                    methods: methods.map((m: any) => ({ method: m.method, params: m.params })),
+                    status: innerResult.success ? 'applied' : innerResult.error ? 'rejected' : 'partial',
+                    errorCode: serializeErrorCode(innerResult.error),
+                    metadata: buildAuditMetadata(payload),
+                  })
+                  .catch((err) => Logger.error(`Audit hook failed: ${err.message}`, 'executionQueue'));
+              }
+
+              // READ-MODEL PROJECTION FLUSH: post-commit, inside the lock (the exact
+              // seam the audit hook + deferred cache-clear use). Build per-row deltas
+              // from the mutation's FINAL saved state and enqueue them to the outbox.
+              // Rolled-back / failed mutations skip this (innerResult.success false) so
+              // the read model can never get ahead of the record. Fail-soft: an outbox
+              // error is logged but never blocks the ack — reconciliation/rebuild backstops.
+              if (deltaBuffer && projectionOutbox && innerResult.success) {
+                try {
+                  const deltas = await buildProjectionDeltas({
+                    intents: deltaBuffer.intents,
+                    tournamentRecords: mutatedTournamentRecords,
+                    // Bounded per-draw flatten against the mutation's FINAL saved state.
+                    // Uses tournamentEngineAsync (per-request async_hooks isolation — the
+                    // same engine resolveMatchUpReferences uses) because the mutation
+                    // engine instance does not expose query methods. It shares this
+                    // request's instance state, which already holds the saved records, so
+                    // the query reads them in place instead of copying the whole record
+                    // once per draw. Runs post-save, and the query writes nothing.
+                    flattenDraw: async (tournamentId: string, drawId: string) => {
+                      if (!mutatedTournamentRecords?.[tournamentId]) return [];
+                      if (asyncGlobalState.getTournamentRecords() !== mutatedTournamentRecords) {
+                        asyncGlobalState.setTournamentRecords(mutatedTournamentRecords);
+                      }
+                      const res: any = await tournamentEngineAsync.allDrawMatchUps({
+                        tournamentId,
+                        drawId,
+                        inContext: true,
+                      });
+                      return res?.matchUps ?? [];
+                    },
+                  });
+                  await projectionOutbox.enqueue(deltas);
+                } catch (err: any) {
+                  Logger.error(`Projection outbox flush failed: ${err?.message}`, 'executionQueue');
+                }
+              }
+            });
+
+            const canonicalResult =
+              payload?.serverStamped && innerResult.success
+                ? {
+                    ...innerResult,
+                    appliedMethods: structuredClone(methods),
+                  }
+                : innerResult;
+            return serverUpdatedAt ? { ...canonicalResult, serverUpdatedAt, previousServerUpdatedAt } : canonicalResult;
+          }),
+        ),
       ),
     );
 
@@ -271,6 +277,10 @@ export async function executionQueue(
           metadata: buildAuditMetadata(payload),
         })
         .catch((auditErr) => Logger.error(`Audit hook failed (catch branch): ${auditErr.message}`, 'executionQueue'));
+    }
+    if (payload?.commandId !== undefined) {
+      if (err instanceof HttpException) throw err;
+      throw new ServiceUnavailableException('Durable command outcome uncertain; retry with the same command ID');
     }
     return { error: message, tournamentIds };
   }

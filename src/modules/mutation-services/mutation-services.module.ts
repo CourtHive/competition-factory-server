@@ -1,3 +1,4 @@
+import { CommandReceipts } from 'src/storage/postgres/commandReceipts';
 import { Global, Module } from '@nestjs/common';
 
 import { MutationServicesService } from './mutation-services.service';
@@ -13,7 +14,7 @@ import { MutationServicesService } from './mutation-services.service';
  */
 @Global()
 @Module({
-  providers: [MutationServicesService],
+  providers: [MutationServicesService, CommandReceipts],
   exports: [MutationServicesService],
 })
 export class MutationServicesModule {}

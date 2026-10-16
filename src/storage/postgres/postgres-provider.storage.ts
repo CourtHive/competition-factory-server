@@ -1,3 +1,4 @@
+import { commandClient } from './commandTransaction';
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -10,7 +11,7 @@ export class PostgresProviderStorage implements IProviderStorage {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   async getProvider(providerId: string): Promise<any> {
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       'SELECT provider_id, organisation_abbreviation, organisation_name, data FROM providers WHERE provider_id = $1',
       [providerId],
     );
@@ -27,7 +28,7 @@ export class PostgresProviderStorage implements IProviderStorage {
   }
 
   async getProviders(): Promise<{ key: string; value: any }[]> {
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       'SELECT provider_id, organisation_abbreviation, organisation_name, data, last_access FROM providers',
     );
     return result.rows.map((row) => ({
@@ -47,14 +48,17 @@ export class PostgresProviderStorage implements IProviderStorage {
   }
 
   async updateLastAccess(providerId: string): Promise<void> {
-    await this.pool.query('UPDATE providers SET last_access = NOW() WHERE provider_id = $1', [providerId]);
+    await (commandClient(this.pool) ?? this.pool).query(
+      'UPDATE providers SET last_access = NOW() WHERE provider_id = $1',
+      [providerId],
+    );
   }
 
   async updateLastAccessByTournament(tournamentId: string): Promise<void> {
     // Single round-trip JOIN — bumps the owning provider's last_access
     // without a separate fetch. Silently no-op when the tournament row
     // exists but has no provider_id (legacy data) or doesn't exist.
-    await this.pool.query(
+    await (commandClient(this.pool) ?? this.pool).query(
       `UPDATE providers
          SET last_access = NOW()
          FROM tournaments
@@ -65,13 +69,13 @@ export class PostgresProviderStorage implements IProviderStorage {
   }
 
   async removeProvider(providerId: string): Promise<{ success: boolean }> {
-    await this.pool.query('DELETE FROM providers WHERE provider_id = $1', [providerId]);
+    await (commandClient(this.pool) ?? this.pool).query('DELETE FROM providers WHERE provider_id = $1', [providerId]);
     return { ...SUCCESS };
   }
 
   async setProvider(providerId: string, provider: any): Promise<{ success: boolean }> {
     const { organisationAbbreviation, organisationName, ...rest } = provider;
-    await this.pool.query(
+    await (commandClient(this.pool) ?? this.pool).query(
       `INSERT INTO providers (provider_id, organisation_abbreviation, organisation_name, data)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (provider_id) DO UPDATE SET
@@ -85,7 +89,7 @@ export class PostgresProviderStorage implements IProviderStorage {
   }
 
   async updateProviderCaps(providerId: string, caps: any): Promise<{ success: boolean }> {
-    await this.pool.query(
+    await (commandClient(this.pool) ?? this.pool).query(
       `UPDATE providers
          SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{providerConfigCaps}', $2::jsonb, true),
              updated_at = NOW()
@@ -96,7 +100,7 @@ export class PostgresProviderStorage implements IProviderStorage {
   }
 
   async updateProviderSettings(providerId: string, settings: any): Promise<{ success: boolean }> {
-    await this.pool.query(
+    await (commandClient(this.pool) ?? this.pool).query(
       `UPDATE providers
          SET data = jsonb_set(COALESCE(data, '{}'::jsonb), '{providerConfigSettings}', $2::jsonb, true),
              updated_at = NOW()

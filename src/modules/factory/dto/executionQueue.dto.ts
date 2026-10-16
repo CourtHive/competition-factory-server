@@ -7,6 +7,14 @@ export class ExecutionQueueDto {
   @ApiPropertyOptional()
   tournamentId?: string;
 
+  /** Stable retry key, scoped to the authenticated actor. Reuse only for identical intent. */
+  @ApiPropertyOptional()
+  commandId?: string;
+
+  /** Must match the authenticated email; prevents a queued command crossing account changes. */
+  @ApiPropertyOptional()
+  commandUser?: string;
+
   @ApiProperty()
   methods: any[] = [];
 

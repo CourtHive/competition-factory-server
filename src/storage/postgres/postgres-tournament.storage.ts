@@ -3,6 +3,7 @@ import { FENCED_BY_NEWER_OWNER, SUCCESS } from 'src/common/constants/app';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { factoryConstants } from 'tods-competition-factory';
+import { commandClient } from './commandTransaction';
 import { PG_POOL } from './postgres.config';
 import { Pool } from 'pg';
 
@@ -35,7 +36,10 @@ export class PostgresTournamentStorage implements ITournamentStorage {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   async findTournamentRecord({ tournamentId }: { tournamentId: string }) {
-    const result = await this.pool.query('SELECT data FROM tournaments WHERE tournament_id = $1', [tournamentId]);
+    const result = await (commandClient(this.pool) ?? this.pool).query(
+      'SELECT data FROM tournaments WHERE tournament_id = $1',
+      [tournamentId],
+    );
     if (!result.rows.length) return { error: 'Tournament not found' };
     return { tournamentRecord: result.rows[0].data };
   }
@@ -50,7 +54,7 @@ export class PostgresTournamentStorage implements ITournamentStorage {
       return { error: factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD };
     }
 
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       'SELECT tournament_id, data, updated_at FROM tournaments WHERE tournament_id = ANY($1)',
       [tournamentIds],
     );
@@ -77,7 +81,7 @@ export class PostgresTournamentStorage implements ITournamentStorage {
 
     // Project only the few fields needed — Postgres extracts them server-side so
     // the full `data` JSONB blob is never transferred.
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT tournament_id,
               data->>'updatedAt' AS updated_at,
               updated_at AS row_updated_at,
@@ -130,7 +134,7 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     // measured, which is self-defeating for a performance instrument.
     const serialized = JSON.stringify(tournamentRecord);
 
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       `INSERT INTO tournaments (tournament_id, provider_id, tournament_name, start_date, end_date, data, owner_epoch, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
        ON CONFLICT (tournament_id) DO UPDATE SET
@@ -207,7 +211,7 @@ export class PostgresTournamentStorage implements ITournamentStorage {
   async removeTournamentRecords(params: { tournamentIds?: string[]; tournamentId?: string }) {
     const tournamentIds = params?.tournamentIds ?? [params?.tournamentId].filter(Boolean);
 
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       'DELETE FROM tournaments WHERE tournament_id = ANY($1)',
       [tournamentIds],
     );
@@ -232,18 +236,29 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     const startDate = tournamentRecord.startDate ?? null;
     const endDate = tournamentRecord.endDate ?? null;
 
-    await this.pool.query(
+    await (commandClient(this.pool) ?? this.pool).query(
       `INSERT INTO deleted_tournaments
          (tournament_id, provider_id, tournament_name, start_date, end_date, data, deleted_by_user_id, deleted_by_email)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [key, providerId, tournamentName, startDate, endDate, JSON.stringify(tournamentRecord), deletedByUserId ?? null, deletedByEmail ?? null],
+      [
+        key,
+        providerId,
+        tournamentName,
+        startDate,
+        endDate,
+        JSON.stringify(tournamentRecord),
+        deletedByUserId ?? null,
+        deletedByEmail ?? null,
+      ],
     );
 
     return { ...SUCCESS };
   }
 
   async listTournamentIds(): Promise<string[]> {
-    const result = await this.pool.query('SELECT tournament_id FROM tournaments ORDER BY tournament_id');
+    const result = await (commandClient(this.pool) ?? this.pool).query(
+      'SELECT tournament_id FROM tournaments ORDER BY tournament_id',
+    );
     return result.rows.map((row) => row.tournament_id);
   }
 }
