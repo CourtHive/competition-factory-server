@@ -1,5 +1,5 @@
 import { SnapshotProjectionService, snapshotMode } from './projection/snapshot-projection.service';
-import { BadRequestException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { attachProviderPrivacyOnCreate } from './helpers/attachProviderPrivacyOnCreate';
 import { askEngine, factoryConstants, queryGovernor } from 'tods-competition-factory';
@@ -10,6 +10,7 @@ import { TournamentStorageService } from 'src/storage/tournament-storage.service
 import { allTournamentMatchUps } from './functions/private/allTournamentMatchUps';
 import { selectPrivacyApplyTargets } from './helpers/selectPrivacyApplyTargets';
 import { executionQueue as eq } from './functions/private/executionQueue';
+import { runDurableCommand } from 'src/storage/postgres/commandReceipts';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
 import { computeEffectiveConfig } from '@courthive/provider-config';
@@ -510,24 +511,61 @@ export class FactoryService {
     // the 30s timeout.
     const userId = userContext?.userId ?? user?.userId;
     const savedIds = Object.keys(tournamentRecords);
-    const result = await withTournamentLock(savedIds, async () => {
-      const saveResult = await this.tournamentStorageService.saveTournamentRecords({
-        tournamentRecords,
-        projectionMode: 'snapshot',
-        userId,
-      });
-      if (!saveResult?.success) return saveResult;
+    // DURABLE (C3, opt-in): with a `commandId` the save runs inside a command receipt transaction, so a resend after
+    // a lost answer returns the original answer instead of replacing the record again. `expectedServerUpdatedAt`
+    // makes it conditional: a record written since the caller last read it is refused (409), never overwritten.
+    const commandReceipts = params?.commandId === undefined ? undefined : this.mutationServices.build().commandReceipts;
+    const result = await withTournamentLock(savedIds, () =>
+      runDurableCommand(params, commandReceipts, async () => {
+        const conflict = await this.unexpectedServerUpdatedAt(params?.expectedServerUpdatedAt, savedIds);
+        if (conflict) return conflict;
 
-      // Post-commit, still inside the lock — the same seam executionQueue uses
-      // for its delta flush. A wholesale replace raises no factory notices, so
-      // the read model only learns about it through this snapshot span.
-      const snapshotStartedAt = performance.now();
-      const deltas = await this.snapshotProjection.enqueueSnapshots({ tournamentRecords, source: 'factory-save' });
-      logWholesaleSave({ tournamentRecords, validateMs, snapshotMs: performance.now() - snapshotStartedAt, deltas });
-      return saveResult;
-    });
+        const saveResult = await this.tournamentStorageService.saveTournamentRecords({
+          tournamentRecords,
+          projectionMode: 'snapshot',
+          userId,
+        });
+        if (!saveResult?.success) return saveResult;
 
+        // Still inside the lock — the same seam executionQueue uses for its delta flush. A wholesale replace raises
+        // no factory notices, so the read model only learns about it through this snapshot span. Inside a durable
+        // save the span (or its snapshot request) commits with the record.
+        const snapshotStartedAt = performance.now();
+        const deltas = await this.snapshotProjection.enqueueSnapshots({ tournamentRecords, source: 'factory-save' });
+        logWholesaleSave({ tournamentRecords, validateMs, snapshotMs: performance.now() - snapshotStartedAt, deltas });
+        return saveResult;
+      }),
+    );
+
+    if (result?.conflict) throw new ConflictException(result);
     return result;
+  }
+
+  /**
+   * The optimistic-concurrency check for a conditional wholesale save, read inside the lock (and inside a durable
+   * save's transaction). `expected[tid]` is the `serverUpdatedAt` the caller last saw, or null for "must not exist yet".
+   * Tournaments the caller did not name are not checked. Returns the conflict, or undefined to proceed.
+   */
+  private async unexpectedServerUpdatedAt(expected: Record<string, string | null> | undefined, savedIds: string[]) {
+    if (!expected || typeof expected !== 'object') return undefined;
+    for (const tid of savedIds) {
+      if (!(tid in expected)) continue;
+      const stored: any = await this.tournamentStorageService.fetchTournamentUpdatedAt({ tournamentId: tid });
+      const missing = stored?.error === MISSING_TOURNAMENT_RECORD;
+      if (!missing && (stored?.error || !stored?.success))
+        return { error: 'Could not read tournament state', retryable: true };
+      const current = missing ? null : (stored.serverUpdatedAt ?? null);
+      if (current !== (expected[tid] ?? null)) {
+        return {
+          error: 'Tournament changed since it was read',
+          conflict: true,
+          tournamentId: tid,
+          expectedServerUpdatedAt: expected[tid] ?? null,
+          serverUpdatedAt: current,
+        };
+      }
+    }
+    return undefined;
   }
 
   /**

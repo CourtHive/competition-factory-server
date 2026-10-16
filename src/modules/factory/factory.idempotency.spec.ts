@@ -1,4 +1,4 @@
-import { commandFingerprint } from 'src/storage/postgres/commandReceipts';
+import { commandFingerprint, saveFingerprint } from 'src/storage/postgres/commandReceipts';
 import { FactoryController } from './factory.controller';
 
 function fixture() {
@@ -46,5 +46,30 @@ describe('durable command HTTP boundary', () => {
     f.gate.gate.mockResolvedValue('Permission revoked');
     await expect(f.controller.executionQueue(f.body(), f.req)).rejects.toThrow('Permission revoked');
     expect(f.service.executionQueue).not.toHaveBeenCalled();
+  });
+});
+describe('durable wholesale save HTTP boundary', () => {
+  it('stamps the verified actor and the server-computed intent over any the client asserted', async () => {
+    const f = fixture();
+    f.service.saveTournamentRecords = vi.fn(async () => ({ success: true }));
+    const body: any = {
+      commandId: 'stable-save',
+      tournamentRecord: { tournamentId: 't1' },
+      expectedServerUpdatedAt: { t1: null },
+      commandActor: 'spoofed',
+      commandFingerprint: 'spoofed',
+    };
+    const expected = saveFingerprint(body);
+    await f.controller.saveTournamentRecords(body, f.req.user);
+    const payload = f.service.saveTournamentRecords.mock.calls[0][0];
+    expect(payload.commandActor).toBe('verified-actor');
+    expect(payload.commandFingerprint).toBe(expected);
+  });
+  it('leaves a save without a commandId exactly as sent', async () => {
+    const f = fixture();
+    f.service.saveTournamentRecords = vi.fn(async () => ({ success: true }));
+    const body: any = { tournamentRecord: { tournamentId: 't1' } };
+    await f.controller.saveTournamentRecords(body, f.req.user);
+    expect(f.service.saveTournamentRecords.mock.calls[0][0]).toBe(body);
   });
 });
