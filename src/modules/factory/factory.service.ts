@@ -87,15 +87,20 @@ export class FactoryService {
       this.tournamentStorageService,
       this.auditService,
     );
+    if (params?.commandId !== undefined && result?.error) {
+      // The receipt transaction rolled back. This is a definitive business refusal, not an
+      // uncertain transport/server failure; durable clients must not retry it indefinitely.
+      throw new BadRequestException({ message: result.error?.message ?? result.error, code: result.error?.code });
+    }
     checkEngineError(result);
 
     // Fire-and-forget: mirror successful mutations to upstream
-    if (result?.success && this.mutationMirror) {
+    if (result?.success && !result.deduplicated && this.mutationMirror) {
       const tournamentIds = params?.tournamentIds || (params?.tournamentId && [params.tournamentId]) || [];
       const methods = params?.methods ?? params?.executionQueue ?? [];
-      this.mutationMirror.enqueue({ tournamentIds, methods }).catch((err) =>
-        Logger.error(`Mutation mirror enqueue failed: ${err.message}`, 'FactoryService'),
-      );
+      this.mutationMirror
+        .enqueue({ tournamentIds, methods })
+        .catch((err) => Logger.error(`Mutation mirror enqueue failed: ${err.message}`, 'FactoryService'));
     }
 
     return result;

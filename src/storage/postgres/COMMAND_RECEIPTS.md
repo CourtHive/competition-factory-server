@@ -1,0 +1,25 @@
+# Durable mutation receipts
+
+`POST /factory` accepts an optional `commandId` and `commandUser` (the authenticated email). Legacy requests without a command ID keep their existing behavior. Updated TMX sends a stable ID on every executionQueue intent, including the original server-first send; session replay and explicit bulk retries reuse it. Persisted local-first commands use it as the IndexedDB row ID.
+
+Authorization runs on every request, including retries. The controller replaces client receipt identity with the verified actor (UUID/sub, or authenticated email fallback), checks commandUser, and hashes the client intent before server-owned attribution/time stamping. The hash covers methods, tournament scope and rollback behavior, with object keys normalized; transport correlation, origin and timing metadata are excluded. Reusing a key for different intent returns 409.
+
+Inside the tournament mutex, CommandReceipts checks a Postgres transaction-scoped advisory lock for the actor/key pair. A committed receipt returns its original canonical answer and deduplicated=true. Otherwise the real factory queue runs with one request-local SQL connection. Tournament saves, calendar writes and participation updates use that connection; participation uses a savepoint rather than committing the ambient transaction. Successful record writes and their receipt commit together. Partial/failed/fenced saves roll back the transaction. A lost COMMIT reply remains uncertain: retrying the same key discovers whether that transaction committed.
+
+The receipt commits before releasing the tournament mutex. Cache/audit/projection effects run after commit; mirror and controller broadcasts skip deduplicated answers. This prevents re-execution of committed business methods; it does not make best-effort publication exactly once. A process dying after commit but before publication can still require the existing client staleness refresh or projection reconciliation. No receipt TTL is applied: deleting a key while a browser may still replay it would permit another mutation. Any future pruning needs a defined maximum retry age and corresponding client/server protocol. Monitor command_receipts growth through normal database operations.
+
+## Client recovery
+
+Durable commands are persisted before sending, including while initially connecting and while already online. Local-first completion waits for that write. IndexedDB storage errors keep the command in this page and report failure; they never fall back to an unrecorded network send. The ephemeral queue limit cannot evict applied durable edits.
+
+A 30-second IndexedDB lease coordinates tabs without deleting the row. Claims are user-scoped; a crashed tab's lease expires. HTTP commands have a 20-second network timeout. Unknown outcomes and claim/storage errors retain the same row/key and pause later queued work until a reconnect or recovery tick. An account-change guard runs before queued HTTP dispatch, and the server checks commandUser against its authenticated account.
+
+Only a success carrying the matching commandId and durableReceipt=true deletes an accepted row. Business refusals, old-server replies without receipt support, and pre-protocol legacy rows remain blocked for explicit reconciliation; they are never blindly retried. Reloading the authoritative tournament resolves the local view; blocked evidence is retained in IndexedDB. A recovery/deduplication response marks the currently owned tournament stale rather than executing methods against a record that may already include them. An uncertain bulk submission freezes its intent/key until retry or discard; editing it cannot silently reuse the key for different methods.
+
+## Rollout and verification
+
+1. Deploy CFS and apply migration 052 before shipping the updated TMX client. The migration is additive; old clients remain supported.
+2. Release the paired assessment components changes and update TMX's published components pin through the normal release chain. This worktree still uses those local built components.
+3. Ship TMX after the server receipt path is available. Existing pre-protocol outbox rows require reconciliation because their earlier server outcome cannot be proven.
+
+Tests include real Postgres transactions in a unique schema (original migration SQL), the real factory queue through that storage, concurrent duplicates, receipt failure, lost COMMIT replies, linked-record fencing rollback, controller authorization/broadcast behavior, client HTTP/queue boundaries, and a real two-page Dexie lease-expiry browser journey. These are local tests; no deployment or production retry experiment is implied.

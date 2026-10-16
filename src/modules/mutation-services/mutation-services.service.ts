@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { CommandReceipts } from 'src/storage/postgres/commandReceipts';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { PROJECTION_OUTBOX_STORAGE, type IProjectionOutboxStorage } from 'src/storage/interfaces';
 import { LoadProfileService } from '../telemetry/load-profile.service';
@@ -38,6 +39,7 @@ export class MutationServicesService {
   constructor(
     @Inject(PROJECTION_OUTBOX_STORAGE) private readonly projectionOutbox: IProjectionOutboxStorage,
     private readonly loadProfile: LoadProfileService,
+    @Optional() private readonly commandReceipts?: CommandReceipts,
   ) {}
 
   /**
@@ -48,6 +50,7 @@ export class MutationServicesService {
   build(requestScoped: { cacheManager?: any; trackCacheKey?: (key: string) => void } = {}) {
     return {
       projectionOutbox: this.projectionOutbox,
+      commandReceipts: this.commandReceipts,
       loadProfile: this.loadProfile,
       ...requestScoped,
     };

@@ -1,3 +1,4 @@
+import { commandClient } from './commandTransaction';
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -42,7 +43,7 @@ export class PostgresCalendarStorage implements ICalendarStorage {
       .map((column) => `${column} = EXCLUDED.${column}`)
       .join(', ');
 
-    await this.pool.query(
+    await (commandClient(this.pool) ?? this.pool).query(
       `INSERT INTO calendar_tournaments (${COLUMNS})
        VALUES (${placeholders})
        ON CONFLICT (tournament_id) DO UPDATE SET ${updates}, row_updated_at = NOW()`,
@@ -52,12 +53,14 @@ export class PostgresCalendarStorage implements ICalendarStorage {
   }
 
   async removeTournament(tournamentId: string): Promise<{ success: boolean }> {
-    await this.pool.query('DELETE FROM calendar_tournaments WHERE tournament_id = $1', [tournamentId]);
+    await (commandClient(this.pool) ?? this.pool).query('DELETE FROM calendar_tournaments WHERE tournament_id = $1', [
+      tournamentId,
+    ]);
     return { ...SUCCESS };
   }
 
   async getTournament(tournamentId: string): Promise<any | null> {
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT ${SELECT_COLUMNS} FROM calendar_tournaments WHERE tournament_id = $1`,
       [tournamentId],
     );
@@ -75,7 +78,7 @@ export class PostgresCalendarStorage implements ICalendarStorage {
 
     // Grouped rather than a bare COUNT(*): the response carries a per-calendar `total`, and
     // one grouped scan yields both that and the grand total.
-    const countResult = await this.pool.query(
+    const countResult = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT provider_id, COUNT(*)::int AS total FROM calendar_tournaments WHERE ${where} GROUP BY provider_id`,
       params,
     );
@@ -89,7 +92,7 @@ export class PostgresCalendarStorage implements ICalendarStorage {
     // `tournament_id` is the tiebreaker, and it is not decoration: start_date is not unique
     // (and is nullable), so without a unique final sort key LIMIT/OFFSET paging can repeat
     // a row on one page and skip it on the next.
-    const rowsResult = await this.pool.query(
+    const rowsResult = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT ${SELECT_COLUMNS} FROM calendar_tournaments
        WHERE ${where}
        ORDER BY start_date DESC NULLS LAST, tournament_id
@@ -101,7 +104,7 @@ export class PostgresCalendarStorage implements ICalendarStorage {
   }
 
   async listProviderTournaments(providerId: string): Promise<any[]> {
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT ${SELECT_COLUMNS} FROM calendar_tournaments WHERE provider_id = $1 ORDER BY start_date DESC NULLS LAST, tournament_id`,
       [providerId],
     );

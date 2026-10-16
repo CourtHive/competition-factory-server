@@ -1,13 +1,14 @@
+import { commandClient } from './commandTransaction';
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
+import { SUCCESS } from 'src/common/constants/app';
+import { PG_POOL } from './postgres.config';
 import {
   IParticipationStorage,
   ParticipationRow,
   ParticipationSubjectType,
 } from '../interfaces/participation-storage.interface';
-import { PG_POOL } from './postgres.config';
-import { SUCCESS } from 'src/common/constants/app';
 
 function toRow(row: any): ParticipationRow {
   return {
@@ -42,9 +43,10 @@ export class PostgresParticipationStorage implements IParticipationStorage {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   async replaceTournamentRows(tournamentId: string, rows: ParticipationRow[]): Promise<{ success: boolean }> {
-    const client = await this.pool.connect();
+    const borrowed = commandClient(this.pool);
+    const client = borrowed ?? (await this.pool.connect());
     try {
-      await client.query('BEGIN');
+      await client.query(borrowed ? 'SAVEPOINT participation_write' : 'BEGIN');
       // Delete-then-insert inside one transaction: a reader never sees a tournament's
       // participation half-rewritten, and a participant removed upstream loses its row.
       await client.query('DELETE FROM participation_index WHERE tournament_id = $1', [tournamentId]);
@@ -76,7 +78,7 @@ export class PostgresParticipationStorage implements IParticipationStorage {
           ],
         );
       }
-      await client.query('COMMIT');
+      await client.query(borrowed ? 'RELEASE SAVEPOINT participation_write' : 'COMMIT');
       return { ...SUCCESS };
     } catch (error) {
       // The ROLLBACK is itself guarded.
@@ -96,13 +98,13 @@ export class PostgresParticipationStorage implements IParticipationStorage {
       // this `try`. There is nothing to roll back either way: the transaction died with the
       // connection.
       try {
-        await client.query('ROLLBACK');
+        await client.query(borrowed ? 'ROLLBACK TO SAVEPOINT participation_write' : 'ROLLBACK');
       } catch {
         // Already gone. Keep the original error, which is the one that explains anything.
       }
       throw error;
     } finally {
-      client.release();
+      if (!borrowed) client.release();
     }
   }
 
