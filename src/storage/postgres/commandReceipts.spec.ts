@@ -136,6 +136,20 @@ describe('durable command atomic commit and recovery', () => {
     await receipts.execute(command, apply);
     expect(effect).toHaveBeenCalledTimes(1);
   });
+  it('answers a committed command as committed when a post-commit effect fails, and runs the rest', async () => {
+    const later = vi.fn(async () => {});
+    const result = await receipts.execute(payload(), async () => {
+      const applied = await increment();
+      await afterCommandCommit(async () => {
+        throw new Error('effect failed');
+      });
+      await afterCommandCommit(later);
+      return applied;
+    });
+    expect(result.success).toBe(true);
+    expect(later).toHaveBeenCalledTimes(1);
+    expect(await count()).toBe(1);
+  });
   it('refuses missing actor or invalid keys before applying anything', async () => {
     const apply = vi.fn(increment);
     await expect(receipts.execute({ ...payload(), commandActor: '' }, apply)).rejects.toThrow('Invalid durable');

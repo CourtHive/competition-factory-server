@@ -97,7 +97,14 @@ export class CommandReceipts {
     }
     // A lost connection during COMMIT is uncertain. No response is acknowledged; the next send
     // checks the durable receipt. Effects only run after a known successful commit.
-    for (const effect of effects) await effect();
+    // The command is committed: a failed effect is logged, never reported as a failed command.
+    for (const effect of effects) {
+      try {
+        await effect();
+      } catch (error) {
+        Logger.error(`Post-commit effect failed: ${String(error)}`, 'CommandReceipts');
+      }
+    }
     return result;
   }
 }

@@ -1,5 +1,6 @@
 import { auditConstants, governors, asyncEngine, globalState, topicConstants } from 'tods-competition-factory';
 import type { FactoryEngineTyped } from 'tods-competition-factory';
+import { Logger } from '@nestjs/common';
 import asyncGlobalState from './asyncGlobalState';
 import { getRequestContext } from './requestContext';
 import {
@@ -27,6 +28,7 @@ import {
   recordVenue,
 } from '../projection/deltaBuffer';
 import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
+import { afterCommandCommit } from 'src/storage/postgres/commandTransaction';
 
 const traverse = true;
 const global = true;
@@ -343,22 +345,24 @@ export const subscriptionHandlers = {
         const eventId = entry?.payload?.eventId;
         const auditData = entry?.payload?.auditData;
         for (const drawDefinition of drawDefinitions) {
-          auditService
-            .recordDrawDeletion({
-              tournamentId,
-              eventId,
-              drawId: drawDefinition?.drawId,
-              drawName: drawDefinition?.drawName,
-              drawType: drawDefinition?.drawType,
-              deletedDrawSnapshot: drawDefinition,
-              auditData,
-              userId: requestServices()?.userId,
-              userEmail: requestServices()?.userEmail,
-              source: requestServices()?.auditSource,
-            })
-            .catch(() => {
+          const record = {
+            tournamentId,
+            eventId,
+            drawId: drawDefinition?.drawId,
+            drawName: drawDefinition?.drawName,
+            drawType: drawDefinition?.drawType,
+            deletedDrawSnapshot: drawDefinition,
+            auditData,
+            userId: requestServices()?.userId,
+            userEmail: requestServices()?.userEmail,
+            source: requestServices()?.auditSource,
+          };
+          // Inside a durable command a deletion is recorded only once the command commits.
+          afterCommandCommit(() =>
+            auditService.recordDrawDeletion(record).catch(() => {
               /* fail-soft — AuditService logs internally */
-            });
+            }),
+          );
         }
       }
     }
@@ -375,7 +379,17 @@ export const subscriptionHandlers = {
       const { parentOrganisation, ...updates } = tournamentUpdate as any;
       const providerId = parentOrganisation?.organisationId;
       if (providerId) {
-        requestServices()?.tournamentStorageService?.modifyProviderCalendar({ providerId, tournamentId, updates });
+        const storage = requestServices()?.tournamentStorageService;
+        // Not awaited, so inside a durable command it must not run on the command's connection: its later
+        // queries could land after COMMIT, on a client already released to another request. It runs after
+        // the commit instead, and the save path has already re-derived the calendar row from the record.
+        if (storage)
+          afterCommandCommit(() =>
+            storage
+              .modifyProviderCalendar({ providerId, tournamentId, updates })
+              .then(() => undefined)
+              .catch((err) => Logger.error(`Calendar update failed: ${err?.message}`, 'getMutationEngine')),
+          );
       }
     }
   },
