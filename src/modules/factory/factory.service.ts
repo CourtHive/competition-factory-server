@@ -1,4 +1,4 @@
-import { insertPendingSave, getPendingSaveStatus, getPendingSaveData, updatePendingSaveStatus } from './helpers/pendingSaves';
+import { getPendingSaveStatus, getPendingSaveData, updatePendingSaveStatus } from './helpers/pendingSaves';
 import { BadRequestException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { attachProviderPrivacyOnCreate } from './helpers/attachProviderPrivacyOnCreate';
@@ -474,18 +474,12 @@ export class FactoryService {
       }).catch((err) => Logger.error(`Privacy attach on save failed: ${err.message}`, 'FactoryService'));
     }
 
-    // L2 validation gate. Records under the byte threshold are validated
-    // synchronously and rejected on failure; over-threshold records are
-    // saved as-is and an async L2 is queued via pending_saves so the
-    // event loop is never blocked by a deep-copy of a multi-MB record.
-    const threshold = this.getValidationThresholdBytes();
-    const oversized: string[] = [];
+    // L2 validation gate: EVERY record is validated before anything is written, and an invalid one refuses the whole
+    // payload. Records over a byte threshold used to skip this and be saved as-is, with an "async L2 pass" queued in
+    // pending_saves that never ran (a provider-key principal could not even be queued: `provider:<id>` is not a
+    // UUID). Measured 2026-10-16 (Mentat/planning/CFS_LARGE_SAVES.md): validateL2 costs ~25 ms per MiB, and the 8 MB
+    // body limit caps it near 200 ms, an order below the snapshot projection the same save runs.
     for (const [tid, record] of Object.entries(tournamentRecords)) {
-      const size = Buffer.byteLength(JSON.stringify(record));
-      if (size > threshold) {
-        oversized.push(tid);
-        continue;
-      }
       const result = validateL2(record);
       if (!result.valid) {
         throw new BadRequestException({
@@ -527,20 +521,6 @@ export class FactoryService {
       return saveResult;
     });
 
-    // For oversized records, queue an async L2 pass so the validation
-    // result is still discoverable post-hoc via /factory/save-status.
-    for (const tid of oversized) {
-      insertPendingSave(this.pgPool, {
-        tournamentId: tid,
-        tournamentData: tournamentRecords[tid],
-        userId: userContext?.userId,
-        userEmail: user?.email,
-        // the provider the record belongs to, not the saver's legacy home column
-        providerId: tournamentRecords[tid]?.parentOrganisation?.organisationId,
-        validationLevel: 'L2',
-      }).catch((err) => Logger.error(`Failed to queue validation for ${tid}: ${err.message}`, 'FactoryService'));
-    }
-
     return result;
   }
 
@@ -580,12 +560,6 @@ export class FactoryService {
       setCreatedByUserId(tournamentRecords[tid], getCreatedByUserId(storedRecord));
     }
     return undefined;
-  }
-
-  private getValidationThresholdBytes(): number {
-    const raw = process.env.FACTORY_SAVE_VALIDATION_THRESHOLD_BYTES;
-    const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
-    return Number.isNaN(parsed) || parsed < 1 ? 1_048_576 : parsed;
   }
 
   async getSaveStatus(saveId: string) {
