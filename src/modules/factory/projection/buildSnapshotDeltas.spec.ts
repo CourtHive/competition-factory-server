@@ -23,6 +23,14 @@ const flattenDraw = (tournamentRecord: any) => async (_tid: string, drawId: stri
   return res?.matchUps ?? [];
 };
 
+// The span id is the only thing a snapshot body adds to the rebuild path's rows.
+const withoutSpanId = (deltas: any[]) =>
+  deltas.map((delta) => {
+    const copy = { ...delta };
+    delete copy.snapshotId;
+    return copy;
+  });
+
 describe('buildSnapshotDeltas', () => {
   it('brackets the projection with matching begin/end markers', async () => {
     const tournamentRecord = makeRecord();
@@ -88,7 +96,7 @@ describe('buildSnapshotDeltas', () => {
 
     // The snapshot must not become a third, subtly different producer — the
     // markers are the only difference.
-    expect(snapshot.slice(1, -1)).toEqual(rebuild);
+    expect(withoutSpanId(snapshot.slice(1, -1))).toEqual(rebuild);
   });
 
   // The snapshot hydrates the record once for all its draws, where the rebuild path flattens draw by draw. Their bodies
@@ -113,7 +121,7 @@ describe('buildSnapshotDeltas', () => {
     });
 
     expect(snapshot.slice(1, -1).length).toBeGreaterThan(0);
-    expect(snapshot.slice(1, -1)).toEqual(rebuild);
+    expect(withoutSpanId(snapshot.slice(1, -1))).toEqual(rebuild);
   });
 
   // A whole-record copy per draw was most of a large save's snapshot cost, on the request path (CFS_LARGE_SAVES A2)
@@ -189,6 +197,16 @@ describe('buildSnapshotDeltas', () => {
     // the purge scope BECAUSE its rows are not tournament-scoped.
     expect(venueUpserts.length).toBeGreaterThan(0);
     for (const delta of venueUpserts) expect(delta.row?.tournament_id).toBeUndefined();
+  });
+
+  // The consumer selects a span's body by snapshot_id (migration 055); the markers must not be counted as body
+  it('tags every body row with the span id, and neither marker', async () => {
+    const tournamentRecord = makeRecord();
+    const deltas = await buildSnapshotDeltas({ tournamentRecord, snapshotId: 'snap-1', source: 'test' });
+
+    expect(deltas.slice(1, -1).every((delta) => delta.snapshotId === 'snap-1')).toBe(true);
+    expect(deltas[0].snapshotId).toBeUndefined();
+    expect(deltas[deltas.length - 1].snapshotId).toBeUndefined();
   });
 
   it('returns nothing for a record with no tournamentId', async () => {

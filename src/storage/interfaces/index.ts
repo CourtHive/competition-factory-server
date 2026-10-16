@@ -88,5 +88,7 @@ export {
 export {
   PROJECTION_OUTBOX_STORAGE,
   type IProjectionOutboxStorage,
+  type FencedEnqueueResult,
+  type ProjectionSource,
   type ProjectionDelta,
 } from './projection-outbox-storage.interface';

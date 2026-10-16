@@ -88,5 +88,7 @@ export async function buildSnapshotDeltas({
     topic: 'snapshot',
   };
 
-  return [begin, ...body, end];
+  // Every body row names its span, so the consumer selects the span by id (migration 055) rather than by the seq range
+  // between the markers. The markers carry it in `key` only, so they are never counted as body.
+  return [begin, ...body.map((delta) => ({ ...delta, snapshotId })), end];
 }
