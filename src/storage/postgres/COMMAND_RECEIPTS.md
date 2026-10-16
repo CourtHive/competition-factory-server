@@ -8,6 +8,12 @@ Inside the tournament mutex, CommandReceipts checks a Postgres transaction-scope
 
 The receipt commits before releasing the tournament mutex. Projection deltas are enqueued on the command's connection, inside its transaction (a transactional outbox, C2), under a savepoint so a failed span cannot abort the command: they commit or roll back with the record and the receipt. Cache and audit effects run after commit; mirror and controller broadcasts skip deduplicated answers. This prevents re-execution of committed business methods; it does not make best-effort publication exactly once. A process dying after commit but before cache eviction or broadcast can still require the existing client staleness refresh. No receipt TTL is applied: deleting a key while a browser may still replay it would permit another mutation. Any future pruning needs a defined maximum retry age and corresponding client/server protocol. Monitor command_receipts growth through normal database operations.
 
+## Wholesale saves (C3)
+
+`POST /factory/save` takes the same opt-in `commandId`. The save (and its snapshot span, or in deferred mode its snapshot request) then runs inside a receipt transaction on one connection: a resend after a lost answer returns the original answer with `deduplicated: true` and does not replace the record again. Its fingerprint (`saveFingerprint`) hashes the records as sent, in arrival order rather than key-sorted, because a record can be megabytes; a resend of the same body parses to the same order.
+
+`expectedServerUpdatedAt` (per tournament: the `serverUpdatedAt` the caller last saw, or `null` for "must not exist yet") makes the save conditional. It is checked inside the tournament lock and the transaction; a record written since is refused with 409, carrying the current `serverUpdatedAt`, and nothing is written. Tournaments it does not name are saved unconditionally. The two compose: the key answers "did my save land", the precondition stops a save from overwriting mutations that landed in between. `serverUpdatedAt` has millisecond precision, so two writes in the same millisecond cannot be told apart. `/provider-key/tournaments` (external integrators) is unchanged.
+
 ## Client recovery
 
 Durable commands are persisted before sending, including while initially connecting and while already online. Local-first completion waits for that write. IndexedDB storage errors keep the command in this page and report failure; they never fall back to an unrecorded network send. The ephemeral queue limit cannot evict applied durable edits.

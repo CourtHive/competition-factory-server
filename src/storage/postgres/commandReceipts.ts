@@ -36,6 +36,24 @@ export function commandFingerprint(payload: any): string {
     .digest('hex');
 }
 
+/**
+ * A wholesale save's intent: the records exactly as sent, plus its precondition. Hashed in arrival order rather than
+ * key-sorted like `commandFingerprint`: a record can be megabytes, and a resend of the same body parses to the same
+ * order. Transport metadata (commandId, ackId) is excluded.
+ */
+export function saveFingerprint(payload: any): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        kind: 'save',
+        tournamentRecords: payload.tournamentRecords ?? null,
+        tournamentRecord: payload.tournamentRecord ?? null,
+        expectedServerUpdatedAt: payload.expectedServerUpdatedAt ?? null,
+      }),
+    )
+    .digest('hex');
+}
+
 @Injectable()
 export class CommandReceipts {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}

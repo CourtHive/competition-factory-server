@@ -43,14 +43,7 @@ export class PostgresProjectionOutboxStorage implements IProjectionOutboxStorage
     // it always has, and reconciliation backstops the read model.
     const borrowed = commandClient(this.pool);
     if (borrowed) {
-      await borrowed.query('SAVEPOINT projection_enqueue');
-      try {
-        await this.insertChunks(borrowed, deltas);
-        await borrowed.query('RELEASE SAVEPOINT projection_enqueue');
-      } catch (err) {
-        await borrowed.query('ROLLBACK TO SAVEPOINT projection_enqueue');
-        throw err;
-      }
+      await this.inSavepoint(borrowed, 'projection_enqueue', () => this.insertChunks(borrowed, deltas));
       return;
     }
     // One transaction even when the span needs several statements: the consumer must never see part of a span.
@@ -81,13 +74,26 @@ export class PostgresProjectionOutboxStorage implements IProjectionOutboxStorage
   async requestSnapshots(tournamentIds: string[], source: string, options?: { client?: PoolClient }): Promise<void> {
     const ids = [...new Set(tournamentIds)].filter(Boolean);
     if (!ids.length) return;
-    await (options?.client ?? this.pool).query(
-      `INSERT INTO projection_snapshot_requests (tournament_id, source)
-       SELECT unnest($1::text[]), $2
-       ON CONFLICT (tournament_id) DO UPDATE SET
-         requested_at = NOW(), source = EXCLUDED.source, attempts = 0, last_error = NULL`,
-      [ids, source],
-    );
+    const request = (client: Pool | PoolClient) =>
+      client.query(
+        `INSERT INTO projection_snapshot_requests (tournament_id, source)
+         SELECT unnest($1::text[]), $2
+         ON CONFLICT (tournament_id) DO UPDATE SET
+           requested_at = NOW(), source = EXCLUDED.source, attempts = 0, last_error = NULL`,
+        [ids, source],
+      );
+    if (options?.client) {
+      await request(options.client);
+      return;
+    }
+    // Inside a durable save the request commits with the record, on the save's own connection (a second one could
+    // deadlock a full pool, C1). The savepoint keeps a failed request from aborting the save.
+    const borrowed = commandClient(this.pool);
+    if (borrowed) {
+      await this.inSavepoint(borrowed, 'snapshot_request', () => request(borrowed));
+      return;
+    }
+    await request(this.pool);
   }
 
   async pendingSnapshotRequests(limit: number): Promise<SnapshotRequest[]> {
@@ -154,6 +160,17 @@ export class PostgresProjectionOutboxStorage implements IProjectionOutboxStorage
     if (!fence.rows[0].unchanged) return 'changed';
     await this.insertChunks(client, deltas);
     return 'enqueued';
+  }
+
+  private async inSavepoint(client: PoolClient, name: string, work: () => Promise<unknown>): Promise<void> {
+    await client.query(`SAVEPOINT ${name}`);
+    try {
+      await work();
+      await client.query(`RELEASE SAVEPOINT ${name}`);
+    } catch (err) {
+      await client.query(`ROLLBACK TO SAVEPOINT ${name}`);
+      throw err;
+    }
   }
 
   private async inTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {

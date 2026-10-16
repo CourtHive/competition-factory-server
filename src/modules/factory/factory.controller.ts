@@ -1,3 +1,4 @@
+import { commandFingerprint, saveFingerprint } from 'src/storage/postgres/commandReceipts';
 import { GetScheduledMatchUpsDto } from './dto/getCompetitionScheduleMatchUps.dto';
 import { FetchTournamentUpdatedAtDto } from './dto/fetchTournamentUpdatedAt.dto';
 import { RemoveTournamentRecordsDto } from './dto/removeTournamentRecords.dto';
@@ -5,7 +6,6 @@ import { FetchTournamentRecordsDto } from './dto/fetchTournamentRecords.dto';
 import { QueryTournamentRecordsDto } from './dto/queryTournamentRecords.dto';
 import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
 import { GetScheduleProjectionDto } from './dto/getScheduleProjection.dto';
-import { commandFingerprint } from 'src/storage/postgres/commandReceipts';
 import { GetTournamentInfoDto } from './dto/getTournamentInfo.dto';
 import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
 import { GetStructureDataDto } from './dto/getStructureData.dto';
@@ -627,7 +627,12 @@ export class FactoryController {
     @User() user?: any,
     @UserCtx() userContext?: UserContext,
   ) {
-    return this.factoryService.saveTournamentRecords(std, user, userContext);
+    // A durable save (C3): the actor and the intent are the server's to decide, never the client's.
+    const payload: any =
+      std?.commandId === undefined
+        ? std
+        : { ...std, commandActor: user?.userId ?? user?.sub ?? user?.email, commandFingerprint: saveFingerprint(std) };
+    return this.factoryService.saveTournamentRecords(payload, user, userContext);
   }
 
   // Apply the provider's selected participant-privacy policy to its existing
