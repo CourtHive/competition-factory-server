@@ -37,6 +37,16 @@ module.exports = {
         AUDIT_WORKER_PORT: process.env.AUDIT_WORKER_PORT || '8385',
       },
     },
+    {
+      // Builds the read-model snapshot spans that wholesale saves request when PROJECTION_SNAPSHOT_MODE=deferred,
+      // off Factory-Server's event loop. Idle while the mode is inline (Mentat/planning/CFS_LARGE_SAVES.md §10).
+      name: 'Projection-Producer',
+      script: 'build/src/projection-producer.main.js',
+      watch: false,
+      env: {
+        NODE_ENV: 'production',
+      },
+    },
     // TMX Assistant runs from its own repo with its own ecosystem.config.cjs.
     // Managed by mentat-push-tmx-assistant.sh, NOT by this file.
   ],

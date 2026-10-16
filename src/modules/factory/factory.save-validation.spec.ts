@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 
 import { SnapshotProjectionService } from './projection/snapshot-projection.service';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
@@ -131,6 +131,22 @@ describe('FactoryService.saveTournamentRecords L2 validation gate', () => {
       BadRequestException,
     );
     expect(tournamentStorageService.saveTournamentRecords).not.toHaveBeenCalled();
+  });
+
+  // One load-profile line per wholesale save (CFS_LARGE_SAVES §10, P3): the conveyor's real distribution decides how
+  // much the deferred snapshot producer matters
+  it('writes one load-profile line per wholesale save', async () => {
+    const log = vi.spyOn(Logger, 'log').mockImplementation(() => undefined);
+    try {
+      const { svc } = makeFactoryService();
+      await svc.saveTournamentRecords({ tournamentRecord: makeValidRecord() }, SUPER_ADMIN_USER);
+
+      const lines = log.mock.calls.filter(([, context]) => context === 'WholesaleSave');
+      expect(lines).toHaveLength(1);
+      expect(lines[0][0]).toMatch(/tournaments=1 bytes=\d+ validateMs=[\d.]+ snapshotMs=[\d.]+ deltas=0 mode=inline/);
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it('rejects on the first invalid record in a multi-tournament payload and persists none', async () => {

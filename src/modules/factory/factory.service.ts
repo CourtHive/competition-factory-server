@@ -1,9 +1,9 @@
+import { SnapshotProjectionService, snapshotMode } from './projection/snapshot-projection.service';
 import { BadRequestException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { attachProviderPrivacyOnCreate } from './helpers/attachProviderPrivacyOnCreate';
 import { askEngine, factoryConstants, queryGovernor } from 'tods-competition-factory';
 import { generateTournamentRecord as gen } from './helpers/generateTournamentRecord';
-import { SnapshotProjectionService } from './projection/snapshot-projection.service';
 import { queryTournamentRecords } from './functions/private/queryTournamentRecords';
 import { MutationMirrorService } from '../tournament-sync/mutation-mirror.service';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
@@ -475,6 +475,7 @@ export class FactoryService {
     // payload. Records over a byte threshold used to skip this and be saved as-is, with an "async L2 pass" queued in a
     // pending_saves table that has since been dropped (Mentat/planning/CFS_LARGE_SAVES.md). validateL2 costs ~25 ms
     // per MiB, and the 8 MB body limit caps it near 200 ms.
+    const validateStartedAt = performance.now();
     for (const [tid, record] of Object.entries(tournamentRecords)) {
       const result = validateL2(record);
       if (!result.valid) {
@@ -486,6 +487,8 @@ export class FactoryService {
         });
       }
     }
+
+    const validateMs = performance.now() - validateStartedAt;
 
     // Save directly — tournament must be available immediately for
     // subsequent executionQueue mutations from the client.
@@ -513,7 +516,9 @@ export class FactoryService {
       // Post-commit, still inside the lock — the same seam executionQueue uses
       // for its delta flush. A wholesale replace raises no factory notices, so
       // the read model only learns about it through this snapshot span.
-      await this.snapshotProjection.enqueueSnapshots({ tournamentRecords, source: 'factory-save' });
+      const snapshotStartedAt = performance.now();
+      const deltas = await this.snapshotProjection.enqueueSnapshots({ tournamentRecords, source: 'factory-save' });
+      logWholesaleSave({ tournamentRecords, validateMs, snapshotMs: performance.now() - snapshotStartedAt, deltas });
       return saveResult;
     });
 
@@ -638,4 +643,32 @@ export class FactoryService {
   async getParticipants({ params }) {
     return await publicQueries.getParticipants(params, this.tournamentStorage, this.providerStorage);
   }
+}
+
+/**
+ * One load-profile line per wholesale save (Mentat/planning/CFS_LARGE_SAVES.md §10, P3): how large the payload was,
+ * and what validation and the snapshot cost on the request path. The conveyor loads on Button are what decide how
+ * much the deferred snapshot producer matters, and they had never been measured. Serialising each record for its size
+ * costs ~1 ms per MB, an order below the validation it is reported beside.
+ */
+function logWholesaleSave({
+  tournamentRecords,
+  validateMs,
+  snapshotMs,
+  deltas,
+}: {
+  tournamentRecords: Record<string, any>;
+  validateMs: number;
+  snapshotMs: number;
+  deltas: number;
+}) {
+  const bytes = Object.values(tournamentRecords).reduce(
+    (total: number, record) => total + Buffer.byteLength(JSON.stringify(record)),
+    0,
+  );
+  Logger.log(
+    `wholesale save tournaments=${Object.keys(tournamentRecords).length} bytes=${bytes} ` +
+      `validateMs=${validateMs.toFixed(1)} snapshotMs=${snapshotMs.toFixed(1)} deltas=${deltas} mode=${snapshotMode()}`,
+    'WholesaleSave',
+  );
 }

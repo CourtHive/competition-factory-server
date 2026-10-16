@@ -62,6 +62,15 @@ export interface ProjectionSource {
 
 export type FencedEnqueueResult = 'enqueued' | 'changed' | 'missing';
 
+/** A tournament waiting for its snapshot to be built off the request path (migration 055). */
+export interface SnapshotRequest {
+  tournamentId: string;
+  /** `requested_at::text`: a request re-made while its span was being built must survive that build. */
+  requestedAt: string;
+  source?: string;
+  attempts: number;
+}
+
 export interface IProjectionOutboxStorage {
   /** True only when a pg pool exists AND PROJECTION_OUTBOX_ENABLED=true. */
   readonly isEnabled: boolean;
@@ -79,4 +88,24 @@ export interface IProjectionOutboxStorage {
    * between the read and the fence changes `updated_at`, and nothing is written ('changed': rebuild and retry).
    */
   enqueueIfUnchanged(params: { tournamentId: string; updatedAt: string; deltas: ProjectionDelta[] }): Promise<FencedEnqueueResult>;
+  /**
+   * Record, inside the save's tournament lock, that these tournaments need a snapshot; the producer builds it. One
+   * pending request per tournament: a repeat save refreshes `requested_at` and resets the attempt count.
+   */
+  requestSnapshots(tournamentIds: string[], source: string, options?: { client?: any }): Promise<void>;
+  /** The oldest pending requests, at most `limit`. */
+  pendingSnapshotRequests(limit: number): Promise<SnapshotRequest[]>;
+  /**
+   * The producer's commit, in ONE transaction: the `enqueueIfUnchanged` fence, the span, and the deletion of the
+   * request it served. The request is deleted only if it is still the one read: a save that re-requested the
+   * snapshot meanwhile leaves it pending. 'missing' (the tournament is gone) deletes the request.
+   */
+  completeSnapshot(params: {
+    tournamentId: string;
+    requestedAt: string;
+    updatedAt: string;
+    deltas: ProjectionDelta[];
+  }): Promise<FencedEnqueueResult>;
+  /** Count a failed build against its request, keeping the error for /health/projection and an operator. */
+  recordSnapshotFailure(tournamentId: string, error: string): Promise<void>;
 }

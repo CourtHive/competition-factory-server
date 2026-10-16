@@ -91,4 +91,5 @@ export {
   type FencedEnqueueResult,
   type ProjectionSource,
   type ProjectionDelta,
+  type SnapshotRequest,
 } from './projection-outbox-storage.interface';

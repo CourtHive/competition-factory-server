@@ -7,6 +7,7 @@ import {
   IProjectionOutboxStorage,
   ProjectionDelta,
   ProjectionSource,
+  SnapshotRequest,
 } from '../interfaces/projection-outbox-storage.interface';
 
 /**
@@ -58,18 +59,85 @@ export class PostgresProjectionOutboxStorage implements IProjectionOutboxStorage
     updatedAt: string;
     deltas: ProjectionDelta[];
   }): Promise<FencedEnqueueResult> {
+    return this.inTransaction((client) => this.fencedInsert(client, tournamentId, updatedAt, deltas));
+  }
+
+  async requestSnapshots(tournamentIds: string[], source: string, options?: { client?: PoolClient }): Promise<void> {
+    const ids = [...new Set(tournamentIds)].filter(Boolean);
+    if (!ids.length) return;
+    await (options?.client ?? this.pool).query(
+      `INSERT INTO projection_snapshot_requests (tournament_id, source)
+       SELECT unnest($1::text[]), $2
+       ON CONFLICT (tournament_id) DO UPDATE SET
+         requested_at = NOW(), source = EXCLUDED.source, attempts = 0, last_error = NULL`,
+      [ids, source],
+    );
+  }
+
+  async pendingSnapshotRequests(limit: number): Promise<SnapshotRequest[]> {
+    const result = await this.pool.query(
+      `SELECT tournament_id, requested_at::text AS requested_at, source, attempts
+         FROM projection_snapshot_requests ORDER BY requested_at ASC LIMIT $1`,
+      [limit],
+    );
+    return result.rows.map((row) => ({
+      tournamentId: row.tournament_id,
+      requestedAt: row.requested_at,
+      source: row.source ?? undefined,
+      attempts: Number(row.attempts),
+    }));
+  }
+
+  async completeSnapshot({
+    tournamentId,
+    requestedAt,
+    updatedAt,
+    deltas,
+  }: {
+    tournamentId: string;
+    requestedAt: string;
+    updatedAt: string;
+    deltas: ProjectionDelta[];
+  }): Promise<FencedEnqueueResult> {
     return this.inTransaction(async (client) => {
-      // FOR SHARE: a save of this tournament (INSERT … ON CONFLICT DO UPDATE takes the row lock) waits for this
-      // transaction, so its deltas land after these. Compared as text: `updated_at` keeps microseconds a JS Date drops.
-      const fence = await client.query(
-        'SELECT updated_at::text = $2 AS unchanged FROM tournaments WHERE tournament_id = $1 FOR SHARE',
-        [tournamentId, updatedAt],
-      );
-      if (!fence.rows.length) return 'missing';
-      if (!fence.rows[0].unchanged) return 'changed';
-      await this.insertChunks(client, deltas);
-      return 'enqueued';
+      const outcome = await this.fencedInsert(client, tournamentId, updatedAt, deltas);
+      if (outcome !== 'changed') {
+        // Only the request this span served. A save that re-requested it meanwhile changed requested_at, and its
+        // request stays for the next build.
+        await client.query(
+          'DELETE FROM projection_snapshot_requests WHERE tournament_id = $1 AND requested_at::text = $2',
+          [tournamentId, requestedAt],
+        );
+      }
+      return outcome;
     });
+  }
+
+  async recordSnapshotFailure(tournamentId: string, error: string): Promise<void> {
+    await this.pool.query(
+      'UPDATE projection_snapshot_requests SET attempts = attempts + 1, last_error = $2 WHERE tournament_id = $1',
+      [tournamentId, error.slice(0, 2000)],
+    );
+  }
+
+  /**
+   * FOR SHARE: a save of this tournament (INSERT … ON CONFLICT DO UPDATE takes the row lock) waits for the calling
+   * transaction, so its deltas land after these. Compared as text: `updated_at` keeps microseconds a JS Date drops.
+   */
+  private async fencedInsert(
+    client: PoolClient,
+    tournamentId: string,
+    updatedAt: string,
+    deltas: ProjectionDelta[],
+  ): Promise<FencedEnqueueResult> {
+    const fence = await client.query(
+      'SELECT updated_at::text = $2 AS unchanged FROM tournaments WHERE tournament_id = $1 FOR SHARE',
+      [tournamentId, updatedAt],
+    );
+    if (!fence.rows.length) return 'missing';
+    if (!fence.rows[0].unchanged) return 'changed';
+    await this.insertChunks(client, deltas);
+    return 'enqueued';
   }
 
   private async inTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {

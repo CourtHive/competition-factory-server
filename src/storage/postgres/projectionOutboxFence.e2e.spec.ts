@@ -58,6 +58,9 @@ d('projection outbox fence and chunking (real Postgres)', () => {
     await pool.query(
       'CREATE TABLE IF NOT EXISTS tournaments (tournament_id TEXT PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())',
     );
+    await pool.query(`CREATE TABLE IF NOT EXISTS projection_snapshot_requests (
+      tournament_id TEXT PRIMARY KEY, requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), source TEXT,
+      attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS projection_queue (
       seq BIGSERIAL PRIMARY KEY, tournament_id TEXT, op TEXT, table_name TEXT, row_key JSONB, row_data JSONB,
       topic TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), snapshot_id TEXT)`);
@@ -66,7 +69,7 @@ d('projection outbox fence and chunking (real Postgres)', () => {
   });
 
   beforeEach(async () => {
-    await pool.query('TRUNCATE tournaments, projection_queue');
+    await pool.query('TRUNCATE tournaments, projection_queue, projection_snapshot_requests');
     await pool.query(`INSERT INTO tournaments (tournament_id, data) VALUES ('t-1', '{"tournamentId":"t-1"}')`);
   });
 
@@ -174,5 +177,71 @@ d('projection outbox fence and chunking (real Postgres)', () => {
       locker.release();
       saver.release();
     }
+  });
+
+  describe('snapshot requests', () => {
+    const pending = async () => outbox.pendingSnapshotRequests(10);
+
+    it('coalesces repeat requests for one tournament and resets a failed one', async () => {
+      await outbox.requestSnapshots(['t-1', 't-1'], 'factory-save');
+      await outbox.recordSnapshotFailure('t-1', 'boom');
+      await outbox.requestSnapshots(['t-1'], 'provider-key');
+
+      const requests = await pending();
+      expect(requests).toHaveLength(1);
+      expect(requests[0]).toMatchObject({ tournamentId: 't-1', source: 'provider-key', attempts: 0 });
+    });
+
+    it('completes a request: span written and request removed, in one commit', async () => {
+      await outbox.requestSnapshots(['t-1'], 'factory-save');
+      const [request] = await pending();
+      const source = await outbox.readForProjection('t-1');
+
+      const outcome = await outbox.completeSnapshot({
+        tournamentId: 't-1',
+        requestedAt: request.requestedAt,
+        updatedAt: source!.updatedAt,
+        deltas: [{ ...delta('t-1', 1), snapshotId: 's' }],
+      });
+
+      expect(outcome).toBe('enqueued');
+      expect(await pending()).toEqual([]);
+      expect(await queued('t-1')).toHaveLength(1);
+    });
+
+    // A save that re-requests the snapshot while it is being built must not lose that request to the build's commit
+    it('keeps a request re-made while its span was being built', async () => {
+      await outbox.requestSnapshots(['t-1'], 'factory-save');
+      const [request] = await pending();
+      const source = await outbox.readForProjection('t-1');
+      await outbox.requestSnapshots(['t-1'], 'factory-save');
+
+      await outbox.completeSnapshot({
+        tournamentId: 't-1',
+        requestedAt: request.requestedAt,
+        updatedAt: source!.updatedAt,
+        deltas: [],
+      });
+
+      expect(await pending()).toHaveLength(1);
+    });
+
+    it('keeps the request, and writes nothing, when the record changed during the build', async () => {
+      await outbox.requestSnapshots(['t-1'], 'factory-save');
+      const [request] = await pending();
+      const source = await outbox.readForProjection('t-1');
+      await pool.query(`UPDATE tournaments SET updated_at = NOW() WHERE tournament_id = 't-1'`);
+
+      const outcome = await outbox.completeSnapshot({
+        tournamentId: 't-1',
+        requestedAt: request.requestedAt,
+        updatedAt: source!.updatedAt,
+        deltas: [delta('t-1', 1)],
+      });
+
+      expect(outcome).toBe('changed');
+      expect(await pending()).toHaveLength(1);
+      expect(await queued('t-1')).toEqual([]);
+    });
   });
 });
