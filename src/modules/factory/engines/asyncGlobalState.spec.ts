@@ -10,9 +10,9 @@ import asyncGlobalState from './asyncGlobalState';
  *
  * The load-bearing case is `readClobbersInFlightMutation` below. The mutation path does
  *
- *     mutationEngine.setState(records)          // sync
+ *     loadFetchedRecords(records)               // sync: the provider's setTournamentRecords
  *     await mutationEngine.executionQueue(...)  // async — the window
- *     mutationEngine.getState().tournamentRecords
+ *     asyncGlobalState.getTournamentRecords()
  *
  * so any concurrent reader calling `setState` during that await replaces the records the
  * mutation is working on. That needs one mutation plus one ordinary read, not the rare
@@ -340,5 +340,33 @@ describe('asyncGlobalState — no local copy of the identity merge', () => {
     // and must NOT carry its own field list or merge function
     expect(src).not.toContain('NOTICE_IDENTITY_FIELDS =');
     expect(src).not.toMatch(/function preserveIdentity|function preserveNoticeIdentity/);
+  });
+});
+
+describe('asyncGlobalState — notice buffer for rollback', () => {
+  const notice = (key: string) => ({ topic: 'modifyMatchUp', payload: { matchUp: { matchUpId: key } }, key });
+
+  it('restores the buffer it captured, dropping notices added after the capture', async () => {
+    await asyncGlobalState.runWithInstanceState(async () => {
+      asyncGlobalState.setSubscriptions({ subscriptions: { modifyMatchUp: () => undefined } });
+      asyncGlobalState.addNotice(notice('before'));
+      const captured = asyncGlobalState.getNoticeBuffer();
+
+      asyncGlobalState.addNotice(notice('rolledBack'));
+      expect(asyncGlobalState.getNotices({ topic: 'modifyMatchUp' })).toHaveLength(2);
+
+      asyncGlobalState.setNoticeBuffer(captured);
+      const restored = asyncGlobalState.getNotices({ topic: 'modifyMatchUp' });
+      expect(restored.map((payload) => payload.matchUp.matchUpId)).toEqual(['before']);
+    });
+  });
+
+  it('captures a copy, so later notices cannot reach into it', async () => {
+    await asyncGlobalState.runWithInstanceState(async () => {
+      asyncGlobalState.setSubscriptions({ subscriptions: { modifyMatchUp: () => undefined } });
+      const captured = asyncGlobalState.getNoticeBuffer();
+      asyncGlobalState.addNotice(notice('later'));
+      expect(captured).toEqual([]);
+    });
   });
 });
