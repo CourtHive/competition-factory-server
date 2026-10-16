@@ -1,0 +1,16 @@
+{
+  "$comment": "The keys ProviderCleanupService.getCounts returns, which the courthive-ams console's archive and delete provider modals render. Pinned by provider-cleanup.counts-contract.spec.ts here and checked by courthive-ams (client/src/components/modals/cleanupCounts.contract.test.ts). Change both sides together.",
+  "keys": [
+    "tournaments",
+    "userAssociations",
+    "provisionerAssociations",
+    "tournamentAssignments",
+    "tournamentProvisioner",
+    "calendarTournaments",
+    "topologies",
+    "catalogItems",
+    "auditLogRows",
+    "amsPolicies"
+  ],
+  "nullable": ["amsPolicies"]
+}
