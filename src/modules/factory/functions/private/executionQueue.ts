@@ -1,7 +1,6 @@
 import { runWithRequestContext } from 'src/modules/factory/engines/requestContext';
 import { tournamentEngineAsync, factoryConstants } from 'tods-competition-factory';
 import { buildProjectionDeltas } from '../../projection/buildProjectionDeltas';
-import { preserveSettlementRetryTime } from './preserveSettlementRetryTime';
 import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
 import { getMutationEngine } from '../../engines/getMutationEngine';
 import { withTournamentLock } from 'src/services/tournamentMutex';
@@ -102,8 +101,6 @@ export async function executionQueue(
           // setMatchUpStatus.ts that doubled the storage round-trip.
           await resolveMatchUpReferences(methods, result.tournamentRecords);
 
-          // Compatibility with published factory 7.11.0. Remove after the retry-metadata fix is released.
-          if (preserveSettlementRetryTime(methods, result.tournamentRecords)) payload.serverStamped = true;
           // After getMutationEngine(): constructing the engine resets this request's instance state.
           const mutationEngine = getMutationEngine();
           const loaded = loadFetchedRecords(result.tournamentRecords);

@@ -11,8 +11,12 @@ The server-owned serverStamped marker records changes to any command parameter, 
 Server present ⇒ the server’s identity wins. Server absent ⇒ the client’s claim stands.
 The syncing operator is the identity the server can verify; the server timestamp is receipt time. TMX server-first replays the canonical commands. Local-first still executes immediately with local claims and does not rewrite records through a settlement-specific reconciliation layer. General convergence of local-first copies is a separate synchronization decision.
 
-## Published dependency and retry sequencing
+## Retries
 
-This branch depends on published factory 7.11.0. That version still compares audit metadata on repeated requestIds. Until a later CA-authorized release carries the factory retry change, preserveSettlementRetryTime retains the prior timestamp inside the tournament lock. It does not stamp identity or create receipts. A different operator retry still conflicts under 7.11.0. Remove this compatibility lookup only in the consumer bump to the release that returns the original settlement regardless of new retry actor/time.
+The factory returns the original settlement for a repeated requestId when its intent matches, ignoring a new
+recordedBy/recordedAt (#5382(factory)): the first attribution and time stand, whoever retries. So the server stamps
+every request afresh at the identity boundary and does not look up prior settlements. This needs a factory release that
+carries #5382(factory); on 7.11.0 a retry stamped with a new time conflicts, which is why 7.11.0 consumers kept a
+compatibility lookup (`preserveSettlementRetryTime`, removed here).
 
 Browser and HTTP/Postgres integration and all gates under published dependency resolution must pass before merge. Linked-source tests alone are insufficient.
