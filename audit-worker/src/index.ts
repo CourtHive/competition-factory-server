@@ -1,4 +1,3 @@
-import { startValidationLoop } from './validators/index.js';
 import { registerRoutes } from './routes.js';
 import { createPool } from './db.js';
 import { config } from 'dotenv';
@@ -16,10 +15,7 @@ const pool = createPool();
 
 // Verify database connectivity on startup
 pool.query('SELECT 1')
-  .then(() => {
-    console.log('[audit-worker] Postgres connected');
-    startValidationLoop(pool);
-  })
+  .then(() => console.log('[audit-worker] Postgres connected'))
   .catch((err) => console.error('[audit-worker] Postgres connection failed:', err.message));
 
 const router = express.Router();

@@ -26,7 +26,6 @@ function makeService(storageImpl: (params: any) => Promise<any>) {
     {} as any,
     {} as any,
     {} as any,
-    {} as any,
   );
   return { service, tournamentStorageService, assignmentsService };
 }

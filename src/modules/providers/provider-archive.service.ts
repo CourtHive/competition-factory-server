@@ -116,7 +116,6 @@ export class ProviderArchiveService {
       { rel: 'provisioner_providers.json', sql: 'SELECT * FROM provisioner_providers WHERE provider_id = $1' },
       { rel: 'tournament_assignments.json', sql: 'SELECT * FROM tournament_assignments WHERE provider_id = $1' },
       { rel: 'tournament_provisioner.json', sql: 'SELECT * FROM tournament_provisioner WHERE provider_id = $1' },
-      { rel: 'pending_saves.json', sql: 'SELECT * FROM pending_saves WHERE provider_id = $1' },
       { rel: 'provider_topologies.json', sql: 'SELECT * FROM provider_topologies WHERE provider_id = $1' },
       { rel: 'provider_catalog_items.json', sql: 'SELECT * FROM provider_catalog_items WHERE provider_id = $1' },
       // `policies.json` is no longer a SQL export: policy hosting moved to AMS (its migration

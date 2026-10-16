@@ -13,7 +13,6 @@
  *     provisioner_providers    (provider_id)
  *     tournament_assignments   (provider_id)
  *     tournament_provisioner   (provider_id)
- *     pending_saves            (provider_id)
  *     calendar_tournaments     (provider_id — migration 047)
  *     tournaments              (provider_id)
  *
@@ -41,7 +40,6 @@ export interface CleanupCounts {
   provisionerAssociations: number;
   tournamentAssignments: number;
   tournamentProvisioner: number;
-  pendingSaves: number;
   /** Rows in `calendar_tournaments` (migration 047), keyed by the immutable provider_id.
    *  The abbr-keyed legacy `calendars` count that sat beside this went with 048. */
   calendarTournaments: number;
@@ -84,7 +82,6 @@ export class ProviderCleanupService {
         (SELECT COUNT(*) FROM provisioner_providers WHERE provider_id = $1)     AS provisioner_associations,
         (SELECT COUNT(*) FROM tournament_assignments WHERE provider_id = $1)    AS tournament_assignments,
         (SELECT COUNT(*) FROM tournament_provisioner WHERE provider_id = $1)    AS tournament_provisioner,
-        (SELECT COUNT(*) FROM pending_saves WHERE provider_id = $1)             AS pending_saves,
         (SELECT COUNT(*) FROM calendar_tournaments WHERE provider_id = $1)      AS calendar_tournaments,
         (SELECT COUNT(*) FROM provider_topologies WHERE provider_id = $1)       AS topologies,
         (SELECT COUNT(*) FROM provider_catalog_items WHERE provider_id = $1)    AS catalog_items,
@@ -100,7 +97,6 @@ export class ProviderCleanupService {
       provisionerAssociations: Number(row.provisioner_associations ?? 0),
       tournamentAssignments: Number(row.tournament_assignments ?? 0),
       tournamentProvisioner: Number(row.tournament_provisioner ?? 0),
-      pendingSaves: Number(row.pending_saves ?? 0),
       calendarTournaments: Number(row.calendar_tournaments ?? 0),
       topologies: Number(row.topologies ?? 0),
       catalogItems: Number(row.catalog_items ?? 0),
@@ -133,7 +129,6 @@ export class ProviderCleanupService {
       const tournamentProv = await client.query('DELETE FROM tournament_provisioner WHERE provider_id = $1', [
         providerId,
       ]);
-      const pendingSaves = await client.query('DELETE FROM pending_saves WHERE provider_id = $1', [providerId]);
       // Migration 047, and BY ID: `calendar_tournaments` is keyed by the immutable
       // provider_id precisely because the abbreviation can change. The abbr-keyed legacy
       // `calendars` delete that stood here until 048 was the only reason this service ever
@@ -190,7 +185,6 @@ export class ProviderCleanupService {
         provisionerAssociations: provisionerAssoc.rowCount ?? 0,
         tournamentAssignments: tournamentAssign.rowCount ?? 0,
         tournamentProvisioner: tournamentProv.rowCount ?? 0,
-        pendingSaves: pendingSaves.rowCount ?? 0,
         calendarTournaments: calendarTournaments.rowCount ?? 0,
         topologies: topologies.rows[0]?.n ?? 0,
         catalogItems: catalogItems.rows[0]?.n ?? 0,

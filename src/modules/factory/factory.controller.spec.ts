@@ -10,7 +10,6 @@ import { StorageModule } from 'src/storage/storage.module';
 import { FactoryController } from './factory.controller';
 import { ConfigsModule } from 'src/config/config.module';
 import { AuthModule } from '../account/auth/auth.module';
-import { UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuditModule } from '../audit/audit.module';
 import { CacheModule } from '../cache/cache.module';
@@ -1071,54 +1070,5 @@ describe('FactoryController.executionQueue — authorization gate', () => {
     const { controller, gate } = controllerWithGate(null);
     await controller.executionQueue({ tournamentId: 't9', methods: [] } as any, req, undefined);
     expect(gate.gate).toHaveBeenCalledWith(expect.objectContaining({ tournamentIds: ['t9'] }));
-  });
-
-  describe('internal/commit-save', () => {
-    const originalKey = process.env.INTERNAL_API_KEY;
-    afterEach(() => {
-      if (originalKey === undefined) delete process.env.INTERNAL_API_KEY;
-      else process.env.INTERNAL_API_KEY = originalKey;
-    });
-
-    const controllerWith = (commitSave: Mock) =>
-      new FactoryController(
-        { commitSave } as unknown as FactoryService,
-        {} as any,
-        permissiveMutationAuth(),
-        stubGrants(),
-        {} as any,
-      );
-
-    // the worker checks only `res.ok`: a 200 carrying `{ error }` would read as a committed save
-    it('refuses a wrong internal key with a 401 and commits nothing', async () => {
-      process.env.INTERNAL_API_KEY = 'right-key';
-      const commitSave = vi.fn();
-      const controller = controllerWith(commitSave);
-
-      await expect(
-        controller.commitSave({ saveId: 's-1' }, { headers: { 'x-internal-key': 'wrong-key' } }),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
-      expect(commitSave).not.toHaveBeenCalled();
-    });
-
-    it('refuses every call when no internal key is configured', async () => {
-      delete process.env.INTERNAL_API_KEY;
-      const commitSave = vi.fn();
-      await expect(
-        controllerWith(commitSave).commitSave({ saveId: 's-1' }, { headers: { 'x-internal-key': '' } }),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
-      expect(commitSave).not.toHaveBeenCalled();
-    });
-
-    it('commits with the right key', async () => {
-      process.env.INTERNAL_API_KEY = 'right-key';
-      const commitSave = vi.fn().mockResolvedValue({ success: true });
-      const result = await controllerWith(commitSave).commitSave(
-        { saveId: 's-1' },
-        { headers: { 'x-internal-key': 'right-key' } },
-      );
-      expect(result).toEqual({ success: true });
-      expect(commitSave).toHaveBeenCalledWith('s-1');
-    });
   });
 });

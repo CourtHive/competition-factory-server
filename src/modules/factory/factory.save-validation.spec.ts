@@ -1,18 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
-import type { Mock } from 'vitest';
 
 import { SnapshotProjectionService } from './projection/snapshot-projection.service';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
-import { insertPendingSave } from './helpers/pendingSaves';
 import { FactoryService } from './factory.service';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
-
-vi.mock('./helpers/pendingSaves', () => ({
-  insertPendingSave: vi.fn().mockResolvedValue(undefined),
-  getPendingSaveStatus: vi.fn(),
-  getPendingSaveData: vi.fn(),
-  updatePendingSaveStatus: vi.fn(),
-}));
 
 const SUPER_ADMIN_USER = { roles: [SUPER_ADMIN], email: 'sa@test.com', userId: 'u-1' };
 
@@ -30,12 +21,11 @@ function makeInvalidRecord() {
   return { tournamentId: 't-2', tournamentName: 'Bad', startDate: '06/01/2026', endDate: '06/07/2026' };
 }
 
-function makeFactoryService(overrides: { tournamentStorageService?: any; pgPool?: any } = {}) {
+function makeFactoryService(overrides: { tournamentStorageService?: any } = {}) {
   const tournamentStorageService =
     overrides.tournamentStorageService ?? {
       saveTournamentRecords: vi.fn().mockResolvedValue({ success: true }),
     };
-  const pgPool = overrides.pgPool ?? {};
   const assignmentsService: any = {
     getAssignedTournamentIds: vi.fn().mockResolvedValue(new Set()),
     getAssignedRoles: vi.fn().mockResolvedValue(new Map()),
@@ -65,25 +55,22 @@ function makeFactoryService(overrides: { tournamentStorageService?: any; pgPool?
     tournamentStorage,
     tournamentProvisionerStorage,
     providerStorage,
-    pgPool,
   );
-  return { svc, tournamentStorageService, pgPool };
+  return { svc, tournamentStorageService };
 }
 
 describe('FactoryService.saveTournamentRecords L2 validation gate', () => {
   beforeEach(() => {
-    (insertPendingSave as Mock).mockClear();
     delete process.env.FACTORY_SAVE_VALIDATION_THRESHOLD_BYTES;
   });
 
-  it('persists a small valid record and does not enqueue async validation', async () => {
+  it('persists a small valid record', async () => {
     const { svc, tournamentStorageService } = makeFactoryService();
     const record = makeValidRecord();
 
     const result = await svc.saveTournamentRecords({ tournamentRecord: record }, SUPER_ADMIN_USER);
     expect(result.success).toBe(true);
     expect(tournamentStorageService.saveTournamentRecords).toHaveBeenCalledTimes(1);
-    expect(insertPendingSave).not.toHaveBeenCalled();
   });
 
   it('rejects a malformed record with BadRequestException and does NOT persist it', async () => {
@@ -94,7 +81,6 @@ describe('FactoryService.saveTournamentRecords L2 validation gate', () => {
       BadRequestException,
     );
     expect(tournamentStorageService.saveTournamentRecords).not.toHaveBeenCalled();
-    expect(insertPendingSave).not.toHaveBeenCalled();
   });
 
   it('includes validationErrors and the offending tournamentId in the 400 payload', async () => {
@@ -113,11 +99,11 @@ describe('FactoryService.saveTournamentRecords L2 validation gate', () => {
     }
   });
 
-  // Records over a byte threshold used to skip validation, be saved as-is, and be queued for an async pass that never
-  // ran (Mentat/planning/CFS_LARGE_SAVES.md). Every record is validated now, whatever its size.
+  // Records over a byte threshold used to skip validation and be saved as-is (Mentat/planning/CFS_LARGE_SAVES.md).
+  // Every record is validated now, whatever its size.
   const OVER_ONE_MIB = 'X'.repeat(1_100_000);
 
-  it('refuses an invalid record of any size, and persists and queues nothing', async () => {
+  it('refuses an invalid record of any size, and persists nothing', async () => {
     const { svc, tournamentStorageService } = makeFactoryService();
     const record = { ...makeInvalidRecord(), padding: OVER_ONE_MIB };
 
@@ -125,17 +111,15 @@ describe('FactoryService.saveTournamentRecords L2 validation gate', () => {
       BadRequestException,
     );
     expect(tournamentStorageService.saveTournamentRecords).not.toHaveBeenCalled();
-    expect(insertPendingSave).not.toHaveBeenCalled();
   });
 
-  it('persists a valid record over 1 MiB once, and queues nothing for a later pass', async () => {
+  it('persists a valid record over 1 MiB once', async () => {
     const { svc, tournamentStorageService } = makeFactoryService();
     const record = makeValidRecord({ tournamentName: OVER_ONE_MIB });
 
     const result = await svc.saveTournamentRecords({ tournamentRecord: record }, SUPER_ADMIN_USER);
     expect(result.success).toBe(true);
     expect(tournamentStorageService.saveTournamentRecords).toHaveBeenCalledTimes(1);
-    expect(insertPendingSave).not.toHaveBeenCalled();
   });
 
   it('ignores the retired threshold variable: a small threshold no longer lets an invalid record through', async () => {
