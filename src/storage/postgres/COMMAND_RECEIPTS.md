@@ -18,7 +18,7 @@ Only a success carrying the matching commandId and durableReceipt=true deletes a
 
 ## Rollout and verification
 
-1. Deploy CFS and apply migration 052 before shipping the updated TMX client. The migration is additive; old clients remain supported.
+1. Deploy CFS and apply migration 054 before shipping the updated TMX client. The migration is additive; old clients remain supported.
 2. Release the paired assessment components changes and update TMX's published components pin through the normal release chain. This worktree still uses those local built components.
 3. Ship TMX after the server receipt path is available. Existing pre-protocol outbox rows require reconciliation because their earlier server outcome cannot be proven.
 

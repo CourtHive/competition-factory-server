@@ -1,6 +1,7 @@
 import { executionQueue } from 'src/modules/factory/functions/private/executionQueue';
 import { PostgresTournamentStorage } from './postgres-tournament.storage';
 import { commandFingerprint, CommandReceipts } from './commandReceipts';
+import { PostgresProviderStorage } from './postgres-provider.storage';
 import { afterCommandCommit } from './commandTransaction';
 import { getPostgresConfig } from './postgres.config';
 import { readFile } from 'node:fs/promises';
@@ -24,7 +25,7 @@ describe('durable command atomic commit and recovery', () => {
     admin = new Pool(getPostgresConfig());
     await admin.query(`CREATE SCHEMA ${schema}`);
     pool = new Pool({ ...getPostgresConfig(), options: `-c search_path=${schema}` });
-    for (const file of ['001-initial-schema.sql', '042-add-tournament-owner-epoch.sql', '052-command-receipts.sql']) {
+    for (const file of ['001-initial-schema.sql', '042-add-tournament-owner-epoch.sql', '054-command-receipts.sql']) {
       await pool.query(await readFile(join(__dirname, 'migrations', file), 'utf8'));
     }
     storage = new PostgresTournamentStorage(pool);
@@ -49,6 +50,29 @@ describe('durable command atomic commit and recovery', () => {
       appliedMethods: [{ method: 'canonical', params: { count: tournamentRecord.count } }],
     };
   };
+  // C1 (statuses/2026-10-16-durable-outbox-recovery-review.md): a durable command holds ONE pool connection for its whole
+  // transaction. A storage call inside it that asks the pool for a SECOND connection deadlocks a full pool: ten
+  // concurrent commands each hold one and wait forever for another. The calendar update reads the provider inside the
+  // transaction. With a one-connection pool, a second acquire times out instead of passing.
+  it('never takes a second pool connection inside a durable command (provider read)', async () => {
+    const single = new Pool({
+      ...getPostgresConfig(),
+      options: `-c search_path=${schema}`,
+      max: 1,
+      connectionTimeoutMillis: 2000,
+    });
+    try {
+      const providers = new PostgresProviderStorage(single as any);
+      const result = await new CommandReceipts(single as any).execute(payload(), async () => {
+        await providers.getProvider('p-1');
+        return { success: true };
+      });
+      expect(result.success).toBe(true);
+    } finally {
+      await single.end();
+    }
+  });
+
   it('recovers the original canonical answer after a lost response and a new service instance', async () => {
     const command = payload();
     const first = await receipts.execute(command, increment); // answer is lost
