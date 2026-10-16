@@ -5,11 +5,13 @@ import { version as serverVersion } from '../package.json';
 import { AppModule } from './modules/app/app.module';
 import { resolveCorsOrigins } from './common/cors';
 import { version } from 'tods-competition-factory';
+import { LOG_LEVELS } from './common/logLevels';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { canAccessApiDocs } from './common/auth/canAccessApiDocs';
 import { UsersService } from './modules/users/users.service';
+import { COMPETITION_CLOCK_ENV, configureCompetitionClock } from './modules/factory/engines/competitionClockConfig';
 import compression from 'compression';
 import { json } from 'body-parser';
 
@@ -24,7 +26,10 @@ import {
 } from './storage/interfaces';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { logger: ['fatal', 'verbose', 'debug', 'error', 'warn'] });
+  // a dedicated demo process may pin the factory's clocks; refused on production (throws)
+  const { pinnedAt } = configureCompetitionClock();
+  if (pinnedAt) new Logger('CompetitionClock').warn(`factory clocks PINNED at ${pinnedAt} (${COMPETITION_CLOCK_ENV})`);
+  const app = await NestFactory.create(AppModule, { logger: LOG_LEVELS });
   app.enableCors({
     // PUT/PATCH/DELETE back the console's edit flows (provider settings, user +
     // provisioner management). Same-origin in prod (NGINX), but cross-origin in

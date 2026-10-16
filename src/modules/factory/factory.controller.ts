@@ -26,7 +26,7 @@ import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
 import { ApplyPrivacyPolicyDto } from './dto/applyPrivacyPolicy.dto';
 import { User } from '../account/auth/decorators/user.decorator';
 import { ROSTER_SAFE_TOPICS } from './engines/getMutationEngine';
-import { PayloadProfileEnum } from 'tods-competition-factory';
+import { PayloadProfileEnum, tools } from 'tods-competition-factory';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { FactoryService } from './factory.service';
 import { GrantsService } from './grants.service';
@@ -317,7 +317,8 @@ export class FactoryController {
     if (result?.tournamentInfo?.publishState?.status?.published !== true) return false;
     const visibleFrom = result?.visibleFrom;
     if (!visibleFrom) return true; // null / absent means "now" — the case for almost every tournament
-    return new Date(visibleFrom).getTime() <= Date.now();
+    // the factory's competition clock: the device clock, unless a demo process pinned it
+    return new Date(visibleFrom).getTime() <= tools.competitionNow().getTime();
   }
 
   @Public()
@@ -492,11 +493,7 @@ export class FactoryController {
   @Post()
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  async executionQueue(
-    @Body() eqd: ExecutionQueueDto,
-    @Req() req: any,
-    @UserCtx() userContext?: UserContext,
-  ) {
+  async executionQueue(@Body() eqd: ExecutionQueueDto, @Req() req: any, @UserCtx() userContext?: UserContext) {
     // Per-tournament access + provider-permission gate. The socket transport
     // applies these in TmxGateway; this route previously applied NEITHER, so a
     // CLIENT could post the same `methods` array over HTTP and bypass both.

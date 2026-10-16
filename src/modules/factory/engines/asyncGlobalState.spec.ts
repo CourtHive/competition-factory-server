@@ -10,9 +10,9 @@ import asyncGlobalState from './asyncGlobalState';
  *
  * The load-bearing case is `readClobbersInFlightMutation` below. The mutation path does
  *
- *     mutationEngine.setState(records)          // sync
+ *     loadFetchedRecords(records)               // sync: the provider's setTournamentRecords
  *     await mutationEngine.executionQueue(...)  // async — the window
- *     mutationEngine.getState().tournamentRecords
+ *     asyncGlobalState.getTournamentRecords()
  *
  * so any concurrent reader calling `setState` during that await replaces the records the
  * mutation is working on. That needs one mutation plus one ordinary read, not the rare
@@ -185,6 +185,48 @@ describe('asyncGlobalState per-context isolation', () => {
  * to be asserted here too — fixing only factory would leave the SERVER path, the one that actually
  * drives invalidation, on the old behaviour.
  */
+describe('asyncGlobalState — captured clock', () => {
+  it('overlapping requests each keep the instant they captured', async () => {
+    const request = (timeStamp: number, delay: number) =>
+      asyncGlobalState.runWithInstanceState(async () => {
+        asyncGlobalState.setCapturedClock(timeStamp);
+        await tick(delay);
+        const held = asyncGlobalState.getCapturedClock();
+        asyncGlobalState.setCapturedClock(undefined);
+        return { held, released: asyncGlobalState.getCapturedClock() };
+      });
+
+    // the slower request starts first, so the faster one captures and releases inside its await
+    const [slow, fast] = await Promise.all([request(1000, 20), request(2000, 1)]);
+    expect(slow).toEqual({ held: 1000, released: undefined });
+    expect(fast).toEqual({ held: 2000, released: undefined });
+  });
+
+  it('a fresh request starts with nothing captured, and reading creates no implicit state', async () => {
+    const before = asyncGlobalState.implicitContextCreations();
+    await asyncGlobalState.runWithInstanceState(async () => {
+      expect(asyncGlobalState.getCapturedClock()).toBeUndefined();
+    });
+    expect(asyncGlobalState.getCapturedClock()).toBeUndefined();
+    expect(asyncGlobalState.implicitContextCreations()).toEqual(before);
+  });
+});
+
+describe('asyncGlobalState — captured competition clock', () => {
+  it('overlapping requests each keep the competition instant they captured', async () => {
+    const request = (timeStamp: number, delay: number) =>
+      asyncGlobalState.runWithInstanceState(async () => {
+        asyncGlobalState.setCapturedCompetitionClock(timeStamp);
+        await tick(delay);
+        const held = asyncGlobalState.getCapturedCompetitionClock();
+        asyncGlobalState.setCapturedCompetitionClock(undefined);
+        return held;
+      });
+    const [slow, fast] = await Promise.all([request(1000, 20), request(2000, 1)]);
+    expect([slow, fast]).toEqual([1000, 2000]);
+  });
+});
+
 describe('asyncGlobalState — keyed notice de-dup preserves identity', () => {
   it('a later notice missing identity inherits it from the one it supersedes', async () => {
     await asyncGlobalState.runWithInstanceState(async () => {
@@ -298,5 +340,33 @@ describe('asyncGlobalState — no local copy of the identity merge', () => {
     // and must NOT carry its own field list or merge function
     expect(src).not.toContain('NOTICE_IDENTITY_FIELDS =');
     expect(src).not.toMatch(/function preserveIdentity|function preserveNoticeIdentity/);
+  });
+});
+
+describe('asyncGlobalState — notice buffer for rollback', () => {
+  const notice = (key: string) => ({ topic: 'modifyMatchUp', payload: { matchUp: { matchUpId: key } }, key });
+
+  it('restores the buffer it captured, dropping notices added after the capture', async () => {
+    await asyncGlobalState.runWithInstanceState(async () => {
+      asyncGlobalState.setSubscriptions({ subscriptions: { modifyMatchUp: () => undefined } });
+      asyncGlobalState.addNotice(notice('before'));
+      const captured = asyncGlobalState.getNoticeBuffer();
+
+      asyncGlobalState.addNotice(notice('rolledBack'));
+      expect(asyncGlobalState.getNotices({ topic: 'modifyMatchUp' })).toHaveLength(2);
+
+      asyncGlobalState.setNoticeBuffer(captured);
+      const restored = asyncGlobalState.getNotices({ topic: 'modifyMatchUp' });
+      expect(restored.map((payload) => payload.matchUp.matchUpId)).toEqual(['before']);
+    });
+  });
+
+  it('captures a copy, so later notices cannot reach into it', async () => {
+    await asyncGlobalState.runWithInstanceState(async () => {
+      asyncGlobalState.setSubscriptions({ subscriptions: { modifyMatchUp: () => undefined } });
+      const captured = asyncGlobalState.getNoticeBuffer();
+      asyncGlobalState.addNotice(notice('later'));
+      expect(captured).toEqual([]);
+    });
   });
 });

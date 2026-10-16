@@ -2,19 +2,14 @@ import { executionQueue } from './executionQueue';
 
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
 
-const h = vi.hoisted(() => ({ records: {}, execute: vi.fn(), setState: vi.fn() }));
+const h = vi.hoisted(() => ({ records: {}, execute: vi.fn() }));
 vi.mock('../../engines/getMutationEngine', () => ({
-  getMutationEngine: () => ({
-    setState: h.setState,
-    executionQueue: h.execute,
-    getState: () => ({ tournamentRecords: h.records }),
-  }),
+  getMutationEngine: () => ({ executionQueue: h.execute }),
 }));
 
 beforeEach(() => {
   h.records = { t: { tournamentId: 't', events: [{ eventId: 'e', drawDefinitions: [{ drawId: 'd' }] }] } };
   h.execute.mockReset().mockResolvedValue({ success: true });
-  h.setState.mockReset();
 });
 
 function storage() {
