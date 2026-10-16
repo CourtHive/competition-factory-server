@@ -1,4 +1,3 @@
-import { getPendingSaveStatus, getPendingSaveData, updatePendingSaveStatus } from './helpers/pendingSaves';
 import { BadRequestException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { attachProviderPrivacyOnCreate } from './helpers/attachProviderPrivacyOnCreate';
@@ -17,7 +16,6 @@ import { computeEffectiveConfig } from '@courthive/provider-config';
 import { checkEngineError } from '../../common/errors/engineError';
 import { withTournamentLock } from 'src/services/tournamentMutex';
 import { validateL2 } from './helpers/validateTournamentRecord';
-import { PG_POOL } from 'src/storage/postgres/postgres.config';
 import { AssignmentsService } from './assignments.service';
 import { checkProvider } from './helpers/checkProvider';
 import { AuditService } from '../audit/audit.service';
@@ -66,7 +64,6 @@ export class FactoryService {
     @Inject(TOURNAMENT_STORAGE) private readonly tournamentStorage: ITournamentStorage,
     @Inject(TOURNAMENT_PROVISIONER_STORAGE) private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
-    @Inject(PG_POOL) private readonly pgPool: any,
     @Optional() private readonly mutationMirror?: MutationMirrorService,
   ) {}
 
@@ -475,10 +472,9 @@ export class FactoryService {
     }
 
     // L2 validation gate: EVERY record is validated before anything is written, and an invalid one refuses the whole
-    // payload. Records over a byte threshold used to skip this and be saved as-is, with an "async L2 pass" queued in
-    // pending_saves that never ran (a provider-key principal could not even be queued: `provider:<id>` is not a
-    // UUID). Measured 2026-10-16 (Mentat/planning/CFS_LARGE_SAVES.md): validateL2 costs ~25 ms per MiB, and the 8 MB
-    // body limit caps it near 200 ms, an order below the snapshot projection the same save runs.
+    // payload. Records over a byte threshold used to skip this and be saved as-is, with an "async L2 pass" queued in a
+    // pending_saves table that has since been dropped (Mentat/planning/CFS_LARGE_SAVES.md). validateL2 costs ~25 ms
+    // per MiB, and the 8 MB body limit caps it near 200 ms.
     for (const [tid, record] of Object.entries(tournamentRecords)) {
       const result = validateL2(record);
       if (!result.valid) {
@@ -560,33 +556,6 @@ export class FactoryService {
       setCreatedByUserId(tournamentRecords[tid], getCreatedByUserId(storedRecord));
     }
     return undefined;
-  }
-
-  async getSaveStatus(saveId: string) {
-    return await getPendingSaveStatus(this.pgPool, saveId);
-  }
-
-  async commitSave(saveId: string) {
-    const data = await getPendingSaveData(this.pgPool, saveId);
-    if (!data) return { error: 'Save not found' };
-
-    const tournamentId = data.tournamentId;
-    // Accepting a pending save writes the whole record — same wholesale-replace
-    // semantics, same lock and snapshot requirements as /factory/save.
-    const tournamentRecords = { [tournamentId]: data };
-    const result = await withTournamentLock([tournamentId], async () => {
-      const saveResult = await this.tournamentStorageService.saveTournamentRecords({
-        tournamentRecords,
-        projectionMode: 'snapshot',
-      });
-      if (saveResult?.success) {
-        await this.snapshotProjection.enqueueSnapshots({ tournamentRecords, source: 'commit-save' });
-      }
-      return saveResult;
-    });
-
-    await updatePendingSaveStatus(this.pgPool, saveId, 'accepted');
-    return result;
   }
 
   async getAssistantContext({ tournamentId }: { tournamentId: string }) {

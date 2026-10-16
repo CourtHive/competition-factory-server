@@ -9,7 +9,7 @@ import { buildRebuildIntents } from './rebuild';
  * Project a COMPLETE tournamentRecord as a self-contained snapshot span.
  *
  * WHY THIS EXISTS. `/factory/save` (TMX `sendTournament`), the provider-key save,
- * commit-save, and backend pipeline loads all replace the server's stored copy of
+ * and backend pipeline loads all replace the server's stored copy of
  * a tournamentRecord wholesale. They never enter `executionQueue`, so they raise
  * no factory notices and there is no diff for the incremental delta path to
  * express.

@@ -240,7 +240,6 @@ async function main() {
     provisioner_providers: await readJson(archivePath, 'provisioner_providers.json'),
     tournament_assignments: await readJson(archivePath, 'tournament_assignments.json'),
     tournament_provisioner: await readJson(archivePath, 'tournament_provisioner.json'),
-    pending_saves: await readJson(archivePath, 'pending_saves.json'),
     provider_topologies: await readJson(archivePath, 'provider_topologies.json'),
     provider_catalog_items: await readJson(archivePath, 'provider_catalog_items.json'),
     calendar_tournaments: await readCalendarRows(archivePath),
@@ -262,7 +261,8 @@ async function main() {
     restored.provisioner_providers = await insertRows(client, 'provisioner_providers', data.provisioner_providers);
     restored.tournament_assignments = await insertRows(client, 'tournament_assignments', data.tournament_assignments);
     restored.tournament_provisioner = await insertRows(client, 'tournament_provisioner', data.tournament_provisioner);
-    restored.pending_saves = await insertRows(client, 'pending_saves', data.pending_saves);
+    // An archive written before migration 053 may carry pending_saves.json. It is ignored: the table is gone, and it
+    // never held a row (Mentat/planning/CFS_LARGE_SAVES.md).
     restored.provider_topologies = await insertRows(client, 'provider_topologies', data.provider_topologies);
     restored.provider_catalog_items = await insertRows(client, 'provider_catalog_items', data.provider_catalog_items);
     // policies are AMS rows, restored after this transaction commits (see below)

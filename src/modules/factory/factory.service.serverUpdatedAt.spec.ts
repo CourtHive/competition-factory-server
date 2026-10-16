@@ -15,7 +15,7 @@ const userContext: any = {
 function build(storage: any) {
   const assignments: any = { getAssignedTournamentIds: vi.fn(async () => new Set()) };
   const none: any = {};
-  return new FactoryService(storage, none, none, assignments, none, none, none, none, none);
+  return new FactoryService(storage, none, none, assignments, none, none, none, none);
 }
 
 describe('FactoryService — serverUpdatedAt', () => {

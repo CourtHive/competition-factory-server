@@ -21,7 +21,7 @@ export const PROJECTION_OUTBOX_STORAGE = Symbol('PROJECTION_OUTBOX_STORAGE');
  *
  * SNAPSHOT OPS (`snapshot_begin` / `snapshot_end`) bracket a WHOLESALE replace —
  * a tournamentRecord pushed in its entirety (`/factory/save`, provider-key save,
- * commit-save, backend pipeline load) rather than mutated through
+ * backend pipeline load) rather than mutated through
  * `executionQueue`. Such a push raises no factory notices, so there is no diff to
  * express incrementally, and upserts alone are not sufficient: an entity REMOVED
  * from the record emits nothing, so its read-model rows would survive forever.

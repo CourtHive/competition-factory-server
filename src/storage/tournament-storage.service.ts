@@ -103,7 +103,7 @@ export class TournamentStorageService {
    *                 factory notices and already filled a delta buffer it flushes
    *                 post-commit. This facade must not project anything.
    * - `'snapshot'`— the caller replaced the record WHOLESALE (`/factory/save`,
-   *                 provider-key save, commit-save, pipeline load). No notices
+   *                 provider-key save, pipeline load). No notices
    *                 were raised, so the caller owns emitting a snapshot span.
    *
    * Required rather than defaulted because both plausible defaults are wrong:

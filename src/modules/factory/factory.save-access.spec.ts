@@ -90,7 +90,6 @@ function makeFactoryService({
     {} as any,
     {} as any,
     providerStorage,
-    {} as any,
   );
   return { svc, tournamentStorageService };
 }

@@ -43,7 +43,6 @@ import {
   Logger,
   Req,
   ForbiddenException,
-  UnauthorizedException,
 } from '@nestjs/common';
 
 /**
@@ -638,25 +637,5 @@ export class FactoryController {
       throw new ForbiddenException('PROVIDER_ADMIN role required');
     }
     return this.factoryService.applyParticipantPrivacyToExisting({ providerId, includeInProgress }, ctx);
-  }
-
-  @Get('save-status/:saveId')
-  @Roles([CLIENT, ADMIN, SUPER_ADMIN])
-  getSaveStatus(@Param('saveId') saveId: string) {
-    return this.factoryService.getSaveStatus(saveId);
-  }
-
-  @Post('internal/commit-save')
-  @Public()
-  @HttpCode(HttpStatus.OK)
-  async commitSave(@Body() body: { saveId: string }, @Req() req: any) {
-    const internalKey = process.env.INTERNAL_API_KEY;
-    const providedKey = req.headers['x-internal-key'];
-    // A refusal is a 401, never a 200 carrying `{ error }`: the worker that calls this checks `res.ok`, and would
-    // have recorded an unauthorised call as a committed save.
-    if (!internalKey || providedKey !== internalKey) {
-      throw new UnauthorizedException('Invalid internal key');
-    }
-    return this.factoryService.commitSave(body.saveId);
   }
 }

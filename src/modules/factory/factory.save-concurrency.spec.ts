@@ -4,13 +4,6 @@ import { withTournamentLock } from 'src/services/tournamentMutex';
 import { FactoryService } from './factory.service';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
 
-vi.mock('./helpers/pendingSaves', () => ({
-  insertPendingSave: vi.fn().mockResolvedValue(undefined),
-  getPendingSaveStatus: vi.fn(),
-  getPendingSaveData: vi.fn(),
-  updatePendingSaveStatus: vi.fn(),
-}));
-
 const USER = { roles: [SUPER_ADMIN], email: 'sa@test.com', userId: 'u-1' };
 
 const record = (tournamentId = 't-1') => ({
@@ -48,7 +41,6 @@ function makeService({ onSave }: { onSave?: () => Promise<void> } = {}) {
       getAssignedTournamentIds: vi.fn().mockResolvedValue(new Set()),
       getAssignedRoles: vi.fn().mockResolvedValue(new Map()),
     } as any,
-    {} as any,
     {} as any,
     {} as any,
     {} as any,
