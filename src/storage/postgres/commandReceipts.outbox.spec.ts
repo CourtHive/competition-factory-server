@@ -1,11 +1,11 @@
-import { executionQueue } from 'src/modules/factory/functions/private/executionQueue';
 import { PostgresProjectionOutboxStorage } from './postgres-projection-outbox.storage';
+import { executionQueue } from 'src/modules/factory/functions/private/executionQueue';
 import { PostgresParticipationStorage } from './postgres-participation.storage';
-import { TournamentStorageService } from '../tournament-storage.service';
 import { PostgresTournamentStorage } from './postgres-tournament.storage';
+import { TournamentStorageService } from '../tournament-storage.service';
+import { commandFingerprint, CommandReceipts } from './commandReceipts';
 import { PostgresCalendarStorage } from './postgres-calendar.storage';
 import { PostgresProviderStorage } from './postgres-provider.storage';
-import { commandFingerprint, CommandReceipts } from './commandReceipts';
 import { getPostgresConfig } from './postgres.config';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
