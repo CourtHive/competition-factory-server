@@ -1,6 +1,5 @@
 import { insertPendingSave, getPendingSaveStatus, getPendingSaveData, updatePendingSaveStatus } from './helpers/pendingSaves';
 import { BadRequestException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
-import { canViewTournament, canMutateTournament } from './helpers/checkTournamentAccess';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { attachProviderPrivacyOnCreate } from './helpers/attachProviderPrivacyOnCreate';
 import { askEngine, factoryConstants, queryGovernor } from 'tods-competition-factory';
@@ -24,9 +23,16 @@ import { checkProvider } from './helpers/checkProvider';
 import { AuditService } from '../audit/audit.service';
 import { checkUser } from './helpers/checkUser';
 import publicQueries from './functions/public';
+import {
+  canViewTournament,
+  canMutateTournament,
+  getCreatedByUserId,
+  setCreatedByUserId,
+} from './helpers/checkTournamentAccess';
 
 const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PARTICIPANT;
 const EXISTING_POLICY_TYPE = factoryConstants.errorConditionConstants.EXISTING_POLICY_TYPE;
+const MISSING_TOURNAMENT_RECORD = factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD;
 
 // types and interfaces
 import { TOURNAMENT_STORAGE, type ITournamentStorage, TOURNAMENT_PROVISIONER_STORAGE, type ITournamentProvisionerStorage, PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
@@ -330,6 +336,8 @@ export class FactoryService {
     if (result.error) return result;
 
     const minimalRecord = {
+      // without it canViewTournament cannot match an assignment, and an assigned director is refused
+      tournamentId,
       parentOrganisation: result.providerId ? { organisationId: result.providerId } : undefined,
       extensions: result.extensions ?? [],
       updatedAt: result.updatedAt,
@@ -449,12 +457,8 @@ export class FactoryService {
 
     // Per-tournament mutation gate
     if (userContext) {
-      const assignedRoles = await this.assignmentsService.getAssignedRoles(userContext.userId);
-      for (const tid of Object.keys(tournamentRecords)) {
-        if (!canMutateTournament(tournamentRecords[tid], userContext, assignedRoles)) {
-          return { error: `User not allowed to modify tournament ${tid}` };
-        }
-      }
+      const gateError = await this.gateWholesaleSave(tournamentRecords, userContext);
+      if (gateError) return gateError;
     }
 
     // PRIVACY ATTACH (creation only): on the first save of a provider-owned
@@ -538,6 +542,44 @@ export class FactoryService {
     }
 
     return result;
+  }
+
+  /**
+   * The per-tournament gate for a wholesale save, decided against what is STORED, never against the
+   * record the client sent: that record names its own creator, and a gate that read it would let any
+   * director claim another's tournament by writing their own id into `createdByUserId`.
+   *
+   * - A tournament that does not exist yet is a CREATION. `checkProvider` has already confirmed the
+   *   caller belongs to, and acts for, the provider the record names, which is all a creation needs.
+   *   Running `canMutateTournament` here refused every DIRECTOR: a new record carries no creator yet,
+   *   so a director could neither own it nor be assigned to it. The server stamps the caller as creator.
+   * - An existing tournament is gated on its stored provider and creator, and keeps its stored creator.
+   *
+   * Mutates each record's `createdByUserId` extension in place. Returns an error, or undefined to proceed.
+   */
+  private async gateWholesaleSave(tournamentRecords: Record<string, any>, userContext: UserContext) {
+    const assignedRoles = await this.assignmentsService.getAssignedRoles(userContext.userId);
+    for (const tid of Object.keys(tournamentRecords)) {
+      const stored: any = await this.tournamentStorageService.fetchTournamentUpdatedAt({ tournamentId: tid });
+
+      if (stored?.error === MISSING_TOURNAMENT_RECORD) {
+        setCreatedByUserId(tournamentRecords[tid], userContext.userId);
+        continue;
+      }
+      // existence could not be established: refuse rather than treat it as a creation
+      if (stored?.error || !stored?.success) return { error: `User not allowed to modify tournament ${tid}` };
+
+      const storedRecord = {
+        tournamentId: tid,
+        parentOrganisation: stored.providerId ? { organisationId: stored.providerId } : undefined,
+        extensions: stored.extensions ?? [],
+      };
+      if (!canMutateTournament(storedRecord, userContext, assignedRoles)) {
+        return { error: `User not allowed to modify tournament ${tid}` };
+      }
+      setCreatedByUserId(tournamentRecords[tid], getCreatedByUserId(storedRecord));
+    }
+    return undefined;
   }
 
   private getValidationThresholdBytes(): number {

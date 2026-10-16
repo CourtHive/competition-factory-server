@@ -58,10 +58,21 @@ function getTournamentProviderId(tournament: any): string | undefined {
   return tournament?.parentOrganisation?.organisationId;
 }
 
-function getCreatedByUserId(tournament: any): string | undefined {
+export function getCreatedByUserId(tournament: any): string | undefined {
   const extensions: any[] = tournament?.extensions ?? [];
   const ext = extensions.find((e) => e?.name === CREATED_BY_USER_ID);
   return ext?.value;
+}
+
+/**
+ * Replace the record's `createdByUserId` extension with `userId`, or remove it when `userId` is absent.
+ * The server decides the creator; whatever the client's copy of the record claims is discarded.
+ */
+export function setCreatedByUserId(tournament: any, userId: string | undefined): void {
+  if (!tournament) return;
+  const extensions: any[] = (tournament.extensions ?? []).filter((e: any) => e?.name !== CREATED_BY_USER_ID);
+  if (userId) extensions.push({ name: CREATED_BY_USER_ID, value: userId });
+  tournament.extensions = extensions;
 }
 
 // ── Public API ──
