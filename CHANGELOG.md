@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.3.0](https://github.com/CourtHive/competition-factory-server/compare/v4.2.0...v4.3.0) (2026-10-17)
+
+
+### Features
+
+* **telemetry:** a /csp-report endpoint for the TMX web CSP ([#1057](https://github.com/CourtHive/competition-factory-server/issues/1057)) ([52b0dfc](https://github.com/CourtHive/competition-factory-server/commit/52b0dfcc020f542f859dfecb4dea65ba43ff7391))
+
+
+### Bug Fixes
+
+* **factory:** drawdata forwards hydrateParticipants to the factory ([#1054](https://github.com/CourtHive/competition-factory-server/issues/1054)) ([fdb02ac](https://github.com/CourtHive/competition-factory-server/commit/fdb02acc78601f766fe85e28b1a9c4ac7b3dc0cd))
+* **storage:** archive a key-authenticated delete with a null user id ([#1056](https://github.com/CourtHive/competition-factory-server/issues/1056)) ([52121e3](https://github.com/CourtHive/competition-factory-server/commit/52121e3e8c7b629b54157b07660f6a3077fb964a))
+
 ## [4.2.0](https://github.com/CourtHive/competition-factory-server/compare/v4.1.0...v4.2.0) (2026-10-16)
 
 
