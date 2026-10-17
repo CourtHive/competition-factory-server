@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { canAccessApiDocs } from './common/auth/canAccessApiDocs';
+import { CSP_REPORT_PATH, cspReportParser } from './modules/telemetry/csp-report.parser';
 import { UsersService } from './modules/users/users.service';
 import { COMPETITION_CLOCK_ENV, configureCompetitionClock } from './modules/factory/engines/competitionClockConfig';
 import compression from 'compression';
@@ -65,6 +66,7 @@ async function bootstrap() {
   await app.register(cookieParser);
   */
   app.use(compression());
+  app.use(CSP_REPORT_PATH, cspReportParser()); // before the app-wide parser, which ignores report types
   app.use(json({ limit: '8mb' }));
 
   const swaggerConfig = new DocumentBuilder()
