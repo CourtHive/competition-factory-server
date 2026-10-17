@@ -14,6 +14,13 @@ import { Pool } from 'pg';
  * this field existed compare it against a local value that is absent: a real value there would read as
  * permanently stale to them.
  */
+/**
+ * `deleted_tournaments.deleted_by_user_id` is a UUID column, but key-authenticated callers carry a synthetic
+ * principal (`provisioner:<id>`, `provider:<id>`) as their userId. Writing one is a type error that aborts the
+ * delete, so only a real user id reaches the column; the principal stays in `deleted_by_email` and audit_log.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function toIso(value: unknown): string {
   return value instanceof Date ? value.toISOString() : String(value);
 }
@@ -247,7 +254,7 @@ export class PostgresTournamentStorage implements ITournamentStorage {
         startDate,
         endDate,
         JSON.stringify(tournamentRecord),
-        deletedByUserId ?? null,
+        deletedByUserId && UUID_RE.test(deletedByUserId) ? deletedByUserId : null,
         deletedByEmail ?? null,
       ],
     );
