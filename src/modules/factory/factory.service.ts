@@ -648,16 +648,18 @@ export class FactoryService {
   }
 
   async getDrawData({
+    hydrateParticipants,
     structuresProfile,
     tournamentId,
     drawId,
   }: {
+    hydrateParticipants?: boolean;
     structuresProfile?: string;
     tournamentId: string;
     drawId: string;
   }) {
     return await publicQueries.getDrawData(
-      { structuresProfile, tournamentId, drawId },
+      { hydrateParticipants, structuresProfile, tournamentId, drawId },
       this.tournamentStorage,
       this.providerStorage,
     );
