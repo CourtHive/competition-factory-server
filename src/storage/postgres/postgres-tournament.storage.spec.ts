@@ -186,3 +186,48 @@ describe('PostgresTournamentStorage — serverUpdatedAt', () => {
     expect(result.updatedAt).toBeNull();
   });
 });
+
+// deleted_by_user_id is a UUID column; a key-authenticated delete carries `provisioner:<id>` or `provider:<id>`
+// as its userId, and writing that aborted the archive, and with it the delete, as a 500.
+describe('PostgresTournamentStorage — archive records only a real user id', () => {
+  const USER_ID = '53a84d4c-dc9b-4c05-a1cc-c74b90509076';
+  let pool: ReturnType<typeof makeMockPool>;
+  let storage: PostgresTournamentStorage;
+
+  beforeEach(() => {
+    pool = makeMockPool();
+    pool.query.mockResolvedValue({ rowCount: 1 });
+    storage = new PostgresTournamentStorage(pool as any);
+  });
+
+  it('writes a user UUID to deleted_by_user_id', async () => {
+    await storage.archiveTournamentRecord({
+      tournamentRecord: record(),
+      deletedByUserId: USER_ID,
+      deletedByEmail: 'a@b.c',
+    });
+
+    const [, params] = pool.query.mock.calls[0];
+    expect(params[6]).toBe(USER_ID);
+    expect(params[7]).toBe('a@b.c');
+  });
+
+  it.each([
+    ['provisioner', `provisioner:${USER_ID}`, 'provisioner@IONSport'],
+    ['provider key', 'provider:prov-1', 'key@BOBOCA'],
+  ])(
+    'archives a %s principal with a null user id and keeps its email',
+    async (_kind, deletedByUserId, deletedByEmail) => {
+      const result: any = await storage.archiveTournamentRecord({
+        tournamentRecord: record(),
+        deletedByUserId,
+        deletedByEmail,
+      });
+
+      const [, params] = pool.query.mock.calls[0];
+      expect(result.success).toBe(true);
+      expect(params[6]).toBeNull();
+      expect(params[7]).toBe(deletedByEmail);
+    },
+  );
+});
