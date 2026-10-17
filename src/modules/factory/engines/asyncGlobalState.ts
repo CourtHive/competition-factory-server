@@ -350,4 +350,8 @@ export function handleCaughtError({ engineName, methodName, params, err }: any) 
     methodName,
     error,
   });
+
+  // the envelope the factory's sync provider returns. Returning nothing turned a thrown method into `{}`: no error, so
+  // the engine saw no refusal, did not roll back, and notified the partial write (competition-factory#5541)
+  return { error };
 }
