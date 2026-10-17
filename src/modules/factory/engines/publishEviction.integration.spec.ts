@@ -43,7 +43,6 @@ describe('publishing evicts the draw and structure tiers', () => {
       drawProfiles: [
         { drawSize: 16, qualifyingProfiles: [{ structureProfiles: [{ drawSize: 16, qualifyingPositions: 4 }] }] },
       ],
-      participantsProfile: { nonRandom: 1 },
       setState: true,
     });
     const { drawDefinition } = tournamentEngine.getEvent({ drawId });
