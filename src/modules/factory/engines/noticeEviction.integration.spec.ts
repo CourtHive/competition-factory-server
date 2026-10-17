@@ -36,7 +36,6 @@ describe('cache eviction against real factory notices', () => {
       drawIds: [drawId],
     } = mocksEngine.generateTournamentRecord({
       drawProfiles: [{ drawSize: 8, drawType }],
-      participantsProfile: { nonRandom: 1 },
       setState: true,
     });
     const tournamentId = tournamentRecord.tournamentId;

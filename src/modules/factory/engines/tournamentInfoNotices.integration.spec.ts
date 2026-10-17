@@ -39,7 +39,6 @@ describe('tournament information notices, against the real factory', () => {
   function seedDrawlessTournament(): string {
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       eventProfiles: [{ eventName: 'Open Singles' }],
-      participantsProfile: { nonRandom: 1 },
       setState: true,
     });
     return tournamentRecord.tournamentId;
