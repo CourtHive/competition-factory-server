@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 
 import { AdminLoadProfileController } from './admin-load-profile.controller';
+import { CspReportController } from './csp-report.controller';
 import { LoadProfileService } from './load-profile.service';
 
 /**
@@ -15,10 +16,12 @@ import { LoadProfileService } from './load-profile.service';
  * timer is started, and nothing is written. The controller still serves, so an
  * operator can confirm the disabled state rather than having to infer it from
  * an empty table.
+ *
+ * Also home to the TMX web CSP report endpoint (`/csp-report`), the other client-measurement ingress.
  */
 @Global()
 @Module({
-  controllers: [AdminLoadProfileController],
+  controllers: [AdminLoadProfileController, CspReportController],
   providers: [LoadProfileService],
   exports: [LoadProfileService],
 })
