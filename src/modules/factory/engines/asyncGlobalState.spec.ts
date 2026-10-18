@@ -212,6 +212,35 @@ describe('asyncGlobalState — captured clock', () => {
   });
 });
 
+describe('asyncGlobalState — call random source', () => {
+  it('overlapping requests each keep the seeded stream they scoped', async () => {
+    const request = (source: () => number, delay: number) =>
+      asyncGlobalState.runWithInstanceState(async () => {
+        asyncGlobalState.setCallRandomSource(source);
+        await tick(delay);
+        const held = asyncGlobalState.getCallRandomSource();
+        asyncGlobalState.setCallRandomSource(undefined);
+        return { held, released: asyncGlobalState.getCallRandomSource() };
+      });
+
+    const slowSource = () => 0.25;
+    const fastSource = () => 0.75;
+    // the slower request starts first, so the faster one scopes and releases inside its await
+    const [slow, fast] = await Promise.all([request(slowSource, 20), request(fastSource, 1)]);
+    expect(slow).toEqual({ held: slowSource, released: undefined });
+    expect(fast).toEqual({ held: fastSource, released: undefined });
+  });
+
+  it('a fresh request starts with no stream, and reading creates no implicit state', async () => {
+    const before = asyncGlobalState.implicitContextCreations();
+    await asyncGlobalState.runWithInstanceState(async () => {
+      expect(asyncGlobalState.getCallRandomSource()).toBeUndefined();
+    });
+    expect(asyncGlobalState.getCallRandomSource()).toBeUndefined();
+    expect(asyncGlobalState.implicitContextCreations()).toEqual(before);
+  });
+});
+
 describe('asyncGlobalState — captured competition clock', () => {
   it('overlapping requests each keep the competition instant they captured', async () => {
     const request = (timeStamp: number, delay: number) =>

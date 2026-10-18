@@ -6,6 +6,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 type ImplemtationGlobalStateTypes = globalState.ImplemtationGlobalStateTypes & {
   capturedClock?: number;
   capturedCompetitionClock?: number;
+  callRandomSource?: () => number;
 };
 
 const INVALID_VALUES = 'Invalid values';
@@ -102,6 +103,8 @@ export default {
   setCapturedClock,
   getCapturedCompetitionClock,
   setCapturedCompetitionClock,
+  getCallRandomSource,
+  setCallRandomSource,
   deleteNotice,
   deleteNotices,
   disableNotifications,
@@ -144,6 +147,20 @@ export function getCapturedCompetitionClock(): number | undefined {
 
 export function setCapturedCompetitionClock(timeStamp?: number) {
   getInstanceState().capturedCompetitionClock = timeStamp;
+}
+
+/**
+ * The random stream a seeded engine call (`nonRandom: <seed>`) scoped for the draws its seed does not reach through
+ * `random`, ids among them (factory tools/prng.ts `withCallRandomSource`, #5597(factory)). Per request, like the
+ * captured clock: the async engine awaits inside a call, so one request's seeded stream must never reach a request
+ * overlapping it. Without these hooks a seeded call on the server reproduces its placements but not its ids.
+ */
+export function getCallRandomSource(): (() => number) | undefined {
+  return asyncLocalStorage.getStore()?.callRandomSource;
+}
+
+export function setCallRandomSource(source?: () => number) {
+  getInstanceState().callRandomSource = source;
 }
 
 export function disableNotifications() {
