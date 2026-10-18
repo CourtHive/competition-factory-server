@@ -3,8 +3,8 @@ import { mocksEngine } from 'tods-competition-factory';
 import { ProviderKeyController } from './provider-key.controller';
 
 /**
- * A record posted with a provider key is migrated before it is saved. An integrator's hand-built draws (2026-10-18)
- * stored no `winnerMatchUpId` / `loserMatchUpId`, so no bracket could be drawn until a scored matchUp stored them.
+ * A record posted with a provider key is migrated before it is saved. A record built outside the factory may hold
+ * draws with no `winnerMatchUpId` / `loserMatchUpId`, and no bracket can be drawn until a scored matchUp stores them.
  */
 const PROVIDER_ID = 'provider-key-spec';
 
