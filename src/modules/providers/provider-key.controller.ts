@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { tournamentGovernor } from 'tods-competition-factory';
 
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
@@ -47,7 +58,10 @@ export class ProviderKeyController {
    */
   @Post('tournaments')
   @HttpCode(HttpStatus.OK)
-  async saveTournament(@Body() body: { tournamentRecord?: any; tournamentRecords?: Record<string, any> }, @Req() req: any) {
+  async saveTournament(
+    @Body() body: { tournamentRecord?: any; tournamentRecords?: Record<string, any> },
+    @Req() req: any,
+  ) {
     const authedProviderId: string = req.provider.providerId;
 
     const records = body.tournamentRecords
@@ -84,9 +98,10 @@ export class ProviderKeyController {
     }
 
     // A record built outside the factory is stored as the factory would have generated it. Its draws may carry no
-    // progression edges (`winnerMatchUpId` / `loserMatchUpId`), which every bracket view and the exit cascade read:
-    // an integrator's hand-built draws (2026-10-18) showed no bracket until a scored matchUp stored them. The migration
-    // gives them their edges and promotes legacy extensions to CODES attributes; a CODES record is left as it was.
+    // progression edges (`winnerMatchUpId` / `loserMatchUpId`), which every bracket view and the exit cascade read;
+    // without them no bracket is drawn until a scored matchUp stores them. The migration gives them their edges and
+    // promotes legacy extensions to CODES attributes; a CODES record is left as it was. A hand-built draw added through
+    // executionQueue gets its edges from `addDrawDefinition` instead (factory #5598).
     for (const record of Object.values(records)) {
       const migration: any = tournamentGovernor.migrateTournamentRecord({ tournamentRecord: record });
       if (migration?.error)
