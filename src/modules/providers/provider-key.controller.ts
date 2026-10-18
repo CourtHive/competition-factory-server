@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { tournamentGovernor } from 'tods-competition-factory';
 
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { FactoryService } from '../factory/factory.service';
@@ -80,6 +81,16 @@ export class ProviderKeyController {
           organisationId: authedProviderId,
         };
       }
+    }
+
+    // A record built outside the factory is stored as the factory would have generated it. Its draws may carry no
+    // progression edges (`winnerMatchUpId` / `loserMatchUpId`), which every bracket view and the exit cascade read:
+    // an integrator's hand-built draws (2026-10-18) showed no bracket until a scored matchUp stored them. The migration
+    // gives them their edges and promotes legacy extensions to CODES attributes; a CODES record is left as it was.
+    for (const record of Object.values(records)) {
+      const migration: any = tournamentGovernor.migrateTournamentRecord({ tournamentRecord: record });
+      if (migration?.error)
+        return { error: 'Tournament record could not be migrated', tournamentId: record?.tournamentId };
     }
 
     return this.factoryService.saveTournamentRecords({ tournamentRecords: records }, req.user, req.userContext);
