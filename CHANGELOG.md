@@ -1,5 +1,24 @@
 # Changelog
 
+## [4.4.0](https://github.com/CourtHive/competition-factory-server/compare/v4.3.0...v4.4.0) (2026-10-19)
+
+
+### Features
+
+* **engines:** per-request call random source hooks, so a seeded call mints the same ids ([#1061](https://github.com/CourtHive/competition-factory-server/issues/1061)) ([152c530](https://github.com/CourtHive/competition-factory-server/commit/152c53087e8087e014c268cb7acebd1932e75cf8))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.16.0 ([d4e1be1](https://github.com/CourtHive/competition-factory-server/commit/d4e1be10dfc1ab9609c43395c735132d9521f96a))
+* **engines:** a thrown factory method is a refusal, not an empty result ([#1058](https://github.com/CourtHive/competition-factory-server/issues/1058)) ([dbf687c](https://github.com/CourtHive/competition-factory-server/commit/dbf687c17d84c214dfca917c92f91cefbd0444bb))
+* **providers:** a record posted with a provider key is migrated before it is saved ([#1062](https://github.com/CourtHive/competition-factory-server/issues/1062)) ([5bb83bb](https://github.com/CourtHive/competition-factory-server/commit/5bb83bb8632c8c40b64cca38ea777e57173e04e4))
+
+
+### Documentation
+
+* **providers:** the provider-key migration comment no longer names an integrator's route ([#1063](https://github.com/CourtHive/competition-factory-server/issues/1063)) ([6f0662c](https://github.com/CourtHive/competition-factory-server/commit/6f0662ca17c98c929f46e136362545f5ca7aa359))
+
 ## [4.3.0](https://github.com/CourtHive/competition-factory-server/compare/v4.2.0...v4.3.0) (2026-10-17)
 
 
