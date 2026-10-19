@@ -23,7 +23,13 @@ function makeController() {
 function recordWithoutEdges() {
   const { tournamentRecord } = mocksEngine.generateTournamentRecord({
     drawProfiles: [{ drawSize: 8 }],
-    tournamentAttributes: { parentOrganisation: { organisationId: PROVIDER_ID } },
+    tournamentAttributes: {
+      parentOrganisation: {
+        organisationId: PROVIDER_ID,
+        organisationName: 'Provider',
+        organisationAbbreviation: 'PRV',
+      },
+    },
   });
   const matchUps = tournamentRecord.events[0].drawDefinitions[0].structures[0].matchUps;
   for (const matchUp of matchUps) delete matchUp.winnerMatchUpId;
