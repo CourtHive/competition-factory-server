@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
-import KeyvRedis from '@keyv/redis';
 import { Logger } from '@nestjs/common';
+import KeyvRedis from '@keyv/redis';
 import Keyv from 'keyv';
 
 import { KeyvStore } from './cache.module';
