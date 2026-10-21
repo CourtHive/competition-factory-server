@@ -1,7 +1,8 @@
 import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
-import { governors } from 'tods-competition-factory';
-import { SUPER_ADMIN } from 'src/common/constants/roles';
 import { sessionProviderId } from './actingProviderScope';
+import { SUPER_ADMIN } from 'src/common/constants/roles';
+import { BadRequestException } from '@nestjs/common';
+import { governors } from 'tods-competition-factory';
 
 // types
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
@@ -14,7 +15,13 @@ export async function generateTournamentRecord(mockProfile?: any, user?: any, us
   const genResult = await asyncGlobalState.runWithInstanceState(async () =>
     governors.mocksGovernor.generateTournamentRecord(mockProfile),
   );
-  if (!genResult || genResult.error) throw new Error(genResult?.error || 'Could not generate tournament record');
+  if (!genResult) throw new Error('Could not generate tournament record');
+  // a refusal is the caller's: a 400 that keeps the factory's reason. `new Error(genResult.error)` read
+  // "[object Object]" as a 500, so an unknown option (refused from factory 7.16.0) lost the name it reports
+  if (genResult.error) {
+    const { error, info, context } = genResult as any;
+    throw new BadRequestException({ message: error?.message ?? error, code: error?.code, info, context });
+  }
   const tournamentRecord: any = genResult.tournamentRecord;
 
   // The generated tournament belongs to the provider this SESSION acts for (MULTI_PROVIDER_CONTEXT_COMPLETION.md):
