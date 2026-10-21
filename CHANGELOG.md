@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.5.1](https://github.com/CourtHive/competition-factory-server/compare/v4.5.0...v4.5.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **factory:** a refused generate profile is a 400 that keeps the factory's reason ([#1074](https://github.com/CourtHive/competition-factory-server/issues/1074)) ([74b2e27](https://github.com/CourtHive/competition-factory-server/commit/74b2e2761e0d603ac40ea31b48f32c066555ae4b))
+
 ## [4.5.0](https://github.com/CourtHive/competition-factory-server/compare/v4.4.0...v4.5.0) (2026-10-21)
 
 
