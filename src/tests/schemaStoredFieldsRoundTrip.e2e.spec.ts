@@ -1,6 +1,7 @@
 import { mocksEngine, tournamentEngine, fixtures, factoryConstants } from 'tods-competition-factory';
 import { TEST_EMAIL, TEST_PASSWORD, testTournamentId } from '../common/constants/test';
 import tournamentSchema from 'tods-competition-factory/schema/tournament.schema.json';
+import asyncGlobalState from '../modules/factory/engines/asyncGlobalState';
 import { saveAndCommit } from './helpers/saveAndCommit';
 import { AppModule } from '../modules/app/app.module';
 import { INestApplication } from '@nestjs/common';
@@ -205,7 +206,8 @@ describe('a stored record validates against the published schema', () => {
 
   it('carries every stored field through executionQueue, save and fetch, and validates', async () => {
     const tournamentId = testTournamentId(__filename);
-    const { tournamentRecord, methods } = scenario(tournamentId);
+    // the scenario reads ids from a local engine; scope its state as the server scopes a request's
+    const { tournamentRecord, methods } = asyncGlobalState.runWithInstanceState(() => scenario(tournamentId));
     await saveAndCommit(app.getHttpServer(), token, tournamentRecord);
 
     // one call per method, as TMX sends them, so a refusal names its method
