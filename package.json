@@ -84,7 +84,7 @@
     "resend": "^6.0.0",
     "rxjs": "7.8.2",
     "socket.io": "4.8.4",
-    "tods-competition-factory": "7.16.0",
+    "tods-competition-factory": "7.17.0",
     "tslib": "^2.6.2"
   },
   "devDependencies": {
@@ -105,6 +105,8 @@
     "@typescript-eslint/eslint-plugin": "8.71.1",
     "@typescript-eslint/parser": "8.71.1",
     "@vitest/coverage-v8": "^5.0.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
     "eslint": "10.12.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.6",
