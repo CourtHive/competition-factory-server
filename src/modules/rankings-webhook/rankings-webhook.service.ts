@@ -20,6 +20,25 @@ import { Injectable, Logger } from '@nestjs/common';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_RETRIES = 3;
 
+/**
+ * Headers for a WRITE to courthive-rankings. Its ingest and snapshot routes
+ * require the shared secret as `X-Service-Token` (rankings' global guard, the
+ * same shape courthive-persons uses); its GETs are public and get none.
+ *
+ * Read at call time, not construction, so a rotated secret takes effect without
+ * a restart. Sending nothing when it is unset is deliberate and is what makes
+ * the rollout orderable: this ships first, and an unguarded rankings ignores
+ * the header. It does not make the write fail-open — rankings authorizes, and
+ * it refuses to boot without its own copy of the secret.
+ */
+function rankingsWriteHeaders(): Record<string, string> {
+  const token = process.env.RANKINGS_SERVICE_TOKEN;
+  return { 'Content-Type': 'application/json', ...(token ? { 'X-Service-Token': token } : {}) };
+}
+
+/** A 401 from rankings is a configuration fault on THIS side; say which variable. */
+const UNAUTHORIZED_HINT = 'rankings refused the service token — RANKINGS_SERVICE_TOKEN is unset or does not match';
+
 export interface WebhookResult {
   skipped?: boolean;
   ok?: boolean;
@@ -68,6 +87,16 @@ export class RankingsWebhookService {
         }
         lastError = `HTTP ${result.status}`;
         // Don't retry on 4xx — caller bug, retry won't help.
+        if (result.status === 401) {
+          this.logger.error(`rankings-webhook tournament=${tournamentId}: ${UNAUTHORIZED_HINT}`);
+          return {
+            ok: false,
+            status: 401,
+            error: UNAUTHORIZED_HINT,
+            responseBody: result.responseBody,
+            attempts: attempt,
+          };
+        }
         if (result.status && result.status >= 400 && result.status < 500) {
           this.logger.warn(`rankings-webhook 4xx tournament=${tournamentId} status=${result.status}; not retrying`);
           return { ok: false, status: result.status, responseBody: result.responseBody, attempts: attempt };
@@ -81,7 +110,9 @@ export class RankingsWebhookService {
       }
     }
 
-    this.logger.error(`rankings-webhook failed tournament=${tournamentId} after ${this.maxRetries} attempts: ${lastError}`);
+    this.logger.error(
+      `rankings-webhook failed tournament=${tournamentId} after ${this.maxRetries} attempts: ${lastError}`,
+    );
     return { ok: false, error: lastError, attempts: this.maxRetries };
   }
 
@@ -114,7 +145,7 @@ export class RankingsWebhookService {
     try {
       const response = await fetch(`${this.rankingsUrl}/rankings/snapshots`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: rankingsWriteHeaders(),
         body,
         signal: controller.signal,
       });
@@ -124,6 +155,10 @@ export class RankingsWebhookService {
         parsed = text ? JSON.parse(text) : undefined;
       } catch {
         // non-JSON body — keep raw text
+      }
+      if (response.status === 401) {
+        this.logger.error(`rankings snapshot asOfDate=${args.asOfDate}: ${UNAUTHORIZED_HINT}`);
+        return { ok: false, status: 401, error: UNAUTHORIZED_HINT, responseBody: parsed };
       }
       return { ok: response.ok, status: response.status, responseBody: parsed };
     } catch (err: any) {
@@ -168,7 +203,7 @@ export class RankingsWebhookService {
     try {
       const response = await fetch(`${this.rankingsUrl}/tournaments/ingest`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: rankingsWriteHeaders(),
         body,
         signal: controller.signal,
       });
