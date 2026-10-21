@@ -1,5 +1,20 @@
 # Changelog
 
+## [4.5.0](https://github.com/CourtHive/competition-factory-server/compare/v4.4.0...v4.5.0) (2026-10-21)
+
+
+### Features
+
+* **rankings-webhook:** send X-Service-Token on rankings writes ([#1069](https://github.com/CourtHive/competition-factory-server/issues/1069)) ([8bc62af](https://github.com/CourtHive/competition-factory-server/commit/8bc62afb49a860a630f9fb4fe0d4de7f4430f352))
+
+
+### Bug Fixes
+
+* **cache:** a Redis outage reads as a cache miss within a bound, not a hung request ([#1070](https://github.com/CourtHive/competition-factory-server/issues/1070)) ([caf62f7](https://github.com/CourtHive/competition-factory-server/commit/caf62f716f5dc5c0f382a645b7babd03c593eb92))
+* **deps:** update @keyv/redis and keyv to v6, and keep a Redis drop from killing the server ([#1067](https://github.com/CourtHive/competition-factory-server/issues/1067)) ([bdf651a](https://github.com/CourtHive/competition-factory-server/commit/bdf651a1f7c8d32ddc314f22d083f54b1a6e714d))
+* **deps:** update tods-competition-factory to 7.17.0, with a schema round-trip spec ([#1064](https://github.com/CourtHive/competition-factory-server/issues/1064)) ([e7a6837](https://github.com/CourtHive/competition-factory-server/commit/e7a683776521d50c1af818eb40df544eb75ebabc))
+* **deps:** update tods-competition-factory to 7.18.0 ([#1073](https://github.com/CourtHive/competition-factory-server/issues/1073)) ([f22a0ba](https://github.com/CourtHive/competition-factory-server/commit/f22a0ba024a588462eca7cc2ebd7a406b845f65b))
+
 ## [4.4.0](https://github.com/CourtHive/competition-factory-server/compare/v4.3.0...v4.4.0) (2026-10-19)
 
 
