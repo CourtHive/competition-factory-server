@@ -1,4 +1,5 @@
 import { generateTournamentRecord } from './generateTournamentRecord';
+import { BadRequestException } from '@nestjs/common';
 
 const ctx = (overrides: any = {}) => ({
   userId: 'u1',
@@ -47,5 +48,21 @@ describe('generateTournamentRecord — the tournament belongs to the provider th
       ctx({ isSuperAdmin: true, actingProviderId: 'a' }) as any,
     );
     expect(tournamentRecord.parentOrganisation.organisationId).toBe('named');
+  });
+});
+
+describe('generateTournamentRecord — a refused profile keeps its reason', () => {
+  it('an unknown option is a 400 naming the option, not "[object Object]"', async () => {
+    const attempt = generateTournamentRecord(
+      { drawProfiles: [{ drawSzie: 4 }] },
+      { roles: ['superadmin'] },
+      ctx({ isSuperAdmin: true, actingProviderId: 'a' }) as any,
+    );
+    await expect(attempt).rejects.toBeInstanceOf(BadRequestException);
+    const response: any = await attempt.catch((err) => err.getResponse());
+    expect(response).toMatchObject({
+      code: 'ERR_INVALID_VALUES',
+      context: { option: 'drawProfiles[0].drawSzie' },
+    });
   });
 });
