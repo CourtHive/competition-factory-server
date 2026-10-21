@@ -6,7 +6,7 @@
   "description": "Server side factory mutations",
   "license": "MIT",
   "engines": {
-    "node": ">=22.12"
+    "node": ">=24"
   },
   "scripts": {
     "build": "rimraf build && nest build -p tsconfig.build.json",

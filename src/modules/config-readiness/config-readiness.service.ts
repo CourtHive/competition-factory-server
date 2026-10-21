@@ -172,22 +172,23 @@ export class ConfigReadinessService implements OnApplicationBootstrap {
   }
 
   private checkNodeVersion(): ReadinessCheck {
-    // 22.12 rather than 22: NestJS 12 is ESM-only and this server is CommonJS, so it loads
-    // Nest through `require(esm)`, which is unflagged only from 22.12.0. Measured: 22.0 and
-    // 22.11 fail every Nest import with ERR_REQUIRE_ESM; 22.12, 24 and 26 load cleanly. A
-    // major-only check would call a server that cannot boot at all "ok".
-    const [major, minor] = process.version
+    // The ecosystem minimum is Node 24, the LTS line (CA 2026-10-21); Node 22 is
+    // maintenance-only and reaches end of life in April 2027. NestJS 12 is ESM-only and this
+    // server is CommonJS, so it loads Nest through `require(esm)`, which is unflagged
+    // throughout 24 (on 22 it needed 22.12: 22.0 and 22.11 failed every Nest import with
+    // ERR_REQUIRE_ESM). Keep this in step with package.json `engines.node`.
+    const [major] = process.version
       .replace(/^v/, '')
       .split('.')
       .map((part) => parseInt(part, 10));
-    if (major > 22 || (major === 22 && minor >= 12)) {
+    if (major >= 24) {
       return { name: 'node-version', level: 'INFO', status: 'ok', detail: process.version };
     }
     return {
       name: 'node-version',
       level: 'WARN',
       status: 'warn',
-      detail: `${process.version} is below the documented minimum (node >= 22.12, required by NestJS 12's ESM-only packaging)`,
+      detail: `${process.version} is below the documented minimum (node >= 24, the ecosystem LTS floor)`,
     };
   }
 
