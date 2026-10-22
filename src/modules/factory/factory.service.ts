@@ -17,6 +17,7 @@ import { computeEffectiveConfig } from '@courthive/provider-config';
 import { checkEngineError } from '../../common/errors/engineError';
 import { withTournamentLock } from 'src/services/tournamentMutex';
 import { validateL2 } from './helpers/validateTournamentRecord';
+import { gateDrawIntegrity } from './helpers/drawIntegrity';
 import { AssignmentsService } from './assignments.service';
 import { checkProvider } from './helpers/checkProvider';
 import { AuditService } from '../audit/audit.service';
@@ -494,6 +495,12 @@ export class FactoryService {
       }
     }
 
+    // DRAW INTEGRITY: L2 proves a record loads, not that its draws are consistent. `report` (the default) logs and
+    // saves; `enforce` refuses on an error-severity finding. See helpers/drawIntegrity.ts for why report is the default.
+    const integrityStartedAt = performance.now();
+    for (const [tid, record] of Object.entries(tournamentRecords)) gateDrawIntegrity(tid, record);
+    const integrityMs = performance.now() - integrityStartedAt;
+
     const validateMs = performance.now() - validateStartedAt;
 
     // Save directly — tournament must be available immediately for
@@ -532,7 +539,13 @@ export class FactoryService {
         // save the span (or its snapshot request) commits with the record.
         const snapshotStartedAt = performance.now();
         const deltas = await this.snapshotProjection.enqueueSnapshots({ tournamentRecords, source: 'factory-save' });
-        logWholesaleSave({ tournamentRecords, validateMs, snapshotMs: performance.now() - snapshotStartedAt, deltas });
+        logWholesaleSave({
+          tournamentRecords,
+          validateMs,
+          integrityMs,
+          snapshotMs: performance.now() - snapshotStartedAt,
+          deltas,
+        });
         return saveResult;
       }),
     );
@@ -699,11 +712,13 @@ export class FactoryService {
 function logWholesaleSave({
   tournamentRecords,
   validateMs,
+  integrityMs,
   snapshotMs,
   deltas,
 }: {
   tournamentRecords: Record<string, any>;
   validateMs: number;
+  integrityMs: number;
   snapshotMs: number;
   deltas: number;
 }) {
@@ -713,7 +728,7 @@ function logWholesaleSave({
   );
   Logger.log(
     `wholesale save tournaments=${Object.keys(tournamentRecords).length} bytes=${bytes} ` +
-      `validateMs=${validateMs.toFixed(1)} snapshotMs=${snapshotMs.toFixed(1)} deltas=${deltas} mode=${snapshotMode()}`,
+      `validateMs=${validateMs.toFixed(1)} integrityMs=${integrityMs.toFixed(1)} snapshotMs=${snapshotMs.toFixed(1)} deltas=${deltas} mode=${snapshotMode()}`,
     'WholesaleSave',
   );
 }
