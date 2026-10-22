@@ -4,6 +4,7 @@ import { SnapshotProjectionService } from './projection/snapshot-projection.serv
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { FactoryService } from './factory.service';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
+import { mocksEngine } from 'tods-competition-factory';
 
 const SUPER_ADMIN_USER = { roles: [SUPER_ADMIN], email: 'sa@test.com', userId: 'u-1' };
 
@@ -143,7 +144,9 @@ describe('FactoryService.saveTournamentRecords L2 validation gate', () => {
 
       const lines = log.mock.calls.filter(([, context]) => context === 'WholesaleSave');
       expect(lines).toHaveLength(1);
-      expect(lines[0][0]).toMatch(/tournaments=1 bytes=\d+ validateMs=[\d.]+ snapshotMs=[\d.]+ deltas=0 mode=inline/);
+      expect(lines[0][0]).toMatch(
+        /tournaments=1 bytes=\d+ validateMs=[\d.]+ integrityMs=[\d.]+ snapshotMs=[\d.]+ deltas=0 mode=inline/,
+      );
     } finally {
       log.mockRestore();
     }
@@ -166,5 +169,78 @@ describe('FactoryService.saveTournamentRecords L2 validation gate', () => {
     const { svc } = makeFactoryService();
     const result = await svc.saveTournamentRecords({ tournamentRecord: makeValidRecord() }, {});
     expect(result.error).toBe('Invalid user');
+  });
+});
+
+// DRAW INTEGRITY on the wholesale save (helpers/drawIntegrity.ts). A WINNER/LOSER link without source.roundNumber passes
+// validateL2; only the integrity scan sees it. `report` (the default) must still save it, because records already in
+// production may carry such findings; `enforce` must refuse it before anything is written.
+describe('FactoryService.saveTournamentRecords draw-integrity gate', () => {
+  const previousMode = process.env.DRAW_INTEGRITY_MODE;
+  let warn: any;
+
+  function corruptedRecord() {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 16, drawType: 'FIRST_MATCH_LOSER_CONSOLATION' }],
+      nonRandom: 1,
+    });
+    const record: any = structuredClone(tournamentRecord);
+    const link = record.events[0].drawDefinitions[0].links.find((l: any) => l.linkType === 'LOSER');
+    delete link.source.roundNumber;
+    return record;
+  }
+
+  beforeEach(() => {
+    delete process.env.DRAW_INTEGRITY_MODE;
+    warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+  });
+  afterEach(() => warn.mockRestore());
+  afterAll(() => {
+    if (previousMode === undefined) delete process.env.DRAW_INTEGRITY_MODE;
+    else process.env.DRAW_INTEGRITY_MODE = previousMode;
+  });
+
+  it('report (default): persists the record and logs one structured DrawIntegrity WARN naming it', async () => {
+    const { svc, tournamentStorageService } = makeFactoryService();
+    const record = corruptedRecord();
+
+    const result = await svc.saveTournamentRecords({ tournamentRecord: record }, SUPER_ADMIN_USER);
+    expect(result.success).toBe(true);
+    expect(tournamentStorageService.saveTournamentRecords).toHaveBeenCalledTimes(1);
+
+    const lines = warn.mock.calls.filter(([, context]) => context === 'DrawIntegrity');
+    expect(lines).toHaveLength(1);
+    const payload = JSON.parse(lines[0][0]);
+    expect(payload).toMatchObject({ event: 'draw-integrity', mode: 'report', tournamentId: record.tournamentId });
+    expect(payload.issueTypes).toContain('LINK_MISSING_SOURCE_ROUND');
+  });
+
+  it('enforce: refuses the record with a 400 naming the issue, and persists nothing', async () => {
+    process.env.DRAW_INTEGRITY_MODE = 'enforce';
+    const { svc, tournamentStorageService } = makeFactoryService();
+    const record = corruptedRecord();
+
+    let thrown: any;
+    try {
+      await svc.saveTournamentRecords({ tournamentRecord: record }, SUPER_ADMIN_USER);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(BadRequestException);
+    expect(thrown.getResponse().validationErrors.join(' ')).toContain('LINK_MISSING_SOURCE_ROUND');
+    expect(tournamentStorageService.saveTournamentRecords).not.toHaveBeenCalled();
+  });
+
+  it('enforce: persists an uncorrupted record with draws', async () => {
+    process.env.DRAW_INTEGRITY_MODE = 'enforce';
+    const { svc, tournamentStorageService } = makeFactoryService();
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      drawProfiles: [{ drawSize: 16, drawType: 'FIRST_MATCH_LOSER_CONSOLATION' }],
+      nonRandom: 1,
+    });
+
+    const result = await svc.saveTournamentRecords({ tournamentRecord }, SUPER_ADMIN_USER);
+    expect(result.success).toBe(true);
+    expect(tournamentStorageService.saveTournamentRecords).toHaveBeenCalledTimes(1);
   });
 });
