@@ -77,7 +77,7 @@ describe('ConfigReadinessService', () => {
     process.env.CFS_IMPORT_BODY_LIMIT = '64 megs';
     const c = get('import-body-limit');
     expect(c.level).toBe('WARN');
-    expect(c.detail).toMatch(/'64 megs' is not a size; the default 64mb is in force/);
+    expect(c.detail).toMatch(/'64 megs' is not a size; the app limit 8mb is in force on the import routes/);
   });
 
   it('flags an unset JWT_SECRET as CRITICAL', () => {

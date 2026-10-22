@@ -146,7 +146,7 @@ export class ConfigReadinessService implements OnApplicationBootstrap {
       name,
       level: 'WARN',
       status: 'warn',
-      detail: `${IMPORT_BODY_LIMIT_ENV}='${invalid}' is not a size; the default ${limit} is in force`,
+      detail: `${IMPORT_BODY_LIMIT_ENV}='${invalid}' is not a size; the app limit ${limit} is in force on the import routes`,
     };
   }
 

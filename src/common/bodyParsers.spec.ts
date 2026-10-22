@@ -87,7 +87,8 @@ describe('resolveImportBodyLimit', () => {
     expect(resolveImportBodyLimit(raw)).toEqual({ limit: raw });
   });
 
-  it.each(['64 megs', 'mb', '-1mb', 'lots'])('falls back to the default, naming %s as invalid', (raw) => {
-    expect(resolveImportBodyLimit(raw)).toEqual({ limit: '64mb', invalid: raw });
+  // fails closed: a value that is not a size gets the app limit, not the larger default
+  it.each(['64 megs', 'mb', '-1mb', 'lots'])('falls back to the 8mb app limit, naming %s as invalid', (raw) => {
+    expect(resolveImportBodyLimit(raw)).toEqual({ limit: '8mb', invalid: raw });
   });
 });

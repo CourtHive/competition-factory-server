@@ -17,7 +17,8 @@ import { json } from 'body-parser';
  *
  * The import limit is read from `process.env` like `CFS_CORS_ORIGINS` (src/common/cors.ts): it must be in the real
  * process environment (PM2 `ecosystem.config.js` or the shell). A value body-parser cannot read falls back to the
- * default, is logged at boot, and is flagged by the config-readiness check — loudly, without taking the server down.
+ * APP limit, not the larger default — a misconfiguration fails closed (CA, 2026-10-22) — is logged at boot, and is
+ * flagged by the config-readiness check, loudly, without taking the server down.
  */
 
 export const IMPORT_BODY_LIMIT_ENV = 'CFS_IMPORT_BODY_LIMIT';
@@ -33,7 +34,7 @@ export type ImportBodyLimit = { limit: string; invalid?: string };
 export function resolveImportBodyLimit(raw: string | undefined = process.env[IMPORT_BODY_LIMIT_ENV]): ImportBodyLimit {
   const trimmed = (raw ?? '').trim();
   if (!trimmed) return { limit: DEFAULT_IMPORT_BODY_LIMIT };
-  if (!BYTES_PATTERN.test(trimmed)) return { limit: DEFAULT_IMPORT_BODY_LIMIT, invalid: trimmed };
+  if (!BYTES_PATTERN.test(trimmed)) return { limit: APP_BODY_LIMIT, invalid: trimmed };
   return { limit: trimmed };
 }
 
