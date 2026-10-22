@@ -66,6 +66,20 @@ describe('ConfigReadinessService', () => {
     }
   });
 
+  it('reports the import body limit, defaulting when unset', () => {
+    delete process.env.CFS_IMPORT_BODY_LIMIT;
+    const c = get('import-body-limit');
+    expect(c.status).toBe('ok');
+    expect(c.detail).toMatch(/^64mb on \/provider-key\/tournaments, \/factory\/save$/);
+  });
+
+  it('warns, naming the value, when CFS_IMPORT_BODY_LIMIT is not a size', () => {
+    process.env.CFS_IMPORT_BODY_LIMIT = '64 megs';
+    const c = get('import-body-limit');
+    expect(c.level).toBe('WARN');
+    expect(c.detail).toMatch(/'64 megs' is not a size; the app limit 8mb is in force on the import routes/);
+  });
+
   it('flags an unset JWT_SECRET as CRITICAL', () => {
     delete process.env.JWT_SECRET;
     const c = get('JWT_SECRET');

@@ -3,11 +3,11 @@ import { TEST_EMAIL, TEST_PASSWORD, testTournamentId } from '../common/constants
 import tournamentSchema from 'tods-competition-factory/schema/tournament.schema.json';
 import asyncGlobalState from '../modules/factory/engines/asyncGlobalState';
 import { saveAndCommit } from './helpers/saveAndCommit';
+import { applyBodyParsers } from '../common/bodyParsers';
 import { AppModule } from '../modules/app/app.module';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import addFormats from 'ajv-formats';
-import { json } from 'body-parser';
 import request from 'supertest';
 import Ajv from 'ajv';
 
@@ -190,8 +190,8 @@ describe('a stored record validates against the published schema', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
-    // main.ts raises the body limit for whole-record saves; the testing module does not run main.ts
-    app.use(json({ limit: '8mb' }));
+    // the testing module does not run main.ts; mount the same body parsers it does
+    applyBodyParsers(app);
     await app.init();
     const login = await request(app.getHttpServer())
       .post('/auth/login')

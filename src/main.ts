@@ -13,8 +13,8 @@ import { canAccessApiDocs } from './common/auth/canAccessApiDocs';
 import { CSP_REPORT_PATH, cspReportParser } from './modules/telemetry/csp-report.parser';
 import { UsersService } from './modules/users/users.service';
 import { COMPETITION_CLOCK_ENV, configureCompetitionClock } from './modules/factory/engines/competitionClockConfig';
+import { applyBodyParsers, IMPORT_BODY_LIMIT_ENV, resolveImportBodyLimit } from './common/bodyParsers';
 import compression from 'compression';
-import { json } from 'body-parser';
 
 // constants and interfaces
 import {
@@ -67,7 +67,13 @@ async function bootstrap() {
   */
   app.use(compression());
   app.use(CSP_REPORT_PATH, cspReportParser()); // before the app-wide parser, which ignores report types
-  app.use(json({ limit: '8mb' }));
+  const importBodyLimit = resolveImportBodyLimit();
+  if (importBodyLimit.invalid) {
+    new Logger('BodyParsers').error(
+      `${IMPORT_BODY_LIMIT_ENV}='${importBodyLimit.invalid}' is not a size; using ${importBodyLimit.limit}`,
+    );
+  }
+  applyBodyParsers(app, importBodyLimit.limit);
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Competition Factory Server API')
