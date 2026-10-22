@@ -13,6 +13,7 @@ import {
   buildParticipantPrivacyPolicy,
   publicParticipantPrivacyPolicy,
   resolvePublicParticipantPolicy,
+  PUBLIC_TEAM_TEMPLATE,
 } from './participantPrivacyPolicy';
 
 const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PARTICIPANT;
@@ -40,6 +41,11 @@ function storageWith({ cityState, sex }: { cityState?: boolean; sex?: boolean })
     }),
   };
 }
+
+const participantBlocks = (policy: any) => [
+  policy[POLICY_TYPE_PARTICIPANT].participant,
+  policy[POLICY_TYPE_PARTICIPANT].participant.individualParticipants,
+];
 
 const personBlocks = (policy: any) => [
   policy[POLICY_TYPE_PARTICIPANT].participant.person,
@@ -83,6 +89,8 @@ describe('resolvePublicParticipantPolicy', () => {
     const policy = await resolvePublicParticipantPolicy({ tournamentRecord, providerStorage });
     expect(policy[POLICY_TYPE_PARTICIPANT].policyName).toBe('Attached');
     expect(providerStorage.getProvider).not.toHaveBeenCalled();
+    // returned as the provider chose it: `teams` is not added to an attached policy
+    expect(policy).toEqual(attached);
   });
 
   it('does NOT open a settings-tier toggle declared on caps, or vice versa', async () => {
@@ -143,6 +151,20 @@ describe('resolvePublicParticipantPolicy', () => {
     expect(JSON.stringify(fixtures.policies.POLICY_PRIVACY_DEFAULT)).toBe(before);
   });
 
+  it('never mutates the shared fixture when a caller changes the policy it was handed', () => {
+    const before = JSON.stringify(fixtures.policies.POLICY_PRIVACY_DEFAULT);
+    const policy = buildParticipantPrivacyPolicy({ cityState: true, sex: true } as any);
+    for (const block of participantBlocks(policy)) {
+      block.teams.participantName = false;
+      block.teams.contacts = true;
+    }
+    expect(JSON.stringify(fixtures.policies.POLICY_PRIVACY_DEFAULT)).toBe(before);
+    const fixture: any = fixtures.policies.POLICY_PRIVACY_DEFAULT;
+    expect(fixture[POLICY_TYPE_PARTICIPANT].participant.teams).toBeUndefined();
+    expect(fixture[POLICY_TYPE_PARTICIPANT].participant.individualParticipants.teams).toBeUndefined();
+    expect(participantBlocks(publicParticipantPrivacyPolicy())[0].teams).toEqual(PUBLIC_TEAM_TEMPLATE);
+  });
+
   it('returns an independent copy per call', async () => {
     const a = await resolvePublicParticipantPolicy({ tournamentRecord: {} });
     const b = await resolvePublicParticipantPolicy({ tournamentRecord: {} });
@@ -169,5 +191,48 @@ describe('buildParticipantPrivacyPolicy — both person blocks or none', () => {
       expect(person.sex).toBe(false);
       expect(person.addresses).toBe(false);
     }
+  });
+});
+
+describe('teams: a school is public, in both participant blocks, under every provider toggle', () => {
+  // courthive-components `renderTeam` reads `individualParticipant.teams[0].participantName`. Without
+  // `teams` in the policy the factory's attribute filter drops it and the public draw shows a blank line
+  // where the school belongs (0 of 138 INDIVIDUALs on a live ITA regional).
+  it('the default public policy opens the limited team shape in both blocks', () => {
+    for (const block of participantBlocks(publicParticipantPrivacyPolicy())) {
+      expect(block.teams).toEqual({
+        participantId: true,
+        participantName: true,
+        participantOtherName: true,
+        participantType: true,
+      });
+    }
+  });
+
+  it.each([
+    ['no toggles', undefined],
+    ['{}', {}],
+    ['{ sex: true }', { sex: true }],
+    ['{ cityState: true }', { cityState: true }],
+    ['both', { sex: true, cityState: true }],
+  ])('survives buildParticipantPrivacyPolicy with %s', (_label, privacy) => {
+    const policy = buildParticipantPrivacyPolicy(privacy as any);
+    for (const block of participantBlocks(policy)) expect(block.teams).toEqual(PUBLIC_TEAM_TEMPLATE);
+  });
+
+  it('never names team contacts, online resources, members or person data', () => {
+    for (const forbidden of [
+      'contacts',
+      'onlineResources',
+      'individualParticipantIds',
+      'person',
+      'participantRoleResponsibilities',
+    ]) {
+      expect(Object.keys(PUBLIC_TEAM_TEMPLATE)).not.toContain(forbidden);
+    }
+  });
+
+  it('opening teams leaves person.sex closed by default', () => {
+    for (const person of personBlocks(publicParticipantPrivacyPolicy())) expect(person.sex).toBe(false);
   });
 });

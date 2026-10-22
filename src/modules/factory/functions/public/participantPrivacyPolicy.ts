@@ -24,8 +24,15 @@ const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PAR
  * `participantsProfile.withSeeding`, which no route here requests, and `getDrawData` / `getStructureData`
  * emit none under any policy.
  *
- * ⚠️ `person.sex` and `teams` are a different case — do NOT read their removal as "nobody needs this".
- * Removing them is safe *today*: the only consumer is courthive-public's name colouring, which loses a
+ * `teams` came back on the copy (2026-10-22). Its removal blanked every public "participant detail: TEAM" line:
+ * courthive-components `renderTeam` reads `individualParticipant.teams[0].participantName`, the factory attaches
+ * `teams` under `withGroupings`, and the default has no `teams` key, so the filter dropped it. Measured on a live
+ * ITA regional: 0 of 138 INDIVIDUALs carried `teams` through `/factory/eventdata`. A school or team name is not
+ * private, and the TEAM participants themselves are already public, so it is opened for every provider. Each
+ * element is limited to `PUBLIC_TEAM_TEMPLATE`, never the team's contacts or members. See `withPublicTeams`.
+ *
+ * ⚠️ `person.sex` is a different case. Do NOT read its removal as "nobody needs this".
+ * Removing it is safe *today*: the only consumer is courthive-public's name colouring, which loses a
  * tint, and the ITA duals carry no `person.sex` at all (`courthive-ingest/packages/ingest-runner/scripts/dual-to-codes.mjs:168`
  * builds a person with `personId` and the two standard names, never `sex`). But the ITA **requires**
  * gender to pass through, so it has to come back — as a **provider-scoped policy**, never as a global
@@ -39,7 +46,32 @@ const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PAR
  * first place. See `Mentat/planning/ITA_GENDER_AND_PRIVACY_POLICY.md`.
  */
 export function publicParticipantPrivacyPolicy(): any {
-  return structuredClone(fixtures.policies.POLICY_PRIVACY_DEFAULT);
+  return withPublicTeams(structuredClone(fixtures.policies.POLICY_PRIVACY_DEFAULT));
+}
+
+/**
+ * What a public reader sees of each team an individual belongs to. The factory's `withGroupings` entry is
+ * `{ participantId, participantName, participantOtherName, participantRoleResponsibilities, teamId }`, and
+ * `attributeFilter` applies an object template to every element of an array, so anything not named here is
+ * dropped from each element. `participantType` is named for a richer entry; it is absent today.
+ */
+export const PUBLIC_TEAM_TEMPLATE = Object.freeze({
+  participantId: true,
+  participantName: true,
+  participantOtherName: true,
+  participantType: true,
+});
+
+/**
+ * Open `teams` in BOTH participant blocks of a policy copy: the top-level `participant` (a singles
+ * INDIVIDUAL) and `participant.individualParticipants` (the members of a PAIR or TEAM, so a doubles player
+ * gets a school too). Every caller passes a fresh copy, never the shared fixture.
+ */
+function withPublicTeams(policy: any): any {
+  const template = policy?.[POLICY_TYPE_PARTICIPANT]?.participant;
+  const blocks = [template, template?.individualParticipants].filter(Boolean);
+  for (const block of blocks) block.teams = { ...PUBLIC_TEAM_TEMPLATE };
+  return policy;
 }
 
 /**
@@ -61,7 +93,7 @@ export function publicParticipantPrivacyPolicy(): any {
  * 1. A policy ATTACHED to the tournamentRecord wins. It is stamped at creation and by
  *    "apply to existing", and it is the provider's explicit selection.
  * 2. Otherwise the provider's `participantPrivacy` toggles build a variant ON A COPY.
- * 3. Otherwise the shipped default, which strips.
+ * 3. Otherwise the shipped default, which strips (except `teams`, which every public route opens).
  *
  * **Fails closed at every branch.** An unresolvable provider, a storage that was not
  * passed, or a thrown lookup all fall through to the default — the strictest option.
@@ -85,8 +117,10 @@ export async function resolvePublicParticipantPolicy({
   if (providerId && providerStorage) {
     try {
       const provider: any = await providerStorage.getProvider(providerId);
-      privacy = computeEffectiveConfig(provider?.providerConfigCaps, provider?.providerConfigSettings)
-        ?.participantPrivacy;
+      privacy = computeEffectiveConfig(
+        provider?.providerConfigCaps,
+        provider?.providerConfigSettings,
+      )?.participantPrivacy;
     } catch {
       // Fall through to the default-strict policy. Never widen on failure.
     }
