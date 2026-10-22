@@ -1,4 +1,5 @@
 import { COMPETITION_CLOCK_ENV, getPinnedCompetitionClock } from '../factory/engines/competitionClockConfig';
+import { IMPORT_BODY_LIMIT_ENV, IMPORT_ROUTES, resolveImportBodyLimit } from '../../common/bodyParsers';
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 
 /**
@@ -132,7 +133,21 @@ export class ConfigReadinessService implements OnApplicationBootstrap {
         warningWhenMissing: 'Outbound email is disabled until set.',
       }),
       this.checkNodeVersion(),
+      this.checkImportBodyLimit(),
     ];
+  }
+
+  /** The body limit on the record-import routes (src/common/bodyParsers.ts); a value that is not a size is ignored. */
+  private checkImportBodyLimit(): ReadinessCheck {
+    const { limit, invalid } = resolveImportBodyLimit();
+    const name = 'import-body-limit';
+    if (!invalid) return { name, level: 'INFO', status: 'ok', detail: `${limit} on ${IMPORT_ROUTES.join(', ')}` };
+    return {
+      name,
+      level: 'WARN',
+      status: 'warn',
+      detail: `${IMPORT_BODY_LIMIT_ENV}='${invalid}' is not a size; the default ${limit} is in force`,
+    };
   }
 
   private checkRequiredEnv(
