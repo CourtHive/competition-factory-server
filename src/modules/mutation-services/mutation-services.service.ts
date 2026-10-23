@@ -1,3 +1,4 @@
+import { DrawIntegrityFindingsService } from '../factory/helpers/drawIntegrityFindings';
 import { CommandReceipts } from 'src/storage/postgres/commandReceipts';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
@@ -40,6 +41,9 @@ export class MutationServicesService {
     @Inject(PROJECTION_OUTBOX_STORAGE) private readonly projectionOutbox: IProjectionOutboxStorage,
     private readonly loadProfile: LoadProfileService,
     @Optional() private readonly commandReceipts?: CommandReceipts,
+    // Optional only so specs can build the bag positionally; MutationServicesModule always provides it. Absent, the
+    // draw-integrity scan still logs and simply persists nothing.
+    @Optional() private readonly drawIntegrityFindings?: DrawIntegrityFindingsService,
   ) {}
 
   /**
@@ -52,6 +56,7 @@ export class MutationServicesService {
       projectionOutbox: this.projectionOutbox,
       commandReceipts: this.commandReceipts,
       loadProfile: this.loadProfile,
+      drawIntegrityFindings: this.drawIntegrityFindings,
       ...requestScoped,
     };
   }

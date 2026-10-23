@@ -284,7 +284,8 @@ export async function executionQueue(
     // After the lock is released and the response is built: the scans run on later turns of the event loop, so
     // nothing here waits on them and nothing they do can reach this request. REPORT ONLY on this path, whatever
     // DRAW_INTEGRITY_MODE says (`enforce` governs the wholesale save; enforcing here is a separate decision).
-    scheduleDrawIntegrityScan(integrityBatch);
+    // Changes in a draw's finding set are also persisted (draw_integrity_findings) when the bag carries the writer.
+    scheduleDrawIntegrityScan(integrityBatch, services?.drawIntegrityFindings);
 
     return {
       ...mutationResult,

@@ -81,3 +81,11 @@ export {
   type ProjectionDelta,
   type SnapshotRequest,
 } from './projection-outbox-storage.interface';
+export {
+  DRAW_INTEGRITY_FINDINGS_STORAGE,
+  type IDrawIntegrityFindingsStorage,
+  type DrawIntegrityFindingRow,
+  type DrawIntegrityFindingEvent,
+  type DrawOpenFindings,
+  type OpenDrawFinding,
+} from './draw-integrity-findings-storage.interface';

@@ -1,7 +1,9 @@
 import { drawIntegrityMode, integrityReportPayload, toIntegrityIssue } from './drawIntegrity';
 import { queryGovernor, topicConstants } from 'tods-competition-factory';
+import { createHash } from 'node:crypto';
 import { Logger } from '@nestjs/common';
 
+import type { DrawIntegrityFindingRow, DrawOpenFindings, OpenDrawFinding } from 'src/storage/interfaces';
 import type { DrawIntegrityResult, IntegrityIssue } from './drawIntegrity';
 
 /**
@@ -26,8 +28,16 @@ import type { DrawIntegrityResult, IntegrityIssue } from './drawIntegrity';
  * (one LOG line per tracked draw, not one per mutation). The first scan of a draw has no baseline, so its
  * error-severity findings are logged once as `baseline` — a broken draw is still visible — and then tracked.
  *
- * A4: the LRU is in-memory and resets on restart, deliberately. The cost of losing it is one `baseline` line per
- * draw on its next mutation after a restart, never a missed `introduced` line for a draw scanned since.
+ * PERSISTED (migration 056). When the caller passes a `DrawIntegrityFindingsSink` (the server does, through the
+ * executionQueue services bag), every CHANGE in a draw's finding set is also written to `draw_integrity_findings` —
+ * `baseline`, `introduced` and `resolved` rows, never one per scan — so Grafana can chart and alert on them. The
+ * structured log lines are unchanged and stay the human trail.
+ *
+ * A4: the LRU is in-memory, and with a sink it no longer decides `baseline` on its own. A draw it does not hold —
+ * after a restart, a deploy or an eviction — has its open set read back from the table first (`seedDraw`), so only a
+ * draw the table has never recorded is a `baseline`. One gap remains by construction: a draw whose every scan so far
+ * was CLEAN has no row, so after a restart its first findings read as `baseline`, not `introduced`. Without a sink
+ * (unit specs, any caller not wired) the LRU behaves as before: one `baseline` line per draw after a restart.
  *
  * NB: these fingerprints are DRAW-scope (`getDrawInconsistencies` stamps drawId, not eventId/tournamentId), so they
  * are not comparable with the fingerprints in the wholesale-save lines, which come from the tournament scan.
@@ -60,6 +70,17 @@ export interface DrawScanTarget {
    * baseline line would hide that this mutation is what put it there.
    */
   added?: boolean;
+}
+
+/**
+ * Where finding-set changes go, and where a forgotten draw's open set comes back from. Implemented by
+ * `DrawIntegrityFindingsService` (drawIntegrityFindings.ts) over `draw_integrity_findings`.
+ */
+export interface DrawIntegrityFindingsSink {
+  /** Queue rows for writing. Synchronous, non-throwing and bounded: it never waits on the database. */
+  record(rows: DrawIntegrityFindingRow[]): void;
+  /** The draw's open set as last persisted. May reject or time out; the scan then falls back to `baseline`. */
+  loadOpen(tournamentId: string, drawId: string): Promise<DrawOpenFindings>;
 }
 
 export interface DrawIntegrityBatch {
@@ -172,7 +193,8 @@ function methodNames(methods?: any[]): string[] {
 // ── fingerprint memory (LRU) ─────────────────────────────────────────────────────────────────────────────────────
 
 interface DrawMemory {
-  fingerprints: Set<string>;
+  /** The draw's last finding set, by fingerprint; the detail is what a `resolved` row records. */
+  fingerprints: Map<string, OpenDrawFinding>;
   /** The pre-existing line has been logged for this draw; it is not repeated while the draw stays tracked and broken. */
   preExistingLogged: boolean;
 }
@@ -181,6 +203,12 @@ interface DrawMemory {
 const memory = new Map<string, DrawMemory>();
 
 const memoryKey = (tournamentId: string | undefined, drawId: string) => `${tournamentId ?? ''}:${drawId}`;
+
+/**
+ * Draws whose open set is being read back from the findings table. A later scan of the same draw chains behind the
+ * read, so scans of one draw still classify in mutation order (see scheduleDrawIntegrityScan).
+ */
+const seeding = new Map<string, Promise<void>>();
 
 function recall(key: string): DrawMemory | undefined {
   const entry = memory.get(key);
@@ -220,6 +248,8 @@ function forgetDraw(tournamentId: string | undefined, drawId: string) {
  */
 const stats = {
   scans: 0,
+  seeded: 0,
+  seedFailures: 0,
   introduced: 0,
   preExisting: 0,
   baseline: 0,
@@ -229,17 +259,20 @@ const stats = {
 };
 let pendingScans = 0;
 let failingSince = 0;
+let seedFailingSince = 0;
 
 export function drawIntegrityScanStats() {
-  return { ...stats, pending: pendingScans, tracked: memory.size };
+  return { ...stats, pending: pendingScans, tracked: memory.size, seeding: seeding.size };
 }
 
 /** Test seam: forget every remembered draw and zero the counters. */
 export function resetDrawIntegrityMemory() {
   memory.clear();
+  seeding.clear();
   for (const key of Object.keys(stats) as (keyof typeof stats)[]) stats[key] = 0;
   pendingScans = 0;
   failingSince = 0;
+  seedFailingSince = 0;
 }
 
 /** First failure, then 10, 100, 1000 …, then every 50th: an operator sees the class without the spam. */
@@ -272,6 +305,37 @@ function recordScanSuccess() {
     CONTEXT,
   );
   failingSince = 0;
+}
+
+/** A seed read that failed: counted and throttled like scan failures (A2), with its own recovery line. */
+function recordSeedFailure(message: string, target: DrawScanTarget) {
+  stats.seedFailures += 1;
+  seedFailingSince += 1;
+  if (!shouldLogCount(stats.seedFailures)) return;
+  Logger.warn(
+    JSON.stringify({
+      event: 'draw-integrity-seed-failed',
+      source: 'executionQueue',
+      seedFailures: stats.seedFailures,
+      message,
+      tournamentId: target.tournamentId,
+      drawId: target.drawId,
+    }),
+    CONTEXT,
+  );
+}
+
+function recordSeedSuccess() {
+  if (!seedFailingSince) return;
+  Logger.warn(
+    JSON.stringify({
+      event: 'draw-integrity-seed-recovered',
+      source: 'executionQueue',
+      afterFailures: seedFailingSince,
+    }),
+    CONTEXT,
+  );
+  seedFailingSince = 0;
 }
 
 function recordShed(batch: DrawIntegrityBatch, target: DrawScanTarget) {
@@ -344,10 +408,74 @@ function logFinding({
 }
 
 /**
+ * A finding the factory could not fingerprint is identified by everything that locates it instead. Hashed, because
+ * that includes the factory's message, and the identity is persisted (migration 056 stores no message).
+ */
+function fingerprintOf(issue: IntegrityIssue) {
+  if (issue.fingerprint) return issue.fingerprint;
+  const located = [issue.issueType, issue.structureId, issue.matchUpId, issue.message].map((part) => part ?? '');
+  return `unfingerprinted:${createHash('sha256').update(located.join('|')).digest('hex').slice(0, 32)}`;
+}
+
+function findingOf(issue: IntegrityIssue): OpenDrawFinding {
+  return {
+    fingerprint: fingerprintOf(issue),
+    code: issue.issueType,
+    severity: issue.severity,
+    structureId: issue.structureId,
+    matchUpId: issue.matchUpId,
+  };
+}
+
+/** The rows one scan's change produces. Empty when nothing changed: a scan alone never writes. */
+function changeRows({
+  target,
+  methods,
+  baseline,
+  introduced,
+  resolved,
+}: {
+  target: DrawScanTarget;
+  methods: string[];
+  baseline: OpenDrawFinding[];
+  introduced: OpenDrawFinding[];
+  resolved: OpenDrawFinding[];
+}): DrawIntegrityFindingRow[] {
+  const observedAt = new Date().toISOString();
+  const row = (event: DrawIntegrityFindingRow['event'], finding: OpenDrawFinding): DrawIntegrityFindingRow => ({
+    tournamentId: target.tournamentId,
+    drawId: target.drawId,
+    event,
+    ...finding,
+    methods,
+    observedAt,
+  });
+  return [
+    ...baseline.map((finding) => row('baseline', finding)),
+    ...introduced.map((finding) => row('introduced', finding)),
+    ...resolved.map((finding) => row('resolved', finding)),
+  ];
+}
+
+/** Hand a scan's change to the sink. The sink is non-throwing by contract; this guards the contract anyway. */
+function persist(findings: DrawIntegrityFindingsSink | undefined, rows: DrawIntegrityFindingRow[]) {
+  if (!findings || !rows.length) return;
+  try {
+    findings.record(rows);
+  } catch (err: any) {
+    recordScanFailure(`findings sink threw: ${err?.message ?? String(err)}`);
+  }
+}
+
+/**
  * Scan one draw and diff its findings against what this process last saw for it. Exported for the unit spec; the
  * mutation path reaches it only through `scheduleDrawIntegrityScan`. Never throws.
+ *
+ * With `findings`, a change in the set is also recorded there: every finding of a first-ever scan as `baseline`
+ * (all severities — the seed must hold warnings too, or a restart would report them as introduced), each new one as
+ * `introduced`, each one gone as `resolved`.
  */
-export function scanDraw(target: DrawScanTarget, methods: string[]) {
+export function scanDraw(target: DrawScanTarget, methods: string[], findings?: DrawIntegrityFindingsSink) {
   try {
     const startedAt = performance.now();
     let result: any;
@@ -374,15 +502,14 @@ export function scanDraw(target: DrawScanTarget, methods: string[]) {
     recordScanSuccess();
 
     const issues: IntegrityIssue[] = result.inconsistencies.map(toIntegrityIssue);
-    // A finding the factory could not fingerprint is identified by everything that locates it instead.
-    const fingerprintOf = (issue: IntegrityIssue) =>
-      issue.fingerprint ??
-      [issue.issueType, issue.structureId, issue.matchUpId, issue.message].map((part) => part ?? '').join('|');
-    const current = new Set(issues.map(fingerprintOf));
+    const current = new Map<string, OpenDrawFinding>();
+    for (const issue of issues) current.set(fingerprintOf(issue), findingOf(issue));
 
     const key = memoryKey(target.tournamentId, target.drawId);
     // A draw this mutation created had nothing before it: diff against nothing, so its findings are introduced.
-    const previous = target.added ? { fingerprints: new Set<string>(), preExistingLogged: false } : recall(key);
+    const previous = target.added
+      ? { fingerprints: new Map<string, OpenDrawFinding>(), preExistingLogged: false }
+      : recall(key);
 
     if (!previous) {
       const errors = issues.filter((issue) => issue.severity === 'error');
@@ -390,6 +517,7 @@ export function scanDraw(target: DrawScanTarget, methods: string[]) {
         stats.baseline += 1;
         logFinding({ finding: 'baseline', target, methods, issues: errors, scanMs });
       }
+      persist(findings, changeRows({ target, methods, baseline: [...current.values()], introduced: [], resolved: [] }));
       // preExistingLogged stays false: the next mutation of a still-broken draw says so once, at LOG — the count of
       // draws that stay broken WHILE BEING MUTATED is what an `enforce` decision on this path needs to know.
       remember(key, { fingerprints: current, preExistingLogged: false });
@@ -398,7 +526,8 @@ export function scanDraw(target: DrawScanTarget, methods: string[]) {
 
     const introduced = issues.filter((issue) => !previous.fingerprints.has(fingerprintOf(issue)));
     const preExisting = issues.filter((issue) => previous.fingerprints.has(fingerprintOf(issue)));
-    const resolvedCount = [...previous.fingerprints].filter((fingerprint) => !current.has(fingerprint)).length;
+    const resolved = [...previous.fingerprints.values()].filter((finding) => !current.has(finding.fingerprint));
+    const resolvedCount = resolved.length;
 
     if (introduced.length) {
       stats.introduced += 1;
@@ -422,6 +551,16 @@ export function scanDraw(target: DrawScanTarget, methods: string[]) {
     if (!current.size) preExistingLogged = false;
 
     remember(key, { fingerprints: current, preExistingLogged });
+    persist(
+      findings,
+      changeRows({
+        target,
+        methods,
+        baseline: [],
+        introduced: [...current.values()].filter((finding) => !previous.fingerprints.has(finding.fingerprint)),
+        resolved,
+      }),
+    );
   } catch (err: any) {
     recordScanFailure(`integrity diff failed: ${err?.message ?? String(err)}`, {
       tournamentId: target.tournamentId,
@@ -431,16 +570,83 @@ export function scanDraw(target: DrawScanTarget, methods: string[]) {
 }
 
 /**
+ * Read a forgotten draw's open set back from the findings table and remember it, so the scan that follows diffs
+ * against it instead of logging a `baseline`. Leaves the draw unremembered — and the scan a `baseline` — when the
+ * table has never recorded it, and when the read fails (counted and throttled; the scan itself still runs).
+ * Never rejects.
+ */
+async function seedDraw(key: string, target: DrawScanTarget, findings: DrawIntegrityFindingsSink) {
+  let seed: DrawOpenFindings | undefined;
+  try {
+    seed = await findings.loadOpen(target.tournamentId, target.drawId);
+  } catch (err: any) {
+    recordSeedFailure(`seed read failed: ${err?.message ?? String(err)}`, target);
+    return;
+  }
+  recordSeedSuccess();
+  if (!seed?.known || memory.has(key)) return;
+  const fingerprints = new Map<string, OpenDrawFinding>();
+  for (const finding of seed.open ?? []) fingerprints.set(finding.fingerprint, finding);
+  remember(key, { fingerprints, preExistingLogged: false });
+  stats.seeded += 1;
+}
+
+function finishScan(target: DrawScanTarget, methods: string[], findings?: DrawIntegrityFindingsSink) {
+  pendingScans -= 1;
+  scanDraw(target, methods, findings);
+}
+
+/** Make `work` the tail of the draw's chain, and drop the chain once nothing newer has joined it. */
+function chainDraw(key: string, work: Promise<void>) {
+  seeding.set(key, work);
+  work.then(
+    () => {
+      if (seeding.get(key) === work) seeding.delete(key);
+    },
+    () => undefined,
+  );
+}
+
+/**
+ * One draw's turn. Runs the scan now unless the draw's open set has to be read back first (a sink is wired, the draw
+ * is not in memory, and this mutation did not create it), or a read for it is already in flight — then the scan
+ * chains behind that read. `seedDraw` and `scanDraw` never reject or throw, so neither can a chain.
+ */
+function runScan(target: DrawScanTarget, methods: string[], findings?: DrawIntegrityFindingsSink) {
+  const key = memoryKey(target.tournamentId, target.drawId);
+  const inFlight = seeding.get(key);
+  if (inFlight) {
+    chainDraw(
+      key,
+      inFlight.then(() => finishScan(target, methods, findings)),
+    );
+    return;
+  }
+  if (findings && !target.added && !memory.has(key)) {
+    chainDraw(
+      key,
+      seedDraw(key, target, findings).then(() => finishScan(target, methods, findings)),
+    );
+    return;
+  }
+  finishScan(target, methods, findings);
+}
+
+/**
  * Queue the scans of one mutation's touched draws. Call it AFTER the lock is released and the response is built.
  *
  * One `setImmediate` per draw, all queued now: `setImmediate` callbacks run in FIFO order, so the scans of two
  * mutations on the same draw run in mutation order (the lock ordered the mutations, and each schedules its scans as
  * it returns), which is what the introduced/pre-existing diff depends on. Chaining the draws of a batch instead would
- * let a later mutation's scan of a draw overtake an earlier one's.
+ * let a later mutation's scan of a draw overtake an earlier one's. A draw whose open set is being read back from the
+ * findings table keeps that order too: its later scans chain behind the read (`runScan`).
+ *
+ * A scan counts as pending until it has run, including while it waits on a read, so MAX_PENDING_SCANS also bounds
+ * what a slow database can hold in memory.
  *
  * Never throws, and nothing it schedules can throw into the request: the request has already returned.
  */
-export function scheduleDrawIntegrityScan(batch: DrawIntegrityBatch | undefined) {
+export function scheduleDrawIntegrityScan(batch: DrawIntegrityBatch | undefined, findings?: DrawIntegrityFindingsSink) {
   if (!batch) return;
   try {
     for (const { tournamentId, drawId } of batch.deleted) setImmediate(() => forgetDraw(tournamentId, drawId));
@@ -450,10 +656,7 @@ export function scheduleDrawIntegrityScan(batch: DrawIntegrityBatch | undefined)
         continue;
       }
       pendingScans += 1;
-      setImmediate(() => {
-        pendingScans -= 1;
-        scanDraw(target, batch.methods);
-      });
+      setImmediate(() => runScan(target, batch.methods, findings));
     }
   } catch (err: any) {
     recordScanFailure(`scheduling failed: ${err?.message ?? String(err)}`);
