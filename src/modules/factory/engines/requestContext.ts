@@ -58,6 +58,18 @@ export type FactoryRequestContext = {
    * update is precisely how "invalidate less" turns into "serve stale".
    */
   noticeTopics?: Set<string>;
+
+  /**
+   * Every drawId a notice named this request (`drawIdsFromNotice`), every draw a DELETED_DRAW_IDS notice removed,
+   * and every draw an ADD_DRAW_DEFINITION notice created.
+   *
+   * Read once the save has committed, to take the targets of the deferred, report-only draw-integrity scan — see
+   * helpers/executionQueueIntegrity.ts. Recorded centrally by the same wrapper that records `noticeTopics`, so a
+   * draw-bearing topic added later is found without a list to update.
+   */
+  touchedDrawIds?: Set<string>;
+  deletedDrawIds?: Set<string>;
+  addedDrawIds?: Set<string>;
 };
 
 const asyncLocalStorage = new AsyncLocalStorage<FactoryRequestContext>();
