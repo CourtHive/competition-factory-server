@@ -1,4 +1,16 @@
-import { Controller, Get, Header, Headers, HttpCode, HttpStatus, NotFoundException, Param, Post, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Header,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  Post,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { Response } from 'express';
 
 import { ADMIN, SUPER_ADMIN } from 'src/common/constants/roles';
@@ -28,7 +40,11 @@ export class I18nController {
 
   @Get('locales/:code')
   @Header('Cache-Control', 'public, max-age=86400, must-revalidate')
-  getLocale(@Param('code') code: string, @Headers('if-none-match') ifNoneMatch: string | undefined, @Res() res: Response) {
+  getLocale(
+    @Param('code') code: string,
+    @Headers('if-none-match') ifNoneMatch: string | undefined,
+    @Res() res: Response,
+  ) {
     const cached = this.service.getLocale(code);
     if (!cached) {
       throw new NotFoundException(`locale '${code}' not loaded`);

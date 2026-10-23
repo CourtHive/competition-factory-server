@@ -159,8 +159,7 @@ export class ProvisionerMiddleware implements NestMiddleware {
     if (ids.length === 0) return;
 
     const headerProvId = (req.headers['x-provisioner-id'] as string | undefined)?.trim();
-    const provisionerId =
-      headerProvId && ids.includes(headerProvId) ? headerProvId : ids[0];
+    const provisionerId = headerProvId && ids.includes(headerProvId) ? headerProvId : ids[0];
 
     let provisioner;
     try {
@@ -226,9 +225,7 @@ export class ProvisionerMiddleware implements NestMiddleware {
                 // Don't downgrade an existing provider-level role; only
                 // attach PROVIDER_ADMIN when the caller doesn't already
                 // hold a direct role on the impersonated provider.
-                ...(req.userContext.providerRoles?.[providerId]
-                  ? {}
-                  : { [providerId]: 'PROVIDER_ADMIN' }),
+                ...(req.userContext.providerRoles?.[providerId] ? {} : { [providerId]: 'PROVIDER_ADMIN' }),
               },
               providerIds: req.userContext.providerIds?.includes(providerId)
                 ? req.userContext.providerIds

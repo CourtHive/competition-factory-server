@@ -47,9 +47,9 @@ describe('checkUser', () => {
   });
 
   it('returns true for a provisioner-inherited provider via userContext.provisionerProviderIds', () => {
-    expect(
-      checkUser({ user: { roles: ['client'] }, userContext: { provisionerProviderIds: ['p1'] } as any }),
-    ).toBe(true);
+    expect(checkUser({ user: { roles: ['client'] }, userContext: { provisionerProviderIds: ['p1'] } as any })).toBe(
+      true,
+    );
   });
 
   it('returns false when userContext has no providers and legacy fields are empty', () => {

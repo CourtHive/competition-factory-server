@@ -1,10 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import {
-  IUserProvisionerStorage,
-  UserProvisionerRow,
-} from '../interfaces/user-provisioner-storage.interface';
+import { IUserProvisionerStorage, UserProvisionerRow } from '../interfaces/user-provisioner-storage.interface';
 import { PG_POOL } from './postgres.config';
 import { SUCCESS } from 'src/common/constants/app';
 
@@ -13,10 +10,7 @@ export class PostgresUserProvisionerStorage implements IUserProvisionerStorage {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   async findProvisionerIdsByUser(userId: string): Promise<string[]> {
-    const result = await this.pool.query(
-      'SELECT provisioner_id FROM user_provisioners WHERE user_id = $1',
-      [userId],
-    );
+    const result = await this.pool.query('SELECT provisioner_id FROM user_provisioners WHERE user_id = $1', [userId]);
     return result.rows.map((r: any) => r.provisioner_id);
   }
 
@@ -31,11 +25,7 @@ export class PostgresUserProvisionerStorage implements IUserProvisionerStorage {
     return result.rows.map(mapRow);
   }
 
-  async associate(
-    userId: string,
-    provisionerId: string,
-    grantedBy?: string,
-  ): Promise<{ success: boolean }> {
+  async associate(userId: string, provisionerId: string, grantedBy?: string): Promise<{ success: boolean }> {
     await this.pool.query(
       `INSERT INTO user_provisioners (user_id, provisioner_id, granted_by)
        VALUES ($1, $2, $3)
@@ -46,10 +36,10 @@ export class PostgresUserProvisionerStorage implements IUserProvisionerStorage {
   }
 
   async disassociate(userId: string, provisionerId: string): Promise<{ success: boolean }> {
-    await this.pool.query(
-      'DELETE FROM user_provisioners WHERE user_id = $1 AND provisioner_id = $2',
-      [userId, provisionerId],
-    );
+    await this.pool.query('DELETE FROM user_provisioners WHERE user_id = $1 AND provisioner_id = $2', [
+      userId,
+      provisionerId,
+    ]);
     return { ...SUCCESS };
   }
 }

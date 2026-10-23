@@ -1,15 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import {
-  ITopologyStorage,
-  TopologyRow,
-} from '../interfaces/topology-storage.interface';
+import { ITopologyStorage, TopologyRow } from '../interfaces/topology-storage.interface';
 import { PG_POOL } from './postgres.config';
 import { SUCCESS } from 'src/common/constants/app';
 
-const COLS =
-  'topology_id, provider_id, name, description, state, created_at, updated_at';
+const COLS = 'topology_id, provider_id, name, description, state, created_at, updated_at';
 
 @Injectable()
 export class PostgresTopologyStorage implements ITopologyStorage {
@@ -31,20 +27,12 @@ export class PostgresTopologyStorage implements ITopologyStorage {
     return result.rows.length ? mapRow(result.rows[0]) : null;
   }
 
-  async create(
-    row: Omit<TopologyRow, 'createdAt' | 'updatedAt'>,
-  ): Promise<TopologyRow> {
+  async create(row: Omit<TopologyRow, 'createdAt' | 'updatedAt'>): Promise<TopologyRow> {
     const result = await this.pool.query(
       `INSERT INTO provider_topologies (topology_id, provider_id, name, description, state)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING ${COLS}`,
-      [
-        row.topologyId,
-        row.providerId,
-        row.name,
-        row.description ?? null,
-        JSON.stringify(row.state),
-      ],
+      [row.topologyId, row.providerId, row.name, row.description ?? null, JSON.stringify(row.state)],
     );
     return mapRow(result.rows[0]);
   }
@@ -85,10 +73,10 @@ export class PostgresTopologyStorage implements ITopologyStorage {
   }
 
   async remove(providerId: string, topologyId: string): Promise<{ success: boolean }> {
-    await this.pool.query(
-      'DELETE FROM provider_topologies WHERE provider_id = $1 AND topology_id = $2',
-      [providerId, topologyId],
-    );
+    await this.pool.query('DELETE FROM provider_topologies WHERE provider_id = $1 AND topology_id = $2', [
+      providerId,
+      topologyId,
+    ]);
     return { ...SUCCESS };
   }
 }

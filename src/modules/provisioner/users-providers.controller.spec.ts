@@ -2,10 +2,7 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 
 import { UsersProvidersController } from './users-providers.controller';
 import type { UserContext } from '../account/auth/decorators/user-context.decorator';
-import type {
-  IUserProviderStorage,
-  IProvisionerProviderStorage,
-} from 'src/storage/interfaces';
+import type { IUserProviderStorage, IProvisionerProviderStorage } from 'src/storage/interfaces';
 
 const PROVIDER_P = 'provider-p';
 const PROVIDER_OTHER = 'provider-other';
@@ -33,8 +30,8 @@ function makeUserProviderStorage(rows: any[] = []): IUserProviderStorage {
     findByUserId: vi.fn(async (uid: string) => rows.filter((r) => r.userId === uid)),
     findByEmail: vi.fn(),
     findByProviderId: vi.fn(async (pid: string) => rows.filter((r) => r.providerId === pid)),
-    findOne: vi.fn(async (uid: string, pid: string) =>
-      rows.find((r) => r.userId === uid && r.providerId === pid) ?? null,
+    findOne: vi.fn(
+      async (uid: string, pid: string) => rows.find((r) => r.userId === uid && r.providerId === pid) ?? null,
     ),
     upsert: vi.fn(async () => ({ success: true })),
     remove: vi.fn(async () => ({ success: true })),
@@ -80,9 +77,13 @@ describe('UsersProvidersController.list', () => {
     ];
     const { controller, storage } = build({ storage: makeUserProviderStorage(rows) });
 
-    const result = await controller.list(TARGET_USER_ID, {}, ctx({
-      providerRoles: { [PROVIDER_P]: 'PROVIDER_ADMIN' },
-    }));
+    const result = await controller.list(
+      TARGET_USER_ID,
+      {},
+      ctx({
+        providerRoles: { [PROVIDER_P]: 'PROVIDER_ADMIN' },
+      }),
+    );
 
     expect(storage.findByUserIdEnriched).toHaveBeenCalledWith(TARGET_USER_ID, [PROVIDER_P]);
     expect(result).toHaveLength(1);
@@ -96,9 +97,13 @@ describe('UsersProvidersController.list', () => {
 
   it('returns empty list when non-super-admin has no admin providers', async () => {
     const { controller, storage } = build();
-    const result = await controller.list(TARGET_USER_ID, {}, ctx({
-      providerRoles: { [PROVIDER_P]: 'DIRECTOR' },
-    }));
+    const result = await controller.list(
+      TARGET_USER_ID,
+      {},
+      ctx({
+        providerRoles: { [PROVIDER_P]: 'DIRECTOR' },
+      }),
+    );
     expect(storage.findByUserIdEnriched).toHaveBeenCalledWith(TARGET_USER_ID, []);
     expect(result).toEqual([]);
   });
@@ -137,13 +142,7 @@ describe('UsersProvidersController.upsert', () => {
   it('rejects an unknown providerRole', async () => {
     const { controller } = build();
     await expect(
-      controller.upsert(
-        TARGET_USER_ID,
-        PROVIDER_P,
-        { providerRole: 'BOGUS' },
-        {},
-        ctx({ isSuperAdmin: true }),
-      ),
+      controller.upsert(TARGET_USER_ID, PROVIDER_P, { providerRole: 'BOGUS' }, {}, ctx({ isSuperAdmin: true })),
     ).rejects.toThrow(ConflictException);
   });
 
@@ -154,13 +153,7 @@ describe('UsersProvidersController.upsert', () => {
     const { controller } = build({ storage: makeUserProviderStorage(rows) });
 
     await expect(
-      controller.upsert(
-        TARGET_USER_ID,
-        PROVIDER_P,
-        { providerRole: 'DIRECTOR' },
-        {},
-        ctx({ isSuperAdmin: true }),
-      ),
+      controller.upsert(TARGET_USER_ID, PROVIDER_P, { providerRole: 'DIRECTOR' }, {}, ctx({ isSuperAdmin: true })),
     ).rejects.toThrow(ConflictException);
   });
 
@@ -171,13 +164,7 @@ describe('UsersProvidersController.upsert', () => {
     ];
     const { controller, storage } = build({ storage: makeUserProviderStorage(rows) });
 
-    await controller.upsert(
-      TARGET_USER_ID,
-      PROVIDER_P,
-      { providerRole: 'DIRECTOR' },
-      {},
-      ctx({ isSuperAdmin: true }),
-    );
+    await controller.upsert(TARGET_USER_ID, PROVIDER_P, { providerRole: 'DIRECTOR' }, {}, ctx({ isSuperAdmin: true }));
     expect(storage.upsert).toHaveBeenCalled();
   });
 });
@@ -185,21 +172,16 @@ describe('UsersProvidersController.upsert', () => {
 describe('UsersProvidersController.remove', () => {
   it('removes when editor is PROVIDER_ADMIN at target provider', async () => {
     const { controller, storage } = build();
-    await controller.remove(
-      TARGET_USER_ID,
-      PROVIDER_P,
-      {},
-      ctx({ providerRoles: { [PROVIDER_P]: 'PROVIDER_ADMIN' } }),
-    );
+    await controller.remove(TARGET_USER_ID, PROVIDER_P, {}, ctx({ providerRoles: { [PROVIDER_P]: 'PROVIDER_ADMIN' } }));
     expect(storage.remove).toHaveBeenCalledWith(TARGET_USER_ID, PROVIDER_P);
   });
 
   it('blocks removal of the last PROVIDER_ADMIN', async () => {
     const rows = [{ userId: TARGET_USER_ID, providerId: PROVIDER_P, providerRole: 'PROVIDER_ADMIN' }];
     const { controller } = build({ storage: makeUserProviderStorage(rows) });
-    await expect(
-      controller.remove(TARGET_USER_ID, PROVIDER_P, {}, ctx({ isSuperAdmin: true })),
-    ).rejects.toThrow(ConflictException);
+    await expect(controller.remove(TARGET_USER_ID, PROVIDER_P, {}, ctx({ isSuperAdmin: true }))).rejects.toThrow(
+      ConflictException,
+    );
   });
 
   it('allows removing a DIRECTOR row even when target is the only DIRECTOR', async () => {

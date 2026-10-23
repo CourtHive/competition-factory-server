@@ -44,20 +44,14 @@ export function assertCatalogType(input: string): CatalogType {
 
 @Injectable()
 export class ProviderCatalogService {
-  constructor(
-    @Inject(PROVIDER_CATALOG_STORAGE) private readonly storage: IProviderCatalogStorage,
-  ) {}
+  constructor(@Inject(PROVIDER_CATALOG_STORAGE) private readonly storage: IProviderCatalogStorage) {}
 
   async list(providerId: string, catalogType: CatalogType): Promise<{ items: CatalogItemDto[] }> {
     const rows = await this.storage.findByProvider(providerId, catalogType);
     return { items: rows.map(toDto) };
   }
 
-  async getOne(
-    providerId: string,
-    catalogType: CatalogType,
-    catalogId: string,
-  ): Promise<CatalogItemDto> {
+  async getOne(providerId: string, catalogType: CatalogType, catalogId: string): Promise<CatalogItemDto> {
     const row = await this.storage.getOne(providerId, catalogType, catalogId);
     if (!row) throw new NotFoundException('Catalog item not found');
     return toDto(row);

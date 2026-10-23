@@ -100,10 +100,7 @@ export class ProviderRankingsService {
     args: { providerId: string; ageCategoryCodes?: string[]; asOfDate?: string },
     opts: {
       mode: string;
-      selectTournaments?: (
-        tournaments: any[],
-        ctx: { providerAbbr?: string },
-      ) => any[] | Promise<any[]>;
+      selectTournaments?: (tournaments: any[], ctx: { providerAbbr?: string }) => any[] | Promise<any[]>;
     },
   ): Promise<RecomputeResult> {
     const { providerId } = args;
@@ -145,7 +142,10 @@ export class ProviderRankingsService {
         // record's unifiedTournamentId.organisation is otherwise blank for
         // provisioner-created records). See stampRecordProvider.
         stampRecordProvider(record, provider);
-        const res = await this.webhook.publish(record, { source: 'cfs-event', sourceRef: `provider-recompute:${providerId}` });
+        const res = await this.webhook.publish(record, {
+          source: 'cfs-event',
+          sourceRef: `provider-recompute:${providerId}`,
+        });
         republished.push({
           tournamentId,
           ok: !!res.ok,

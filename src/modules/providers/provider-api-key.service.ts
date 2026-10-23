@@ -29,11 +29,7 @@ export class ProviderApiKeyService {
     private readonly auditService: AuditService,
   ) {}
 
-  async generateApiKey(
-    providerId: string,
-    label: string | undefined,
-    actor?: { userId?: string; userEmail?: string },
-  ) {
+  async generateApiKey(providerId: string, label: string | undefined, actor?: { userId?: string; userEmail?: string }) {
     const provider: any = await this.providerStorage.getProvider(providerId);
     if (!provider) {
       throw new NotFoundException(`Provider ${providerId} not found`);
@@ -88,11 +84,7 @@ export class ProviderApiKeyService {
     return { success: true, keys };
   }
 
-  async revokeApiKey(
-    keyId: string,
-    actor?: { userId?: string; userEmail?: string },
-    providerIdHint?: string,
-  ) {
+  async revokeApiKey(keyId: string, actor?: { userId?: string; userEmail?: string }, providerIdHint?: string) {
     const result = await this.apiKeyStorage.revoke(keyId);
 
     this.auditService

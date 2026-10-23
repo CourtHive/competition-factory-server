@@ -28,7 +28,9 @@ export interface ClaimableCandidate {
 }
 
 function normalizeName(value: string): string {
-  return String(value ?? '').trim().toLowerCase();
+  return String(value ?? '')
+    .trim()
+    .toLowerCase();
 }
 
 function isIndividualParticipant(participant: any): boolean {
@@ -60,7 +62,10 @@ export class HiveIDTournamentService {
    * Defense-in-depth: the actual claim mutation re-verifies before
    * stamping (see `claimParticipant`).
    */
-  async getClaimableForTournament(userId: string, tournamentId: string): Promise<{
+  async getClaimableForTournament(
+    userId: string,
+    tournamentId: string,
+  ): Promise<{
     tournamentId: string;
     candidates: ClaimableCandidate[];
   }> {
@@ -87,8 +92,7 @@ export class HiveIDTournamentService {
       const personGiven = normalizeName(p?.person?.standardGivenName ?? p?.person?.givenName ?? '');
       const personFamily = normalizeName(p?.person?.standardFamilyName ?? p?.person?.familyName ?? '');
       const nameMatches =
-        (personGiven && personGiven === targetGiven) ||
-        (personFamily && personFamily === targetFamily);
+        (personGiven && personGiven === targetGiven) || (personFamily && personFamily === targetFamily);
       if (!nameMatches) continue;
       candidates.push({
         participantId: p.participantId,
@@ -140,8 +144,7 @@ export class HiveIDTournamentService {
     const targetFamily = normalizeName(cached?.standardFamilyName ?? '');
     const personGiven = normalizeName(target?.person?.standardGivenName ?? target?.person?.givenName ?? '');
     const personFamily = normalizeName(target?.person?.standardFamilyName ?? target?.person?.familyName ?? '');
-    const overlap =
-      (targetGiven && targetGiven === personGiven) || (targetFamily && targetFamily === personFamily);
+    const overlap = (targetGiven && targetGiven === personGiven) || (targetFamily && targetFamily === personFamily);
     if (!overlap) {
       throw new BadRequestException(
         'The target participant does not match your canonical name. If this is you, contact the tournament director.',

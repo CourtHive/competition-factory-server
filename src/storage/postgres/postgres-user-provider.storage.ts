@@ -25,10 +25,7 @@ export class PostgresUserProviderStorage implements IUserProviderStorage {
     return result.rows.map(mapRow);
   }
 
-  async findByUserIdEnriched(
-    userId: string,
-    allowedProviderIds?: string[],
-  ): Promise<UserProviderEnrichedRow[]> {
+  async findByUserIdEnriched(userId: string, allowedProviderIds?: string[]): Promise<UserProviderEnrichedRow[]> {
     // Single round-trip: join users (for email) and providers (for display
     // fields). The optional ANY($2) filter lets the controller pass a
     // PROVIDER_ADMIN/PROVISIONER's allowed-providers set so the SQL never
@@ -108,10 +105,7 @@ export class PostgresUserProviderStorage implements IUserProviderStorage {
   }
 
   async remove(userId: string, providerId: string): Promise<{ success: boolean }> {
-    await this.pool.query(
-      'DELETE FROM user_providers WHERE user_id = $1 AND provider_id = $2',
-      [userId, providerId],
-    );
+    await this.pool.query('DELETE FROM user_providers WHERE user_id = $1 AND provider_id = $2', [userId, providerId]);
     return { ...SUCCESS };
   }
 }

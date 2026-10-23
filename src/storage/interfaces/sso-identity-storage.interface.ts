@@ -16,7 +16,11 @@ export interface ISsoIdentityStorage {
   create(identity: Omit<SsoIdentityRow, 'createdAt'>): Promise<{ success: boolean }>;
 
   /** Update mutable fields (phone, email) on an SSO identity. */
-  update(ssoProvider: string, externalId: string, data: Partial<Pick<SsoIdentityRow, 'phone' | 'email'>>): Promise<{ success: boolean }>;
+  update(
+    ssoProvider: string,
+    externalId: string,
+    data: Partial<Pick<SsoIdentityRow, 'phone' | 'email'>>,
+  ): Promise<{ success: boolean }>;
 
   /** Remove an SSO identity mapping. */
   remove(ssoProvider: string, externalId: string): Promise<{ success: boolean }>;

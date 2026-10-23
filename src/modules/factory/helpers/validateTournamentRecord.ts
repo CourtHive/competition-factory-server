@@ -200,10 +200,7 @@ export function validateL3(tournamentRecord: any): ValidationResult {
 /**
  * Validate a tournament record at the specified level.
  */
-export function validateTournamentRecord(
-  tournamentRecord: any,
-  level: ValidationLevel = 'L2',
-): ValidationResult {
+export function validateTournamentRecord(tournamentRecord: any, level: ValidationLevel = 'L2'): ValidationResult {
   if (level === 'L1') return validateL1(tournamentRecord);
   if (level === 'L3') return validateL3(tournamentRecord);
   return validateL2(tournamentRecord);

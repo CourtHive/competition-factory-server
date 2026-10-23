@@ -1,4 +1,17 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ProvisionerWritesMovedGuard } from './provisioner-writes-moved.guard';
 import { Public } from '../account/auth/decorators/public.decorator';
 import { ProvisionerGuard, ProvisionerOwnerGuard } from './provisioner.guard';
@@ -28,7 +41,10 @@ export class ProvisionerController {
 
   @Post('providers')
   @HttpCode(HttpStatus.CREATED)
-  async createProvider(@Req() req: any, @Body() body: { organisationAbbreviation: string; organisationName: string; providerConfig?: Record<string, any> }) {
+  async createProvider(
+    @Req() req: any,
+    @Body() body: { organisationAbbreviation: string; organisationName: string; providerConfig?: Record<string, any> },
+  ) {
     return this.provisionerService.createProvider(req.provisioner.provisionerId, body);
   }
 
@@ -36,7 +52,8 @@ export class ProvisionerController {
   @UseGuards(ProvisionerOwnerGuard)
   async updateProvider(
     @Param('providerId') _providerId: string,
-    @Body() body: {
+    @Body()
+    body: {
       providerConfig?: Record<string, any>;
       providerConfigCaps?: Record<string, any>;
       providerConfigSettings?: Record<string, any>;
@@ -69,14 +86,18 @@ export class ProvisionerController {
 
   @Post('users')
   @HttpCode(HttpStatus.CREATED)
-  async createUser(@Req() req: any, @Body() body: {
-    providerId: string;
-    externalId: string;
-    email: string;
-    phone?: string;
-    providerRole: string;
-    ssoProvider: string;
-  }) {
+  async createUser(
+    @Req() req: any,
+    @Body()
+    body: {
+      providerId: string;
+      externalId: string;
+      email: string;
+      phone?: string;
+      providerRole: string;
+      ssoProvider: string;
+    },
+  ) {
     return this.provisionerService.createSsoUser(req.provisioner.provisionerId, body);
   }
 
@@ -115,22 +136,30 @@ export class ProvisionerController {
 
   @Post('assignments/grant')
   @HttpCode(HttpStatus.OK)
-  async grantAssignment(@Req() req: any, @Body() body: {
-    tournamentId: string;
-    userEmail: string;
-    providerId: string;
-    role?: string;
-  }) {
+  async grantAssignment(
+    @Req() req: any,
+    @Body()
+    body: {
+      tournamentId: string;
+      userEmail: string;
+      providerId: string;
+      role?: string;
+    },
+  ) {
     return this.provisionerService.grantAssignment(req.provisioner.provisionerId, body);
   }
 
   @Post('assignments/revoke')
   @HttpCode(HttpStatus.OK)
-  async revokeAssignment(@Req() req: any, @Body() body: {
-    tournamentId: string;
-    userEmail: string;
-    providerId: string;
-  }) {
+  async revokeAssignment(
+    @Req() req: any,
+    @Body()
+    body: {
+      tournamentId: string;
+      userEmail: string;
+      providerId: string;
+    },
+  ) {
     return this.provisionerService.revokeAssignment(req.provisioner.provisionerId, body);
   }
 

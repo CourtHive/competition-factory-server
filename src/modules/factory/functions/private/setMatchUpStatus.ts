@@ -23,7 +23,7 @@ export async function setMatchUpStatus(
   auditService?: AuditService,
 ) {
   const hasLegacyWrapper = payload?.params && !payload?.matchUpId;
-  const flat = hasLegacyWrapper ? payload.params : payload ?? {};
+  const flat = hasLegacyWrapper ? payload.params : (payload ?? {});
   const { tournamentId, ...params } = flat;
 
   const methods = [{ method: 'setMatchUpStatus', params }];

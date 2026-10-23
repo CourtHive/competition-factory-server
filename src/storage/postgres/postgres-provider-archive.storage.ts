@@ -1,10 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import {
-  IProviderArchiveStorage,
-  ProviderArchiveRow,
-} from '../interfaces/provider-archive-storage.interface';
+import { IProviderArchiveStorage, ProviderArchiveRow } from '../interfaces/provider-archive-storage.interface';
 import { PG_POOL } from './postgres.config';
 import { SUCCESS } from 'src/common/constants/app';
 
@@ -59,10 +56,7 @@ export class PostgresProviderArchiveStorage implements IProviderArchiveStorage {
   }
 
   async findById(archiveId: string): Promise<ProviderArchiveRow | null> {
-    const result = await this.pool.query(
-      `SELECT * FROM provider_archives WHERE archive_id = $1 LIMIT 1`,
-      [archiveId],
-    );
+    const result = await this.pool.query(`SELECT * FROM provider_archives WHERE archive_id = $1 LIMIT 1`, [archiveId]);
     if (!result.rows.length) return null;
     return this.mapRow(result.rows[0]);
   }
@@ -76,10 +70,7 @@ export class PostgresProviderArchiveStorage implements IProviderArchiveStorage {
   }
 
   async markRevived(archiveId: string): Promise<{ success: boolean }> {
-    await this.pool.query(
-      `UPDATE provider_archives SET revived_at = NOW() WHERE archive_id = $1`,
-      [archiveId],
-    );
+    await this.pool.query(`UPDATE provider_archives SET revived_at = NOW() WHERE archive_id = $1`, [archiveId]);
     return { ...SUCCESS };
   }
 }

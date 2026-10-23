@@ -19,11 +19,7 @@ export interface IProviderCatalogStorage {
   findByProvider(providerId: string, catalogType: CatalogType): Promise<CatalogItemRow[]>;
 
   /** Get one item, scoped to (provider, type) so the request handler can't accidentally read another provider's row. */
-  getOne(
-    providerId: string,
-    catalogType: CatalogType,
-    catalogId: string,
-  ): Promise<CatalogItemRow | null>;
+  getOne(providerId: string, catalogType: CatalogType, catalogId: string): Promise<CatalogItemRow | null>;
 
   create(row: Omit<CatalogItemRow, 'createdAt' | 'updatedAt'>): Promise<CatalogItemRow>;
 
@@ -34,9 +30,5 @@ export interface IProviderCatalogStorage {
     patch: Partial<Pick<CatalogItemRow, 'name' | 'description' | 'data' | 'metadata'>>,
   ): Promise<{ success: boolean }>;
 
-  remove(
-    providerId: string,
-    catalogType: CatalogType,
-    catalogId: string,
-  ): Promise<{ success: boolean }>;
+  remove(providerId: string, catalogType: CatalogType, catalogId: string): Promise<{ success: boolean }>;
 }

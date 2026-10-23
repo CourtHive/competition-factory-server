@@ -45,10 +45,7 @@ export class OutboundQueueService implements OnModuleInit {
 
   async ack(sequences: number[]): Promise<void> {
     if (!this.pool || sequences.length === 0) return;
-    await this.pool.query(
-      'DELETE FROM outbound_relay_queue WHERE sequence = ANY($1::bigint[])',
-      [sequences],
-    );
+    await this.pool.query('DELETE FROM outbound_relay_queue WHERE sequence = ANY($1::bigint[])', [sequences]);
   }
 
   async nack(sequence: number, error: string): Promise<void> {

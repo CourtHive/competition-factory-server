@@ -56,7 +56,6 @@ const IDENTITY_FIELDS = [
   'parentOrganisation',
 ] as const;
 
-
 export interface CalendarTournamentRow {
   tournament_id: string;
   provider_id: string;

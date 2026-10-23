@@ -15,9 +15,9 @@ describe('matchup-finalized.transform', () => {
     });
 
     it('returns true when both winningSide and COMPLETED are present', () => {
-      expect(
-        isFinalizingNotice({ matchUp: { matchUpId: 'm1', winningSide: 1, matchUpStatus: 'COMPLETED' } }),
-      ).toBe(true);
+      expect(isFinalizingNotice({ matchUp: { matchUpId: 'm1', winningSide: 1, matchUpStatus: 'COMPLETED' } })).toBe(
+        true,
+      );
     });
 
     it('returns false for mid-game IN_PROGRESS notice', () => {
@@ -63,9 +63,7 @@ describe('matchup-finalized.transform', () => {
     });
 
     it('returns null for a non-finalizing notice', () => {
-      expect(
-        buildMatchUpFinalizedPayload({ matchUp: { matchUpId: 'm1', matchUpStatus: 'IN_PROGRESS' } }),
-      ).toBeNull();
+      expect(buildMatchUpFinalizedPayload({ matchUp: { matchUpId: 'm1', matchUpStatus: 'IN_PROGRESS' } })).toBeNull();
     });
 
     it('returns null when matchUp is missing', () => {

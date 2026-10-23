@@ -65,7 +65,12 @@ describe('buildPublicLivePayloadFromMatchUp', () => {
     const payload = buildPublicLivePayloadFromMatchUp(
       buildMatchUp({
         winningSide: 1,
-        score: { sets: [{ side1Score: 6, side2Score: 4 }, { side1Score: 6, side2Score: 3 }] },
+        score: {
+          sets: [
+            { side1Score: 6, side2Score: 4 },
+            { side1Score: 6, side2Score: 3 },
+          ],
+        },
       }),
       'tour-1',
     );
@@ -83,10 +88,7 @@ describe('buildPublicLivePayloadFromMatchUp', () => {
   });
 
   it('emits format INTENNSE when matchUpFormat carries the XA-S:T marker', () => {
-    const payload = buildPublicLivePayloadFromMatchUp(
-      buildMatchUp({ matchUpFormat: 'SET3-S:T7XA-S:T10P' }),
-      'tour-1',
-    );
+    const payload = buildPublicLivePayloadFromMatchUp(buildMatchUp({ matchUpFormat: 'SET3-S:T7XA-S:T10P' }), 'tour-1');
     expect(payload?.format).toBe('INTENNSE');
     // intennseBolt is still undefined because this transform doesn't have
     // the bolt-history clock state — that comes from the bolt-history path
@@ -106,19 +108,13 @@ describe('buildPublicLivePayloadFromMatchUp', () => {
           {
             sideNumber: 1,
             participant: {
-              individualParticipants: [
-                { participantName: 'Alice' },
-                { participantName: 'Anna' },
-              ],
+              individualParticipants: [{ participantName: 'Alice' }, { participantName: 'Anna' }],
             },
           },
           {
             sideNumber: 2,
             participant: {
-              individualParticipants: [
-                { participantName: 'Bob' },
-                { participantName: 'Ben' },
-              ],
+              individualParticipants: [{ participantName: 'Bob' }, { participantName: 'Ben' }],
             },
           },
         ],
@@ -130,10 +126,7 @@ describe('buildPublicLivePayloadFromMatchUp', () => {
   });
 
   it('handles missing sides gracefully', () => {
-    const payload = buildPublicLivePayloadFromMatchUp(
-      { matchUpId: 'm-1', score: { sets: [] } },
-      'tour-1',
-    );
+    const payload = buildPublicLivePayloadFromMatchUp({ matchUpId: 'm-1', score: { sets: [] } }, 'tour-1');
     expect(payload?.side1.playerName).toBe('');
     expect(payload?.side2.playerName).toBe('');
   });

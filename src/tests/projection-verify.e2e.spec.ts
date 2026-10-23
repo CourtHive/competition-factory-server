@@ -94,7 +94,6 @@ d('projection-verify (real DB)', () => {
     const competitorRow = rows.rows.find((r: any) => r.table_name === 'match_up_competitors');
     expect(competitorRow.row_data.side_number).toBeGreaterThanOrEqual(1);
 
-     
     console.log(
       `[verify] flatten produced ${flatMatchUps.length} matchUps → ${deltas.length} deltas ` +
         `(${rows.rows.filter((r: any) => r.table_name === 'match_ups').length} match_ups, ` +
@@ -123,24 +122,40 @@ d('projection-verify (real DB)', () => {
     // committed: a tournament-detail mutation fires MODIFY_TOURNAMENT_DETAIL →
     // touchTournament → a tournaments upsert lands in the outbox.
     const ok: any = await executionQueue(
-      { tournamentIds: [tournamentId], methods: [{ method: 'setTournamentDates', params: { tournamentId, startDate: '2026-05-01', endDate: '2026-05-03' } }] },
+      {
+        tournamentIds: [tournamentId],
+        methods: [
+          { method: 'setTournamentDates', params: { tournamentId, startDate: '2026-05-01', endDate: '2026-05-03' } },
+        ],
+      },
       services,
       storage,
     );
     expect(ok.success).toBe(true);
-    const afterCommit = await pool.query('SELECT table_name, op, row_data FROM projection_queue WHERE tournament_id = $1', [tournamentId]);
+    const afterCommit = await pool.query(
+      'SELECT table_name, op, row_data FROM projection_queue WHERE tournament_id = $1',
+      [tournamentId],
+    );
     expect(afterCommit.rows.some((r: any) => r.table_name === 'tournaments' && r.op === 'upsert')).toBe(true);
     const committedCount = afterCommit.rows.length;
 
     // rolled-back: a failing method with rollbackOnError → innerResult.success
     // false → NOTHING enqueues (read model can't get ahead).
     const bad: any = await executionQueue(
-      { tournamentIds: [tournamentId], rollbackOnError: true, methods: [{ method: 'setMatchUpStatus', params: { matchUpId: 'no-such-matchup', outcome: { winningSide: 1 } } }] },
+      {
+        tournamentIds: [tournamentId],
+        rollbackOnError: true,
+        methods: [
+          { method: 'setMatchUpStatus', params: { matchUpId: 'no-such-matchup', outcome: { winningSide: 1 } } },
+        ],
+      },
       services,
       storage,
     );
     expect(bad.success).toBeFalsy();
-    const afterRollback = await pool.query('SELECT count(*)::int AS n FROM projection_queue WHERE tournament_id = $1', [tournamentId]);
+    const afterRollback = await pool.query('SELECT count(*)::int AS n FROM projection_queue WHERE tournament_id = $1', [
+      tournamentId,
+    ]);
     expect(afterRollback.rows[0].n).toBe(committedCount); // no new rows
 
     await removeTournamentRecords({ tournamentId });

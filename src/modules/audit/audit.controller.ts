@@ -77,11 +77,7 @@ export class AuditController {
   @Post('restore-draw')
   @Roles([SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  restoreDraw(
-    @Body() body: { auditId: string },
-    @User() user?: any,
-    @UserCtx() userContext?: UserContext,
-  ) {
+  restoreDraw(@Body() body: { auditId: string }, @User() user?: any, @UserCtx() userContext?: UserContext) {
     // Postgres `user_id UUID` rejects empty strings; coerce to undefined so
     // the storage layer writes NULL when the request has no resolved user.
     const userId = userContext?.userId || user?.userId || undefined;

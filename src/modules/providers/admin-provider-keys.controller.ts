@@ -21,14 +21,8 @@ export class AdminProviderKeysController {
 
   @Post(':id/keys')
   @HttpCode(HttpStatus.CREATED)
-  async generateKey(
-    @Param('id') id: string,
-    @Body() body: { label?: string },
-    @Req() req: any,
-  ) {
-    const actor = req.user
-      ? { userId: req.user.userId ?? req.user.sub, userEmail: req.user.email }
-      : undefined;
+  async generateKey(@Param('id') id: string, @Body() body: { label?: string }, @Req() req: any) {
+    const actor = req.user ? { userId: req.user.userId ?? req.user.sub, userEmail: req.user.email } : undefined;
     return this.providerApiKeyService.generateApiKey(id, body?.label, actor);
   }
 
@@ -38,14 +32,8 @@ export class AdminProviderKeysController {
   }
 
   @Delete(':id/keys/:keyId')
-  async revokeKey(
-    @Param('id') id: string,
-    @Param('keyId') keyId: string,
-    @Req() req: any,
-  ) {
-    const actor = req.user
-      ? { userId: req.user.userId ?? req.user.sub, userEmail: req.user.email }
-      : undefined;
+  async revokeKey(@Param('id') id: string, @Param('keyId') keyId: string, @Req() req: any) {
+    const actor = req.user ? { userId: req.user.userId ?? req.user.sub, userEmail: req.user.email } : undefined;
     return this.providerApiKeyService.revokeApiKey(keyId, actor, id);
   }
 }

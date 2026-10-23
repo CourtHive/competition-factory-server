@@ -26,12 +26,10 @@ function makeService({ onSave }: { onSave?: () => Promise<void> } = {}) {
 
   const outbox: any = { isEnabled: true, enqueue: vi.fn().mockResolvedValue(undefined) };
   const snapshotProjection = new SnapshotProjectionService(outbox);
-  const enqueueSnapshots = vi
-    .spyOn(snapshotProjection, 'enqueueSnapshots')
-    .mockImplementation(async () => {
-      saveOrder.push('project');
-      return 1;
-    });
+  const enqueueSnapshots = vi.spyOn(snapshotProjection, 'enqueueSnapshots').mockImplementation(async () => {
+    saveOrder.push('project');
+    return 1;
+  });
 
   const svc = new FactoryService(
     tournamentStorageService,
@@ -68,9 +66,7 @@ describe('FactoryService.saveTournamentRecords — per-tournament lock', () => {
     });
 
     const { svc, tournamentStorageService } = makeService();
-    const save = svc
-      .saveTournamentRecords({ tournamentRecord: record() }, USER)
-      .then(() => events.push('save:done'));
+    const save = svc.saveTournamentRecords({ tournamentRecord: record() }, USER).then(() => events.push('save:done'));
 
     // Give the save every chance to run ahead if it were unlocked.
     await new Promise((r) => setImmediate(r));

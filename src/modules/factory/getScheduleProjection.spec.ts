@@ -120,7 +120,12 @@ describe('FactoryService.getScheduleProjection — coordination view', () => {
     // author peer: full cell, access author, retains participant/round detail
     expect(byTournament['author-peer']).toMatchObject({ access: 'author', labels: ['Secret Player'], roundName: 'QF' });
     // view peer: opaque cell — court occupancy only, no labels/round/matchUpId
-    expect(byTournament['view-peer']).toMatchObject({ access: 'view', courtId: 'c1', courtOrder: 1, scheduledTime: '10:00' });
+    expect(byTournament['view-peer']).toMatchObject({
+      access: 'view',
+      courtId: 'c1',
+      courtOrder: 1,
+      scheduledTime: '10:00',
+    });
     expect(byTournament['view-peer'].labels).toBeUndefined();
     expect(byTournament['view-peer'].roundName).toBeUndefined();
     expect(byTournament['view-peer'].matchUpId).toBeUndefined();

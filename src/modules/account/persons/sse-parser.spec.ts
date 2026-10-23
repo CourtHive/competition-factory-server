@@ -22,21 +22,16 @@ function makeResponse(chunks: string[]): Response {
 describe('consumeSseStream', () => {
   it('parses a single event with event + data lines', async () => {
     const captured: SseEvent[] = [];
-    await consumeSseStream(
-      makeResponse(['event: personMerged\ndata: {"a":1}\n\n']),
-      (event) => {
-        captured.push(event);
-      },
-    );
+    await consumeSseStream(makeResponse(['event: personMerged\ndata: {"a":1}\n\n']), (event) => {
+      captured.push(event);
+    });
     expect(captured).toEqual([{ event: 'personMerged', data: { a: 1 } }]);
   });
 
   it('parses multiple events in one chunk', async () => {
     const captured: SseEvent[] = [];
     await consumeSseStream(
-      makeResponse([
-        'event: personMerged\ndata: {"id":"e1"}\n\nevent: personMerged\ndata: {"id":"e2"}\n\n',
-      ]),
+      makeResponse(['event: personMerged\ndata: {"id":"e1"}\n\nevent: personMerged\ndata: {"id":"e2"}\n\n']),
       (event) => {
         captured.push(event);
       },
@@ -66,23 +61,17 @@ describe('consumeSseStream', () => {
 
   it('skips comment lines starting with `:`', async () => {
     const captured: SseEvent[] = [];
-    await consumeSseStream(
-      makeResponse([': keep-alive\nevent: personMerged\ndata: {"k":"v"}\n\n']),
-      (event) => {
-        captured.push(event);
-      },
-    );
+    await consumeSseStream(makeResponse([': keep-alive\nevent: personMerged\ndata: {"k":"v"}\n\n']), (event) => {
+      captured.push(event);
+    });
     expect(captured).toEqual([{ event: 'personMerged', data: { k: 'v' } }]);
   });
 
   it('tolerates CRLF line endings', async () => {
     const captured: SseEvent[] = [];
-    await consumeSseStream(
-      makeResponse(['event: personMerged\r\ndata: {"crlf":true}\r\n\n']),
-      (event) => {
-        captured.push(event);
-      },
-    );
+    await consumeSseStream(makeResponse(['event: personMerged\r\ndata: {"crlf":true}\r\n\n']), (event) => {
+      captured.push(event);
+    });
     expect(captured).toEqual([{ event: 'personMerged', data: { crlf: true } }]);
   });
 
@@ -100,10 +89,7 @@ describe('consumeSseStream', () => {
   it('aborts when signal fires', async () => {
     const captured: SseEvent[] = [];
     const ac = new AbortController();
-    const response = makeResponse([
-      'event: personMerged\ndata: {"i":1}\n\n',
-      'event: personMerged\ndata: {"i":2}\n\n',
-    ]);
+    const response = makeResponse(['event: personMerged\ndata: {"i":1}\n\n', 'event: personMerged\ndata: {"i":2}\n\n']);
     // Pre-abort so the read loop returns immediately on the next chunk.
     ac.abort();
     await consumeSseStream(

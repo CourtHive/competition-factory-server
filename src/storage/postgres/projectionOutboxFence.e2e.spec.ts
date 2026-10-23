@@ -94,7 +94,9 @@ d('projection outbox fence and chunking (real Postgres)', () => {
   // The window the fence closes: a save committed between the unlocked read and the enqueue
   it('writes nothing when the record changed after it was read', async () => {
     const source = await outbox.readForProjection('t-1');
-    await pool.query(`UPDATE tournaments SET data = '{"tournamentId":"t-1","v":2}', updated_at = NOW() WHERE tournament_id = 't-1'`);
+    await pool.query(
+      `UPDATE tournaments SET data = '{"tournamentId":"t-1","v":2}', updated_at = NOW() WHERE tournament_id = 't-1'`,
+    );
 
     const outcome = await outbox.enqueueIfUnchanged({
       tournamentId: 't-1',
@@ -117,7 +119,11 @@ d('projection outbox fence and chunking (real Postgres)', () => {
   });
 
   it('reports a tournament that no longer exists', async () => {
-    const outcome = await outbox.enqueueIfUnchanged({ tournamentId: 'gone', updatedAt: 'x', deltas: [delta('gone', 1)] });
+    const outcome = await outbox.enqueueIfUnchanged({
+      tournamentId: 'gone',
+      updatedAt: 'x',
+      deltas: [delta('gone', 1)],
+    });
     expect(outcome).toBe('missing');
     expect(await queued('gone')).toEqual([]);
   });
@@ -171,7 +177,11 @@ d('projection outbox fence and chunking (real Postgres)', () => {
       expect(saved).toBe(true);
 
       // and the fence, read before that save, now refuses
-      const outcome = await outbox.enqueueIfUnchanged({ tournamentId: 't-1', updatedAt: source!.updatedAt, deltas: [] });
+      const outcome = await outbox.enqueueIfUnchanged({
+        tournamentId: 't-1',
+        updatedAt: source!.updatedAt,
+        deltas: [],
+      });
       expect(outcome).toBe('changed');
     } finally {
       locker.release();

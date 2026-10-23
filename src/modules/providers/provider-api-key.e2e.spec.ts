@@ -127,10 +127,7 @@ d('Provider API Key E2E', () => {
   });
 
   it('authenticates GET /provider-key/self with the minted key', async () => {
-    const res = await request(server)
-      .get('/provider-key/self')
-      .set('Authorization', `Bearer ${alphaKey}`)
-      .expect(200);
+    const res = await request(server).get('/provider-key/self').set('Authorization', `Bearer ${alphaKey}`).expect(200);
     expect(res.body.success).toBe(true);
     expect(res.body.provider.providerId).toBe(alphaProviderId);
     expect(res.body.provider.keyId).toBe(alphaKeyId);
@@ -170,7 +167,7 @@ d('Provider API Key E2E', () => {
     expect(read.body.tournamentRecord.tournamentId).toBe(ALPHA_TOURNAMENT_ID);
   });
 
-  it('returns 404 (not 403) when probing for another provider\'s tournament', async () => {
+  it("returns 404 (not 403) when probing for another provider's tournament", async () => {
     await request(server)
       .get(`/provider-key/tournaments/${BETA_TOURNAMENT_ID}`)
       .set('Authorization', `Bearer ${alphaKey}`)

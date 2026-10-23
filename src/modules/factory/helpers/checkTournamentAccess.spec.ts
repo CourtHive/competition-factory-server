@@ -57,7 +57,6 @@ const multiProvider = makeCtx({
 // (single early-return line) and does not need its own suite.
 
 describe('checkTournamentAccess (flag ON via vi.mock)', () => {
-
   describe('canViewTournament', () => {
     it('SUPER_ADMIN sees everything', () => {
       let result: any = canViewTournament(makeTournament('prov-1'), superAdmin);

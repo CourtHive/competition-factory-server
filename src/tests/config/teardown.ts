@@ -79,9 +79,7 @@ export default async function teardown() {
             OR tournament_name IN ('E2E Provisioner Tournament','Assignment Test','Audit Trail Test')`,
     );
 
-    await client.query(
-      `DELETE FROM audit_log WHERE tournament_id LIKE 'audit-e2e-%'`,
-    );
+    await client.query(`DELETE FROM audit_log WHERE tournament_id LIKE 'audit-e2e-%'`);
 
     // `calendar_tournaments` (047), by the immutable provider_id. The retired abbr-keyed
     // `calendars` delete that stood here left E2E rows in the NEW table untouched, because
@@ -96,9 +94,9 @@ export default async function teardown() {
     );
 
     // Provisioners — explicit cascade since FK is plain (no ON DELETE).
-    const provIds = (await client.query(
-      `SELECT provisioner_id FROM provisioners WHERE name LIKE 'E2E-Provisioner-%'`,
-    )).rows.map((r) => r.provisioner_id);
+    const provIds = (
+      await client.query(`SELECT provisioner_id FROM provisioners WHERE name LIKE 'E2E-Provisioner-%'`)
+    ).rows.map((r) => r.provisioner_id);
     if (provIds.length > 0) {
       await client.query(`DELETE FROM provisioner_api_keys WHERE provisioner_id = ANY($1::uuid[])`, [provIds]);
       await client.query(`DELETE FROM provisioner_providers WHERE provisioner_id = ANY($1::uuid[])`, [provIds]);
@@ -120,10 +118,10 @@ export default async function teardown() {
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
-     
+
     console.warn('[globalTeardown] cleanup failed:', (err as Error).message);
   } finally {
     client.release();
     await pool.end();
   }
-};
+}

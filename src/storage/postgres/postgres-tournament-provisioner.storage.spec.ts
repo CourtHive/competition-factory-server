@@ -17,7 +17,9 @@ describe('PostgresTournamentProvisionerStorage', () => {
   describe('getByTournament', () => {
     it('returns the provisioner mapping when found', async () => {
       pool.query.mockResolvedValueOnce({
-        rows: [{ tournament_id: 't1', provisioner_id: 'p1', provider_id: 'prov-a', created_at: new Date('2026-04-14') }],
+        rows: [
+          { tournament_id: 't1', provisioner_id: 'p1', provider_id: 'prov-a', created_at: new Date('2026-04-14') },
+        ],
       });
       let result: any = await storage.getByTournament('t1');
       expect(result.tournamentId).toBe('t1');
@@ -67,10 +69,7 @@ describe('PostgresTournamentProvisionerStorage', () => {
       pool.query.mockResolvedValueOnce({ rows: [] });
       let result: any = await storage.remove('t1');
       expect(result.success).toBe(true);
-      expect(pool.query).toHaveBeenCalledWith(
-        expect.stringContaining('DELETE FROM tournament_provisioner'),
-        ['t1'],
-      );
+      expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('DELETE FROM tournament_provisioner'), ['t1']);
     });
   });
 });

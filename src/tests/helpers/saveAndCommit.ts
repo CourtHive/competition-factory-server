@@ -8,11 +8,7 @@ import request from 'supertest';
 /**
  * Save a tournament record via REST.
  */
-export async function saveAndCommit(
-  server: any,
-  token: string,
-  tournamentRecord: any,
-): Promise<void> {
+export async function saveAndCommit(server: any, token: string, tournamentRecord: any): Promise<void> {
   await request(server)
     .post('/factory/save')
     .set('Authorization', `Bearer ${token}`)

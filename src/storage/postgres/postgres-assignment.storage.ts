@@ -66,10 +66,10 @@ export class PostgresAssignmentStorage implements IAssignmentStorage {
   }
 
   async revoke(tournamentId: string, userId: string): Promise<{ success: boolean }> {
-    await this.pool.query(
-      'DELETE FROM tournament_assignments WHERE tournament_id = $1 AND user_id = $2',
-      [tournamentId, userId],
-    );
+    await this.pool.query('DELETE FROM tournament_assignments WHERE tournament_id = $1 AND user_id = $2', [
+      tournamentId,
+      userId,
+    ]);
     return { ...SUCCESS };
   }
 }

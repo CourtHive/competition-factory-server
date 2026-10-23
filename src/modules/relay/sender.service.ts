@@ -28,9 +28,7 @@ export class SenderService implements OnModuleInit, OnModuleDestroy {
       return;
     }
     this.scheduleNext(this.config.drainIntervalMs);
-    this.logger.log(
-      `SenderService started — venue=${this.config.venueId}, target=${this.config.cloudRelayUrl}`,
-    );
+    this.logger.log(`SenderService started — venue=${this.config.venueId}, target=${this.config.cloudRelayUrl}`);
   }
 
   onModuleDestroy(): void {

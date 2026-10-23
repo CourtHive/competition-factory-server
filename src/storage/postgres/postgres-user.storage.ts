@@ -276,14 +276,8 @@ export class PostgresUserStorage implements IUserStorage {
     await this.pool.query('UPDATE users SET last_access = NOW() WHERE email = $1', [email]);
   }
 
-  async updateLastSelectedProviderId(
-    email: string,
-    providerId: string | null,
-  ): Promise<{ success: boolean }> {
-    await this.pool.query(
-      'UPDATE users SET last_selected_provider_id = $2 WHERE email = $1',
-      [email, providerId],
-    );
+  async updateLastSelectedProviderId(email: string, providerId: string | null): Promise<{ success: boolean }> {
+    await this.pool.query('UPDATE users SET last_selected_provider_id = $2 WHERE email = $1', [email, providerId]);
     return { ...SUCCESS };
   }
 

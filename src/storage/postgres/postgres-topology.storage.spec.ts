@@ -28,10 +28,7 @@ describe('PostgresTopologyStorage', () => {
   it('findByProvider scopes the SELECT to the provider id and orders by name', async () => {
     pool.query.mockResolvedValueOnce({ rows: [SAMPLE_ROW] });
     const rows = await storage.findByProvider('prov1');
-    expect(pool.query).toHaveBeenCalledWith(
-      expect.stringMatching(/WHERE provider_id = \$1.*ORDER BY name/),
-      ['prov1'],
-    );
+    expect(pool.query).toHaveBeenCalledWith(expect.stringMatching(/WHERE provider_id = \$1.*ORDER BY name/), ['prov1']);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toEqual({
       topologyId: 't1',
@@ -53,10 +50,10 @@ describe('PostgresTopologyStorage', () => {
   it('getOne enforces provider scope in the WHERE clause', async () => {
     pool.query.mockResolvedValueOnce({ rows: [SAMPLE_ROW] });
     await storage.getOne('prov1', 't1');
-    expect(pool.query).toHaveBeenCalledWith(
-      expect.stringMatching(/WHERE provider_id = \$1 AND topology_id = \$2/),
-      ['prov1', 't1'],
-    );
+    expect(pool.query).toHaveBeenCalledWith(expect.stringMatching(/WHERE provider_id = \$1 AND topology_id = \$2/), [
+      'prov1',
+      't1',
+    ]);
   });
 
   it('create stringifies state and returns the inserted row mapped', async () => {

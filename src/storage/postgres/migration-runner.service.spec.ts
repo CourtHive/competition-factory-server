@@ -96,11 +96,13 @@ describe('MigrationRunnerService', () => {
 
     queryResults = [
       undefined, // CREATE TABLE
-      { rows: [
-        { name: '001-initial-schema.sql' },
-        { name: '002-add-last-access.sql' },
-        { name: '003-add-bolt-history.sql' },
-      ]},
+      {
+        rows: [
+          { name: '001-initial-schema.sql' },
+          { name: '002-add-last-access.sql' },
+          { name: '003-add-bolt-history.sql' },
+        ],
+      },
     ];
     service = new MigrationRunnerService(mockPool);
     await service.onModuleInit();
@@ -108,15 +110,16 @@ describe('MigrationRunnerService', () => {
     // Should have connected for each pending migration (004-007)
     expect(mockPool.connect).toHaveBeenCalled();
     // Each migration runs: BEGIN, SQL content, INSERT tracking row, COMMIT
-    const beginCount = appliedSql.filter(s => s === 'BEGIN').length;
-    const commitCount = appliedSql.filter(s => s === 'COMMIT').length;
+    const beginCount = appliedSql.filter((s) => s === 'BEGIN').length;
+    const commitCount = appliedSql.filter((s) => s === 'COMMIT').length;
     expect(beginCount).toBeGreaterThanOrEqual(1);
     expect(commitCount).toEqual(beginCount);
   });
 
   it('rolls back and throws on migration failure', async () => {
     const mockClient = {
-      query: vi.fn()
+      query: vi
+        .fn()
         .mockResolvedValueOnce(undefined) // BEGIN
         .mockRejectedValueOnce(new Error('syntax error')), // SQL content fails
       release: vi.fn(),

@@ -83,7 +83,8 @@ describe('provider rankings recompute (e2e)', () => {
          must_change_password = false, email_verified_at = NOW()`,
       [ADMIN_EMAIL, passwordHash, JSON.stringify(['superadmin', 'admin', 'client'])],
     );
-    token = (await request(server).post('/auth/login').send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD })).body.token;
+    token = (await request(server).post('/auth/login').send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD })).body
+      .token;
     expect(token).toBeTruthy();
 
     // Clean slate + seed provider (needs an abbreviation for calendar + policy routing).
@@ -97,7 +98,11 @@ describe('provider rankings recompute (e2e)', () => {
 
     // Create two provider-owned tournaments (land them in the provider calendar).
     for (const s of ['a', 'b']) {
-      await request(server).post('/factory/save').set(auth()).send({ tournamentRecord: ownedTournament(tid(s)) }).expect(200);
+      await request(server)
+        .post('/factory/save')
+        .set(auth())
+        .send({ tournamentRecord: ownedTournament(tid(s)) })
+        .expect(200);
     }
   });
 

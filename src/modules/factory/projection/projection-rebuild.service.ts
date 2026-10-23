@@ -102,7 +102,9 @@ export class ProjectionRebuildService {
       this.logger.log(`rebuild progress: ${Math.min(i + batchSize, tournamentIds.length)}/${tournamentIds.length}`);
     }
 
-    this.logger.log(`rebuild done: ${result.rebuilt}/${result.requested} rebuilt, ${result.deltas} deltas, ${result.failed.length} failed`);
+    this.logger.log(
+      `rebuild done: ${result.rebuilt}/${result.requested} rebuilt, ${result.deltas} deltas, ${result.failed.length} failed`,
+    );
     return result;
   }
 }

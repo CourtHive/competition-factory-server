@@ -86,10 +86,9 @@ export class SanctioningClient {
       this.logger.log('sanctioning client disabled — skipping record fetch');
       return null;
     }
-    const res = await fetch(
-      `${this.baseUrl}/sanctioning/record-by-tournament/${encodeURIComponent(tournamentId)}`,
-      { headers: { 'x-service-token': this.serviceToken } },
-    );
+    const res = await fetch(`${this.baseUrl}/sanctioning/record-by-tournament/${encodeURIComponent(tournamentId)}`, {
+      headers: { 'x-service-token': this.serviceToken },
+    });
     if (res.status === 404) return null;
     if (!res.ok) {
       throw new Error(`sanctioning getRecordByTournamentId failed: HTTP ${res.status}`);

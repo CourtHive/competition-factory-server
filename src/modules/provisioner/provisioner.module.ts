@@ -12,12 +12,7 @@ import { SplitTokenSigner } from 'src/services/split-token-signer.service';
 
 @Module({
   imports: [AuditModule],
-  controllers: [
-    AdminProvisionerController,
-    ProvisionerController,
-    SsoController,
-    UsersProvidersController,
-  ],
+  controllers: [AdminProvisionerController, ProvisionerController, SsoController, UsersProvidersController],
   // RefreshTokenService is a stateless helper over the global
   // REFRESH_TOKEN_STORAGE; providing it here (rather than importing AuthModule,
   // which configures middleware) avoids cross-module middleware coupling.

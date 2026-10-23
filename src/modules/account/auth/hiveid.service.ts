@@ -24,12 +24,7 @@ import {
 import { randomBytes, randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 
-import {
-  AUTH_CODE_STORAGE,
-  type IAuthCodeStorage,
-  USER_STORAGE,
-  type IUserStorage,
-} from 'src/storage/interfaces';
+import { AUTH_CODE_STORAGE, type IAuthCodeStorage, USER_STORAGE, type IUserStorage } from 'src/storage/interfaces';
 import { ConfigService } from '@nestjs/config';
 import { HIVEID_MAGIC_LINK_PREFIX } from './hiveid.constants';
 import { PersonsClient, type PersonFragmentInput } from '../persons/persons-client.service';
@@ -84,8 +79,7 @@ export class HiveIDService {
     if (existing?.email) {
       throw new ConflictException({
         code: 'EXISTING_USER',
-        message:
-          'An account with that email already exists. Verify your password to add a HiveID to it.',
+        message: 'An account with that email already exists. Verify your password to add a HiveID to it.',
         redirect: '/auth/hiveid/verify-existing',
       });
     }
@@ -126,10 +120,7 @@ export class HiveIDService {
     const personId = resolved.personId;
     const personRevision = resolved.personRevision;
     if (!personId || personRevision == null) {
-      throw new HttpException(
-        { status: 'incomplete', missingFields: ['personId'] },
-        HttpStatus.UNPROCESSABLE_ENTITY,
-      );
+      throw new HttpException({ status: 'incomplete', missingFields: ['personId'] }, HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
     // Pull canonical fields for the survivor so the freshly-linked user
@@ -165,10 +156,7 @@ export class HiveIDService {
     try {
       await this.userStorage.setContactEmail(userId, email);
     } catch (err) {
-      Logger.warn(
-        `hiveid signup: setContactEmail for ${email} failed: ${(err as Error).message}`,
-        HiveIDService.name,
-      );
+      Logger.warn(`hiveid signup: setContactEmail for ${email} failed: ${(err as Error).message}`, HiveIDService.name);
     }
     await this.userStorage.setPersonLink(userId, { personId, personRevision, cached });
 
@@ -221,16 +209,19 @@ export class HiveIDService {
     const user = await this.usersService.findOne(email);
     if (!user || !user.password) throw new UnauthorizedException();
 
-    const passwordMatch =
-      user.password === args.password || (await bcrypt.compare(args.password, user.password));
+    const passwordMatch = user.password === args.password || (await bcrypt.compare(args.password, user.password));
     if (!passwordMatch) throw new UnauthorizedException();
 
     const userId = user.userId ?? user.user_id;
     let linkPersonId: string | null = null;
     let linkRevision: number | null = null;
-    let cached:
-      | { standardFamilyName: string | null; standardGivenName: string | null; birthDate: string | null; sex: string | null; nationalityCode: string | null }
-      | null = null;
+    let cached: {
+      standardFamilyName: string | null;
+      standardGivenName: string | null;
+      birthDate: string | null;
+      sex: string | null;
+      nationalityCode: string | null;
+    } | null = null;
 
     if (userId) {
       const existingLink = await this.userStorage.getPersonLink(userId);
@@ -459,7 +450,6 @@ export class HiveIDService {
     };
   }
 
-
   /**
    * Magic-link URL surface for HiveID lands on the courthive-public app,
    * not TMX. Path under APP_BASE_URL is configurable via PUBLIC_URL
@@ -474,5 +464,4 @@ export class HiveIDService {
     const publicPath = `/${(process.env.PUBLIC_URL ?? '/public/').replace(/^\/+|\/+$/g, '')}/`;
     return `${base}${publicPath}#/hiveid/magic/${code}`;
   }
-
 }

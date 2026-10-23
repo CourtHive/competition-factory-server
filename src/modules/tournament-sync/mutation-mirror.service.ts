@@ -69,10 +69,10 @@ export class MutationMirrorService implements OnModuleInit, OnModuleDestroy {
    */
   async enqueue(payload: { tournamentIds: string[]; methods: any[] }): Promise<void> {
     if (!this.pool) return;
-    await this.pool.query(
-      `INSERT INTO mutation_mirror_queue (tournament_ids, methods) VALUES ($1, $2)`,
-      [payload.tournamentIds, JSON.stringify(payload.methods)],
-    );
+    await this.pool.query(`INSERT INTO mutation_mirror_queue (tournament_ids, methods) VALUES ($1, $2)`, [
+      payload.tournamentIds,
+      JSON.stringify(payload.methods),
+    ]);
   }
 
   /** Current queue depth — exposed for monitoring / admin UI. */

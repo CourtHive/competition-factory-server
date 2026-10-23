@@ -30,7 +30,9 @@ function makeMockUserStorage() {
 
 function makeMockUserProviderStorage() {
   return {
-    findByUserId: vi.fn().mockResolvedValue([{ email: 'test@test.com', userId: 'u1', providerId: 'p1', providerRole: 'DIRECTOR' }]),
+    findByUserId: vi
+      .fn()
+      .mockResolvedValue([{ email: 'test@test.com', userId: 'u1', providerId: 'p1', providerRole: 'DIRECTOR' }]),
     findByEmail: vi.fn().mockResolvedValue([]),
     findByProviderId: vi.fn().mockResolvedValue([]),
     findOne: vi.fn(),
@@ -88,7 +90,11 @@ describe('SsoController', () => {
 
   describe('generate', () => {
     it('returns token when identity exists', async () => {
-      ssoIdentityStorage.findByExternalId.mockResolvedValueOnce({ userId: 'u1', ssoProvider: 'ioncourt', externalId: 'ext-1' });
+      ssoIdentityStorage.findByExternalId.mockResolvedValueOnce({
+        userId: 'u1',
+        ssoProvider: 'ioncourt',
+        externalId: 'ext-1',
+      });
       ssoTokenService.generate.mockResolvedValueOnce({ token: 'tok-uuid', expiresIn: 60 });
 
       let result: any = await controller.generate(
@@ -130,10 +136,22 @@ describe('SsoController', () => {
   describe('loginWithToken', () => {
     it('exchanges token for JWT', async () => {
       ssoTokenService.consume.mockResolvedValueOnce({
-        externalId: 'ext-1', ssoProvider: 'ioncourt', providerId: 'p1', provisionerId: 'prov-1',
+        externalId: 'ext-1',
+        ssoProvider: 'ioncourt',
+        providerId: 'p1',
+        provisionerId: 'prov-1',
       });
-      ssoIdentityStorage.findByExternalId.mockResolvedValueOnce({ userId: 'u1', ssoProvider: 'ioncourt', externalId: 'ext-1' });
-      userStorage.findOne.mockResolvedValueOnce({ email: 'test@test.com', userId: 'u1', roles: ['client'], password: '' });
+      ssoIdentityStorage.findByExternalId.mockResolvedValueOnce({
+        userId: 'u1',
+        ssoProvider: 'ioncourt',
+        externalId: 'ext-1',
+      });
+      userStorage.findOne.mockResolvedValueOnce({
+        email: 'test@test.com',
+        userId: 'u1',
+        roles: ['client'],
+        password: '',
+      });
 
       let result: any = await controller.loginWithToken({ token: 'tok-uuid' });
 
@@ -144,10 +162,22 @@ describe('SsoController', () => {
 
     it('updates lastAccess for both user and resolved provider', async () => {
       ssoTokenService.consume.mockResolvedValueOnce({
-        externalId: 'ext-1', ssoProvider: 'ioncourt', providerId: 'p-resolved', provisionerId: 'prov-1',
+        externalId: 'ext-1',
+        ssoProvider: 'ioncourt',
+        providerId: 'p-resolved',
+        provisionerId: 'prov-1',
       });
-      ssoIdentityStorage.findByExternalId.mockResolvedValueOnce({ userId: 'u1', ssoProvider: 'ioncourt', externalId: 'ext-1' });
-      userStorage.findOne.mockResolvedValueOnce({ email: 'sso@test.com', userId: 'u1', roles: ['client'], password: '' });
+      ssoIdentityStorage.findByExternalId.mockResolvedValueOnce({
+        userId: 'u1',
+        ssoProvider: 'ioncourt',
+        externalId: 'ext-1',
+      });
+      userStorage.findOne.mockResolvedValueOnce({
+        email: 'sso@test.com',
+        userId: 'u1',
+        roles: ['client'],
+        password: '',
+      });
 
       await controller.loginWithToken({ token: 'tok-uuid' });
 
@@ -166,7 +196,10 @@ describe('SsoController', () => {
 
     it('returns error when SSO identity missing', async () => {
       ssoTokenService.consume.mockResolvedValueOnce({
-        externalId: 'ext-gone', ssoProvider: 'ioncourt', providerId: 'p1', provisionerId: 'prov-1',
+        externalId: 'ext-gone',
+        ssoProvider: 'ioncourt',
+        providerId: 'p1',
+        provisionerId: 'prov-1',
       });
       ssoIdentityStorage.findByExternalId.mockResolvedValueOnce(null);
 

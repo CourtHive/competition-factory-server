@@ -70,7 +70,6 @@ d('Provisioner E2E', () => {
             .delete(`/admin/provisioners/${provisionerId}`)
             .set('Authorization', `Bearer ${adminToken}`);
         } catch (err) {
-           
           console.warn('[provisioner.e2e] provisioner cleanup failed:', (err as Error).message);
         }
       }
@@ -85,7 +84,6 @@ d('Provisioner E2E', () => {
               .set('Authorization', `Bearer ${adminToken}`)
               .send({ tournamentId, providerId });
           } catch (err) {
-             
             console.warn(`[provisioner.e2e] tournament ${tournamentId} cleanup failed:`, (err as Error).message);
           }
         }
@@ -98,7 +96,6 @@ d('Provisioner E2E', () => {
           const providerStorage = app.get(PROVIDER_STORAGE);
           await providerStorage.removeProvider(providerId);
         } catch (err) {
-           
           console.warn('[provisioner.e2e] provider cleanup failed:', (err as Error).message);
         }
       }
@@ -110,7 +107,6 @@ d('Provisioner E2E', () => {
           const userStorage = app.get(USER_STORAGE);
           await userStorage.remove(ssoUserEmail);
         } catch (err) {
-           
           console.warn('[provisioner.e2e] sso user cleanup failed:', (err as Error).message);
         }
       }
@@ -302,10 +298,12 @@ d('Provisioner E2E', () => {
 
     const tournamentId = genRes.body.tournamentRecord.tournamentId;
     createdTournamentIds.push(tournamentId);
-    const userEmail = (await request(app.getHttpServer())
-      .get(`/provisioner/users?providerId=${providerId}`)
-      .set('Authorization', `Bearer ${apiKey}`)
-      .expect(200)).body.users[0].email;
+    const userEmail = (
+      await request(app.getHttpServer())
+        .get(`/provisioner/users?providerId=${providerId}`)
+        .set('Authorization', `Bearer ${apiKey}`)
+        .expect(200)
+    ).body.users[0].email;
 
     // Grant
     const grantRes = await request(app.getHttpServer())

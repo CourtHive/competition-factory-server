@@ -62,10 +62,7 @@ export interface IAuditStorage {
   ): Promise<AuditRow[]>;
 
   /** Query audit rows by action type (e.g. 'DELETE_TOURNAMENT'), newest first. */
-  findByActionType(
-    actionType: string,
-    options?: { from?: string; to?: string; limit?: number },
-  ): Promise<AuditRow[]>;
+  findByActionType(actionType: string, options?: { from?: string; to?: string; limit?: number }): Promise<AuditRow[]>;
 
   /**
    * Query audit rows for one actor (provisioner / provider / user /

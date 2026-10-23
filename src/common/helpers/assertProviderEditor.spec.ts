@@ -19,9 +19,7 @@ function ctx(overrides: Partial<UserContext> = {}): UserContext {
   };
 }
 
-function mockProvisionerProviderStorage(
-  pairs: Array<[string, string]>,
-): IProvisionerProviderStorage {
+function mockProvisionerProviderStorage(pairs: Array<[string, string]>): IProvisionerProviderStorage {
   // pairs: [provisionerId, providerId][] — getRelationship returns 'owner'
   // when the (provisionerId, providerId) pair is in `pairs`, else null.
   return {
@@ -33,9 +31,9 @@ function mockProvisionerProviderStorage(
 
 describe('assertProviderEditor', () => {
   it('throws when userContext is undefined', async () => {
-    await expect(
-      assertProviderEditor({ userContext: undefined, providerId: PROVIDER_P }),
-    ).rejects.toThrow(ForbiddenException);
+    await expect(assertProviderEditor({ userContext: undefined, providerId: PROVIDER_P })).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
   it('allows SUPER_ADMIN at any provider', async () => {

@@ -22,7 +22,11 @@ describe('IdentityService', () => {
       setContactEmail: vi.fn().mockResolvedValue({ success: true }),
       markEmailVerified: vi.fn().mockResolvedValue({ success: true }),
       getContactEmailCoverage: vi.fn().mockResolvedValue({
-        total: 0, missing: 0, equalsLogin: 0, verified: 0, unverified: 0,
+        total: 0,
+        missing: 0,
+        equalsLogin: 0,
+        verified: 0,
+        unverified: 0,
       }),
     };
     mockEmailService = {
@@ -81,7 +85,9 @@ describe('IdentityService', () => {
 
     it('records a CONTACT_EMAIL_CHANGED audit event with source=self-service', async () => {
       mockUserStorage.findByUserId.mockResolvedValue({
-        userId: 'u-1', email: 'login@test', contactEmail: 'old@example.com',
+        userId: 'u-1',
+        email: 'login@test',
+        contactEmail: 'old@example.com',
       });
       await identityService.setContactEmail(
         { userId: 'u-1', email: 'login@test', firstName: 'Alice' },
@@ -103,9 +109,9 @@ describe('IdentityService', () => {
       const previous = process.env.APP_BASE_URL;
       delete process.env.APP_BASE_URL;
       try {
-        await expect(
-          identityService.setContactEmail({ userId: 'u-1' }, 'alice@example.com'),
-        ).rejects.toThrow(/APP_BASE_URL/);
+        await expect(identityService.setContactEmail({ userId: 'u-1' }, 'alice@example.com')).rejects.toThrow(
+          /APP_BASE_URL/,
+        );
       } finally {
         if (previous !== undefined) process.env.APP_BASE_URL = previous;
       }
@@ -207,7 +213,8 @@ describe('IdentityService', () => {
 
     it('returns no_contact_email when the target has none set', async () => {
       mockUserStorage.findOne.mockResolvedValue({
-        userId: 'u-target', contactEmail: null,
+        userId: 'u-target',
+        contactEmail: null,
       });
       const result: any = await identityService.adminResendVerification('bob@login');
       expect(result.status).toBe('no_contact_email');
@@ -229,7 +236,11 @@ describe('IdentityService', () => {
   describe('getContactEmailCoverage', () => {
     it('returns the storage aggregate verbatim', async () => {
       mockUserStorage.getContactEmailCoverage.mockResolvedValue({
-        total: 42, missing: 5, equalsLogin: 8, verified: 21, unverified: 13,
+        total: 42,
+        missing: 5,
+        equalsLogin: 8,
+        verified: 21,
+        unverified: 13,
       });
       const result = await identityService.getContactEmailCoverage();
       expect(result).toEqual({ total: 42, missing: 5, equalsLogin: 8, verified: 21, unverified: 13 });
@@ -242,9 +253,7 @@ describe('IdentityService', () => {
     });
 
     it('rejects a malformed token', async () => {
-      await expect(identityService.verifyEmailToken('not-a-jwt')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(identityService.verifyEmailToken('not-a-jwt')).rejects.toThrow(UnauthorizedException);
     });
 
     it('rejects a token without the verification purpose', async () => {

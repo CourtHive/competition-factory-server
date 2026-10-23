@@ -13,7 +13,7 @@ export const ADMIN = 'admin'; // deprecated — treated as PROVIDER_ADMIN for ba
 // These answer "what can this user do within a specific provider's scope?"
 // Resolved at request time via the userContext middleware, not from the JWT.
 export const PROVIDER_ADMIN = 'PROVIDER_ADMIN'; // sees all tournaments in the provider
-export const DIRECTOR = 'DIRECTOR';             // sees only own/assigned tournaments
+export const DIRECTOR = 'DIRECTOR'; // sees only own/assigned tournaments
 
 // Convenience set for validation (e.g., invite role whitelist)
 export const VALID_GLOBAL_ROLES = [SUPER_ADMIN, DEVELOPER, GENERATE, CLIENT, SCORE, PROVISIONER] as const;

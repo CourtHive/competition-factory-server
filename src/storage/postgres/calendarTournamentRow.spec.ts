@@ -249,7 +249,11 @@ describe('DATE columns are calendar days, not instants', () => {
 
   it('passes a plain date string straight through', () => {
     const row: any = {
-      tournament_id: 't-1', provider_id: 'p', search_text: '', published: true, start_date: '2026-06-29',
+      tournament_id: 't-1',
+      provider_id: 'p',
+      search_text: '',
+      published: true,
+      start_date: '2026-06-29',
     };
     expect(fromRow(row).tournament.startDate).toBe('2026-06-29');
   });

@@ -91,7 +91,13 @@ describe('HiveIDTournamentService', () => {
         userId: 'u-1',
         personId: null,
         personRevision: null,
-        cached: { standardFamilyName: null, standardGivenName: null, birthDate: null, sex: null, nationalityCode: null },
+        cached: {
+          standardFamilyName: null,
+          standardGivenName: null,
+          birthDate: null,
+          sex: null,
+          nationalityCode: null,
+        },
         consentPreferences: {},
       });
       const result = await service.getClaimableForTournament('u-1', 't-1');
@@ -143,7 +149,13 @@ describe('HiveIDTournamentService', () => {
         userId: 'u-1',
         personId: null,
         personRevision: null,
-        cached: { standardFamilyName: null, standardGivenName: null, birthDate: null, sex: null, nationalityCode: null },
+        cached: {
+          standardFamilyName: null,
+          standardGivenName: null,
+          birthDate: null,
+          sex: null,
+          nationalityCode: null,
+        },
         consentPreferences: {},
       });
       await expect(
@@ -208,9 +220,9 @@ describe('HiveIDTournamentService', () => {
       await expect(
         service.claimParticipant({ userId: 'u-1', tournamentId: '', participantId: 'pa-1' }),
       ).rejects.toThrow(/required/);
-      await expect(
-        service.claimParticipant({ userId: 'u-1', tournamentId: 't-1', participantId: '' }),
-      ).rejects.toThrow(/required/);
+      await expect(service.claimParticipant({ userId: 'u-1', tournamentId: 't-1', participantId: '' })).rejects.toThrow(
+        /required/,
+      );
     });
   });
 });

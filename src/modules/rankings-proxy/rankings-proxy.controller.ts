@@ -79,7 +79,10 @@ export class RankingsProxyController {
       // sent with a one-year immutable TTL, while a live bundle is seconds
       // old — so the upstream's opinion wins when it has one, and the short
       // window remains the default for everything that does not set it.
-      res.setHeader('cache-control', upstream.headers.get('cache-control') ?? 'public, max-age=30, stale-while-revalidate=60');
+      res.setHeader(
+        'cache-control',
+        upstream.headers.get('cache-control') ?? 'public, max-age=30, stale-while-revalidate=60',
+      );
       const etag = upstream.headers.get('etag');
       if (etag) res.setHeader('etag', etag);
 

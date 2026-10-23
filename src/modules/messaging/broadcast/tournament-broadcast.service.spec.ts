@@ -146,9 +146,7 @@ describe('TournamentBroadcastService', () => {
 
     it('broadcasts publish change notices', () => {
       const payload = { tournamentIds: ['t1'] };
-      const publicNotices = [
-        { topic: topicConstants.PUBLISH_EVENT, tournamentId: 't1', eventId: 'e1' },
-      ];
+      const publicNotices = [{ topic: topicConstants.PUBLISH_EVENT, tournamentId: 't1', eventId: 'e1' }];
 
       service.broadcastPublicNotices(payload, publicNotices);
 
@@ -194,7 +192,13 @@ describe('TournamentBroadcastService', () => {
       const payload = { tournamentIds: ['t1'] };
       const publicNotices = [
         { topic: topicConstants.MODIFY_MATCHUP, tournamentId: 't1', matchUp: { matchUpId: 'm1' } },
-        { topic: topicConstants.MODIFY_POSITION_ASSIGNMENTS, tournamentId: 't1', positionAssignments: [{ drawPosition: 1 }], structureId: 's1', drawId: 'd1' },
+        {
+          topic: topicConstants.MODIFY_POSITION_ASSIGNMENTS,
+          tournamentId: 't1',
+          positionAssignments: [{ drawPosition: 1 }],
+          structureId: 's1',
+          drawId: 'd1',
+        },
       ];
 
       service.broadcastPublicNotices(payload, publicNotices);
@@ -268,9 +272,7 @@ describe('TournamentBroadcastService', () => {
 
       it('does not emit broadcastLiveScore when there are no matchUp notices', () => {
         const payload = { tournamentIds: ['t1'] };
-        const publicNotices = [
-          { topic: topicConstants.PUBLISH_EVENT, tournamentId: 't1', eventId: 'e1' },
-        ];
+        const publicNotices = [{ topic: topicConstants.PUBLISH_EVENT, tournamentId: 't1', eventId: 'e1' }];
 
         service.broadcastPublicNotices(payload, publicNotices);
 
@@ -338,9 +340,7 @@ describe('TournamentBroadcastService', () => {
 
       it('does not invoke the projector when there are no matchUp notices', () => {
         const payload = { tournamentIds: ['t1'] };
-        const publicNotices = [
-          { topic: topicConstants.PUBLISH_EVENT, tournamentId: 't1', eventId: 'e1' },
-        ];
+        const publicNotices = [{ topic: topicConstants.PUBLISH_EVENT, tournamentId: 't1', eventId: 'e1' }];
 
         service.broadcastPublicNotices(payload, publicNotices);
 

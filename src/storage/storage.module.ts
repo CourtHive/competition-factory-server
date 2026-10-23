@@ -90,10 +90,7 @@ const tournamentStorageProvider = makeStorageProvider(TOURNAMENT_STORAGE, Postgr
 const userStorageProvider = makeStorageProvider(USER_STORAGE, PostgresUserStorage);
 const providerStorageProvider = makeStorageProvider(PROVIDER_STORAGE, PostgresProviderStorage);
 const topologyStorageProvider = makeStorageProvider(TOPOLOGY_STORAGE, PostgresTopologyStorage);
-const providerCatalogStorageProvider = makeStorageProvider(
-  PROVIDER_CATALOG_STORAGE,
-  PostgresProviderCatalogStorage,
-);
+const providerCatalogStorageProvider = makeStorageProvider(PROVIDER_CATALOG_STORAGE, PostgresProviderCatalogStorage);
 const calendarStorageProvider = makeStorageProvider(CALENDAR_STORAGE, PostgresCalendarStorage);
 const participationStorageProvider = makeStorageProvider(PARTICIPATION_STORAGE, PostgresParticipationStorage);
 const authCodeStorageProvider = makeStorageProvider(AUTH_CODE_STORAGE, PostgresAuthCodeStorage);
@@ -102,15 +99,27 @@ const assignmentStorageProvider = makeStorageProvider(ASSIGNMENT_STORAGE, Postgr
 const grantStorageProvider = makeStorageProvider(GRANT_STORAGE, PostgresGrantStorage);
 const auditStorageProvider = makeStorageProvider(AUDIT_STORAGE, PostgresAuditStorage);
 const provisionerStorageProvider = makeStorageProvider(PROVISIONER_STORAGE, PostgresProvisionerStorage);
-const provisionerApiKeyStorageProvider = makeStorageProvider(PROVISIONER_API_KEY_STORAGE, PostgresProvisionerApiKeyStorage);
+const provisionerApiKeyStorageProvider = makeStorageProvider(
+  PROVISIONER_API_KEY_STORAGE,
+  PostgresProvisionerApiKeyStorage,
+);
 const providerApiKeyStorageProvider = makeStorageProvider(PROVIDER_API_KEY_STORAGE, PostgresProviderApiKeyStorage);
-const provisionerProviderStorageProvider = makeStorageProvider(PROVISIONER_PROVIDER_STORAGE, PostgresProvisionerProviderStorage);
-const tournamentProvisionerStorageProvider = makeStorageProvider(TOURNAMENT_PROVISIONER_STORAGE, PostgresTournamentProvisionerStorage);
+const provisionerProviderStorageProvider = makeStorageProvider(
+  PROVISIONER_PROVIDER_STORAGE,
+  PostgresProvisionerProviderStorage,
+);
+const tournamentProvisionerStorageProvider = makeStorageProvider(
+  TOURNAMENT_PROVISIONER_STORAGE,
+  PostgresTournamentProvisionerStorage,
+);
 const ssoIdentityStorageProvider = makeStorageProvider(SSO_IDENTITY_STORAGE, PostgresSsoIdentityStorage);
 const userProvisionerStorageProvider = makeStorageProvider(USER_PROVISIONER_STORAGE, PostgresUserProvisionerStorage);
 const providerArchiveStorageProvider = makeStorageProvider(PROVIDER_ARCHIVE_STORAGE, PostgresProviderArchiveStorage);
 const refreshTokenStorageProvider = makeStorageProvider(REFRESH_TOKEN_STORAGE, PostgresRefreshTokenStorage);
-const registrationEntryStorageProvider = makeStorageProvider(REGISTRATION_ENTRY_STORAGE, PostgresRegistrationEntryStorage);
+const registrationEntryStorageProvider = makeStorageProvider(
+  REGISTRATION_ENTRY_STORAGE,
+  PostgresRegistrationEntryStorage,
+);
 const chatStorageProvider = makeStorageProvider(CHAT_STORAGE, PostgresChatStorage);
 const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_STORAGE, PostgresProjectionOutboxStorage);
 

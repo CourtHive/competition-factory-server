@@ -48,7 +48,12 @@ describe('ProviderRankingsService.recompute', () => {
     // 1 (all-ages) × 2 genders = 2 snapshots, each passing the provider abbr.
     expect(webhook.generateSnapshot).toHaveBeenCalledTimes(2);
     expect(webhook.generateSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({ asOfDate: '2026-07-04', ageCategoryCode: undefined, gender: 'MALE', providerAbbr: ABBR }),
+      expect.objectContaining({
+        asOfDate: '2026-07-04',
+        ageCategoryCode: undefined,
+        gender: 'MALE',
+        providerAbbr: ABBR,
+      }),
     );
     expect(res.counts.snapshotsOk).toBe(2);
   });

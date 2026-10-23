@@ -1,11 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import {
-  AppendChatMessageInput,
-  ChatMessageRecord,
-  IChatStorage,
-} from '../interfaces/chat-storage.interface';
+import { AppendChatMessageInput, ChatMessageRecord, IChatStorage } from '../interfaces/chat-storage.interface';
 import { PG_POOL } from './postgres.config';
 
 const DEFAULT_BACKFILL_MS = 24 * 60 * 60 * 1000;
@@ -19,9 +15,7 @@ const SELECT_COLS = `seq, tournament_id, provider_id, provider_abbr, tournament_
 export class PostgresChatStorage implements IChatStorage {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-  async appendMessage(
-    input: AppendChatMessageInput,
-  ): Promise<{ record?: ChatMessageRecord; error?: string }> {
+  async appendMessage(input: AppendChatMessageInput): Promise<{ record?: ChatMessageRecord; error?: string }> {
     try {
       const result = await this.pool.query(
         `INSERT INTO chat_messages

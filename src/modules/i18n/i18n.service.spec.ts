@@ -134,7 +134,16 @@ describe('I18nService', () => {
       version: 'v1',
       generatedAt: '2026-05-16T18:00:00Z',
       locales: [
-        { code: 'en', label: 'English', nativeLabel: 'English', version: 'v1-en', size: 1, keyCount: 1, completeness: 1, rtl: false },
+        {
+          code: 'en',
+          label: 'English',
+          nativeLabel: 'English',
+          version: 'v1-en',
+          size: 1,
+          keyCount: 1,
+          completeness: 1,
+          rtl: false,
+        },
       ],
     };
     await writeFile(join(tempDir, 'i18n', 'manifest.json'), JSON.stringify(manifest), 'utf8');
@@ -147,7 +156,16 @@ describe('I18nService', () => {
       version: 'v2',
       generatedAt: '2026-05-16T19:00:00Z',
       locales: [
-        { code: 'fr', label: 'French', nativeLabel: 'Français', version: 'v2-fr', size: 1, keyCount: 1, completeness: 1, rtl: false },
+        {
+          code: 'fr',
+          label: 'French',
+          nativeLabel: 'Français',
+          version: 'v2-fr',
+          size: 1,
+          keyCount: 1,
+          completeness: 1,
+          rtl: false,
+        },
       ],
     };
     await writeFile(join(tempDir, 'i18n', 'manifest.json'), JSON.stringify(manifest), 'utf8');

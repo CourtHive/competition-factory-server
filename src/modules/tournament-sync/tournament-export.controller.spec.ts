@@ -29,9 +29,7 @@ describe('TournamentExportController', () => {
     });
 
     it('rejects invalid auth', async () => {
-      await expect(controller.listTournaments('Bearer wrong-key')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(controller.listTournaments('Bearer wrong-key')).rejects.toThrow(UnauthorizedException);
     });
 
     it('lists tournaments with valid auth', async () => {
@@ -47,9 +45,7 @@ describe('TournamentExportController', () => {
     const mockRecord = { tournamentId: 't1', tournamentName: 'Test' };
 
     it('rejects missing auth', async () => {
-      await expect(controller.exportTournament('t1', undefined)).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(controller.exportTournament('t1', undefined)).rejects.toThrow(UnauthorizedException);
     });
 
     it('returns tournament record with valid auth', async () => {

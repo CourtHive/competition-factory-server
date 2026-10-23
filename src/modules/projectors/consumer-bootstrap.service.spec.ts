@@ -2,11 +2,7 @@ import type { MockInstance } from 'vitest';
 import { Logger } from '@nestjs/common';
 
 import { ConsumerBootstrap } from './consumer-bootstrap.service';
-import {
-  ConsumerRegistryService,
-  HttpConsumerEndpoint,
-  isCallbackConsumer,
-} from './consumer-registry.service';
+import { ConsumerRegistryService, HttpConsumerEndpoint, isCallbackConsumer } from './consumer-registry.service';
 
 function asHttp(endpoint: any): HttpConsumerEndpoint {
   if (isCallbackConsumer(endpoint)) {

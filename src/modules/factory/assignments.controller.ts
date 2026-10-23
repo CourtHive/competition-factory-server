@@ -40,10 +40,7 @@ export class AssignmentsController {
   @Post('revoke')
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  revoke(
-    @Body() body: { tournamentId: string; userEmail: string; providerId: string },
-    @UserCtx() ctx: UserContext,
-  ) {
+  revoke(@Body() body: { tournamentId: string; userEmail: string; providerId: string }, @UserCtx() ctx: UserContext) {
     return this.assignmentsService.revoke(body, ctx);
   }
 

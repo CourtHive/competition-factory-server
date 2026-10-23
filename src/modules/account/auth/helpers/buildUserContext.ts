@@ -29,11 +29,7 @@ export async function buildUserContext(
   user: any,
   deps: IUserProviderStorage | BuildUserContextDeps,
 ): Promise<UserContext> {
-  const {
-    userProviderStorage,
-    userProvisionerStorage,
-    provisionerProviderStorage,
-  }: BuildUserContextDeps =
+  const { userProviderStorage, userProvisionerStorage, provisionerProviderStorage }: BuildUserContextDeps =
     'findByUserId' in (deps as any)
       ? { userProviderStorage: deps as IUserProviderStorage }
       : (deps as BuildUserContextDeps);
@@ -62,16 +58,9 @@ export async function buildUserContext(
   // storages — without that, fall back to an empty set so existing code
   // paths that haven't migrated are no worse than before.
   let provisionerProviderIds: string[] = [];
-  if (
-    !isSuperAdmin &&
-    globalRoles.includes(PROVISIONER) &&
-    userProvisionerStorage &&
-    provisionerProviderStorage
-  ) {
+  if (!isSuperAdmin && globalRoles.includes(PROVISIONER) && userProvisionerStorage && provisionerProviderStorage) {
     try {
-      const provisionerIds = await userProvisionerStorage.findProvisionerIdsByUser(
-        user.userId ?? user.user_id,
-      );
+      const provisionerIds = await userProvisionerStorage.findProvisionerIdsByUser(user.userId ?? user.user_id);
       const seen = new Set<string>();
       for (const provisionerId of provisionerIds) {
         const rows = await provisionerProviderStorage.findByProvisioner(provisionerId);
@@ -94,8 +83,6 @@ export async function buildUserContext(
     providerIds: Object.keys(providerRoles),
     provisionerProviderIds,
     contactEmail: user.contactEmail ?? null,
-    emailVerifiedAt: user.emailVerifiedAt
-      ? new Date(user.emailVerifiedAt).toISOString()
-      : null,
+    emailVerifiedAt: user.emailVerifiedAt ? new Date(user.emailVerifiedAt).toISOString() : null,
   };
 }

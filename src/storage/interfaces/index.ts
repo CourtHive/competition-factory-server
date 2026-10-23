@@ -20,16 +20,8 @@ export {
   type TournamentAssignmentRow,
 } from './assignment-storage.interface';
 export { GRANT_STORAGE, type IGrantStorage, type TournamentGrantRow } from './grant-storage.interface';
-export {
-  AUDIT_STORAGE,
-  type IAuditStorage,
-  type AuditRow,
-} from './audit-storage.interface';
-export {
-  PROVISIONER_STORAGE,
-  type IProvisionerStorage,
-  type ProvisionerRow,
-} from './provisioner-storage.interface';
+export { AUDIT_STORAGE, type IAuditStorage, type AuditRow } from './audit-storage.interface';
+export { PROVISIONER_STORAGE, type IProvisionerStorage, type ProvisionerRow } from './provisioner-storage.interface';
 export {
   PROVISIONER_API_KEY_STORAGE,
   type IProvisionerApiKeyStorage,
@@ -50,11 +42,7 @@ export {
   type ITournamentProvisionerStorage,
   type TournamentProvisionerRow,
 } from './tournament-provisioner-storage.interface';
-export {
-  SSO_IDENTITY_STORAGE,
-  type ISsoIdentityStorage,
-  type SsoIdentityRow,
-} from './sso-identity-storage.interface';
+export { SSO_IDENTITY_STORAGE, type ISsoIdentityStorage, type SsoIdentityRow } from './sso-identity-storage.interface';
 export {
   USER_PROVISIONER_STORAGE,
   type IUserProvisionerStorage,

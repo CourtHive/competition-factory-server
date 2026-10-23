@@ -87,7 +87,12 @@ d('calendar_tournaments (real Postgres)', () => {
     for (const e of entries) await storage.upsertTournament(toRow(e, e.providerId, 'ABBR'));
   };
 
-  const unrestricted = { unrestricted: true, fullAccessProviderIds: [], directorProviderIds: [], assignedTournamentIds: [] };
+  const unrestricted = {
+    unrestricted: true,
+    fullAccessProviderIds: [],
+    directorProviderIds: [],
+    assignedTournamentIds: [],
+  };
 
   it('round-trips an entry through real SQL, unchanged', async () => {
     const original = entry('t-1', P_ADMIN, {
@@ -127,14 +132,21 @@ d('calendar_tournaments (real Postgres)', () => {
 
     const scope = buildCalendarScope(
       {
-        userId: ME, email: 'me@test', isSuperAdmin: false, globalRoles: ['CLIENT'],
-        providerRoles: { [P_DIRECTOR]: 'DIRECTOR' }, providerIds: [P_DIRECTOR],
+        userId: ME,
+        email: 'me@test',
+        isSuperAdmin: false,
+        globalRoles: ['CLIENT'],
+        providerRoles: { [P_DIRECTOR]: 'DIRECTOR' },
+        providerIds: [P_DIRECTOR],
       } as any,
       new Set(['t-assigned']),
     );
 
     const { rows, total } = await storage.queryTournaments({
-      providerIds: [P_DIRECTOR], scope, limit: 50, offset: 0,
+      providerIds: [P_DIRECTOR],
+      scope,
+      limit: 50,
+      offset: 0,
     });
 
     expect(rows.map((r) => r.tournamentId).sort()).toEqual(['t-assigned', 't-own']);
@@ -151,12 +163,19 @@ d('calendar_tournaments (real Postgres)', () => {
     ]);
 
     const scope = buildCalendarScope({
-      userId: ME, email: 'me@test', isSuperAdmin: false, globalRoles: ['CLIENT'],
-      providerRoles: { [P_DIRECTOR]: 'DIRECTOR' }, providerIds: [P_DIRECTOR],
+      userId: ME,
+      email: 'me@test',
+      isSuperAdmin: false,
+      globalRoles: ['CLIENT'],
+      providerRoles: { [P_DIRECTOR]: 'DIRECTOR' },
+      providerIds: [P_DIRECTOR],
     } as any);
 
     const { rows, total } = await storage.queryTournaments({
-      providerIds: [P_DIRECTOR, P_ADMIN], scope, limit: 50, offset: 0,
+      providerIds: [P_DIRECTOR, P_ADMIN],
+      scope,
+      limit: 50,
+      offset: 0,
     });
 
     expect(rows.map((r) => r.tournamentId)).toEqual(['t-provisioner-made']);
@@ -173,7 +192,11 @@ d('calendar_tournaments (real Postgres)', () => {
     await seed([entry('t-pub', P_ADMIN), entry('t-draft', P_ADMIN, { published: false })]);
 
     const { rows } = await storage.queryTournaments({
-      providerIds: [P_ADMIN], scope: unrestricted, publishedOnly: true, limit: 50, offset: 0,
+      providerIds: [P_ADMIN],
+      scope: unrestricted,
+      publishedOnly: true,
+      limit: 50,
+      offset: 0,
     });
 
     expect(rows.map((r) => r.tournamentId)).toEqual(['t-pub']);
@@ -192,7 +215,10 @@ d('calendar_tournaments (real Postgres)', () => {
     let offset = 0;
     for (;;) {
       const { rows, total } = await storage.queryTournaments({
-        providerIds: [P_ADMIN], scope: unrestricted, limit: 2, offset,
+        providerIds: [P_ADMIN],
+        scope: unrestricted,
+        limit: 2,
+        offset,
       });
       seen.push(...rows.map((r) => r.tournamentId));
       offset += rows.length;
@@ -207,7 +233,10 @@ d('calendar_tournaments (real Postgres)', () => {
     await seed([entry('t-1', P_ADMIN), entry('t-2', P_ADMIN), entry('t-3', P_DIRECTOR)]);
 
     const { total, totalsByProvider } = await storage.queryTournaments({
-      providerIds: [P_ADMIN, P_DIRECTOR], scope: unrestricted, limit: 1, offset: 0,
+      providerIds: [P_ADMIN, P_DIRECTOR],
+      scope: unrestricted,
+      limit: 1,
+      offset: 0,
     });
 
     expect(total).toBe(3);
@@ -232,7 +261,11 @@ d('calendar_tournaments (real Postgres)', () => {
     ]);
 
     const { rows } = await storage.queryTournaments({
-      providerIds: [P_ADMIN], scope: unrestricted, publishedOnly: true, limit: 50, offset: 0,
+      providerIds: [P_ADMIN],
+      scope: unrestricted,
+      publishedOnly: true,
+      limit: 50,
+      offset: 0,
     });
 
     // Stored: both events. Served: one.

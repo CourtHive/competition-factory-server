@@ -16,13 +16,7 @@
 // Lifecycle: starts on OnApplicationBootstrap, aborts on
 // OnApplicationShutdown. Survives transient courthive-persons restarts.
 
-import {
-  Inject,
-  Injectable,
-  Logger,
-  OnApplicationBootstrap,
-  OnApplicationShutdown,
-} from '@nestjs/common';
+import { Inject, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 
 import { CachedPersonFields, IUserStorage, USER_STORAGE } from '../../../storage/interfaces/user-storage.interface';
 import { PersonBroadcastService } from '../../messaging/hiveid/person-broadcast.service';
@@ -330,10 +324,14 @@ export class PersonsClient implements OnApplicationBootstrap, OnApplicationShutd
         clearTimeout(timer);
         resolve();
       } else {
-        this.controller.signal.addEventListener('abort', () => {
-          clearTimeout(timer);
-          resolve();
-        }, { once: true });
+        this.controller.signal.addEventListener(
+          'abort',
+          () => {
+            clearTimeout(timer);
+            resolve();
+          },
+          { once: true },
+        );
       }
     });
   }

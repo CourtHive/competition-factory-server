@@ -23,10 +23,9 @@ function makeInvalidRecord() {
 }
 
 function makeFactoryService(overrides: { tournamentStorageService?: any } = {}) {
-  const tournamentStorageService =
-    overrides.tournamentStorageService ?? {
-      saveTournamentRecords: vi.fn().mockResolvedValue({ success: true }),
-    };
+  const tournamentStorageService = overrides.tournamentStorageService ?? {
+    saveTournamentRecords: vi.fn().mockResolvedValue({ success: true }),
+  };
   const assignmentsService: any = {
     getAssignedTournamentIds: vi.fn().mockResolvedValue(new Set()),
     getAssignedRoles: vi.fn().mockResolvedValue(new Map()),
@@ -42,10 +41,13 @@ function makeFactoryService(overrides: { tournamentStorageService?: any } = {}) 
 
   // Real builder over disabled collaborators — mirrors the production bag shape
   // (A1) rather than a stub that could drift from it.
-  const mutationServices: any = new MutationServicesService({ isEnabled: false, enqueue: vi.fn() } as any, {
-    record: vi.fn(),
-    isEnabled: false,
-  } as any);
+  const mutationServices: any = new MutationServicesService(
+    { isEnabled: false, enqueue: vi.fn() } as any,
+    {
+      record: vi.fn(),
+      isEnabled: false,
+    } as any,
+  );
 
   const svc = new FactoryService(
     tournamentStorageService,

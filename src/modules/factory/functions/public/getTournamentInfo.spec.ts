@@ -60,10 +60,7 @@ describe('getTournamentInfo for epixodic', () => {
   });
 
   it('returns empty eventInfo when usePublishState is true and nothing is published', async () => {
-    const result: any = await getTournamentInfo(
-      { tournamentId: TEST_TID, usePublishState: true },
-      storage,
-    );
+    const result: any = await getTournamentInfo({ tournamentId: TEST_TID, usePublishState: true }, storage);
 
     expect(result.success).toEqual(true);
     expect(result.tournamentInfo).toBeDefined();
@@ -74,10 +71,7 @@ describe('getTournamentInfo for epixodic', () => {
   });
 
   it('includes tournamentName, startDate, endDate', async () => {
-    const result: any = await getTournamentInfo(
-      { tournamentId: TEST_TID },
-      storage,
-    );
+    const result: any = await getTournamentInfo({ tournamentId: TEST_TID }, storage);
 
     expect(result.success).toEqual(true);
     expect(result.tournamentInfo.tournamentName).toBeDefined();

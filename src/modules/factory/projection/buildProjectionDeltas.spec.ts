@@ -21,7 +21,15 @@ function singlesMatchUp(matchUpId: string, drawId: string) {
     eventId: 'e1',
     score: { scoreStringSide1: '6-1 6-1' },
     sides: [
-      { sideNumber: 1, participant: { participantId: 'p1', participantType: 'INDIVIDUAL', participantName: 'A', person: { personId: '1001' } } },
+      {
+        sideNumber: 1,
+        participant: {
+          participantId: 'p1',
+          participantType: 'INDIVIDUAL',
+          participantName: 'A',
+          person: { personId: '1001' },
+        },
+      },
       { sideNumber: 2, participant: { participantId: 'p2', participantType: 'INDIVIDUAL', participantName: 'B' } },
     ],
   };
@@ -129,21 +137,65 @@ describe('buildProjectionDeltas', () => {
     const deletes = deltas.filter((d) => d.op === 'delete');
     expect(deletes).toEqual(
       expect.arrayContaining([
-        { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { tournament_id: 't-1', draw_id: 'd1' }, topic: 'deleteDraw' },
-        { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { tournament_id: 't-1', event_id: 'e1' }, topic: 'deleteEvent' },
-        { tournamentId: 't-1', op: 'delete', table: 'entries', key: { tournament_id: 't-1', event_id: 'e1' }, topic: 'deleteEvent' },
-        { tournamentId: 't-1', op: 'delete', table: 'tournament_venues', key: { tournament_id: 't-1', venue_id: 'v1' }, topic: 'deleteVenue' },
-        { tournamentId: 't-1', op: 'delete', table: 'entries', key: { tournament_id: 't-1', participant_id: 'p1' }, topic: 'deleteParticipants' },
-        { tournamentId: 't-1', op: 'delete', table: 'entries', key: { tournament_id: 't-1', participant_id: 'p2' }, topic: 'deleteParticipants' },
+        {
+          tournamentId: 't-1',
+          op: 'delete',
+          table: 'match_ups',
+          key: { tournament_id: 't-1', draw_id: 'd1' },
+          topic: 'deleteDraw',
+        },
+        {
+          tournamentId: 't-1',
+          op: 'delete',
+          table: 'match_ups',
+          key: { tournament_id: 't-1', event_id: 'e1' },
+          topic: 'deleteEvent',
+        },
+        {
+          tournamentId: 't-1',
+          op: 'delete',
+          table: 'entries',
+          key: { tournament_id: 't-1', event_id: 'e1' },
+          topic: 'deleteEvent',
+        },
+        {
+          tournamentId: 't-1',
+          op: 'delete',
+          table: 'tournament_venues',
+          key: { tournament_id: 't-1', venue_id: 'v1' },
+          topic: 'deleteVenue',
+        },
+        {
+          tournamentId: 't-1',
+          op: 'delete',
+          table: 'entries',
+          key: { tournament_id: 't-1', participant_id: 'p1' },
+          topic: 'deleteParticipants',
+        },
+        {
+          tournamentId: 't-1',
+          op: 'delete',
+          table: 'entries',
+          key: { tournament_id: 't-1', participant_id: 'p2' },
+          topic: 'deleteParticipants',
+        },
       ]),
     );
   });
 
   it('participants intent → entries upserts + a tournaments upsert (FK parent)', async () => {
     const records = {
-      't-1': { ...RECORD, participants: [{ participantId: 'p1', person: { personId: '1001' } }], events: [{ eventId: 'e1', entries: [{ participantId: 'p1', entryStatus: 'ACCEPTED' }] }] },
+      't-1': {
+        ...RECORD,
+        participants: [{ participantId: 'p1', person: { personId: '1001' } }],
+        events: [{ eventId: 'e1', entries: [{ participantId: 'p1', entryStatus: 'ACCEPTED' }] }],
+      },
     };
-    const deltas = await buildProjectionDeltas({ intents: [{ kind: 'participants', tournamentId: 't-1' }], tournamentRecords: records, flattenDraw: vi.fn() });
+    const deltas = await buildProjectionDeltas({
+      intents: [{ kind: 'participants', tournamentId: 't-1' }],
+      tournamentRecords: records,
+      flattenDraw: vi.fn(),
+    });
     expect(deltas.some((d) => d.table === 'tournaments')).toBe(true);
     // delete-by-tournament THEN re-insert (a removed entry must not leave a stale row)
     const entryOps = deltas.filter((d) => d.table === 'entries');
@@ -189,8 +241,20 @@ describe('buildProjectionDeltas', () => {
     ]);
     const deletes = deltas.filter((d) => d.op === 'delete');
     expect(deletes).toEqual([
-      { tournamentId: 't-1', op: 'delete', table: 'events', key: { tournament_id: 't-1', event_id: 'e1' }, topic: 'deleteEvent' },
-      { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { tournament_id: 't-1', event_id: 'e1' }, topic: 'deleteEvent' },
+      {
+        tournamentId: 't-1',
+        op: 'delete',
+        table: 'events',
+        key: { tournament_id: 't-1', event_id: 'e1' },
+        topic: 'deleteEvent',
+      },
+      {
+        tournamentId: 't-1',
+        op: 'delete',
+        table: 'match_ups',
+        key: { tournament_id: 't-1', event_id: 'e1' },
+        topic: 'deleteEvent',
+      },
       {
         tournamentId: 't-1',
         op: 'delete',
@@ -198,8 +262,20 @@ describe('buildProjectionDeltas', () => {
         key: { tournament_id: 't-1', event_id: 'e1' },
         topic: 'deleteEvent',
       },
-      { tournamentId: 't-1', op: 'delete', table: 'seeds', key: { tournament_id: 't-1', event_id: 'e1' }, topic: 'deleteEvent' },
-      { tournamentId: 't-1', op: 'delete', table: 'draws', key: { tournament_id: 't-1', event_id: 'e1' }, topic: 'deleteEvent' },
+      {
+        tournamentId: 't-1',
+        op: 'delete',
+        table: 'seeds',
+        key: { tournament_id: 't-1', event_id: 'e1' },
+        topic: 'deleteEvent',
+      },
+      {
+        tournamentId: 't-1',
+        op: 'delete',
+        table: 'draws',
+        key: { tournament_id: 't-1', event_id: 'e1' },
+        topic: 'deleteEvent',
+      },
     ]);
   });
 
@@ -233,12 +309,18 @@ describe('buildProjectionDeltas', () => {
     const drawOps = deltas.filter((d) => d.table === 'draws');
     const structOps = deltas.filter((d) => d.table === 'structures');
     expect(drawOps).toHaveLength(1);
-    expect(drawOps[0]).toMatchObject({ op: 'upsert', key: { draw_id: 'd1' }, row: { draw_name: 'Main', draw_type: 'SINGLE_ELIMINATION' } });
+    expect(drawOps[0]).toMatchObject({
+      op: 'upsert',
+      key: { draw_id: 'd1' },
+      row: { draw_name: 'Main', draw_type: 'SINGLE_ELIMINATION' },
+    });
     // delete-by-draw first, then the two structure upserts (order matters)
     expect(structOps[0]).toMatchObject({ op: 'delete', key: { tournament_id: 't-1', draw_id: 'd1' } });
     expect(structOps.slice(1).map((d) => d.key)).toEqual([{ structure_id: 's1' }, { structure_id: 's2' }]);
     // draw upserted before structures (FK parent)
-    expect(deltas.findIndex((d) => d.table === 'draws')).toBeLessThan(deltas.findIndex((d) => d.table === 'structures'));
+    expect(deltas.findIndex((d) => d.table === 'draws')).toBeLessThan(
+      deltas.findIndex((d) => d.table === 'structures'),
+    );
   });
 
   it('deleteDraw also deletes the draw row (structures cascade via the draws FK)', async () => {
@@ -297,7 +379,13 @@ describe('buildProjectionDeltas', () => {
     const deltas = await build([{ kind: 'seeds', tournamentId: 't-1', structureId: 'gone' }]);
     const seedOps = deltas.filter((d) => d.table === 'seeds');
     expect(seedOps).toEqual([
-      { tournamentId: 't-1', op: 'delete', table: 'seeds', key: { tournament_id: 't-1', structure_id: 'gone' }, topic: 'seeds' },
+      {
+        tournamentId: 't-1',
+        op: 'delete',
+        table: 'seeds',
+        key: { tournament_id: 't-1', structure_id: 'gone' },
+        topic: 'seeds',
+      },
     ]);
   });
 
@@ -316,8 +404,20 @@ describe('buildProjectionDeltas', () => {
     const deltas = await build([{ kind: 'deleteMatchUps', tournamentId: 't-1', matchUpIds: ['m1', 'm2'] }]);
     const deletes = deltas.filter((d) => d.op === 'delete');
     expect(deletes).toEqual([
-      { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { tournament_id: 't-1', match_up_id: 'm1' }, topic: 'deletedMatchUpIds' },
-      { tournamentId: 't-1', op: 'delete', table: 'match_ups', key: { tournament_id: 't-1', match_up_id: 'm2' }, topic: 'deletedMatchUpIds' },
+      {
+        tournamentId: 't-1',
+        op: 'delete',
+        table: 'match_ups',
+        key: { tournament_id: 't-1', match_up_id: 'm1' },
+        topic: 'deletedMatchUpIds',
+      },
+      {
+        tournamentId: 't-1',
+        op: 'delete',
+        table: 'match_ups',
+        key: { tournament_id: 't-1', match_up_id: 'm2' },
+        topic: 'deletedMatchUpIds',
+      },
     ]);
   });
 
@@ -353,7 +453,10 @@ describe('buildProjectionDeltas', () => {
       't-1': {
         ...RECORD,
         timeItems: [
-          { itemType: 'PUBLISH.STATUS', itemValue: { PUBLIC: { orderOfPlay: { published: true, scheduledDates: ['2025-01-05'] } } } },
+          {
+            itemType: 'PUBLISH.STATUS',
+            itemValue: { PUBLIC: { orderOfPlay: { published: true, scheduledDates: ['2025-01-05'] } } },
+          },
         ],
       },
     };
@@ -370,14 +473,22 @@ describe('buildProjectionDeltas', () => {
 
     // no publish status → delete the row (an unpublish)
     const down = await build([{ kind: 'orderOfPlay', tournamentId: 't-1' }]);
-    expect(down.find((d) => d.table === 'order_of_play')).toMatchObject({ op: 'delete', key: { tournament_id: 't-1' } });
+    expect(down.find((d) => d.table === 'order_of_play')).toMatchObject({
+      op: 'delete',
+      key: { tournament_id: 't-1' },
+    });
   });
 
   it('participantPublish intent → upsert when published, delete when not', async () => {
     const published = {
       't-1': {
         ...RECORD,
-        timeItems: [{ itemType: 'PUBLISH.STATUS', itemValue: { PUBLIC: { participants: { published: true, embargo: '2025-01-04' } } } }],
+        timeItems: [
+          {
+            itemType: 'PUBLISH.STATUS',
+            itemValue: { PUBLIC: { participants: { published: true, embargo: '2025-01-04' } } },
+          },
+        ],
       },
     };
     const up = await buildProjectionDeltas({
@@ -392,12 +503,26 @@ describe('buildProjectionDeltas', () => {
     });
 
     const down = await build([{ kind: 'participantPublish', tournamentId: 't-1' }]);
-    expect(down.find((d) => d.table === 'participant_publish')).toMatchObject({ op: 'delete', key: { tournament_id: 't-1' } });
+    expect(down.find((d) => d.table === 'participant_publish')).toMatchObject({
+      op: 'delete',
+      key: { tournament_id: 't-1' },
+    });
   });
 
   it('schedulingProfile intent → delete-by-tournament THEN one upsert per (date, venue, round)', async () => {
     const profile = [
-      { scheduleDate: '2025-01-05', venues: [{ venueId: 'v1', rounds: [{ drawId: 'd1', roundNumber: 1 }, { drawId: 'd1', roundNumber: 2 }] }] },
+      {
+        scheduleDate: '2025-01-05',
+        venues: [
+          {
+            venueId: 'v1',
+            rounds: [
+              { drawId: 'd1', roundNumber: 1 },
+              { drawId: 'd1', roundNumber: 2 },
+            ],
+          },
+        ],
+      },
     ];
     const deltas = await build([{ kind: 'schedulingProfile', tournamentId: 't-1', schedulingProfile: profile }]);
     const ops = deltas.filter((d) => d.table === 'scheduling_profile');
@@ -433,7 +558,9 @@ describe('buildProjectionDeltas', () => {
   });
 
   it('claimPerson → update deltas stamping person_id on competitors + entries', async () => {
-    const deltas = await build([{ kind: 'claimPerson', tournamentId: 't-1', participantId: 'pa-1', personId: 'canon-9' }]);
+    const deltas = await build([
+      { kind: 'claimPerson', tournamentId: 't-1', participantId: 'pa-1', personId: 'canon-9' },
+    ]);
     const updates = deltas.filter((d) => d.op === 'update');
     expect(updates).toEqual([
       {

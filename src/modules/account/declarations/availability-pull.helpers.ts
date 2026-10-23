@@ -67,10 +67,10 @@ export function extractCanonicalPersonIds(tournamentRecord: any): string[] {
  * DO_NOT_SCHEDULE requests (via the factory translator); IF_NEEDED days are
  * collected as advisory metadata only.
  */
-export function buildAvailabilityMethods(args: {
-  snapshots: AvailabilitySnapshot[];
-  dates: string[];
-}): { methods: any[]; summary: AvailabilityPullSummary } {
+export function buildAvailabilityMethods(args: { snapshots: AvailabilitySnapshot[]; dates: string[] }): {
+  methods: any[];
+  summary: AvailabilityPullSummary;
+} {
   const { snapshots, dates } = args;
   const methods: any[] = [];
   const ifNeeded: Record<string, string[]> = {};

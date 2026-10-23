@@ -108,7 +108,11 @@ d('Provisioner / user-administration loophole', () => {
 
       const { PROVIDER_STORAGE } = await import('src/storage/interfaces');
       const providerStorage: any = app.get(PROVIDER_STORAGE);
-      try { if (providerId) await providerStorage.removeProvider(providerId); } catch { /* ignore */ }
+      try {
+        if (providerId) await providerStorage.removeProvider(providerId);
+      } catch {
+        /* ignore */
+      }
     } finally {
       await app.close();
     }

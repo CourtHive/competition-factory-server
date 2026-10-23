@@ -32,7 +32,9 @@ describe('deltaBuffer recorders', () => {
 
   it('recordAddMatchUps records one flattenDraw per distinct drawId + a touch', () => {
     const buffer = createDeltaBuffer(['t-1']);
-    recordAddMatchUps(buffer, [{ tournamentId: 't-1', matchUps: [{ drawId: 'd1' }, { drawId: 'd1' }, { drawId: 'd2' }] }]);
+    recordAddMatchUps(buffer, [
+      { tournamentId: 't-1', matchUps: [{ drawId: 'd1' }, { drawId: 'd1' }, { drawId: 'd2' }] },
+    ]);
     const draws = buffer.intents.filter((i) => i.kind === 'flattenDraw').map((i: any) => i.drawId);
     expect(new Set(draws)).toEqual(new Set(['d1', 'd2']));
     expect(buffer.intents.some((i) => i.kind === 'touchTournament')).toBe(true);
@@ -141,7 +143,9 @@ describe('deltaBuffer recorders', () => {
   it('recordOrderOfPlay records one orderOfPlay intent per tournament (deduped)', () => {
     const buffer = createDeltaBuffer(['t-1']);
     recordOrderOfPlay(buffer, [{ tournamentId: 't-1', scheduledDates: ['2025-01-05'] }, { tournamentId: 't-1' }]);
-    expect(buffer.intents.filter((i) => i.kind === 'orderOfPlay')).toEqual([{ kind: 'orderOfPlay', tournamentId: 't-1' }]);
+    expect(buffer.intents.filter((i) => i.kind === 'orderOfPlay')).toEqual([
+      { kind: 'orderOfPlay', tournamentId: 't-1' },
+    ]);
     expect(() => recordOrderOfPlay(undefined, [{ tournamentId: 't-1' }])).not.toThrow();
   });
 
@@ -198,7 +202,15 @@ describe('deltaBuffer recorders', () => {
         {
           tournamentId: 't-1',
           participants: [
-            { participantId: 'pa-1', person: { personOtherIds: [{ organisationId: 'USTA', personId: '5' }, { organisationId: 'CANONICAL_PERSON', personId: 'canon-9' }] } },
+            {
+              participantId: 'pa-1',
+              person: {
+                personOtherIds: [
+                  { organisationId: 'USTA', personId: '5' },
+                  { organisationId: 'CANONICAL_PERSON', personId: 'canon-9' },
+                ],
+              },
+            },
             { participantId: 'pa-2', person: { personOtherIds: [{ organisationId: 'USTA', personId: '6' }] } },
           ],
         },

@@ -17,11 +17,7 @@ import type { ITournamentStorage, IProviderStorage } from 'src/storage/interface
  * Privacy policy and participant profile are identical to the event and draw routes by construction:
  * a public reader must not see more through a narrower route.
  */
-export async function getStructureData(
-  params: any,
-  storage: ITournamentStorage,
-  providerStorage?: IProviderStorage,
-) {
+export async function getStructureData(params: any, storage: ITournamentStorage, providerStorage?: IProviderStorage) {
   if (!params?.tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
   if (!params?.drawId) return { error: 'MISSING_DRAW_ID' };
   if (!params?.structureId) return { error: 'MISSING_STRUCTURE_ID' };

@@ -16,10 +16,7 @@ export interface IUserProviderStorage {
    * only those providers — used to scope a non-super-admin editor's
    * view of a user's affiliations to providers they administer.
    */
-  findByUserIdEnriched(
-    userId: string,
-    allowedProviderIds?: string[],
-  ): Promise<UserProviderEnrichedRow[]>;
+  findByUserIdEnriched(userId: string, allowedProviderIds?: string[]): Promise<UserProviderEnrichedRow[]>;
 
   /** Get all provider associations for a user (by email — resolves to user_id internally). */
   findByEmail(email: string): Promise<UserProviderRow[]>;

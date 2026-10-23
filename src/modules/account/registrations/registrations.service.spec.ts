@@ -124,61 +124,61 @@ describe('RegistrationsService', () => {
         });
       });
 
-    // 3d-0 — the participantId is reserved when the person REGISTERS, and accept merely
-  // carries it. Precedence is strict: a participant already in the record wins (never
-  // create a second one for the same person), then the reservation, then a mint.
-  describe('participantId precedence (reserved at registration)', () => {
-    function acceptWith(reg: any) {
-      declarationsClient.getRegistration.mockResolvedValue(reg);
-      personsClient.getById.mockResolvedValue({
-        person: { standardGivenName: 'Jane', standardFamilyName: 'Doe' },
-      });
-      return service.acceptRegistration({
-        userContext: adminUserContext,
-        tournamentId: 't-1',
-        registrationId: 'r-1',
-      });
-    }
+      // 3d-0 — the participantId is reserved when the person REGISTERS, and accept merely
+      // carries it. Precedence is strict: a participant already in the record wins (never
+      // create a second one for the same person), then the reservation, then a mint.
+      describe('participantId precedence (reserved at registration)', () => {
+        function acceptWith(reg: any) {
+          declarationsClient.getRegistration.mockResolvedValue(reg);
+          personsClient.getById.mockResolvedValue({
+            person: { standardGivenName: 'Jane', standardFamilyName: 'Doe' },
+          });
+          return service.acceptRegistration({
+            userContext: adminUserContext,
+            tournamentId: 't-1',
+            registrationId: 'r-1',
+          });
+        }
 
-    it('CARRIES the participantId reserved at registration instead of minting', async () => {
-      const result = await acceptWith(declarationsReg({ participantId: 'reserved-at-registration' }));
-      const participant = mockExecutionQueue.mock.calls[0][0].methods[0].params.participants[0];
-      expect(participant.participantId).toBe('reserved-at-registration');
-      expect(result.participantId).toBe('reserved-at-registration');
-    });
+        it('CARRIES the participantId reserved at registration instead of minting', async () => {
+          const result = await acceptWith(declarationsReg({ participantId: 'reserved-at-registration' }));
+          const participant = mockExecutionQueue.mock.calls[0][0].methods[0].params.participants[0];
+          expect(participant.participantId).toBe('reserved-at-registration');
+          expect(result.participantId).toBe('reserved-at-registration');
+        });
 
-    // Back-compat: registrations predating declarations migration 0004 carry no
-    // reservation, and walk-ins never pass through registration at all.
-    it('MINTS when the registration carries no reservation', async () => {
-      await acceptWith(declarationsReg({ participantId: null }));
-      const participant = mockExecutionQueue.mock.calls[0][0].methods[0].params.participants[0];
-      expect(participant.participantId).toBeTruthy();
-      expect(participant.participantId).not.toBe('reserved-at-registration');
-    });
+        // Back-compat: registrations predating declarations migration 0004 carry no
+        // reservation, and walk-ins never pass through registration at all.
+        it('MINTS when the registration carries no reservation', async () => {
+          await acceptWith(declarationsReg({ participantId: null }));
+          const participant = mockExecutionQueue.mock.calls[0][0].methods[0].params.participants[0];
+          expect(participant.participantId).toBeTruthy();
+          expect(participant.participantId).not.toBe('reserved-at-registration');
+        });
 
-    // The record wins over the reservation — otherwise re-accepting someone already
-    // entered would create a SECOND participant for the same person.
-    it('prefers a participant ALREADY in the record over the reservation', async () => {
-      tournamentStorageService.findTournamentRecord.mockResolvedValue({
-        tournamentRecord: {
-          ...baseTournament,
-          participants: [
-            {
-              participantId: 'already-in-record',
-              participantType: 'INDIVIDUAL',
-              person: { personOtherIds: [{ organisationId: 'CANONICAL_PERSON', personId: 'p-canon' }] },
+        // The record wins over the reservation — otherwise re-accepting someone already
+        // entered would create a SECOND participant for the same person.
+        it('prefers a participant ALREADY in the record over the reservation', async () => {
+          tournamentStorageService.findTournamentRecord.mockResolvedValue({
+            tournamentRecord: {
+              ...baseTournament,
+              participants: [
+                {
+                  participantId: 'already-in-record',
+                  participantType: 'INDIVIDUAL',
+                  person: { personOtherIds: [{ organisationId: 'CANONICAL_PERSON', personId: 'p-canon' }] },
+                },
+              ],
             },
-          ],
-        },
-      });
+          });
 
-      const result = await acceptWith(declarationsReg({ participantId: 'reserved-at-registration' }));
-      expect(result.participantId).toBe('already-in-record');
-      // no addParticipants at all — the person is already there
-      const methods = mockExecutionQueue.mock.calls[0][0].methods;
-      expect(methods.some((m: any) => m.method === 'addParticipants')).toBe(false);
-    });
-  });
+          const result = await acceptWith(declarationsReg({ participantId: 'reserved-at-registration' }));
+          expect(result.participantId).toBe('already-in-record');
+          // no addParticipants at all — the person is already there
+          const methods = mockExecutionQueue.mock.calls[0][0].methods;
+          expect(methods.some((m: any) => m.method === 'addParticipants')).toBe(false);
+        });
+      });
 
       // F2b — a registration that originated with an OUTSIDE sanctioning body carries that
       // body's id for the competitor, and accept stamps it onto the participant so results
@@ -219,9 +219,7 @@ describe('RegistrationsService', () => {
             },
           });
 
-          await acceptWith(
-            foreignSanctionedRegistration({}, { participantOtherIds: [ITA_PARTICIPANT_OTHER_ID] }),
-          );
+          await acceptWith(foreignSanctionedRegistration({}, { participantOtherIds: [ITA_PARTICIPANT_OTHER_ID] }));
 
           const methods = mockExecutionQueue.mock.calls[0][0].methods;
           expect(methods.some((m: any) => m.method === 'addParticipants')).toBe(false);
@@ -255,9 +253,7 @@ describe('RegistrationsService', () => {
         });
 
         it('stamps the foreign id onto the participant it creates', async () => {
-          await acceptWith(
-            foreignSanctionedRegistration({}, { participantOtherIds: [ITA_PARTICIPANT_OTHER_ID] }),
-          );
+          await acceptWith(foreignSanctionedRegistration({}, { participantOtherIds: [ITA_PARTICIPANT_OTHER_ID] }));
           expect(addedParticipant().participantOtherIds).toEqual([ITA_PARTICIPANT_OTHER_ID]);
         });
 
@@ -286,9 +282,7 @@ describe('RegistrationsService', () => {
         // The foreign id is participant-grain and INDEPENDENT of the person-grain link —
         // both must survive, since only one of them can serve a PAIR or TEAM.
         it('does not disturb the CANONICAL_PERSON personOtherIds link', async () => {
-          await acceptWith(
-            foreignSanctionedRegistration({}, { participantOtherIds: [ITA_PARTICIPANT_OTHER_ID] }),
-          );
+          await acceptWith(foreignSanctionedRegistration({}, { participantOtherIds: [ITA_PARTICIPANT_OTHER_ID] }));
           const participant = addedParticipant();
           expect(participant.person.personOtherIds).toEqual([
             expect.objectContaining({ organisationId: 'CANONICAL_PERSON', personId: 'p-canon' }),
@@ -339,7 +333,11 @@ describe('RegistrationsService', () => {
           broadcastService,
         );
 
-        await broadcasting.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
+        await broadcasting.acceptRegistration({
+          userContext: adminUserContext,
+          tournamentId: 't-1',
+          registrationId: 'r-1',
+        });
 
         const [payload, options] = broadcastService.broadcastMutation.mock.calls[0];
         expect(payload.tournamentIds).toEqual(['t-1']);
@@ -349,10 +347,18 @@ describe('RegistrationsService', () => {
 
       it('adds the participant (CANONICAL_PERSON), maps event NAMES → eventIds, and stamps ACCEPTED', async () => {
         declarationsClient.getRegistration.mockResolvedValue(
-          declarationsReg({ payload: { eventIds: ["Men's Singles", 'e-2'], applicant: { givenName: 'Jane', familyName: 'Doe' } } }),
+          declarationsReg({
+            payload: { eventIds: ["Men's Singles", 'e-2'], applicant: { givenName: 'Jane', familyName: 'Doe' } },
+          }),
         );
         personsClient.getById.mockResolvedValue({
-          person: { standardGivenName: 'Jane', standardFamilyName: 'Doe', birthDate: '1990-04-12', sex: 'F', nationalityCode: 'USA' },
+          person: {
+            standardGivenName: 'Jane',
+            standardFamilyName: 'Doe',
+            birthDate: '1990-04-12',
+            sex: 'F',
+            nationalityCode: 'USA',
+          },
         });
 
         const result = await service.acceptRegistration({
@@ -391,7 +397,9 @@ describe('RegistrationsService', () => {
       });
 
       it('throws when the factory mutation fails and does not stamp ACCEPTED', async () => {
-        declarationsClient.getRegistration.mockResolvedValue(declarationsReg({ payload: { eventIds: [], applicant: { givenName: 'Jane', familyName: 'Doe' } } }));
+        declarationsClient.getRegistration.mockResolvedValue(
+          declarationsReg({ payload: { eventIds: [], applicant: { givenName: 'Jane', familyName: 'Doe' } } }),
+        );
         mockExecutionQueue.mockResolvedValue({ error: 'duplicate participant' });
         await expect(
           service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' }),
@@ -402,7 +410,9 @@ describe('RegistrationsService', () => {
       it('drops + warns on a registered event that resolves to neither eventId nor name', async () => {
         const warnSpy = vi.spyOn((service as any).logger, 'warn').mockImplementation(() => undefined);
         declarationsClient.getRegistration.mockResolvedValue(
-          declarationsReg({ payload: { eventIds: ['e-1', 'ghost-event'], applicant: { givenName: 'Jane', familyName: 'Doe' } } }),
+          declarationsReg({
+            payload: { eventIds: ['e-1', 'ghost-event'], applicant: { givenName: 'Jane', familyName: 'Doe' } },
+          }),
         );
         await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
         // 'e-1' resolves by id; 'ghost-event' matches neither id nor name → dropped (only e-1 entered).
@@ -541,7 +551,12 @@ describe('RegistrationsService', () => {
           governingBody: { organisationId: 'other-prov' },
           governingBodyId: 'other-prov',
         });
-        const scopedUser = { ...adminUserContext, isSuperAdmin: false, providerIds: ['prov-1'], provisionerProviderIds: [] };
+        const scopedUser = {
+          ...adminUserContext,
+          isSuperAdmin: false,
+          providerIds: ['prov-1'],
+          provisionerProviderIds: [],
+        };
         await expect(
           service.acceptRegistration({ userContext: scopedUser, tournamentId: 't-1', registrationId: 'r-1' }),
         ).rejects.toThrow(/Not authorised to activate/);
@@ -585,7 +600,11 @@ describe('RegistrationsService', () => {
 
       it('bulk accepts multiple individuals in a SINGLE executionQueue', async () => {
         declarationsClient.getRegistration.mockImplementation((id: string) => Promise.resolve(reg(id, `person-${id}`)));
-        const { results } = await service.acceptMany({ userContext: adminUserContext, tournamentId: 't-1', registrationIds: ['r-1', 'r-2'] });
+        const { results } = await service.acceptMany({
+          userContext: adminUserContext,
+          tournamentId: 't-1',
+          registrationIds: ['r-1', 'r-2'],
+        });
         expect(mockExecutionQueue).toHaveBeenCalledTimes(1);
         const methods = mockExecutionQueue.mock.calls[0][0].methods;
         expect(methods[0].method).toBe('addParticipants');
@@ -595,9 +614,15 @@ describe('RegistrationsService', () => {
       });
 
       it('accepts a complete pair as a PAIR participant, stamping both registrations', async () => {
-        const regA = reg('r-1', 'p-a', { payload: { eventIds: ['e-md'], partnerInviteId: 'inv-1', applicant: { givenName: 'A', familyName: 'X' } } });
-        const regB = reg('r-2', 'p-b', { payload: { eventIds: ['e-md'], partnerInviteId: 'inv-1', applicant: { givenName: 'B', familyName: 'Y' } } });
-        declarationsClient.getRegistration.mockImplementation((id: string) => Promise.resolve(id === 'r-1' ? regA : regB));
+        const regA = reg('r-1', 'p-a', {
+          payload: { eventIds: ['e-md'], partnerInviteId: 'inv-1', applicant: { givenName: 'A', familyName: 'X' } },
+        });
+        const regB = reg('r-2', 'p-b', {
+          payload: { eventIds: ['e-md'], partnerInviteId: 'inv-1', applicant: { givenName: 'B', familyName: 'Y' } },
+        });
+        declarationsClient.getRegistration.mockImplementation((id: string) =>
+          Promise.resolve(id === 'r-1' ? regA : regB),
+        );
         declarationsClient.listRegistrations.mockResolvedValue([regA, regB]);
         declarationsClient.getPairStatus.mockResolvedValue(pairStatus);
 
@@ -616,13 +641,23 @@ describe('RegistrationsService', () => {
       });
 
       it('bulk-selecting both halves of a pair creates ONE pair (idempotent) and stamps both', async () => {
-        const regA = reg('r-1', 'p-a', { payload: { eventIds: ['e-md'], partnerInviteId: 'inv-1', applicant: { givenName: 'A', familyName: 'X' } } });
-        const regB = reg('r-2', 'p-b', { payload: { eventIds: ['e-md'], partnerInviteId: 'inv-1', applicant: { givenName: 'B', familyName: 'Y' } } });
-        declarationsClient.getRegistration.mockImplementation((id: string) => Promise.resolve(id === 'r-1' ? regA : regB));
+        const regA = reg('r-1', 'p-a', {
+          payload: { eventIds: ['e-md'], partnerInviteId: 'inv-1', applicant: { givenName: 'A', familyName: 'X' } },
+        });
+        const regB = reg('r-2', 'p-b', {
+          payload: { eventIds: ['e-md'], partnerInviteId: 'inv-1', applicant: { givenName: 'B', familyName: 'Y' } },
+        });
+        declarationsClient.getRegistration.mockImplementation((id: string) =>
+          Promise.resolve(id === 'r-1' ? regA : regB),
+        );
         declarationsClient.listRegistrations.mockResolvedValue([regA, regB]);
         declarationsClient.getPairStatus.mockResolvedValue(pairStatus);
 
-        await service.acceptMany({ userContext: adminUserContext, tournamentId: 't-1', registrationIds: ['r-1', 'r-2'] });
+        await service.acceptMany({
+          userContext: adminUserContext,
+          tournamentId: 't-1',
+          registrationIds: ['r-1', 'r-2'],
+        });
         expect(mockExecutionQueue).toHaveBeenCalledTimes(1);
         const participants = mockExecutionQueue.mock.calls[0][0].methods[0].params.participants;
         expect(participants.filter((p: any) => p.participantType === 'PAIR')).toHaveLength(1);

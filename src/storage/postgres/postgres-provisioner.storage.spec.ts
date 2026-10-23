@@ -21,7 +21,16 @@ describe('PostgresProvisionerStorage', () => {
   describe('getProvisioner', () => {
     it('returns mapped row when found', async () => {
       pool.query.mockResolvedValueOnce({
-        rows: [{ provisioner_id: 'p1', name: 'IONSport', is_active: true, config: { foo: 1 }, created_at: new Date('2026-04-14'), updated_at: new Date('2026-04-14') }],
+        rows: [
+          {
+            provisioner_id: 'p1',
+            name: 'IONSport',
+            is_active: true,
+            config: { foo: 1 },
+            created_at: new Date('2026-04-14'),
+            updated_at: new Date('2026-04-14'),
+          },
+        ],
       });
       let result: any = await storage.getProvisioner('p1');
       expect(result.provisionerId).toBe('p1');
@@ -40,7 +49,9 @@ describe('PostgresProvisionerStorage', () => {
   describe('findByName', () => {
     it('returns provisioner by name', async () => {
       pool.query.mockResolvedValueOnce({
-        rows: [{ provisioner_id: 'p1', name: 'IONSport', is_active: true, config: {}, created_at: null, updated_at: null }],
+        rows: [
+          { provisioner_id: 'p1', name: 'IONSport', is_active: true, config: {}, created_at: null, updated_at: null },
+        ],
       });
       let result: any = await storage.findByName('IONSport');
       expect(result.name).toBe('IONSport');
@@ -66,15 +77,25 @@ describe('PostgresProvisionerStorage', () => {
   describe('create', () => {
     it('inserts and returns the created provisioner', async () => {
       pool.query.mockResolvedValueOnce({
-        rows: [{ provisioner_id: 'new-id', name: 'TestOrg', is_active: true, config: { x: 1 }, created_at: new Date('2026-04-14'), updated_at: new Date('2026-04-14') }],
+        rows: [
+          {
+            provisioner_id: 'new-id',
+            name: 'TestOrg',
+            is_active: true,
+            config: { x: 1 },
+            created_at: new Date('2026-04-14'),
+            updated_at: new Date('2026-04-14'),
+          },
+        ],
       });
       let result: any = await storage.create({ name: 'TestOrg', isActive: true, config: { x: 1 } });
       expect(result.provisionerId).toBe('new-id');
       expect(result.name).toBe('TestOrg');
-      expect(pool.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO provisioners'),
-        ['TestOrg', true, JSON.stringify({ x: 1 })],
-      );
+      expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO provisioners'), [
+        'TestOrg',
+        true,
+        JSON.stringify({ x: 1 }),
+      ]);
     });
   });
 
@@ -101,10 +122,7 @@ describe('PostgresProvisionerStorage', () => {
       pool.query.mockResolvedValueOnce({ rows: [] });
       let result: any = await storage.deactivate('p1');
       expect(result.success).toBe(true);
-      expect(pool.query).toHaveBeenCalledWith(
-        expect.stringContaining('is_active = false'),
-        ['p1'],
-      );
+      expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('is_active = false'), ['p1']);
     });
   });
 

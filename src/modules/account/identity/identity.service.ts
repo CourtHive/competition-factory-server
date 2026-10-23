@@ -102,7 +102,8 @@ export class IdentityService {
       source: 'self-service',
     });
 
-    const token = await signJwt(this.jwtService, 
+    const token = await signJwt(
+      this.jwtService,
       { userId: user.userId, contactEmail: trimmed, purpose: EMAIL_VERIFICATION_PURPOSE },
       { expiresIn: VERIFICATION_TOKEN_TTL },
     );
@@ -133,7 +134,8 @@ export class IdentityService {
     if (!record?.contactEmail) return { success: true, status: 'no_contact_email' };
     if (record.emailVerifiedAt) return { success: true, status: 'already_verified' };
 
-    const token = await signJwt(this.jwtService, 
+    const token = await signJwt(
+      this.jwtService,
       { userId: user.userId, contactEmail: record.contactEmail, purpose: EMAIL_VERIFICATION_PURPOSE },
       { expiresIn: VERIFICATION_TOKEN_TTL },
     );
@@ -164,7 +166,9 @@ export class IdentityService {
    */
   async adminResendVerification(
     targetEmail: string,
-  ): Promise<{ success: true; status: 'pending_verification' | 'already_verified' | 'no_contact_email' } | { error: string }> {
+  ): Promise<
+    { success: true; status: 'pending_verification' | 'already_verified' | 'no_contact_email' } | { error: string }
+  > {
     const trimmed = (targetEmail ?? '').trim();
     if (!trimmed) return { error: 'email is required' };
     const target = await this.userStorage.findOne(trimmed);
@@ -208,7 +212,7 @@ export class IdentityService {
     // the one in the token. If the user changed their contact_email after
     // the token was issued, this stale token must not verify the new
     // address — re-verification has to start over.
-    const record = await this.userStorage.findOne(claims?.email ?? '');  // best-effort by email
+    const record = await this.userStorage.findOne(claims?.email ?? ''); // best-effort by email
     // Most common path: look up by contact_email which is unique-ish.
     const byContact = record ?? (await this.userStorage.findByContactEmail(claims.contactEmail));
     if (!byContact || byContact.userId !== claims.userId) {

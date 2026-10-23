@@ -36,56 +36,66 @@ export class ConsumerBootstrap implements OnModuleInit {
     const scoreRelayUrl = process.env.SCORE_RELAY_URL?.trim();
     if (scoreRelayUrl) {
       const base = scoreRelayUrl.replace(/\/$/, '');
-      registered.push(this.registerOne({
-        id: 'score-relay-scorebug',
-        kind: 'scorebug',
-        url: `${base}/api/projection/scorebug`,
-        authHeader: process.env.SCORE_RELAY_API_KEY ? `Bearer ${process.env.SCORE_RELAY_API_KEY}` : undefined,
-        enabled: true,
-      }));
-      registered.push(this.registerOne({
-        id: 'score-relay-video-board',
-        kind: 'video-board',
-        url: `${base}/api/projection/video-board`,
-        authHeader: process.env.SCORE_RELAY_API_KEY ? `Bearer ${process.env.SCORE_RELAY_API_KEY}` : undefined,
-        enabled: true,
-      }));
+      registered.push(
+        this.registerOne({
+          id: 'score-relay-scorebug',
+          kind: 'scorebug',
+          url: `${base}/api/projection/scorebug`,
+          authHeader: process.env.SCORE_RELAY_API_KEY ? `Bearer ${process.env.SCORE_RELAY_API_KEY}` : undefined,
+          enabled: true,
+        }),
+      );
+      registered.push(
+        this.registerOne({
+          id: 'score-relay-video-board',
+          kind: 'video-board',
+          url: `${base}/api/projection/video-board`,
+          authHeader: process.env.SCORE_RELAY_API_KEY ? `Bearer ${process.env.SCORE_RELAY_API_KEY}` : undefined,
+          enabled: true,
+        }),
+      );
     }
 
     const expressionUrl = process.env.EXPRESSION_URL?.trim();
     if (expressionUrl) {
-      registered.push(this.registerOne({
-        id: 'expression-direct',
-        kind: 'scorebug',
-        url: expressionUrl,
-        authHeader: process.env.EXPRESSION_API_KEY ? `Bearer ${process.env.EXPRESSION_API_KEY}` : undefined,
-        enabled: true,
-      }));
+      registered.push(
+        this.registerOne({
+          id: 'expression-direct',
+          kind: 'scorebug',
+          url: expressionUrl,
+          authHeader: process.env.EXPRESSION_API_KEY ? `Bearer ${process.env.EXPRESSION_API_KEY}` : undefined,
+          enabled: true,
+        }),
+      );
     }
 
     const videoBoardUrl = process.env.VIDEO_BOARD_URL?.trim();
     if (videoBoardUrl) {
-      registered.push(this.registerOne({
-        id: 'video-board-direct',
-        kind: 'video-board',
-        url: videoBoardUrl,
-        authHeader: process.env.VIDEO_BOARD_API_KEY ? `Bearer ${process.env.VIDEO_BOARD_API_KEY}` : undefined,
-        enabled: true,
-      }));
+      registered.push(
+        this.registerOne({
+          id: 'video-board-direct',
+          kind: 'video-board',
+          url: videoBoardUrl,
+          authHeader: process.env.VIDEO_BOARD_API_KEY ? `Bearer ${process.env.VIDEO_BOARD_API_KEY}` : undefined,
+          enabled: true,
+        }),
+      );
     }
 
     const internalRelayUrl = process.env.SCORE_RELAY_INTERNAL_URL?.trim();
     const internalSecret = process.env.INTERNAL_WEBHOOK_SECRET?.trim();
     if (internalRelayUrl && internalSecret) {
       const base = internalRelayUrl.replace(/\/$/, '');
-      registered.push(this.registerOne({
-        id: 'score-relay-matchup-finalized',
-        kind: 'matchup-finalized',
-        url: `${base}/api/internal/matchup-finalized`,
-        extraHeaders: { 'X-Internal-Secret': internalSecret },
-        singleShot: true,
-        enabled: true,
-      }));
+      registered.push(
+        this.registerOne({
+          id: 'score-relay-matchup-finalized',
+          kind: 'matchup-finalized',
+          url: `${base}/api/internal/matchup-finalized`,
+          extraHeaders: { 'X-Internal-Secret': internalSecret },
+          singleShot: true,
+          enabled: true,
+        }),
+      );
     } else if (internalRelayUrl || internalSecret) {
       this.logger.log(
         'ConsumerBootstrap: matchup-finalized consumer disabled — both SCORE_RELAY_INTERNAL_URL and INTERNAL_WEBHOOK_SECRET must be set',
@@ -97,7 +107,9 @@ export class ConsumerBootstrap implements OnModuleInit {
     }
 
     if (registered.length === 0) {
-      this.logger.log('ConsumerBootstrap: no consumer endpoints configured (set SCORE_RELAY_URL / EXPRESSION_URL / VIDEO_BOARD_URL / SCORE_RELAY_INTERNAL_URL)');
+      this.logger.log(
+        'ConsumerBootstrap: no consumer endpoints configured (set SCORE_RELAY_URL / EXPRESSION_URL / VIDEO_BOARD_URL / SCORE_RELAY_INTERNAL_URL)',
+      );
     } else {
       this.logger.log(`ConsumerBootstrap: registered ${registered.length} consumer endpoint(s)`);
     }

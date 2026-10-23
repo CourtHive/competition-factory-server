@@ -41,7 +41,9 @@ describe('PostgresParticipationStorage.replaceTournamentRows', () => {
       throw dead; // ROLLBACK on a dead client
     });
 
-    await expect(new PostgresParticipationStorage(pool).replaceTournamentRows('dual-1', [row()])).rejects.toBe(original);
+    await expect(new PostgresParticipationStorage(pool).replaceTournamentRows('dual-1', [row()])).rejects.toBe(
+      original,
+    );
     expect(client.release).toHaveBeenCalled();
   });
 
@@ -52,7 +54,9 @@ describe('PostgresParticipationStorage.replaceTournamentRows', () => {
       return { rows: [] };
     });
 
-    await expect(new PostgresParticipationStorage(pool).replaceTournamentRows('dual-1', [row()])).rejects.toBe(original);
+    await expect(new PostgresParticipationStorage(pool).replaceTournamentRows('dual-1', [row()])).rejects.toBe(
+      original,
+    );
     expect(client.query.mock.calls.map(([sql]) => String(sql).trim())).toContain('ROLLBACK');
     expect(client.release).toHaveBeenCalled();
   });
@@ -86,10 +90,15 @@ describe('PostgresParticipationStorage.replaceTournamentRows', () => {
   });
 
   it('maps organisation_id back out, and leaves it undefined when the row does not record one', async () => {
-    const withOrg: any = { query: vi.fn().mockResolvedValue({ rows: [
-      { subject_type: 'TEAM', subject_id: 'A', tournament_id: 't', participant_id: 'p', organisation_id: 'body-A' },
-      { subject_type: 'TEAM', subject_id: 'A', tournament_id: 'u', participant_id: 'p', organisation_id: null },
-    ] }), connect: vi.fn() };
+    const withOrg: any = {
+      query: vi.fn().mockResolvedValue({
+        rows: [
+          { subject_type: 'TEAM', subject_id: 'A', tournament_id: 't', participant_id: 'p', organisation_id: 'body-A' },
+          { subject_type: 'TEAM', subject_id: 'A', tournament_id: 'u', participant_id: 'p', organisation_id: null },
+        ],
+      }),
+      connect: vi.fn(),
+    };
     const rows = await new PostgresParticipationStorage(withOrg).listForSubject('TEAM', 'A');
     expect(rows[0].organisationId).toBe('body-A');
     expect(rows[1].organisationId).toBeUndefined();

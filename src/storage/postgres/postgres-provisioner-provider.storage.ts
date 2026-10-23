@@ -1,7 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import { IProvisionerProviderStorage, ProvisionerProviderRow } from '../interfaces/provisioner-provider-storage.interface';
+import {
+  IProvisionerProviderStorage,
+  ProvisionerProviderRow,
+} from '../interfaces/provisioner-provider-storage.interface';
 import { PG_POOL } from './postgres.config';
 import { SUCCESS } from 'src/common/constants/app';
 
@@ -70,10 +73,10 @@ export class PostgresProvisionerProviderStorage implements IProvisionerProviderS
   }
 
   async disassociate(provisionerId: string, providerId: string): Promise<{ success: boolean }> {
-    await this.pool.query(
-      'DELETE FROM provisioner_providers WHERE provisioner_id = $1 AND provider_id = $2',
-      [provisionerId, providerId],
-    );
+    await this.pool.query('DELETE FROM provisioner_providers WHERE provisioner_id = $1 AND provider_id = $2', [
+      provisionerId,
+      providerId,
+    ]);
     return { ...SUCCESS };
   }
 }
