@@ -418,22 +418,19 @@ export class FactoryService {
       return saveResult;
     });
 
-    // Provisioner ownership stamp — fail-soft, same policy as the
-    // executionQueue path (executionQueue.ts:161). The tournament exists
-    // either way; the row is metadata for audit + multi-tenant queries.
+    // Provisioner ownership stamp — fail-soft: the tournament exists either
+    // way; the row is metadata for audit + multi-tenant queries. Awaited so
+    // the response never reaches a caller before the row does.
     if (provisionerContext?.provisionerId && provisionerContext?.providerId && tournamentRecord?.tournamentId) {
-      this.tournamentProvisionerStorage
-        .create({
+      try {
+        await this.tournamentProvisionerStorage.create({
           tournamentId: tournamentRecord.tournamentId,
           provisionerId: provisionerContext.provisionerId,
           providerId: provisionerContext.providerId,
-        })
-        .catch((err: Error) =>
-          Logger.error(
-            `Provisioner stamp failed for ${tournamentRecord.tournamentId}: ${err.message}`,
-            'FactoryService',
-          ),
-        );
+        });
+      } catch (err: any) {
+        Logger.error(`Provisioner stamp failed for ${tournamentRecord.tournamentId}: ${err.message}`, 'FactoryService');
+      }
     }
 
     return { tournamentRecord, success: true };
