@@ -1,7 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import { ITournamentProvisionerStorage, TournamentProvisionerRow } from '../interfaces/tournament-provisioner-storage.interface';
+import {
+  ITournamentProvisionerStorage,
+  TournamentProvisionerRow,
+} from '../interfaces/tournament-provisioner-storage.interface';
 import { PG_POOL } from './postgres.config';
 import { SUCCESS } from 'src/common/constants/app';
 
@@ -49,10 +52,7 @@ export class PostgresTournamentProvisionerStorage implements ITournamentProvisio
   }
 
   async remove(tournamentId: string): Promise<{ success: boolean }> {
-    await this.pool.query(
-      'DELETE FROM tournament_provisioner WHERE tournament_id = $1',
-      [tournamentId],
-    );
+    await this.pool.query('DELETE FROM tournament_provisioner WHERE tournament_id = $1', [tournamentId]);
     return { ...SUCCESS };
   }
 }

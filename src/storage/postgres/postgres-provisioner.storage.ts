@@ -1,11 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import {
-  IProvisionerStorage,
-  ProvisionerRow,
-  CascadeCounts,
-} from '../interfaces/provisioner-storage.interface';
+import { IProvisionerStorage, ProvisionerRow, CascadeCounts } from '../interfaces/provisioner-storage.interface';
 import { PG_POOL } from './postgres.config';
 import { SUCCESS } from 'src/common/constants/app';
 
@@ -74,18 +70,14 @@ export class PostgresProvisionerStorage implements IProvisionerStorage {
     sets.push(`updated_at = NOW()`);
     values.push(provisionerId);
 
-    await this.pool.query(
-      `UPDATE provisioners SET ${sets.join(', ')} WHERE provisioner_id = $${idx}`,
-      values,
-    );
+    await this.pool.query(`UPDATE provisioners SET ${sets.join(', ')} WHERE provisioner_id = $${idx}`, values);
     return { ...SUCCESS };
   }
 
   async deactivate(provisionerId: string): Promise<{ success: boolean }> {
-    await this.pool.query(
-      'UPDATE provisioners SET is_active = false, updated_at = NOW() WHERE provisioner_id = $1',
-      [provisionerId],
-    );
+    await this.pool.query('UPDATE provisioners SET is_active = false, updated_at = NOW() WHERE provisioner_id = $1', [
+      provisionerId,
+    ]);
     return { ...SUCCESS };
   }
 
@@ -94,18 +86,15 @@ export class PostgresProvisionerStorage implements IProvisionerStorage {
     try {
       await client.query('BEGIN');
 
-      const keysResult = await client.query(
-        'DELETE FROM provisioner_api_keys WHERE provisioner_id = $1',
-        [provisionerId],
-      );
-      const associationsResult = await client.query(
-        'DELETE FROM provisioner_providers WHERE provisioner_id = $1',
-        [provisionerId],
-      );
-      const stampsResult = await client.query(
-        'DELETE FROM tournament_provisioner WHERE provisioner_id = $1',
-        [provisionerId],
-      );
+      const keysResult = await client.query('DELETE FROM provisioner_api_keys WHERE provisioner_id = $1', [
+        provisionerId,
+      ]);
+      const associationsResult = await client.query('DELETE FROM provisioner_providers WHERE provisioner_id = $1', [
+        provisionerId,
+      ]);
+      const stampsResult = await client.query('DELETE FROM tournament_provisioner WHERE provisioner_id = $1', [
+        provisionerId,
+      ]);
       // user_provisioners has FK CASCADE on provisioner_id deletion, but we
       // delete explicitly so we can report the count and so the row removal
       // shows up before we drop the parent provisioner row.

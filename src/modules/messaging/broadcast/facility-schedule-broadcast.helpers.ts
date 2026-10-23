@@ -46,7 +46,11 @@ export function venueIdsFromMethods(methods: any[]): string[] {
   const ids = new Set<string>();
   for (const method of methods ?? []) {
     const params = method?.params ?? {};
-    const candidates = [params.venueId, params.schedule?.venueId, ...(Array.isArray(params.venueIds) ? params.venueIds : [])];
+    const candidates = [
+      params.venueId,
+      params.schedule?.venueId,
+      ...(Array.isArray(params.venueIds) ? params.venueIds : []),
+    ];
     for (const candidate of candidates) if (candidate) ids.add(candidate);
   }
   return [...ids];

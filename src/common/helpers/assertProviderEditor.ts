@@ -76,7 +76,5 @@ export async function assertProviderEditor(args: AssertProviderEditorArgs): Prom
     }
   }
 
-  throw new ForbiddenException(
-    `Not authorised to manage user-provider associations at provider ${providerId}`,
-  );
+  throw new ForbiddenException(`Not authorised to manage user-provider associations at provider ${providerId}`);
 }

@@ -8,13 +8,7 @@ export const REGISTRATION_ENTRY_STORAGE = Symbol('REGISTRATION_ENTRY_STORAGE');
  * (Phase 2-B). See migration 034 for the CHECK constraint that mirrors
  * this list.
  */
-export type RegistrationStatus =
-  | 'applied'
-  | 'accepted'
-  | 'seeded'
-  | 'withdrawn'
-  | 'waitlisted'
-  | 'rejected';
+export type RegistrationStatus = 'applied' | 'accepted' | 'seeded' | 'withdrawn' | 'waitlisted' | 'rejected';
 
 export interface RegistrationEntry {
   registrationId: string;

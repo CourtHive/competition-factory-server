@@ -74,7 +74,9 @@ describe('HiveIDService', () => {
     };
     mockIdentityService = {
       resendVerification: vi.fn().mockResolvedValue({ success: true, status: 'pending_verification' }),
-      setContactEmail: vi.fn().mockResolvedValue({ success: true, status: 'pending_verification', contactEmail: 'new@test.com' }),
+      setContactEmail: vi
+        .fn()
+        .mockResolvedValue({ success: true, status: 'pending_verification', contactEmail: 'new@test.com' }),
     };
     mockAuditService = {};
     mockPersonsClient = {
@@ -156,10 +158,13 @@ describe('HiveIDService', () => {
       expect(decodeToken(result.token).aud).toBe('hiveid');
       // Brand-new signup is not yet verified — claim must be false.
       expect(decodeToken(result.token).email_verified).toBe(false);
-      expect(mockUserStorage.setPersonLink).toHaveBeenCalledWith('u-new', expect.objectContaining({
-        personId: 'person-123',
-        personRevision: 1,
-      }));
+      expect(mockUserStorage.setPersonLink).toHaveBeenCalledWith(
+        'u-new',
+        expect.objectContaining({
+          personId: 'person-123',
+          personRevision: 1,
+        }),
+      );
       expect(mockUserStorage.setContactEmail).toHaveBeenCalledWith('u-new', 'new@test.com');
       // Fires the email-verification mail with a courthive-public landing.
       expect(mockIdentityService.resendVerification).toHaveBeenCalledWith(
@@ -183,9 +188,9 @@ describe('HiveIDService', () => {
 
     it('throws 409 ConflictException when the email already exists', async () => {
       mockUsersService.findOne.mockResolvedValueOnce({ userId: 'u-existing', email: 'admin@test.com' });
-      await expect(
-        service.signup({ email: 'admin@test.com', firstName: 'A', lastName: 'B' }),
-      ).rejects.toBeInstanceOf(ConflictException);
+      await expect(service.signup({ email: 'admin@test.com', firstName: 'A', lastName: 'B' })).rejects.toBeInstanceOf(
+        ConflictException,
+      );
       expect(mockPersonsClient.resolve).not.toHaveBeenCalled();
     });
 
@@ -208,19 +213,15 @@ describe('HiveIDService', () => {
     it('throws 422 HttpException when resolve returns incomplete', async () => {
       mockUsersService.findOne.mockResolvedValueOnce(null);
       mockPersonsClient.resolve.mockResolvedValue({ status: 'incomplete', missingFields: ['birthDate'] });
-      await expect(
-        service.signup({ email: 'new@test.com', firstName: 'J', lastName: 'D' }),
-      ).rejects.toBeInstanceOf(HttpException);
+      await expect(service.signup({ email: 'new@test.com', firstName: 'J', lastName: 'D' })).rejects.toBeInstanceOf(
+        HttpException,
+      );
       expect(mockUsersService.create).not.toHaveBeenCalled();
     });
 
     it('rejects when firstName or lastName is missing', async () => {
-      await expect(
-        service.signup({ email: 'x@y.z', firstName: '', lastName: 'Doe' }),
-      ).rejects.toThrow();
-      await expect(
-        service.signup({ email: 'x@y.z', firstName: 'Jane', lastName: '' }),
-      ).rejects.toThrow();
+      await expect(service.signup({ email: 'x@y.z', firstName: '', lastName: 'Doe' })).rejects.toThrow();
+      await expect(service.signup({ email: 'x@y.z', firstName: 'Jane', lastName: '' })).rejects.toThrow();
     });
 
     it('forwards birthDate + sex and a synthesized provider-scoped otherId so persons can MINT', async () => {
@@ -278,9 +279,9 @@ describe('HiveIDService', () => {
     it('stays name-only (no synthesized id, no DOB/sex) when no provider context is supplied', async () => {
       mockUsersService.findOne.mockResolvedValueOnce(null);
       mockPersonsClient.resolve.mockResolvedValue({ status: 'incomplete', missingFields: ['birthDate', 'sex'] });
-      await expect(
-        service.signup({ email: 'new@test.com', firstName: 'J', lastName: 'D' }),
-      ).rejects.toBeInstanceOf(HttpException);
+      await expect(service.signup({ email: 'new@test.com', firstName: 'J', lastName: 'D' })).rejects.toBeInstanceOf(
+        HttpException,
+      );
       const fragment = mockPersonsClient.resolve.mock.calls[0][0];
       expect(fragment.personOtherIds).toEqual([]);
       expect(fragment.birthDate).toBeUndefined();
@@ -299,9 +300,9 @@ describe('HiveIDService', () => {
         lastName: 'B',
         roles: ['CLIENT'],
       });
-      await expect(
-        service.verifyExisting({ email: 'admin@test.com', password: 'wrong' }),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
+      await expect(service.verifyExisting({ email: 'admin@test.com', password: 'wrong' })).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
     });
 
     it('issues admin+hiveid audience and skips resolve when already linked', async () => {
@@ -367,10 +368,13 @@ describe('HiveIDService', () => {
       });
       const result: any = await service.verifyExisting({ email: 'admin@test.com', password: 'pw' });
       expect(result.personId).toBe('p-resolved');
-      expect(mockUserStorage.setPersonLink).toHaveBeenCalledWith('u-2', expect.objectContaining({
-        personId: 'p-resolved',
-        personRevision: 7,
-      }));
+      expect(mockUserStorage.setPersonLink).toHaveBeenCalledWith(
+        'u-2',
+        expect.objectContaining({
+          personId: 'p-resolved',
+          personRevision: 7,
+        }),
+      );
       expect(decodeToken(result.token).aud).toEqual(['admin', 'hiveid']);
     });
 
@@ -435,9 +439,9 @@ describe('HiveIDService', () => {
 
     it('rejects unknown codes', async () => {
       mockAuthCodeStorage.consumeAccessCode.mockResolvedValue(null);
-      await expect(
-        service.consumeMagicLink(`${HIVEID_MAGIC_LINK_PREFIX}deadbeef`),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
+      await expect(service.consumeMagicLink(`${HIVEID_MAGIC_LINK_PREFIX}deadbeef`)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
     });
 
     it('issues a hiveid token, stamps email verification, and returns the person link', async () => {
@@ -531,7 +535,11 @@ describe('HiveIDService', () => {
     });
 
     it('surfaces the contact email (falling back to the login email)', async () => {
-      mockUserStorage.findByUserId.mockResolvedValue({ userId: 'u-2', email: 'login@test.com', contactEmail: 'contact@test.com' });
+      mockUserStorage.findByUserId.mockResolvedValue({
+        userId: 'u-2',
+        email: 'login@test.com',
+        contactEmail: 'contact@test.com',
+      });
       mockUserStorage.getPersonLink.mockResolvedValue(null);
       const withContact: any = await service.getMe('u-2');
       expect(withContact.contactEmail).toBe('contact@test.com');
@@ -583,9 +591,7 @@ describe('HiveIDService', () => {
     });
 
     it('throws when the caller is unauthenticated', async () => {
-      await expect(service.resendVerification({ userId: '', email: '' })).rejects.toBeInstanceOf(
-        UnauthorizedException,
-      );
+      await expect(service.resendVerification({ userId: '', email: '' })).rejects.toBeInstanceOf(UnauthorizedException);
     });
   });
 });

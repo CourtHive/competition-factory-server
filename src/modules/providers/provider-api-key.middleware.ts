@@ -1,10 +1,7 @@
 import { Inject, Injectable, NestMiddleware } from '@nestjs/common';
 import { createHash } from 'crypto';
 
-import {
-  PROVIDER_API_KEY_STORAGE,
-  type IProviderApiKeyStorage,
-} from 'src/storage/interfaces';
+import { PROVIDER_API_KEY_STORAGE, type IProviderApiKeyStorage } from 'src/storage/interfaces';
 import { CLIENT, GENERATE, SCORE } from 'src/common/constants/roles';
 import type { UserContext } from '../account/auth/decorators/user-context.decorator';
 
@@ -31,9 +28,7 @@ const PKEY_PREFIX = 'pkey_';
  */
 @Injectable()
 export class ProviderApiKeyMiddleware implements NestMiddleware {
-  constructor(
-    @Inject(PROVIDER_API_KEY_STORAGE) private readonly apiKeyStorage: IProviderApiKeyStorage,
-  ) {}
+  constructor(@Inject(PROVIDER_API_KEY_STORAGE) private readonly apiKeyStorage: IProviderApiKeyStorage) {}
 
   async use(req: any, _res: any, next: () => void): Promise<void> {
     const authHeader: string | undefined = req.headers?.authorization;

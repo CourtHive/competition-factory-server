@@ -37,9 +37,10 @@ describe('toActor', () => {
   });
 
   it('prefers providerId when provisionerId is absent', () => {
-    expect(
-      toActor({ userId: 'unrelated', providerId: '4b0bd602-fa9b-4fcd-88d9-ff2bf4c5e01c' }),
-    ).toEqual({ kind: 'provider', id: '4b0bd602-fa9b-4fcd-88d9-ff2bf4c5e01c' });
+    expect(toActor({ userId: 'unrelated', providerId: '4b0bd602-fa9b-4fcd-88d9-ff2bf4c5e01c' })).toEqual({
+      kind: 'provider',
+      id: '4b0bd602-fa9b-4fcd-88d9-ff2bf4c5e01c',
+    });
   });
 
   it('falls through to the userId-as-string path', () => {

@@ -59,10 +59,9 @@ export class TournamentSyncService {
     if (!url) return { error: 'UPSTREAM_SERVER_URL not configured' };
 
     try {
-      const response = await fetch(
-        `${url.replace(/\/$/, '')}/factory/tournaments/${tournamentId}/export`,
-        { headers: this.authHeaders() },
-      );
+      const response = await fetch(`${url.replace(/\/$/, '')}/factory/tournaments/${tournamentId}/export`, {
+        headers: this.authHeaders(),
+      });
       if (!response.ok) {
         return { error: `Upstream returned HTTP ${response.status}` };
       }

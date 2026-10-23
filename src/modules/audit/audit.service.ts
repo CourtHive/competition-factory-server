@@ -75,7 +75,10 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       const persisted = await Promise.race([
         hydrationPromise,
         new Promise<never>((_resolve, reject) =>
-          setTimeout(() => reject(new Error(`hydration timed out after ${hydrationTimeoutMs}ms`)), hydrationTimeoutMs).unref(),
+          setTimeout(
+            () => reject(new Error(`hydration timed out after ${hydrationTimeoutMs}ms`)),
+            hydrationTimeoutMs,
+          ).unref(),
         ),
       ]);
       for (const { actionType, count } of persisted) {
@@ -122,8 +125,9 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     // outage caused the original append failure, this also fails and
     // the in-memory count continues to drive milestone logic for the
     // rest of this process lifetime.
-    this.chainCounterWrite(actionType, () =>
-      this.auditStorage.incrementFailureCount?.(actionType, err.message) ?? Promise.resolve(),
+    this.chainCounterWrite(
+      actionType,
+      () => this.auditStorage.incrementFailureCount?.(actionType, err.message) ?? Promise.resolve(),
     );
   }
 
@@ -146,9 +150,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     // same per-actionType promise as recordFailure so the DELETE can't
     // race ahead of (or interleave between) outstanding INSERT-on-
     // conflict ops for this key.
-    this.chainCounterWrite(actionType, () =>
-      this.auditStorage.clearFailureCount?.(actionType) ?? Promise.resolve(),
-    );
+    this.chainCounterWrite(actionType, () => this.auditStorage.clearFailureCount?.(actionType) ?? Promise.resolve());
   }
 
   // ── Ingestion ──
@@ -488,11 +490,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
    *
    * On success a RESTORE_DRAW row is appended so subsequent calls short-circuit.
    */
-  async restoreDraw(params: {
-    auditId: string;
-    userId?: string;
-    userEmail?: string;
-  }): Promise<{
+  async restoreDraw(params: { auditId: string; userId?: string; userEmail?: string }): Promise<{
     success?: boolean;
     error?: string;
     info?: string;
@@ -507,7 +505,8 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
 
     const row = await this.auditStorage.findById(auditId);
     if (!row) return { error: 'AUDIT_ROW_NOT_FOUND' };
-    if (row.actionType !== 'DELETE_DRAW') return { error: 'INVALID_AUDIT_TYPE', info: `expected DELETE_DRAW, got ${row.actionType}` };
+    if (row.actionType !== 'DELETE_DRAW')
+      return { error: 'INVALID_AUDIT_TYPE', info: `expected DELETE_DRAW, got ${row.actionType}` };
 
     const snapshot = row.metadata?.deletedDrawSnapshot;
     const eventId = row.metadata?.eventId;

@@ -7,7 +7,6 @@ import { SUCCESS } from 'src/common/constants/app';
 const { INDIVIDUAL, PAIR, TEAM } = participantConstants;
 const { COMPETITOR } = participantRoles;
 
-
 /**
  * Staff are excluded by PREDICATE, not by the factory's `participantRoles` filter.
  *

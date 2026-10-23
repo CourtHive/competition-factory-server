@@ -13,10 +13,13 @@ function makeService(storageImpl: (params: any) => Promise<any>) {
     getAssignedTournamentIds: vi.fn().mockResolvedValue(new Set()),
     getAssignedRoles: vi.fn().mockResolvedValue(new Map()),
   };
-  const mutationServices: any = new MutationServicesService({ isEnabled: false, enqueue: vi.fn() } as any, {
-    record: vi.fn(),
-    isEnabled: false,
-  } as any);
+  const mutationServices: any = new MutationServicesService(
+    { isEnabled: false, enqueue: vi.fn() } as any,
+    {
+      record: vi.fn(),
+      isEnabled: false,
+    } as any,
+  );
   const service = new FactoryService(
     tournamentStorageService as any,
     new SnapshotProjectionService({ isEnabled: false, enqueue: vi.fn() } as any) as any,

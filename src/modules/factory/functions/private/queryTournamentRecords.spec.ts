@@ -32,11 +32,14 @@ describe('queryTournamentRecords', () => {
     expect(result.success).toEqual(true);
 
     // THIRD: execute a directive on the tournamentRecord
-    result = await queryTournamentRecords({
-      params: { tournamentId },
-      method: 'getTournamentInfo',
-      tournamentId,
-    }, storage);
+    result = await queryTournamentRecords(
+      {
+        params: { tournamentId },
+        method: 'getTournamentInfo',
+        tournamentId,
+      },
+      storage,
+    );
     expect(result.tournamentInfo).toBeDefined();
     expect(result.success).toEqual(true);
 

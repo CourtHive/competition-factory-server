@@ -1,6 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import { PROJECTION_OUTBOX_STORAGE, type IProjectionOutboxStorage } from './interfaces/projection-outbox-storage.interface';
+import {
+  PROJECTION_OUTBOX_STORAGE,
+  type IProjectionOutboxStorage,
+} from './interfaces/projection-outbox-storage.interface';
 import { PARTICIPATION_STORAGE, type IParticipationStorage } from './interfaces/participation-storage.interface';
 import { CREATED_BY_USER_ID, canDeleteTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { TOURNAMENT_STORAGE, type ITournamentStorage } from './interfaces/tournament-storage.interface';
@@ -148,8 +151,7 @@ export class TournamentStorageService {
     auditService?: any,
     userContext?: UserContext,
   ) {
-    const tournamentIds: string[] =
-      params?.tournamentIds ?? ([params?.tournamentId].filter(Boolean) as string[]);
+    const tournamentIds: string[] = params?.tournamentIds ?? ([params?.tournamentId].filter(Boolean) as string[]);
     let removed = 0;
 
     for (const tournamentId of tournamentIds) {
@@ -373,9 +375,7 @@ export class TournamentStorageService {
     // remove either — `removeFromCalendar` is the explicit path for that.
     if (!calendarEntry?.tournamentId) return { ...SUCCESS };
 
-    await this.calendarStorage.upsertTournament(
-      toRow(calendarEntry, providerId, provider.organisationAbbreviation),
-    );
+    await this.calendarStorage.upsertTournament(toRow(calendarEntry, providerId, provider.organisationAbbreviation));
     return { ...SUCCESS };
   }
 
@@ -422,9 +422,7 @@ export class TournamentStorageService {
       tournament,
     };
 
-    await this.calendarStorage.upsertTournament(
-      toRow(updatedEntry, providerId, provider?.organisationAbbreviation),
-    );
+    await this.calendarStorage.upsertTournament(toRow(updatedEntry, providerId, provider?.organisationAbbreviation));
     return { ...SUCCESS };
   }
 

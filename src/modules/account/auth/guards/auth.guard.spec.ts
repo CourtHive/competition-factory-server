@@ -151,10 +151,7 @@ describe('AuthGuard', () => {
     });
 
     it('admits array-aud admin+hiveid tokens on admin routes', async () => {
-      const token = jwtService.sign(
-        { email: 'admin@test.com', aud: ['admin', 'hiveid'] },
-        { secret: 'test-secret' },
-      );
+      const token = jwtService.sign({ email: 'admin@test.com', aud: ['admin', 'hiveid'] }, { secret: 'test-secret' });
       const { context } = ctxWithToken(token, { audience: undefined });
       await expect(guard.canActivate(context)).resolves.toBe(true);
     });

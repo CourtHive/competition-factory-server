@@ -60,11 +60,7 @@ export class UsersProvidersController {
    */
   @Get(':userId/providers')
   @Roles([CLIENT, SUPER_ADMIN])
-  async list(
-    @Param('userId') userId: string,
-    @User() user?: any,
-    @UserCtx() userContext?: UserContext,
-  ) {
+  async list(@Param('userId') userId: string, @User() user?: any, @UserCtx() userContext?: UserContext) {
     if (!userContext) throw new ForbiddenException('Authentication required');
 
     let allowedProviderIds: string[] | undefined;

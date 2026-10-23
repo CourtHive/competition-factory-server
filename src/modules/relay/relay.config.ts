@@ -106,9 +106,7 @@ export class RelayConfig {
 
   validate(): void {
     if (this.role === 'local' && !this.cloudRelayUrl) {
-      this.logger.warn(
-        'INSTANCE_ROLE=local but CLOUD_RELAY_URL is unset — outbound relay will queue indefinitely',
-      );
+      this.logger.warn('INSTANCE_ROLE=local but CLOUD_RELAY_URL is unset — outbound relay will queue indefinitely');
     }
     if (this.role === 'cloud' && this.venueApiKeys.size === 0) {
       this.logger.warn('INSTANCE_ROLE=cloud but VENUE_API_KEYS is empty — no venues will be authorized');

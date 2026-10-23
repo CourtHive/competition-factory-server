@@ -10,7 +10,12 @@ describe('DeclarationsClient registrations', () => {
   let fetchMock: Mock;
 
   beforeEach(() => {
-    process.env = { ...OLD_ENV, DECLARATIONS_BASE_URL: 'http://declarations.test', DECLARATIONS_SERVICE_TOKEN: 'svc-token', DECLARATIONS_DISABLED: 'false' };
+    process.env = {
+      ...OLD_ENV,
+      DECLARATIONS_BASE_URL: 'http://declarations.test',
+      DECLARATIONS_SERVICE_TOKEN: 'svc-token',
+      DECLARATIONS_DISABLED: 'false',
+    };
     fetchMock = vi.fn();
     (globalThis as any).fetch = fetchMock;
   });
@@ -21,7 +26,16 @@ describe('DeclarationsClient registrations', () => {
   });
 
   it('lists registrations for a tournament scoped to its provider, with the service token', async () => {
-    const rows = [{ personId: 'p1', providerId: 'BOBOCA', tournamentId: 't1', status: 'SUBMITTED', payload: { eventIds: ['e1'] }, updatedAt: 't' }];
+    const rows = [
+      {
+        personId: 'p1',
+        providerId: 'BOBOCA',
+        tournamentId: 't1',
+        status: 'SUBMITTED',
+        payload: { eventIds: ['e1'] },
+        updatedAt: 't',
+      },
+    ];
     fetchMock.mockResolvedValue(jsonResponse(rows));
     const client = new DeclarationsClient();
 
@@ -34,11 +48,23 @@ describe('DeclarationsClient registrations', () => {
   });
 
   it('posts a transition by declaration id', async () => {
-    const row = { personId: 'p1', providerId: 'BOBOCA', tournamentId: 't1', status: 'ACCEPTED', payload: {}, updatedAt: 't' };
+    const row = {
+      personId: 'p1',
+      providerId: 'BOBOCA',
+      tournamentId: 't1',
+      status: 'ACCEPTED',
+      payload: {},
+      updatedAt: 't',
+    };
     fetchMock.mockResolvedValue(jsonResponse(row));
     const client = new DeclarationsClient();
 
-    const result = await client.transitionRegistration({ declarationId: 'd1', toStatus: 'ACCEPTED', transitionedBy: 'td-1', reason: 'ok' });
+    const result = await client.transitionRegistration({
+      declarationId: 'd1',
+      toStatus: 'ACCEPTED',
+      transitionedBy: 'td-1',
+      reason: 'ok',
+    });
 
     expect(result).toEqual(row);
     const [url, init] = fetchMock.mock.calls[0];
@@ -48,7 +74,14 @@ describe('DeclarationsClient registrations', () => {
   });
 
   it('gets a single registration by id (200) and returns null on 404', async () => {
-    const row = { personId: 'p1', providerId: 'BOBOCA', tournamentId: 't1', status: 'SUBMITTED', payload: { eventIds: ['e1'], applicant: { givenName: 'Jane', familyName: 'Doe' } }, updatedAt: 't' };
+    const row = {
+      personId: 'p1',
+      providerId: 'BOBOCA',
+      tournamentId: 't1',
+      status: 'SUBMITTED',
+      payload: { eventIds: ['e1'], applicant: { givenName: 'Jane', familyName: 'Doe' } },
+      updatedAt: 't',
+    };
     fetchMock.mockResolvedValueOnce(jsonResponse(row));
     const client = new DeclarationsClient();
     expect(await client.getRegistration('d1')).toEqual(row);
@@ -68,7 +101,9 @@ describe('DeclarationsClient registrations', () => {
     process.env.DECLARATIONS_DISABLED = 'true';
     const client = new DeclarationsClient();
     expect(await client.listRegistrations('t1', 'BOBOCA')).toEqual([]);
-    expect(await client.transitionRegistration({ declarationId: 'd1', toStatus: 'REJECTED', transitionedBy: 'td-1' })).toBeNull();
+    expect(
+      await client.transitionRegistration({ declarationId: 'd1', toStatus: 'REJECTED', transitionedBy: 'td-1' }),
+    ).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

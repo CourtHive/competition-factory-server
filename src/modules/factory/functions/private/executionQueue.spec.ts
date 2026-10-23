@@ -54,10 +54,14 @@ describe('executionQueue', () => {
     expect(result.success).toEqual(true);
 
     // FOURTH: attempt to execute a directive on a tournamentRecord that does not exist
-    result = await executionQueue({
-      methods: [{ method: 'setTournamentDates', params: { tournamentId } }],
-      tournamentIds: ['doesNotExist'],
-    }, undefined, mockStorage);
+    result = await executionQueue(
+      {
+        methods: [{ method: 'setTournamentDates', params: { tournamentId } }],
+        tournamentIds: ['doesNotExist'],
+      },
+      undefined,
+      mockStorage,
+    );
     expect(result.error).toEqual(factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD);
   });
 

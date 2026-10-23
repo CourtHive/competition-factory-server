@@ -169,9 +169,7 @@ describe('MutationMirrorService', () => {
     });
 
     it('increments attempts on nack', async () => {
-      global.fetch = vi.fn()
-        .mockRejectedValueOnce(new Error('fail'))
-        .mockResolvedValueOnce({ ok: true });
+      global.fetch = vi.fn().mockRejectedValueOnce(new Error('fail')).mockResolvedValueOnce({ ok: true });
 
       await service.enqueue({ tournamentIds: ['t1'], methods: [{ method: 'a' }] });
 

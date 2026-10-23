@@ -55,7 +55,10 @@ describe('participant-privacy attachment (e2e)', () => {
 
   const auth = () => ({ Authorization: `Bearer ${token}` });
   const fetchRecord = async (tournamentId: string) => {
-    const res = await request(server).post('/factory/fetch').set(auth()).send({ tournamentIds: [tournamentId] });
+    const res = await request(server)
+      .post('/factory/fetch')
+      .set(auth())
+      .send({ tournamentIds: [tournamentId] });
     return res.body?.tournamentRecords?.[tournamentId];
   };
 
@@ -176,9 +179,6 @@ describe('participant-privacy attachment (e2e)', () => {
 
   it('rejects apply-to-existing for a non-provider-admin, non-superadmin caller', async () => {
     // No auth header → 401 from the guard (proves the endpoint is protected).
-    await request(server)
-      .post('/factory/apply-privacy-policy')
-      .send({ providerId: PROVIDER_ID })
-      .expect(401);
+    await request(server).post('/factory/apply-privacy-policy').send({ providerId: PROVIDER_ID }).expect(401);
   });
 });

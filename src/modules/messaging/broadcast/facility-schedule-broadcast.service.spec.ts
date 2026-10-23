@@ -138,7 +138,9 @@ describe('TournamentBroadcastService — facilityScheduleChanged fan-out', () =>
     });
     await vi.runOnlyPendingTimersAsync();
 
-    const rooms = facilityEmits().map((e) => e.room).sort();
+    const rooms = facilityEmits()
+      .map((e) => e.room)
+      .sort();
     expect(rooms).toEqual(['tournament:ctx', 'tournament:gone']);
   });
 

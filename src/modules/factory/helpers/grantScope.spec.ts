@@ -1,4 +1,10 @@
-import { isEvaluableScope, isTargetInScope, isTournamentWide, isWithinWindow, requiredTargetFields } from './grantScope';
+import {
+  isEvaluableScope,
+  isTargetInScope,
+  isTournamentWide,
+  isWithinWindow,
+  requiredTargetFields,
+} from './grantScope';
 
 describe('grantScope', () => {
   describe('empty scope is tournament-wide', () => {

@@ -41,9 +41,18 @@ describe('buildAvailabilityMethods', () => {
 
   it('emits addPersonRequests for UNAVAILABLE days and collects IF_NEEDED as advisory', () => {
     const snapshots = [
-      { personId: 'p1', payload: { span: { from: '2026-08-10', to: '2026-08-12' }, days: { '2026-08-11': 'UNAVAILABLE' } } },
-      { personId: 'p2', payload: { span: { from: '2026-08-10', to: '2026-08-12' }, days: { '2026-08-12': 'IF_NEEDED' } } },
-      { personId: 'p3', payload: { span: { from: '2026-08-10', to: '2026-08-12' }, days: { '2026-08-10': 'AVAILABLE' } } },
+      {
+        personId: 'p1',
+        payload: { span: { from: '2026-08-10', to: '2026-08-12' }, days: { '2026-08-11': 'UNAVAILABLE' } },
+      },
+      {
+        personId: 'p2',
+        payload: { span: { from: '2026-08-10', to: '2026-08-12' }, days: { '2026-08-12': 'IF_NEEDED' } },
+      },
+      {
+        personId: 'p3',
+        payload: { span: { from: '2026-08-10', to: '2026-08-12' }, days: { '2026-08-10': 'AVAILABLE' } },
+      },
     ];
     const { methods, summary } = buildAvailabilityMethods({ snapshots, dates });
 

@@ -32,9 +32,7 @@ export class PostgresProviderApiKeyStorage implements IProviderApiKeyStorage {
     };
   }
 
-  async create(
-    key: Omit<ProviderApiKeyRow, 'keyId' | 'createdAt' | 'lastUsedAt'>,
-  ): Promise<ProviderApiKeyRow> {
+  async create(key: Omit<ProviderApiKeyRow, 'keyId' | 'createdAt' | 'lastUsedAt'>): Promise<ProviderApiKeyRow> {
     const result = await this.pool.query(
       `INSERT INTO provider_api_keys (provider_id, api_key_hash, label, is_active, expires_at)
        VALUES ($1, $2, $3, $4, $5)
@@ -45,10 +43,7 @@ export class PostgresProviderApiKeyStorage implements IProviderApiKeyStorage {
   }
 
   async revoke(keyId: string): Promise<{ success: boolean }> {
-    await this.pool.query(
-      'UPDATE provider_api_keys SET is_active = false WHERE key_id = $1',
-      [keyId],
-    );
+    await this.pool.query('UPDATE provider_api_keys SET is_active = false WHERE key_id = $1', [keyId]);
     return { ...SUCCESS };
   }
 
@@ -64,10 +59,7 @@ export class PostgresProviderApiKeyStorage implements IProviderApiKeyStorage {
   }
 
   async updateLastUsed(keyId: string): Promise<void> {
-    await this.pool.query(
-      'UPDATE provider_api_keys SET last_used_at = NOW() WHERE key_id = $1',
-      [keyId],
-    );
+    await this.pool.query('UPDATE provider_api_keys SET last_used_at = NOW() WHERE key_id = $1', [keyId]);
   }
 }
 

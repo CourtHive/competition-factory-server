@@ -28,10 +28,7 @@ import { PublicLiveFormat, PublicLivePayload, PublicLiveSide, PublicLiveStatus }
  * - `isServing` is also not stored on the matchUp itself — set to
  *   false for both sides until we surface it elsewhere
  */
-export function buildPublicLivePayloadFromMatchUp(
-  matchUp: any,
-  tournamentId: string,
-): PublicLivePayload | null {
+export function buildPublicLivePayloadFromMatchUp(matchUp: any, tournamentId: string): PublicLivePayload | null {
   if (!matchUp?.matchUpId || !tournamentId) return null;
 
   return {
@@ -101,7 +98,10 @@ function resolveParticipantName(side: any): string {
   // Doubles / team — fall back to a comma-joined name list
   const individuals: any[] = side?.participant?.individualParticipants ?? [];
   if (Array.isArray(individuals) && individuals.length > 0) {
-    return individuals.map((p) => p?.participantName ?? '').filter(Boolean).join(' / ');
+    return individuals
+      .map((p) => p?.participantName ?? '')
+      .filter(Boolean)
+      .join(' / ');
   }
   return '';
 }

@@ -65,7 +65,11 @@ describe('SplitTokenSigner', () => {
       const signer = new SplitTokenSigner();
       expect(signer.isRemote()).toBe(true);
 
-      const token = await signer.mint(jwt, { claims: { sub: 'u', tournamentId: 't' }, audience: 'provider', expiresInSeconds: 120 });
+      const token = await signer.mint(jwt, {
+        claims: { sub: 'u', tournamentId: 't' },
+        audience: 'provider',
+        expiresInSeconds: 120,
+      });
       expect(token).toBe('idp.signed.token');
 
       const [url, init] = fetchSpy.mock.calls[0];

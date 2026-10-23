@@ -111,7 +111,7 @@ export class TrackerTokenService {
     // tournaments of the provider their session acts for.
     const providerId =
       tournament?.parentOrganisation?.organisationId ?? sessionProviderId(userContext) ?? user.providerId;
-    const sub = providerId ? `provider:${providerId}` : user.userId ?? 'unknown';
+    const sub = providerId ? `provider:${providerId}` : (user.userId ?? 'unknown');
     const now = Math.floor(Date.now() / 1000);
     const exp = now + ttlSeconds;
 
@@ -188,7 +188,7 @@ export class TrackerTokenService {
     // tournaments of the provider their session acts for.
     const providerId =
       tournament?.parentOrganisation?.organisationId ?? sessionProviderId(userContext) ?? user.providerId;
-    const sub = providerId ? `provider:${providerId}` : user.userId ?? 'unknown';
+    const sub = providerId ? `provider:${providerId}` : (user.userId ?? 'unknown');
     const now = Math.floor(Date.now() / 1000);
     const exp = now + ttlSeconds;
     const token = await this.splitTokenSigner.mint(this.jwtService, {

@@ -2,8 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class DeleteProviderDto {
   @ApiProperty({
-    description:
-      'Must equal the provider\'s organisationAbbreviation. Mismatched value rejects with 400.',
+    description: "Must equal the provider's organisationAbbreviation. Mismatched value rejects with 400.",
   })
   confirm: string = '';
 

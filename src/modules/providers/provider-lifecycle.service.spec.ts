@@ -92,15 +92,11 @@ describe('ProviderLifecycleService', () => {
 
   describe('archive', () => {
     it('throws Forbidden for non-super-admin', async () => {
-      await expect(service.archive('p-1', 'TESTORG', nonSuperAdminCtx)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(service.archive('p-1', 'TESTORG', nonSuperAdminCtx)).rejects.toThrow(ForbiddenException);
     });
 
     it('throws BadRequest when confirm does not match abbreviation', async () => {
-      await expect(service.archive('p-1', 'WRONG', superAdminCtx)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.archive('p-1', 'WRONG', superAdminCtx)).rejects.toThrow(BadRequestException);
       expect(mockArchiveService.writeArchive).not.toHaveBeenCalled();
       expect(mockCleanupService.wipe).not.toHaveBeenCalled();
     });
@@ -155,22 +151,16 @@ describe('ProviderLifecycleService', () => {
 
   describe('delete', () => {
     it('throws Forbidden for non-super-admin', async () => {
-      await expect(service.delete('p-1', 'TESTORG', true, nonSuperAdminCtx)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(service.delete('p-1', 'TESTORG', true, nonSuperAdminCtx)).rejects.toThrow(ForbiddenException);
     });
 
     it('throws BadRequest when confirm does not match abbreviation', async () => {
-      await expect(service.delete('p-1', 'WRONG', true, superAdminCtx)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.delete('p-1', 'WRONG', true, superAdminCtx)).rejects.toThrow(BadRequestException);
       expect(mockCleanupService.wipe).not.toHaveBeenCalled();
     });
 
     it('throws Conflict when acknowledgeDataLoss is false', async () => {
-      await expect(service.delete('p-1', 'TESTORG', false, superAdminCtx)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.delete('p-1', 'TESTORG', false, superAdminCtx)).rejects.toThrow(ConflictException);
       expect(mockCleanupService.wipe).not.toHaveBeenCalled();
     });
 

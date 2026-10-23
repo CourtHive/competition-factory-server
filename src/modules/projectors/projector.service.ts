@@ -57,9 +57,7 @@ export class ProjectorService {
       await consumer.callback(payload);
     } catch (err) {
       this.logger.error(
-        `callback dispatch to ${consumer.kind} consumer ${consumer.id} threw: ${
-          (err as Error)?.message ?? err
-        }`,
+        `callback dispatch to ${consumer.kind} consumer ${consumer.id} threw: ${(err as Error)?.message ?? err}`,
       );
     }
   }

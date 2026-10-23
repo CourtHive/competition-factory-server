@@ -28,7 +28,10 @@ export class AdminProvisionerController {
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() body: { name?: string; isActive?: boolean; config?: Record<string, any> }) {
+  async update(
+    @Param('id') id: string,
+    @Body() body: { name?: string; isActive?: boolean; config?: Record<string, any> },
+  ) {
     return this.provisionerService.updateProvisioner(id, body);
   }
 
@@ -39,9 +42,7 @@ export class AdminProvisionerController {
    */
   @Delete(':id')
   async delete(@Param('id') id: string, @Req() req: any) {
-    const actor = req.user
-      ? { userId: req.user.userId ?? req.user.sub, userEmail: req.user.email }
-      : undefined;
+    const actor = req.user ? { userId: req.user.userId ?? req.user.sub, userEmail: req.user.email } : undefined;
     return this.provisionerService.deleteProvisioner(id, actor);
   }
 
@@ -94,11 +95,7 @@ export class AdminProvisionerController {
 
   @Post(':id/users')
   @HttpCode(HttpStatus.CREATED)
-  async assignUser(
-    @Param('id') id: string,
-    @Body() body: { email: string },
-    @Req() req: any,
-  ) {
+  async assignUser(@Param('id') id: string, @Body() body: { email: string }, @Req() req: any) {
     const grantedBy = req.user?.userId ?? req.user?.sub;
     return this.provisionerService.assignUserToProvisioner(id, body.email, grantedBy);
   }

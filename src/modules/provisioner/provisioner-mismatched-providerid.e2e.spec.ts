@@ -131,7 +131,11 @@ d('Provisioner / mismatched X-Provider-Id', () => {
       const { PROVIDER_STORAGE } = await import('src/storage/interfaces');
       const providerStorage: any = app.get(PROVIDER_STORAGE);
       for (const pid of [bobocaId, ionId]) {
-        try { if (pid) await providerStorage.removeProvider(pid); } catch { /* ignore */ }
+        try {
+          if (pid) await providerStorage.removeProvider(pid);
+        } catch {
+          /* ignore */
+        }
       }
     } finally {
       await app.close();
@@ -164,8 +168,7 @@ d('Provisioner / mismatched X-Provider-Id', () => {
       .post('/provider/add')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ organisationAbbreviation: otherAbbr, organisationName: 'E2E Unrelated' });
-    const otherProviderId: string | undefined =
-      otherRes.body?.providerId ?? otherRes.body?.provider?.organisationId;
+    const otherProviderId: string | undefined = otherRes.body?.providerId ?? otherRes.body?.provider?.organisationId;
 
     try {
       const res = await request(app.getHttpServer())
@@ -183,7 +186,11 @@ d('Provisioner / mismatched X-Provider-Id', () => {
       if (otherProviderId) {
         const { PROVIDER_STORAGE } = await import('src/storage/interfaces');
         const providerStorage: any = app.get(PROVIDER_STORAGE);
-        try { await providerStorage.removeProvider(otherProviderId); } catch { /* ignore */ }
+        try {
+          await providerStorage.removeProvider(otherProviderId);
+        } catch {
+          /* ignore */
+        }
       }
     }
   });
@@ -197,8 +204,9 @@ d('Provisioner / mismatched X-Provider-Id', () => {
       .set('X-Provider-Id', ionId)
       .send({ tournamentName: 'C1: meant for BOBOCA, sent ION', startDate: '2026-08-10', endDate: '2026-08-12' });
 
-     
-    console.log(`[C1] status=${res.status} success=${res.body?.success} tid=${res.body?.tournamentRecord?.tournamentId} parentOrg=${JSON.stringify(res.body?.tournamentRecord?.parentOrganisation)}`);
+    console.log(
+      `[C1] status=${res.status} success=${res.body?.success} tid=${res.body?.tournamentRecord?.tournamentId} parentOrg=${JSON.stringify(res.body?.tournamentRecord?.parentOrganisation)}`,
+    );
     expect(res.status).toBe(200);
     if (res.body?.tournamentRecord?.tournamentId) createdTournamentIds.push(res.body.tournamentRecord.tournamentId);
   });
@@ -210,8 +218,9 @@ d('Provisioner / mismatched X-Provider-Id', () => {
       .set('X-Provider-Id', ionId)
       .send({ tournamentName: 'C2: meant for BOBOCA, sent ION', startDate: '2026-08-13', endDate: '2026-08-15' });
 
-     
-    console.log(`[C2] status=${res.status} success=${res.body?.success} tid=${res.body?.tournamentRecord?.tournamentId}`);
+    console.log(
+      `[C2] status=${res.status} success=${res.body?.success} tid=${res.body?.tournamentRecord?.tournamentId}`,
+    );
     expect(res.status).toBe(200);
     if (res.body?.tournamentRecord?.tournamentId) createdTournamentIds.push(res.body.tournamentRecord.tournamentId);
   });
@@ -223,8 +232,9 @@ d('Provisioner / mismatched X-Provider-Id', () => {
       .set('X-Provider-Id', bobocaId)
       .send({ tournamentName: 'C3: correct BOBOCA', startDate: '2026-08-16', endDate: '2026-08-18' });
 
-     
-    console.log(`[C3] status=${res.status} success=${res.body?.success} tid=${res.body?.tournamentRecord?.tournamentId}`);
+    console.log(
+      `[C3] status=${res.status} success=${res.body?.success} tid=${res.body?.tournamentRecord?.tournamentId}`,
+    );
     expect(res.status).toBe(200);
     if (res.body?.tournamentRecord?.tournamentId) createdTournamentIds.push(res.body.tournamentRecord.tournamentId);
   });

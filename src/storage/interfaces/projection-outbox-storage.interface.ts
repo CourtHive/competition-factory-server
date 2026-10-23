@@ -87,7 +87,11 @@ export interface IProjectionOutboxStorage {
    * deltas. A save landing after the fence blocks on the share lock and enqueues after these rows; a save that landed
    * between the read and the fence changes `updated_at`, and nothing is written ('changed': rebuild and retry).
    */
-  enqueueIfUnchanged(params: { tournamentId: string; updatedAt: string; deltas: ProjectionDelta[] }): Promise<FencedEnqueueResult>;
+  enqueueIfUnchanged(params: {
+    tournamentId: string;
+    updatedAt: string;
+    deltas: ProjectionDelta[];
+  }): Promise<FencedEnqueueResult>;
   /**
    * Record, inside the save's tournament lock, that these tournaments need a snapshot; the producer builds it. One
    * pending request per tournament: a repeat save refreshes `requested_at` and resets the attempt count.

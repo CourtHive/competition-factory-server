@@ -23,10 +23,22 @@ describe('PostgresChatStorage', () => {
     const pool = makePool([dbRow()]);
     const storage = new PostgresChatStorage(pool);
 
-    const { record } = await storage.appendMessage({ tournamentId: 't1', userName: 'alice', message: 'hi', clientMsgId: 'c1' });
+    const { record } = await storage.appendMessage({
+      tournamentId: 't1',
+      userName: 'alice',
+      message: 'hi',
+      clientMsgId: 'c1',
+    });
 
     expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO chat_messages'), expect.any(Array));
-    expect(record).toMatchObject({ seq: 7, tournamentId: 't1', userName: 'alice', message: 'hi', clientMsgId: 'c1', isAdmin: false });
+    expect(record).toMatchObject({
+      seq: 7,
+      tournamentId: 't1',
+      userName: 'alice',
+      message: 'hi',
+      clientMsgId: 'c1',
+      isAdmin: false,
+    });
     expect(typeof record!.seq).toBe('number');
     expect(record!.createdAt).toBe('2026-06-20T00:00:00.000Z');
   });

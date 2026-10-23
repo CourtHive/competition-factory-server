@@ -28,7 +28,11 @@ describe('ProviderApiKeyService', () => {
     it('mints a pkey_live_<hex> key, stores only the SHA-256 hash, and returns plaintext once', async () => {
       providerStorage.getProvider.mockResolvedValueOnce({ providerId: 'kronos', organisationName: 'Kronos' });
       apiKeyStorage.create.mockImplementationOnce(async (input: any) => ({
-        keyId: 'new-k', providerId: 'kronos', apiKeyHash: input.apiKeyHash, label: 'prod', isActive: true,
+        keyId: 'new-k',
+        providerId: 'kronos',
+        apiKeyHash: input.apiKeyHash,
+        label: 'prod',
+        isActive: true,
       }));
 
       const result = await service.generateApiKey('kronos', 'prod', { userId: 'u-1', userEmail: 'a@b.c' });
@@ -53,18 +57,26 @@ describe('ProviderApiKeyService', () => {
     it('audits the issuance with status=applied, source=admin, and the new keyId in metadata', async () => {
       providerStorage.getProvider.mockResolvedValueOnce({ providerId: 'kronos' });
       apiKeyStorage.create.mockResolvedValueOnce({
-        keyId: 'k-1', providerId: 'kronos', apiKeyHash: 'h', label: 'prod', isActive: true,
+        keyId: 'k-1',
+        providerId: 'kronos',
+        apiKeyHash: 'h',
+        label: 'prod',
+        isActive: true,
       });
       await service.generateApiKey('kronos', 'prod', { userId: 'u-1', userEmail: 'admin@x.com' });
-      expect(auditService.recordMutation).toHaveBeenCalledWith(expect.objectContaining({
-        tournamentIds: ['kronos'],
-        userId: 'u-1',
-        userEmail: 'admin@x.com',
-        source: 'admin',
-        methods: [{ method: 'generateProviderApiKey', params: { providerId: 'kronos', label: 'prod', keyId: 'k-1' } }],
-        status: 'applied',
-        metadata: { providerId: 'kronos', keyId: 'k-1', label: 'prod' },
-      }));
+      expect(auditService.recordMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tournamentIds: ['kronos'],
+          userId: 'u-1',
+          userEmail: 'admin@x.com',
+          source: 'admin',
+          methods: [
+            { method: 'generateProviderApiKey', params: { providerId: 'kronos', label: 'prod', keyId: 'k-1' } },
+          ],
+          status: 'applied',
+          metadata: { providerId: 'kronos', keyId: 'k-1', label: 'prod' },
+        }),
+      );
     });
 
     it('does not throw when the audit hook itself fails (fail-soft)', async () => {
@@ -78,7 +90,14 @@ describe('ProviderApiKeyService', () => {
   describe('listApiKeys', () => {
     it('returns key metadata without the api_key_hash field', async () => {
       apiKeyStorage.listByProvider.mockResolvedValueOnce([
-        { keyId: 'k-1', providerId: 'kronos', apiKeyHash: 'secret', label: 'prod', isActive: true, createdAt: '2026-05-22' },
+        {
+          keyId: 'k-1',
+          providerId: 'kronos',
+          apiKeyHash: 'secret',
+          label: 'prod',
+          isActive: true,
+          createdAt: '2026-05-22',
+        },
       ]);
       const result = await service.listApiKeys('kronos');
       expect(result.success).toBe(true);
@@ -94,12 +113,14 @@ describe('ProviderApiKeyService', () => {
       const result = await service.revokeApiKey('k-1', { userId: 'u-1', userEmail: 'admin@x.com' }, 'kronos');
       expect(result.success).toBe(true);
       expect(apiKeyStorage.revoke).toHaveBeenCalledWith('k-1');
-      expect(auditService.recordMutation).toHaveBeenCalledWith(expect.objectContaining({
-        tournamentIds: ['kronos'],
-        source: 'admin',
-        methods: [{ method: 'revokeProviderApiKey', params: { keyId: 'k-1' } }],
-        status: 'applied',
-      }));
+      expect(auditService.recordMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tournamentIds: ['kronos'],
+          source: 'admin',
+          methods: [{ method: 'revokeProviderApiKey', params: { keyId: 'k-1' } }],
+          status: 'applied',
+        }),
+      );
     });
   });
 });

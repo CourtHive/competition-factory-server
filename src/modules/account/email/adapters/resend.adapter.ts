@@ -42,8 +42,8 @@ export class ResendAdapter implements EmailAdapter {
       ResendCtor = require('resend').Resend;
     } catch {
       throw new Error(
-        "Resend SDK is not installed. Run `pnpm install` in competition-factory-server " +
-        "to pick up the new `resend` dependency, then restart the server.",
+        'Resend SDK is not installed. Run `pnpm install` in competition-factory-server ' +
+          'to pick up the new `resend` dependency, then restart the server.',
       );
     }
     const apiKey = process.env.RESEND_API_KEY;

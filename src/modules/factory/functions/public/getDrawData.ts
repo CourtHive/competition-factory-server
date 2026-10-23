@@ -13,11 +13,7 @@ import type { ITournamentStorage, IProviderStorage } from 'src/storage/interface
  *
  * `structuresProfile: 'STUBS'` narrows further — cheap per-structure metadata with no `roundMatchUps`.
  */
-export async function getDrawData(
-  params: any,
-  storage: ITournamentStorage,
-  providerStorage?: IProviderStorage,
-) {
+export async function getDrawData(params: any, storage: ITournamentStorage, providerStorage?: IProviderStorage) {
   if (!params?.tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
   if (!params?.drawId) return { error: 'MISSING_DRAW_ID' };
 

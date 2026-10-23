@@ -86,9 +86,9 @@ describe('warmEventDataCache', () => {
 
     // The WebSocket path has no side-table and passes no tracker — must not throw.
     cacheManager.set.mockClear();
-    await expect(
-      warmEventDataCache({ evictedEventKeys: ['ged|t1|e1'], cacheManager, storage }),
-    ).resolves.toEqual(['ged|t1|e1']);
+    await expect(warmEventDataCache({ evictedEventKeys: ['ged|t1|e1'], cacheManager, storage })).resolves.toEqual([
+      'ged|t1|e1',
+    ]);
     expect(cacheManager.set).toHaveBeenCalled();
   });
 

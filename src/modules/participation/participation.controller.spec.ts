@@ -17,7 +17,11 @@ describe('ParticipationController', () => {
   });
 
   beforeEach(() => {
-    storage = { listForSubject: vi.fn().mockResolvedValue([]), replaceTournamentRows: vi.fn(), deleteTournamentRows: vi.fn() };
+    storage = {
+      listForSubject: vi.fn().mockResolvedValue([]),
+      replaceTournamentRows: vi.fn(),
+      deleteTournamentRows: vi.fn(),
+    };
     controller = new ParticipationController(new ParticipationService(storage));
   });
 

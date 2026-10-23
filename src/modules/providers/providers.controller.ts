@@ -87,12 +87,7 @@ export class ProvidersController {
     @Body() body: DeleteProviderDto,
     @UserCtx() ctx: UserContext,
   ) {
-    return this.lifecycle.delete(
-      providerId,
-      body?.confirm ?? '',
-      body?.acknowledgeDataLoss === true,
-      ctx,
-    );
+    return this.lifecycle.delete(providerId, body?.confirm ?? '', body?.acknowledgeDataLoss === true, ctx);
   }
 
   /**
@@ -170,11 +165,7 @@ export class ProvidersController {
    */
   @Get(':providerId/catalog/:type')
   @Roles([CLIENT, ADMIN, SUPER_ADMIN])
-  listCatalog(
-    @Param('providerId') providerId: string,
-    @Param('type') type: string,
-    @UserCtx() ctx: UserContext,
-  ) {
+  listCatalog(@Param('providerId') providerId: string, @Param('type') type: string, @UserCtx() ctx: UserContext) {
     this.assertProviderAdmin(providerId, ctx);
     return this.catalog.list(providerId, assertCatalogType(type));
   }

@@ -53,11 +53,7 @@ export function isEs256SigningEnabled(): boolean {
  * `ES256` + `kid` header; otherwise signs HS256 with the instance secret
  * (unchanged legacy behavior). Signing options (e.g. `expiresIn`) pass through.
  */
-export async function signJwt(
-  jwtService: JwtService,
-  payload: object,
-  options: JwtSignOptions = {},
-): Promise<string> {
+export async function signJwt(jwtService: JwtService, payload: object, options: JwtSignOptions = {}): Promise<string> {
   const signing = isEs256SigningEnabled() ? getSigningKey() : null;
   if (signing) {
     return jwtService.signAsync(payload, {

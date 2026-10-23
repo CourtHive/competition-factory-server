@@ -18,7 +18,10 @@ export interface IProvisionerStorage {
   create(provisioner: Omit<ProvisionerRow, 'provisionerId' | 'createdAt' | 'updatedAt'>): Promise<ProvisionerRow>;
 
   /** Update provisioner fields. */
-  update(provisionerId: string, data: Partial<Pick<ProvisionerRow, 'name' | 'isActive' | 'config'>>): Promise<{ success: boolean }>;
+  update(
+    provisionerId: string,
+    data: Partial<Pick<ProvisionerRow, 'name' | 'isActive' | 'config'>>,
+  ): Promise<{ success: boolean }>;
 
   /** Deactivate a provisioner (soft-delete). */
   deactivate(provisionerId: string): Promise<{ success: boolean }>;

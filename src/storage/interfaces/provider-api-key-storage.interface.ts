@@ -9,7 +9,9 @@ export const PROVIDER_API_KEY_STORAGE = Symbol('PROVIDER_API_KEY_STORAGE');
  */
 export interface IProviderApiKeyStorage {
   /** Look up an active, non-expired key by its hash. Returns the key and its provider. */
-  findByKeyHash(hash: string): Promise<{ key: ProviderApiKeyRow; providerName: string; providerConfig: Record<string, any> } | null>;
+  findByKeyHash(
+    hash: string,
+  ): Promise<{ key: ProviderApiKeyRow; providerName: string; providerConfig: Record<string, any> } | null>;
 
   /** Create a new API key record. The plaintext key is NOT stored — only the hash. */
   create(key: Omit<ProviderApiKeyRow, 'keyId' | 'createdAt' | 'lastUsedAt'>): Promise<ProviderApiKeyRow>;

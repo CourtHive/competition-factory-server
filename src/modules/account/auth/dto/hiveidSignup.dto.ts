@@ -27,7 +27,7 @@ export class HiveIDSignupDto {
 
   @ApiPropertyOptional({
     description:
-      "Date of birth (YYYY-MM-DD), collected behind a consent gate. Enables courthive-persons to dedupe on name+DOB+sex, or MINT a canonical person when no match exists.",
+      'Date of birth (YYYY-MM-DD), collected behind a consent gate. Enables courthive-persons to dedupe on name+DOB+sex, or MINT a canonical person when no match exists.',
   })
   birthDate?: string;
 

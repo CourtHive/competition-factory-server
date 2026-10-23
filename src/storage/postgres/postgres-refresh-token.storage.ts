@@ -56,17 +56,15 @@ export class PostgresRefreshTokenStorage implements IRefreshTokenStorage {
   }
 
   async revokeFamily(familyId: string): Promise<void> {
-    await this.pool.query(
-      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE family_id = $1 AND revoked_at IS NULL',
-      [familyId],
-    );
+    await this.pool.query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE family_id = $1 AND revoked_at IS NULL', [
+      familyId,
+    ]);
   }
 
   async revokeAllForUser(userId: string): Promise<void> {
-    await this.pool.query(
-      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
-      [userId],
-    );
+    await this.pool.query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL', [
+      userId,
+    ]);
   }
 
   async deleteExpired(): Promise<number> {

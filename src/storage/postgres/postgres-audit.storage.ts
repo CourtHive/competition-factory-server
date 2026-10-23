@@ -16,8 +16,7 @@ export class PostgresAuditStorage implements IAuditStorage {
     const isUuid = (s: string | undefined): boolean =>
       typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
     const legacyUserUuid = !row.actor && isUuid(row.userId) ? row.userId : null;
-    const actor =
-      row.actor ?? (isUuid(row.userId) ? { kind: 'user' as const, id: row.userId! } : undefined);
+    const actor = row.actor ?? (isUuid(row.userId) ? { kind: 'user' as const, id: row.userId! } : undefined);
 
     await this.pool.query(
       `INSERT INTO audit_log

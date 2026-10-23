@@ -114,9 +114,7 @@ describe('AuditService', () => {
 
     it('does not throw when storage.append fails', async () => {
       mockStorage.append.mockRejectedValue(new Error('DB down'));
-      await expect(
-        service.recordDeletion({ tournamentId: 't-1' }),
-      ).resolves.not.toThrow();
+      await expect(service.recordDeletion({ tournamentId: 't-1' })).resolves.not.toThrow();
     });
   });
 

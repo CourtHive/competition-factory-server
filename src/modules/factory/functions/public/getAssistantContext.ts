@@ -3,10 +3,7 @@ import { queryGovernor, Tournament } from 'tods-competition-factory';
 import type { ITournamentStorage } from 'src/storage/interfaces';
 import { SUCCESS } from 'src/common/constants/app';
 
-export async function getAssistantContext(
-  { tournamentId }: { tournamentId: string },
-  storage: ITournamentStorage,
-) {
+export async function getAssistantContext({ tournamentId }: { tournamentId: string }, storage: ITournamentStorage) {
   if (!tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
   const findResult = await storage.findTournamentRecord({ tournamentId });
   if (findResult.error) return findResult;

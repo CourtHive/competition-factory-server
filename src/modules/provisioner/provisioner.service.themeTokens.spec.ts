@@ -32,11 +32,7 @@ function makeService(providerStorage: MockProviderStorage): ProvisionerService {
   // updateProviderCaps only touches providerStorage. Other deps are
   // mocked with empty objects — they're not exercised on this path.
   const noop = {} as any;
-  return new ProvisionerService(
-    noop, noop, noop,
-    providerStorage as any,
-    noop, noop, noop, noop, noop, noop, noop,
-  );
+  return new ProvisionerService(noop, noop, noop, providerStorage as any, noop, noop, noop, noop, noop, noop, noop);
 }
 
 describe('ProvisionerService.updateProviderCaps — themeTokens validation', () => {
@@ -67,7 +63,7 @@ describe('ProvisionerService.updateProviderCaps — themeTokens validation', () 
       branding: {
         themeTokens: {
           '--malicious-var': 'red',
-          'background': 'blue',
+          background: 'blue',
           '--tmx-ok': '#fff',
         },
       },

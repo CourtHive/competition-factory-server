@@ -138,11 +138,7 @@ describe('TrackerTokenService', () => {
   it('returns 404 when the tournament does not exist', async () => {
     mockTournamentStorage.fetchTournamentRecords.mockResolvedValueOnce({ tournamentRecords: {} });
     await expect(
-      service.mintTrackerToken(
-        { tournamentId: 'nope' },
-        { providerId: PROVIDER_ID },
-        makeContext(),
-      ),
+      service.mintTrackerToken({ tournamentId: 'nope' }, { providerId: PROVIDER_ID }, makeContext()),
     ).rejects.toThrow(NotFoundException);
   });
 
@@ -230,11 +226,7 @@ describe('TrackerTokenService', () => {
   });
 
   it('omits provisionerId from the audit row when no provisioner is on the call', async () => {
-    await service.mintTrackerToken(
-      { tournamentId: TOURNAMENT_ID },
-      { providerId: PROVIDER_ID },
-      makeContext(),
-    );
+    await service.mintTrackerToken({ tournamentId: TOURNAMENT_ID }, { providerId: PROVIDER_ID }, makeContext());
     const call = mockAuditService.recordTrackerTokenIssued.mock.calls[0][0];
     expect(call.provisionerId).toBeUndefined();
   });
@@ -242,11 +234,7 @@ describe('TrackerTokenService', () => {
   it('does not fail the mint when the audit write throws', async () => {
     mockAuditService.recordTrackerTokenIssued.mockRejectedValueOnce(new Error('audit-down'));
     await expect(
-      service.mintTrackerToken(
-        { tournamentId: TOURNAMENT_ID },
-        { providerId: PROVIDER_ID },
-        makeContext(),
-      ),
+      service.mintTrackerToken({ tournamentId: TOURNAMENT_ID }, { providerId: PROVIDER_ID }, makeContext()),
     ).resolves.toMatchObject({ token: expect.any(String) });
   });
 

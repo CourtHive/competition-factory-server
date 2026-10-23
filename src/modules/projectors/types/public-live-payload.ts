@@ -20,12 +20,12 @@ export interface PublicLiveSide {
   teamName: string;
   playerName: string;
   setScores: number[]; // one entry per completed/current set
-  gameScore?: number;  // current game points (within the current set)
+  gameScore?: number; // current game points (within the current set)
   isServing: boolean;
 }
 
 export interface PublicLiveIntennseBolt {
-  number: number;          // bolt 1, 2, ...
+  number: number; // bolt 1, 2, ...
   state: 'pre' | 'play' | 'paused' | 'complete';
   boltClockMs: number;
   serveClockMs: number;

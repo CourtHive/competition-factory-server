@@ -21,11 +21,7 @@ export class IdentityController {
   @Post('account/contact-email/set')
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  setContactEmail(
-    @Body() body: SetContactEmailDto,
-    @User() user?: any,
-    @UserCtx() userContext?: UserContext,
-  ) {
+  setContactEmail(@Body() body: SetContactEmailDto, @User() user?: any, @UserCtx() userContext?: UserContext) {
     if (!userContext?.userId) return { error: 'Authentication required' };
     return this.identityService.setContactEmail(
       { userId: userContext.userId, email: userContext.email, firstName: user?.firstName },

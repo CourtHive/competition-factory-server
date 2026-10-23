@@ -48,16 +48,7 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
       expect(sql).toContain('sex');
       expect(sql).toContain('nationality_code');
       expect(sql).toContain('WHERE user_id = $1');
-      expect(params).toEqual([
-        'u-1',
-        'p-9',
-        3,
-        'Allen',
-        'Charles',
-        '1975-01-01',
-        'M',
-        'USA',
-      ]);
+      expect(params).toEqual(['u-1', 'p-9', 3, 'Allen', 'Charles', '1975-01-01', 'M', 'USA']);
     });
 
     it('coerces missing cached fields to null', async () => {
@@ -70,16 +61,7 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
         },
       });
       const params = pool.query.mock.calls[0][1];
-      expect(params).toEqual([
-        'u-2',
-        'p-10',
-        1,
-        null,
-        'Onlygiven',
-        null,
-        null,
-        null,
-      ]);
+      expect(params).toEqual(['u-2', 'p-10', 1, null, 'Onlygiven', null, null, null]);
     });
 
     it('stamps updated_at via NOW()', async () => {
@@ -97,17 +79,19 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
   describe('getPersonLink', () => {
     it('returns the link + cached fields + consent for an existing user', async () => {
       pool.query.mockResolvedValueOnce({
-        rows: [{
-          user_id: 'u-1',
-          person_id: 'p-9',
-          person_revision: 3,
-          standard_family_name: 'Allen',
-          standard_given_name: 'Charles',
-          birth_date: new Date('1975-01-01'),
-          sex: 'M',
-          nationality_code: 'USA',
-          consent_preferences: { notifications: true },
-        }],
+        rows: [
+          {
+            user_id: 'u-1',
+            person_id: 'p-9',
+            person_revision: 3,
+            standard_family_name: 'Allen',
+            standard_given_name: 'Charles',
+            birth_date: new Date('1975-01-01'),
+            sex: 'M',
+            nationality_code: 'USA',
+            consent_preferences: { notifications: true },
+          },
+        ],
       });
       const result = await storage.getPersonLink('u-1');
       expect(result).toEqual({
@@ -127,17 +111,19 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
 
     it('returns a null-shaped link + empty consent for an unlinked user', async () => {
       pool.query.mockResolvedValueOnce({
-        rows: [{
-          user_id: 'u-2',
-          person_id: null,
-          person_revision: null,
-          standard_family_name: null,
-          standard_given_name: null,
-          birth_date: null,
-          sex: null,
-          nationality_code: null,
-          consent_preferences: null,
-        }],
+        rows: [
+          {
+            user_id: 'u-2',
+            person_id: null,
+            person_revision: null,
+            standard_family_name: null,
+            standard_given_name: null,
+            birth_date: null,
+            sex: null,
+            nationality_code: null,
+            consent_preferences: null,
+          },
+        ],
       });
       const result = await storage.getPersonLink('u-2');
       expect(result).toEqual({
@@ -195,16 +181,7 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
       expect(sql).toContain('SET person_id = $1');
       expect(sql).toContain('person_revision = $2');
       expect(sql).toContain('WHERE person_id = $8');
-      expect(params).toEqual([
-        'new-1',
-        5,
-        'Allen',
-        'Charles',
-        '1975-01-01',
-        'M',
-        'USA',
-        'old-1',
-      ]);
+      expect(params).toEqual(['new-1', 5, 'Allen', 'Charles', '1975-01-01', 'M', 'USA', 'old-1']);
     });
 
     it('returns rewrittenCount: 0 when no users had the old person_id', async () => {
@@ -249,13 +226,15 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
   describe('firstName / lastName projection', () => {
     it('findOne falls back to standard_* columns when data JSON lacks the names', async () => {
       pool.query.mockResolvedValueOnce({
-        rows: [{
-          user_id: 'u-1',
-          email: 'h@test.com',
-          data: { tournamentProfile: true },
-          standard_given_name: 'Charles',
-          standard_family_name: 'Allen',
-        }],
+        rows: [
+          {
+            user_id: 'u-1',
+            email: 'h@test.com',
+            data: { tournamentProfile: true },
+            standard_given_name: 'Charles',
+            standard_family_name: 'Allen',
+          },
+        ],
       });
       const result: any = await storage.findOne('h@test.com');
       expect(result.firstName).toBe('Charles');
@@ -264,13 +243,15 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
 
     it('findOne prefers data.firstName / lastName over standard_* (admin edit wins)', async () => {
       pool.query.mockResolvedValueOnce({
-        rows: [{
-          user_id: 'u-2',
-          email: 'edited@test.com',
-          data: { firstName: 'Bob', lastName: 'Edits' },
-          standard_given_name: 'Robert',
-          standard_family_name: 'Canonical',
-        }],
+        rows: [
+          {
+            user_id: 'u-2',
+            email: 'edited@test.com',
+            data: { firstName: 'Bob', lastName: 'Edits' },
+            standard_given_name: 'Robert',
+            standard_family_name: 'Canonical',
+          },
+        ],
       });
       const result: any = await storage.findOne('edited@test.com');
       expect(result.firstName).toBe('Bob');
@@ -279,13 +260,15 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
 
     it('findOne returns undefined when neither source has a name', async () => {
       pool.query.mockResolvedValueOnce({
-        rows: [{
-          user_id: 'u-3',
-          email: 'blank@test.com',
-          data: {},
-          standard_given_name: null,
-          standard_family_name: null,
-        }],
+        rows: [
+          {
+            user_id: 'u-3',
+            email: 'blank@test.com',
+            data: {},
+            standard_given_name: null,
+            standard_family_name: null,
+          },
+        ],
       });
       const result: any = await storage.findOne('blank@test.com');
       expect(result.firstName).toBeUndefined();
@@ -294,13 +277,15 @@ describe('PostgresUserStorage — HiveID PR-E additions', () => {
 
     it('findByContactEmail applies the same coalesce', async () => {
       pool.query.mockResolvedValueOnce({
-        rows: [{
-          user_id: 'u-4',
-          email: 'contact@test.com',
-          data: {},
-          standard_given_name: 'Charles',
-          standard_family_name: 'Allen',
-        }],
+        rows: [
+          {
+            user_id: 'u-4',
+            email: 'contact@test.com',
+            data: {},
+            standard_given_name: 'Charles',
+            standard_family_name: 'Allen',
+          },
+        ],
       });
       const result: any = await storage.findByContactEmail('recovery@example.com');
       expect(result.firstName).toBe('Charles');

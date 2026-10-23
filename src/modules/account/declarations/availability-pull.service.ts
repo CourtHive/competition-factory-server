@@ -13,7 +13,12 @@ import { BadRequestException, ForbiddenException, Injectable, UnauthorizedExcept
 
 import { AssignmentsService } from '../../factory/assignments.service';
 import { AuditService } from '../../audit/audit.service';
-import { AvailabilityPullSummary, buildAvailabilityMethods, enumerateDates, extractCanonicalPersonIds } from './availability-pull.helpers';
+import {
+  AvailabilityPullSummary,
+  buildAvailabilityMethods,
+  enumerateDates,
+  extractCanonicalPersonIds,
+} from './availability-pull.helpers';
 import { DeclarationsClient } from './declarations-client.service';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { canMutateTournament } from '../../factory/helpers/checkTournamentAccess';

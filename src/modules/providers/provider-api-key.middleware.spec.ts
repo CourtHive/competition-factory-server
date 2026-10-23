@@ -57,7 +57,7 @@ describe('ProviderApiKeyMiddleware', () => {
         isActive: true,
       },
       providerName: 'Kronos Sports',
-      providerConfig: { permissions: { 'addEvent': true } },
+      providerConfig: { permissions: { addEvent: true } },
     });
     const req: any = { headers: { authorization: `Bearer ${rawKey}` } };
     const next = makeNext();

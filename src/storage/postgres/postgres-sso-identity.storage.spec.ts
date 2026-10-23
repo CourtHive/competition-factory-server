@@ -17,7 +17,16 @@ describe('PostgresSsoIdentityStorage', () => {
   describe('findByExternalId', () => {
     it('returns identity when found', async () => {
       pool.query.mockResolvedValueOnce({
-        rows: [{ user_id: 'u1', sso_provider: 'ioncourt', external_id: 'ext-123', phone: '+1-555', email: 'j@x.com', created_at: null }],
+        rows: [
+          {
+            user_id: 'u1',
+            sso_provider: 'ioncourt',
+            external_id: 'ext-123',
+            phone: '+1-555',
+            email: 'j@x.com',
+            created_at: null,
+          },
+        ],
       });
       let result: any = await storage.findByExternalId('ioncourt', 'ext-123');
       expect(result.userId).toBe('u1');
@@ -37,8 +46,22 @@ describe('PostgresSsoIdentityStorage', () => {
     it('returns all SSO identities for a user', async () => {
       pool.query.mockResolvedValueOnce({
         rows: [
-          { user_id: 'u1', sso_provider: 'ioncourt', external_id: 'ext-1', phone: null, email: 'a@x.com', created_at: null },
-          { user_id: 'u1', sso_provider: 'other', external_id: 'ext-2', phone: null, email: 'a@x.com', created_at: null },
+          {
+            user_id: 'u1',
+            sso_provider: 'ioncourt',
+            external_id: 'ext-1',
+            phone: null,
+            email: 'a@x.com',
+            created_at: null,
+          },
+          {
+            user_id: 'u1',
+            sso_provider: 'other',
+            external_id: 'ext-2',
+            phone: null,
+            email: 'a@x.com',
+            created_at: null,
+          },
         ],
       });
       let result: any = await storage.findByUserId('u1');
@@ -52,13 +75,20 @@ describe('PostgresSsoIdentityStorage', () => {
     it('inserts a new identity', async () => {
       pool.query.mockResolvedValueOnce({ rows: [] });
       let result: any = await storage.create({
-        userId: 'u1', ssoProvider: 'ioncourt', externalId: 'ext-123', phone: '+1-555', email: 'j@x.com',
+        userId: 'u1',
+        ssoProvider: 'ioncourt',
+        externalId: 'ext-123',
+        phone: '+1-555',
+        email: 'j@x.com',
       });
       expect(result.success).toBe(true);
-      expect(pool.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO sso_identities'),
-        ['u1', 'ioncourt', 'ext-123', '+1-555', 'j@x.com'],
-      );
+      expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO sso_identities'), [
+        'u1',
+        'ioncourt',
+        'ext-123',
+        '+1-555',
+        'j@x.com',
+      ]);
     });
   });
 
@@ -84,10 +114,10 @@ describe('PostgresSsoIdentityStorage', () => {
       pool.query.mockResolvedValueOnce({ rows: [] });
       let result: any = await storage.remove('ioncourt', 'ext-123');
       expect(result.success).toBe(true);
-      expect(pool.query).toHaveBeenCalledWith(
-        expect.stringContaining('DELETE FROM sso_identities'),
-        ['ioncourt', 'ext-123'],
-      );
+      expect(pool.query).toHaveBeenCalledWith(expect.stringContaining('DELETE FROM sso_identities'), [
+        'ioncourt',
+        'ext-123',
+      ]);
     });
   });
 });

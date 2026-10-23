@@ -1,18 +1,13 @@
 export const TOURNAMENT_STORAGE = Symbol('TOURNAMENT_STORAGE');
 
 export interface ITournamentStorage {
-  findTournamentRecord(params: {
-    tournamentId: string;
-  }): Promise<{ tournamentRecord?: any; error?: string }>;
+  findTournamentRecord(params: { tournamentId: string }): Promise<{ tournamentRecord?: any; error?: string }>;
 
   /**
    * Every call returns objects that no other caller holds: never a cached or shared instance.
    * `executionQueue` mutates them in place, without a copy, on that guarantee.
    */
-  fetchTournamentRecords(params: {
-    tournamentIds?: string[];
-    tournamentId?: string;
-  }): Promise<{
+  fetchTournamentRecords(params: { tournamentIds?: string[]; tournamentId?: string }): Promise<{
     success?: boolean;
     tournamentRecords?: Record<string, any>;
     /** Per tournament, when its row was last written (`tournaments.updated_at`). See P49. */
@@ -28,9 +23,7 @@ export interface ITournamentStorage {
    * record. `providerId` and `extensions` are projected from the JSONB for
    * authorization and are not surfaced to clients.
    */
-  fetchTournamentUpdatedAt(params: {
-    tournamentId?: string;
-  }): Promise<{
+  fetchTournamentUpdatedAt(params: { tournamentId?: string }): Promise<{
     success?: boolean;
     tournamentId?: string;
     /** The record's own `data.updatedAt` — almost always absent. Kept for clients that still read it. */

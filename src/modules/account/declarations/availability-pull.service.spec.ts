@@ -42,14 +42,21 @@ describe('AvailabilityPullService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCanMutate.mockReturnValue(true);
-    tournamentStorageService = { findTournamentRecord: vi.fn().mockResolvedValue({ tournamentRecord: seededRecord() }) };
+    tournamentStorageService = {
+      findTournamentRecord: vi.fn().mockResolvedValue({ tournamentRecord: seededRecord() }),
+    };
     assignmentsService = {
       getAssignedTournamentIds: vi.fn().mockResolvedValue(new Set<string>()),
       getAssignedRoles: vi.fn().mockResolvedValue(new Map<string, string>()),
     };
     auditService = { recordMutation: vi.fn() };
     declarationsClient = { getAvailability: vi.fn(), isDisabled: vi.fn().mockReturnValue(false) };
-    service = new AvailabilityPullService(tournamentStorageService, assignmentsService, auditService, declarationsClient);
+    service = new AvailabilityPullService(
+      tournamentStorageService,
+      assignmentsService,
+      auditService,
+      declarationsClient,
+    );
   });
 
   it('rejects when the user cannot mutate the tournament', async () => {
@@ -63,7 +70,10 @@ describe('AvailabilityPullService', () => {
 
   it('applies DO_NOT_SCHEDULE via executionQueue for UNAVAILABLE days', async () => {
     declarationsClient.getAvailability.mockResolvedValue([
-      { personId: 'p1', payload: { span: { from: '2026-08-10', to: '2026-08-12' }, days: { '2026-08-11': 'UNAVAILABLE' } } },
+      {
+        personId: 'p1',
+        payload: { span: { from: '2026-08-10', to: '2026-08-12' }, days: { '2026-08-11': 'UNAVAILABLE' } },
+      },
     ]);
     mockExecutionQueue.mockResolvedValue({ success: true });
 
@@ -86,7 +96,10 @@ describe('AvailabilityPullService', () => {
 
   it('does not touch executionQueue when no one is UNAVAILABLE', async () => {
     declarationsClient.getAvailability.mockResolvedValue([
-      { personId: 'p1', payload: { span: { from: '2026-08-10', to: '2026-08-12' }, days: { '2026-08-11': 'AVAILABLE' } } },
+      {
+        personId: 'p1',
+        payload: { span: { from: '2026-08-10', to: '2026-08-12' }, days: { '2026-08-11': 'AVAILABLE' } },
+      },
     ]);
     const result = await service.pull({ userContext: USER_CONTEXT, tournamentId: TOURNAMENT_ID });
     expect(mockExecutionQueue).not.toHaveBeenCalled();
@@ -95,7 +108,12 @@ describe('AvailabilityPullService', () => {
 
   it('short-circuits when the tournament has no canonical participants', async () => {
     tournamentStorageService.findTournamentRecord.mockResolvedValue({
-      tournamentRecord: { parentOrganisation: { organisationId: 'PROV1' }, startDate: '2026-08-10', endDate: '2026-08-12', participants: [] },
+      tournamentRecord: {
+        parentOrganisation: { organisationId: 'PROV1' },
+        startDate: '2026-08-10',
+        endDate: '2026-08-12',
+        participants: [],
+      },
     });
     const result = await service.pull({ userContext: USER_CONTEXT, tournamentId: TOURNAMENT_ID });
     expect(declarationsClient.getAvailability).not.toHaveBeenCalled();
@@ -113,7 +131,10 @@ describe('AvailabilityPullService', () => {
 
   it('surfaces an executionQueue failure as a BadRequest', async () => {
     declarationsClient.getAvailability.mockResolvedValue([
-      { personId: 'p1', payload: { span: { from: '2026-08-10', to: '2026-08-12' }, days: { '2026-08-11': 'UNAVAILABLE' } } },
+      {
+        personId: 'p1',
+        payload: { span: { from: '2026-08-10', to: '2026-08-12' }, days: { '2026-08-11': 'UNAVAILABLE' } },
+      },
     ]);
     mockExecutionQueue.mockResolvedValue({ error: 'boom' });
     await expect(service.pull({ userContext: USER_CONTEXT, tournamentId: TOURNAMENT_ID })).rejects.toBeInstanceOf(

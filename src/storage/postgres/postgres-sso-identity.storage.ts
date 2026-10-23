@@ -63,10 +63,10 @@ export class PostgresSsoIdentityStorage implements ISsoIdentityStorage {
   }
 
   async remove(ssoProvider: string, externalId: string): Promise<{ success: boolean }> {
-    await this.pool.query(
-      'DELETE FROM sso_identities WHERE sso_provider = $1 AND external_id = $2',
-      [ssoProvider, externalId],
-    );
+    await this.pool.query('DELETE FROM sso_identities WHERE sso_provider = $1 AND external_id = $2', [
+      ssoProvider,
+      externalId,
+    ]);
     return { ...SUCCESS };
   }
 }

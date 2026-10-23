@@ -32,13 +32,7 @@ const storedEntry = () => ({
   },
 });
 
-const PRIVATE_TOURNAMENT_FIELDS = [
-  'tournamentContacts',
-  'tournamentAddress',
-  'venues',
-  'notes',
-  'registrationProfile',
-];
+const PRIVATE_TOURNAMENT_FIELDS = ['tournamentContacts', 'tournamentAddress', 'venues', 'notes', 'registrationProfile'];
 
 describe('publicCalendarEntry', () => {
   it('drops every private field from the tournament projection', () => {

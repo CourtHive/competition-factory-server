@@ -41,7 +41,8 @@ export class ProvisionerService {
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
     @Inject(ASSIGNMENT_STORAGE) private readonly assignmentStorage: IAssignmentStorage,
-    @Inject(TOURNAMENT_PROVISIONER_STORAGE) private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
+    @Inject(TOURNAMENT_PROVISIONER_STORAGE)
+    private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
     @Inject(USER_PROVISIONER_STORAGE) private readonly userProvisionerStorage: IUserProvisionerStorage,
     private readonly auditService: AuditService,
   ) {}
@@ -144,7 +145,10 @@ export class ProvisionerService {
     return { success: true, provisioner };
   }
 
-  async updateProvisioner(provisionerId: string, data: { name?: string; isActive?: boolean; config?: Record<string, any> }) {
+  async updateProvisioner(
+    provisionerId: string,
+    data: { name?: string; isActive?: boolean; config?: Record<string, any> },
+  ) {
     return this.provisionerStorage.update(provisionerId, data);
   }
 
@@ -160,10 +164,7 @@ export class ProvisionerService {
    * themselves and their tournaments are NOT deleted (they're independent
    * entities, possibly jointly managed).
    */
-  async deleteProvisioner(
-    provisionerId: string,
-    actor?: { userId?: string; userEmail?: string },
-  ) {
+  async deleteProvisioner(provisionerId: string, actor?: { userId?: string; userEmail?: string }) {
     const provisioner = await this.provisionerStorage.getProvisioner(provisionerId);
     if (!provisioner) return { error: 'Provisioner not found', code: 'PROVISIONER_NOT_FOUND' };
     if (provisioner.isActive) {
@@ -230,7 +231,12 @@ export class ProvisionerService {
 
   // ── Provider association (SUPER_ADMIN + Provisioner) ──
 
-  async associateProvider(provisionerId: string, providerId: string, relationship: 'owner' | 'subsidiary', grantedBy?: string) {
+  async associateProvider(
+    provisionerId: string,
+    providerId: string,
+    relationship: 'owner' | 'subsidiary',
+    grantedBy?: string,
+  ) {
     const provider = await this.providerStorage.getProvider(providerId);
     if (!provider) return { error: 'Provider not found' };
 
@@ -402,23 +408,23 @@ export class ProvisionerService {
   async getEffectiveProviderConfig(providerId: string) {
     const provider = await this.providerStorage.getProvider(providerId);
     if (!provider) return { error: 'Provider not found', code: 'PROVIDER_NOT_FOUND' };
-    const effective = computeEffectiveConfig(
-      provider.providerConfigCaps,
-      provider.providerConfigSettings,
-    );
+    const effective = computeEffectiveConfig(provider.providerConfigCaps, provider.providerConfigSettings);
     return { success: true, providerId, effective };
   }
 
   // ── SSO User management (Provisioner) ──
 
-  async createSsoUser(provisionerId: string, params: {
-    providerId: string;
-    externalId: string;
-    email: string;
-    phone?: string;
-    providerRole: string;
-    ssoProvider: string;
-  }) {
+  async createSsoUser(
+    provisionerId: string,
+    params: {
+      providerId: string;
+      externalId: string;
+      email: string;
+      phone?: string;
+      providerRole: string;
+      ssoProvider: string;
+    },
+  ) {
     // Check provider is managed
     const relationship = await this.providerAssocStorage.getRelationship(provisionerId, params.providerId);
     if (!relationship) return { error: 'Provider not managed by this provisioner', code: 'PROVIDER_NOT_MANAGED' };
@@ -434,7 +440,7 @@ export class ProvisionerService {
     // Create user with no password (SSO-only)
     const createResult = await this.userStorage.create({
       email: params.email,
-      password: '',  // SSO-only users have no password
+      password: '', // SSO-only users have no password
     });
     if (!createResult) return { error: 'Failed to create user' };
 
@@ -526,12 +532,15 @@ export class ProvisionerService {
 
   // ── Tournament assignments (Provisioner) ──
 
-  async grantAssignment(provisionerId: string, params: {
-    tournamentId: string;
-    userEmail: string;
-    providerId: string;
-    role?: string;
-  }) {
+  async grantAssignment(
+    provisionerId: string,
+    params: {
+      tournamentId: string;
+      userEmail: string;
+      providerId: string;
+      role?: string;
+    },
+  ) {
     const { tournamentId, userEmail, providerId, role } = params;
 
     // Verify provisioner manages this provider
@@ -542,7 +551,10 @@ export class ProvisionerService {
     if (relationship === 'subsidiary') {
       const ownership = await this.tournamentProvisionerStorage.getByTournament(tournamentId);
       if (ownership?.provisionerId !== provisionerId) {
-        return { error: 'Subsidiary provisioners can only assign users to their own tournaments', code: 'TOURNAMENT_NOT_OWNED' };
+        return {
+          error: 'Subsidiary provisioners can only assign users to their own tournaments',
+          code: 'TOURNAMENT_NOT_OWNED',
+        };
       }
     }
 
@@ -568,11 +580,14 @@ export class ProvisionerService {
     return { success: true, assignment: { ...row, email: userEmail } };
   }
 
-  async revokeAssignment(provisionerId: string, params: {
-    tournamentId: string;
-    userEmail: string;
-    providerId: string;
-  }) {
+  async revokeAssignment(
+    provisionerId: string,
+    params: {
+      tournamentId: string;
+      userEmail: string;
+      providerId: string;
+    },
+  ) {
     const { tournamentId, userEmail, providerId } = params;
 
     const relationship = await this.providerAssocStorage.getRelationship(provisionerId, providerId);

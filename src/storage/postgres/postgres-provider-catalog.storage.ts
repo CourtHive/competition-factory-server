@@ -1,16 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import {
-  CatalogItemRow,
-  CatalogType,
-  IProviderCatalogStorage,
-} from '../interfaces/provider-catalog-storage.interface';
+import { CatalogItemRow, CatalogType, IProviderCatalogStorage } from '../interfaces/provider-catalog-storage.interface';
 import { PG_POOL } from './postgres.config';
 import { SUCCESS } from 'src/common/constants/app';
 
-const COLS =
-  'catalog_id, provider_id, catalog_type, name, description, data, metadata, created_at, updated_at';
+const COLS = 'catalog_id, provider_id, catalog_type, name, description, data, metadata, created_at, updated_at';
 
 @Injectable()
 export class PostgresProviderCatalogStorage implements IProviderCatalogStorage {
@@ -26,11 +21,7 @@ export class PostgresProviderCatalogStorage implements IProviderCatalogStorage {
     return result.rows.map(mapRow);
   }
 
-  async getOne(
-    providerId: string,
-    catalogType: CatalogType,
-    catalogId: string,
-  ): Promise<CatalogItemRow | null> {
+  async getOne(providerId: string, catalogType: CatalogType, catalogId: string): Promise<CatalogItemRow | null> {
     const result = await this.pool.query(
       `SELECT ${COLS} FROM provider_catalog_items
        WHERE provider_id = $1 AND catalog_type = $2 AND catalog_id = $3`,
@@ -98,11 +89,7 @@ export class PostgresProviderCatalogStorage implements IProviderCatalogStorage {
     return { ...SUCCESS };
   }
 
-  async remove(
-    providerId: string,
-    catalogType: CatalogType,
-    catalogId: string,
-  ): Promise<{ success: boolean }> {
+  async remove(providerId: string, catalogType: CatalogType, catalogId: string): Promise<{ success: boolean }> {
     await this.pool.query(
       `DELETE FROM provider_catalog_items
        WHERE provider_id = $1 AND catalog_type = $2 AND catalog_id = $3`,

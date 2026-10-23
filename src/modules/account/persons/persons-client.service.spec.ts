@@ -121,9 +121,7 @@ describe('PersonsClient', () => {
 
   describe('resolve', () => {
     it('POSTs the fragment to /persons/resolve and returns the parsed result', async () => {
-      fetchSpy.mockResolvedValueOnce(
-        mockFetchResponse({ status: 'resolved', personId: 'p-1', personRevision: 3 }),
-      );
+      fetchSpy.mockResolvedValueOnce(mockFetchResponse({ status: 'resolved', personId: 'p-1', personRevision: 3 }));
       const result = await client.resolve({
         standardFamilyName: 'Allen',
         standardGivenName: 'Charles',
@@ -287,9 +285,7 @@ describe('PersonsClient', () => {
         aliases: [],
       };
       fetchSpy.mockResolvedValueOnce(mockFetchResponse(survivor));
-      await expect(
-        client.handleMerge({ survivorId: 'survivor-1', deprecatedId: 'old-1' }),
-      ).resolves.toBeUndefined();
+      await expect(client.handleMerge({ survivorId: 'survivor-1', deprecatedId: 'old-1' })).resolves.toBeUndefined();
       expect(storage.rewritePersonId).toHaveBeenCalled();
     });
   });

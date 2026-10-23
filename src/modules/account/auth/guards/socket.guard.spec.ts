@@ -160,19 +160,13 @@ describe('SocketGuard', () => {
     });
 
     it('admits dual-audience tokens on the admin namespace (default)', async () => {
-      const token = jwtService.sign(
-        { email: 'dual@test.com', aud: ['admin', 'hiveid'] },
-        { secret: 'test-secret' },
-      );
+      const token = jwtService.sign({ email: 'dual@test.com', aud: ['admin', 'hiveid'] }, { secret: 'test-secret' });
       const { context } = ctxWithAud(token, undefined);
       await expect(guard.canActivate(context)).resolves.toBe(true);
     });
 
     it('admits dual-audience tokens on the hiveid namespace', async () => {
-      const token = jwtService.sign(
-        { email: 'dual@test.com', aud: ['admin', 'hiveid'] },
-        { secret: 'test-secret' },
-      );
+      const token = jwtService.sign({ email: 'dual@test.com', aud: ['admin', 'hiveid'] }, { secret: 'test-secret' });
       const { context } = ctxWithAud(token, ['hiveid']);
       await expect(guard.canActivate(context)).resolves.toBe(true);
     });

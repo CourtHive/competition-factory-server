@@ -31,7 +31,9 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 async function holdSingletonLock(pool: Pool) {
   const client = await pool.connect();
   while (!stopping) {
-    const { rows } = await client.query('SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS held', [SINGLETON_KEY]);
+    const { rows } = await client.query('SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS held', [
+      SINGLETON_KEY,
+    ]);
     if (rows[0]?.held) return client;
     logger.warn('another Projection-Producer holds the lock; waiting');
     await sleep(10_000);

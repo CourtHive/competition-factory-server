@@ -64,7 +64,12 @@ describe('SnapshotProjectionService.enqueueSnapshots — mode', () => {
 });
 
 describe('drainSnapshotRequests', () => {
-  const request = (tournamentId: string, attempts = 0) => ({ tournamentId, requestedAt: 'r1', source: 'factory-save', attempts });
+  const request = (tournamentId: string, attempts = 0) => ({
+    tournamentId,
+    requestedAt: 'r1',
+    source: 'factory-save',
+    attempts,
+  });
 
   it('builds the span from the stored record and commits it through the fence', async () => {
     const record = makeRecord();

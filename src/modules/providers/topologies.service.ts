@@ -30,9 +30,7 @@ function toDto(row: TopologyRow): TopologyDto {
 
 @Injectable()
 export class TopologiesService {
-  constructor(
-    @Inject(TOPOLOGY_STORAGE) private readonly topologyStorage: ITopologyStorage,
-  ) {}
+  constructor(@Inject(TOPOLOGY_STORAGE) private readonly topologyStorage: ITopologyStorage) {}
 
   async listForProvider(providerId: string): Promise<{ topologies: TopologyDto[] }> {
     const rows = await this.topologyStorage.findByProvider(providerId);
@@ -45,10 +43,7 @@ export class TopologiesService {
     return toDto(row);
   }
 
-  async create(
-    providerId: string,
-    body: { name: string; description?: string; state: any },
-  ): Promise<TopologyDto> {
+  async create(providerId: string, body: { name: string; description?: string; state: any }): Promise<TopologyDto> {
     const row = await this.topologyStorage.create({
       topologyId: randomUUID(),
       providerId,
@@ -59,11 +54,7 @@ export class TopologiesService {
     return toDto(row);
   }
 
-  async update(
-    providerId: string,
-    topologyId: string,
-    patch: { name?: string; description?: string; state?: any },
-  ) {
+  async update(providerId: string, topologyId: string, patch: { name?: string; description?: string; state?: any }) {
     const existing = await this.topologyStorage.getOne(providerId, topologyId);
     if (!existing) throw new NotFoundException('Topology not found');
     await this.topologyStorage.update(providerId, topologyId, patch);

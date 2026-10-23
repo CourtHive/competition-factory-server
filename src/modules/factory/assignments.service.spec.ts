@@ -151,10 +151,7 @@ describe('AssignmentsService', () => {
 
   describe('getAssignedTournamentIds', () => {
     it('returns a set of tournament IDs', async () => {
-      mockAssignmentStorage.findByUserId.mockResolvedValue([
-        { tournamentId: 't-1' },
-        { tournamentId: 't-2' },
-      ]);
+      mockAssignmentStorage.findByUserId.mockResolvedValue([{ tournamentId: 't-1' }, { tournamentId: 't-2' }]);
       let result: any = await service.getAssignedTournamentIds('user-uuid');
       expect(result).toBeInstanceOf(Set);
       expect(result.size).toBe(2);

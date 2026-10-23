@@ -21,9 +21,8 @@ function makeMockProvisionerStorage() {
 
 function makeMockJwtService(verifyResult: any = null) {
   return {
-    verifyAsync: verifyResult instanceof Error
-      ? vi.fn().mockRejectedValue(verifyResult)
-      : vi.fn().mockResolvedValue(verifyResult),
+    verifyAsync:
+      verifyResult instanceof Error ? vi.fn().mockRejectedValue(verifyResult) : vi.fn().mockResolvedValue(verifyResult),
   };
 }
 
@@ -296,12 +295,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       roles: ['provisioner'],
       provisionerIds: ['prov-1'],
     });
-    const middleware = makeMiddleware(
-      makeMockApiKeyStorage(),
-      providerStorage,
-      provisionerStorage,
-      jwtService,
-    );
+    const middleware = makeMiddleware(makeMockApiKeyStorage(), providerStorage, provisionerStorage, jwtService);
     const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt', { 'x-provider-id': 'provider-abc' });
     await middleware.use(req, {}, vi.fn());
 
@@ -376,12 +370,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       roles: ['provisioner', 'superadmin'],
       provisionerIds: ['prov-1'],
     });
-    const middleware = makeMiddleware(
-      makeMockApiKeyStorage(),
-      providerStorage,
-      provisionerStorage,
-      jwtService,
-    );
+    const middleware = makeMiddleware(makeMockApiKeyStorage(), providerStorage, provisionerStorage, jwtService);
     const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt', { 'x-provider-id': 'provider-abc' });
     // AuthMiddleware already ran upstream and populated req.user / req.userContext.
     req.user = {
@@ -433,12 +422,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       roles: ['provisioner'],
       provisionerIds: ['prov-1'],
     });
-    const middleware = makeMiddleware(
-      makeMockApiKeyStorage(),
-      providerStorage,
-      provisionerStorage,
-      jwtService,
-    );
+    const middleware = makeMiddleware(makeMockApiKeyStorage(), providerStorage, provisionerStorage, jwtService);
     const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt', { 'x-provider-id': 'provider-abc' });
     req.user = { userId: 'u', email: 'u@x', roles: ['client'] };
     req.userContext = {
@@ -473,12 +457,7 @@ describe('ProvisionerMiddleware JWT path (Phase 2A)', () => {
       roles: ['provisioner'],
       provisionerIds: ['prov-1'],
     });
-    const middleware = makeMiddleware(
-      makeMockApiKeyStorage(),
-      providerStorage,
-      provisionerStorage,
-      jwtService,
-    );
+    const middleware = makeMiddleware(makeMockApiKeyStorage(), providerStorage, provisionerStorage, jwtService);
     const req = makeReq('Bearer eyJhbGciOiJIUzI1NiJ9.user-jwt', { 'x-provider-id': 'unmanaged' });
     await middleware.use(req, {}, vi.fn());
 

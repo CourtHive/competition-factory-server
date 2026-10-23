@@ -48,9 +48,7 @@ function buildTournamentWithAddresses() {
   // Re-attach the addresses on the engine-resolved record (publish doesn't
   // strip them — only the public query applies the privacy policy).
   for (const participant of publishedRecord.participants ?? []) {
-    const original = tournamentRecord.participants?.find(
-      (p: any) => p.participantId === participant.participantId,
-    );
+    const original = tournamentRecord.participants?.find((p: any) => p.participantId === participant.participantId);
     if (original?.person?.addresses) participant.person.addresses = original.person.addresses;
   }
 
@@ -102,9 +100,7 @@ function buildTournamentWithMixedPopulation() {
     participantsProfile: { participantsCount: 4 },
   });
 
-  const competitors = (tournamentRecord.participants ?? []).filter(
-    (p: any) => p.participantType === 'INDIVIDUAL',
-  );
+  const competitors = (tournamentRecord.participants ?? []).filter((p: any) => p.participantType === 'INDIVIDUAL');
 
   tournamentRecord.participants.push({
     person: { standardGivenName: 'Rhea', standardFamilyName: 'Umpire', personId: 'person-staff-1' },
@@ -230,10 +226,7 @@ describe('public getParticipants — provider participantPrivacy cap', () => {
   });
 
   it('falls back to strict privacy when no providerStorage is supplied', async () => {
-    const result: any = await getParticipants(
-      { tournamentId: TEST_TID },
-      buildTournamentStorage(record),
-    );
+    const result: any = await getParticipants({ tournamentId: TEST_TID }, buildTournamentStorage(record));
     expect(result.success).toBe(true);
     for (const p of result.participants) {
       expect(p?.person?.addresses).toBeUndefined();

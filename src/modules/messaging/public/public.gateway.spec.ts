@@ -63,24 +63,16 @@ describe('PublicGateway', () => {
 
       gateway.handleConnection(mockClient as any);
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[metrics:connect]'),
-      );
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('ip=192.168.1.1'),
-      );
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('ua=TestApp/1.0'),
-      );
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[metrics:connect]'));
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('ip=192.168.1.1'));
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('ua=TestApp/1.0'));
     });
 
     it('logs disconnect', () => {
       const logSpy = vi.spyOn((gateway as any).logger, 'log');
       gateway.handleDisconnect({ id: 'test-socket' } as any);
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[metrics:disconnect] id=test-socket'),
-      );
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[metrics:disconnect] id=test-socket'));
     });
 
     it('logs join with tournament and room size', async () => {
@@ -124,26 +116,20 @@ describe('PublicGateway', () => {
     it('logs metrics summary', async () => {
       const logSpy = vi.spyOn((gateway as any).logger, 'log');
       (gateway as any).server = {
-        fetchSockets: vi.fn().mockResolvedValue([
-          { rooms: new Set(['test-socket-id', 'public:tournament:t1']) },
-          { rooms: new Set(['other-socket-id', 'public:tournament:t1', 'public:tournament:t2']) },
-        ]),
+        fetchSockets: vi
+          .fn()
+          .mockResolvedValue([
+            { rooms: new Set(['test-socket-id', 'public:tournament:t1']) },
+            { rooms: new Set(['other-socket-id', 'public:tournament:t1', 'public:tournament:t2']) },
+          ]),
       };
 
       await (gateway as any).logMetricsSummary();
 
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('totalClients=2'),
-      );
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('activeRooms=2'),
-      );
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('t1=2'),
-      );
-      expect(logSpy).toHaveBeenCalledWith(
-        expect.stringContaining('t2=1'),
-      );
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('totalClients=2'));
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('activeRooms=2'));
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('t1=2'));
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('t2=1'));
     });
   });
 });

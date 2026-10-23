@@ -1,4 +1,10 @@
-import { computeFanOutTargets, isLinkGraphMutation, isScheduleAffecting, venueIdsFromMethods, venueIdsFromRecord } from './facility-schedule-broadcast.helpers';
+import {
+  computeFanOutTargets,
+  isLinkGraphMutation,
+  isScheduleAffecting,
+  venueIdsFromMethods,
+  venueIdsFromRecord,
+} from './facility-schedule-broadcast.helpers';
 import { buildPublicLivePayloadFromMatchUp } from 'src/modules/projectors/transforms/public-live-from-matchup.transform';
 import { REALTIME_PRESENCE, REALTIME_PUBLISHER } from '../realtime/realtime.types';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';

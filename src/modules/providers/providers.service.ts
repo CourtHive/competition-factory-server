@@ -313,10 +313,7 @@ export class ProvidersService {
   async getEffectiveProviderConfig(providerId: string) {
     const provider = await this.providerStorage.getProvider(providerId);
     if (!provider) return { error: 'Provider not found' };
-    const effective = computeEffectiveConfig(
-      provider.providerConfigCaps,
-      provider.providerConfigSettings,
-    );
+    const effective = computeEffectiveConfig(provider.providerConfigCaps, provider.providerConfigSettings);
     return { ...SUCCESS, providerId, effective };
   }
 

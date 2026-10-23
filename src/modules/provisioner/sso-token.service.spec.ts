@@ -41,12 +41,14 @@ describe('SsoTokenService', () => {
 
     it('throws when Redis is not available', async () => {
       (service as any).client = null;
-      await expect(service.generate({
-        externalId: 'ext-123',
-        ssoProvider: 'ioncourt',
-        providerId: 'prov-a',
-        provisionerId: 'prov-1',
-      })).rejects.toThrow('Redis not available');
+      await expect(
+        service.generate({
+          externalId: 'ext-123',
+          ssoProvider: 'ioncourt',
+          providerId: 'prov-a',
+          provisionerId: 'prov-1',
+        }),
+      ).rejects.toThrow('Redis not available');
     });
   });
 

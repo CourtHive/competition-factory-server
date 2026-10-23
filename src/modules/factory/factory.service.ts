@@ -35,7 +35,14 @@ const EXISTING_POLICY_TYPE = factoryConstants.errorConditionConstants.EXISTING_P
 const MISSING_TOURNAMENT_RECORD = factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD;
 
 // types and interfaces
-import { TOURNAMENT_STORAGE, type ITournamentStorage, TOURNAMENT_PROVISIONER_STORAGE, type ITournamentProvisionerStorage, PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
+import {
+  TOURNAMENT_STORAGE,
+  type ITournamentStorage,
+  TOURNAMENT_PROVISIONER_STORAGE,
+  type ITournamentProvisionerStorage,
+  PROVIDER_STORAGE,
+  type IProviderStorage,
+} from 'src/storage/interfaces';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
 /**
@@ -64,7 +71,8 @@ export class FactoryService {
     private readonly assignmentsService: AssignmentsService,
     private readonly auditService: AuditService,
     @Inject(TOURNAMENT_STORAGE) private readonly tournamentStorage: ITournamentStorage,
-    @Inject(TOURNAMENT_PROVISIONER_STORAGE) private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
+    @Inject(TOURNAMENT_PROVISIONER_STORAGE)
+    private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     @Optional() private readonly mutationMirror?: MutationMirrorService,
   ) {}
@@ -125,7 +133,10 @@ export class FactoryService {
     const provider: any = await this.providerStorage.getProvider(providerId);
     if (!provider) return { error: 'Provider not found' };
 
-    const policy = computeEffectiveConfig(provider?.providerConfigCaps, provider?.providerConfigSettings)?.participantPrivacyPolicy;
+    const policy = computeEffectiveConfig(
+      provider?.providerConfigCaps,
+      provider?.providerConfigSettings,
+    )?.participantPrivacyPolicy;
     if (!policy || !Object.keys(policy).length) {
       return { error: 'NO_PRIVACY_POLICY', policyConfigured: false };
     }
@@ -140,7 +151,12 @@ export class FactoryService {
 
     for (const tournamentId of targets.selected) {
       const params = {
-        methods: [{ method: 'attachPolicies', params: { policyDefinitions: { [POLICY_TYPE_PARTICIPANT]: policy }, tournamentId } }],
+        methods: [
+          {
+            method: 'attachPolicies',
+            params: { policyDefinitions: { [POLICY_TYPE_PARTICIPANT]: policy }, tournamentId },
+          },
+        ],
         tournamentIds: [tournamentId],
         userId: userContext?.userId,
         source: 'ams-apply-privacy',
@@ -441,12 +457,7 @@ export class FactoryService {
   }
 
   async removeTournamentRecords(params, user, userContext?: UserContext) {
-    return await this.tournamentStorageService.removeTournamentRecords(
-      params,
-      user,
-      this.auditService,
-      userContext,
-    );
+    return await this.tournamentStorageService.removeTournamentRecords(params, user, this.auditService, userContext);
   }
 
   async saveTournamentRecords(params, user, userContext?: UserContext) {

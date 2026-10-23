@@ -183,7 +183,8 @@ export function recordSchedulingProfile(buffer: DeltaBuffer | undefined, params:
   if (!buffer || !Array.isArray(params)) return;
   for (const item of params) {
     const tournamentId = tidOf(buffer, item?.tournamentId);
-    if (tournamentId) push(buffer, { kind: 'schedulingProfile', tournamentId, schedulingProfile: item?.schedulingProfile ?? [] });
+    if (tournamentId)
+      push(buffer, { kind: 'schedulingProfile', tournamentId, schedulingProfile: item?.schedulingProfile ?? [] });
   }
 }
 
@@ -315,7 +316,8 @@ export function recordDeleteParticipants(buffer: DeltaBuffer | undefined, params
   for (const item of params) {
     const tournamentId = tidOf(buffer, item?.tournamentId);
     const participantIds = item?.participantIds ?? [];
-    if (tournamentId && participantIds.length) push(buffer, { kind: 'deleteParticipants', tournamentId, participantIds });
+    if (tournamentId && participantIds.length)
+      push(buffer, { kind: 'deleteParticipants', tournamentId, participantIds });
   }
 }
 

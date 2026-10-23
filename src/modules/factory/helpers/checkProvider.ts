@@ -18,7 +18,12 @@ import type { UserContext } from 'src/modules/account/auth/decorators/user-conte
  * by providers their provisioner manages, even without a direct
  * user_providers row.
  */
-export function checkProvider({ tournamentRecords, user, userContext, write }: {
+export function checkProvider({
+  tournamentRecords,
+  user,
+  userContext,
+  write,
+}: {
   tournamentRecords: any;
   user?: any;
   userContext?: UserContext;
@@ -32,9 +37,7 @@ export function checkProvider({ tournamentRecords, user, userContext, write }: {
   // Resolve the user's provider ID list from the best available source.
   // Concatenate provisioner-inherited provider IDs so impersonation can
   // pass the gate (empty set for non-provisioner users).
-  const directIds = userContext?.providerIds?.length
-    ? userContext.providerIds
-    : (user?.providerIds ?? []);
+  const directIds = userContext?.providerIds?.length ? userContext.providerIds : (user?.providerIds ?? []);
   const provisionerIds = userContext?.provisionerProviderIds ?? [];
   const providerIds = [...directIds, ...provisionerIds];
 

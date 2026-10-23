@@ -186,10 +186,9 @@ export class DeclarationsClient {
    */
   async getPairStatus(inviteDeclarationId: string): Promise<PairStatus | null> {
     if (this.isDisabled()) return null;
-    const res = await fetch(
-      `${this.baseUrl}/partner-invites/${encodeURIComponent(inviteDeclarationId)}/pair-status`,
-      { headers: { 'x-service-token': this.serviceToken } },
-    );
+    const res = await fetch(`${this.baseUrl}/partner-invites/${encodeURIComponent(inviteDeclarationId)}/pair-status`, {
+      headers: { 'x-service-token': this.serviceToken },
+    });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`declarations getPairStatus failed: HTTP ${res.status}`);
     return (await res.json()) as PairStatus | null;
