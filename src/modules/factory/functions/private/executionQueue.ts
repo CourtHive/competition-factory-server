@@ -1,3 +1,4 @@
+import { scheduleDrawIntegrityScan, snapshotTouchedDraws } from '../../helpers/executionQueueIntegrity';
 import { HttpException, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { runWithRequestContext } from 'src/modules/factory/engines/requestContext';
 import { tournamentEngineAsync, factoryConstants } from 'tods-competition-factory';
@@ -8,9 +9,11 @@ import { runDurableCommand } from 'src/storage/postgres/commandReceipts';
 import { getMutationEngine } from '../../engines/getMutationEngine';
 import { withTournamentLock } from 'src/services/tournamentMutex';
 import { createDeltaBuffer } from '../../projection/deltaBuffer';
+import { drawIntegrityMode } from '../../helpers/drawIntegrity';
 import { warmEventDataCache } from './warmEventDataCache';
 
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import type { DrawIntegrityBatch } from '../../helpers/executionQueueIntegrity';
 import type { AuditService } from 'src/modules/audit/audit.service';
 
 export async function executionQueue(
@@ -59,6 +62,16 @@ export async function executionQueue(
     const projectionOutbox = services?.projectionOutbox;
     const deltaBuffer = projectionOutbox?.isEnabled ? createDeltaBuffer(tournamentIds) : undefined;
 
+    // DRAW INTEGRITY (report only, deferred — helpers/executionQueueIntegrity.ts). The notice wrapper fills these
+    // with the drawIds this mutation's notices name; with DRAW_INTEGRITY_MODE=off they stay undefined and the
+    // wrapper records nothing. The scan targets are taken inside the lock once the save has committed, and the
+    // scan itself is scheduled only after the lock is released and the response is built.
+    const integrityEnabled = drawIntegrityMode() !== 'off';
+    const touchedDrawIds = integrityEnabled ? new Set<string>() : undefined;
+    const deletedDrawIds = integrityEnabled ? new Set<string>() : undefined;
+    const addedDrawIds = integrityEnabled ? new Set<string>() : undefined;
+    let integrityBatch: DrawIntegrityBatch | undefined;
+
     // DECISION: establish this mutation's OWN factory engine state before taking the lock.
     // WHY: the engine state was previously seeded once at module scope, so every request in the
     // process shared one object. withTournamentLock only serialises mutations on the SAME
@@ -72,6 +85,9 @@ export async function executionQueue(
       evictedEventKeys,
       unnarrowablePrefixes,
       noticeTopics,
+      touchedDrawIds,
+      deletedDrawIds,
+      addedDrawIds,
       services: {
         ...services,
         cacheManager: deferredClearCache,
@@ -161,6 +177,19 @@ export async function executionQueue(
                 bytes: updateResult.bytes ?? {},
               });
               serverUpdatedAt = updateResult.serverUpdatedAt;
+
+              // Still inside the lock, and only once the write has committed: a rolled-back durable command never
+              // runs this, so the scan can never report on a state that was not saved. References, not copies —
+              // see snapshotTouchedDraws. Synchronous and non-throwing.
+              await afterCommandCommit(async () => {
+                integrityBatch = snapshotTouchedDraws({
+                  tournamentRecords: mutatedTournamentRecords,
+                  touchedDrawIds,
+                  deletedDrawIds,
+                  addedDrawIds,
+                  methods,
+                });
+              });
             }
 
             // READ-MODEL PROJECTION FLUSH: after the save, inside the lock. Build per-row deltas
@@ -251,6 +280,11 @@ export async function executionQueue(
           storage,
         })
       : [];
+
+    // After the lock is released and the response is built: the scans run on later turns of the event loop, so
+    // nothing here waits on them and nothing they do can reach this request. REPORT ONLY on this path, whatever
+    // DRAW_INTEGRITY_MODE says (`enforce` governs the wholesale save; enforcing here is a separate decision).
+    scheduleDrawIntegrityScan(integrityBatch);
 
     return {
       ...mutationResult,

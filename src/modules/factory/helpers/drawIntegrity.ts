@@ -52,7 +52,8 @@ export interface DrawIntegrityResult {
   warnings: IntegrityIssue[];
 }
 
-function toIssue(inconsistency: any): IntegrityIssue {
+/** One factory `Inconsistency` as the issue shape both integrity paths log. */
+export function toIntegrityIssue(inconsistency: any): IntegrityIssue {
   return {
     issueType: inconsistency?.issueType ?? 'UNKNOWN_INCONSISTENCY',
     severity: inconsistency?.severity ?? 'error',
@@ -86,7 +87,7 @@ export function checkDrawIntegrity(tournamentRecord: any): DrawIntegrityResult {
   const errors: IntegrityIssue[] = [];
   const warnings: IntegrityIssue[] = [];
   for (const inconsistency of result?.inconsistencies ?? []) {
-    const issue = toIssue(inconsistency);
+    const issue = toIntegrityIssue(inconsistency);
     if (issue.severity === 'error') errors.push(issue);
     else warnings.push(issue);
   }
