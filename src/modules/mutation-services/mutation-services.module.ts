@@ -1,3 +1,4 @@
+import { DrawIntegrityFindingsService } from '../factory/helpers/drawIntegrityFindings';
 import { CommandReceipts } from 'src/storage/postgres/commandReceipts';
 import { Global, Module } from '@nestjs/common';
 
@@ -14,7 +15,7 @@ import { MutationServicesService } from './mutation-services.service';
  */
 @Global()
 @Module({
-  providers: [MutationServicesService, CommandReceipts],
+  providers: [MutationServicesService, CommandReceipts, DrawIntegrityFindingsService],
   exports: [MutationServicesService],
 })
 export class MutationServicesModule {}

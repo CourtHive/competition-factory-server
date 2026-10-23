@@ -1,58 +1,60 @@
-import { PROVISIONER_PROVIDER_STORAGE } from './interfaces/provisioner-provider-storage.interface';
+import { DRAW_INTEGRITY_FINDINGS_STORAGE } from './interfaces/draw-integrity-findings-storage.interface';
 import { TOURNAMENT_PROVISIONER_STORAGE } from './interfaces/tournament-provisioner-storage.interface';
+import { PROVISIONER_PROVIDER_STORAGE } from './interfaces/provisioner-provider-storage.interface';
 import { PROVISIONER_API_KEY_STORAGE } from './interfaces/provisioner-api-key-storage.interface';
-import { PROVIDER_API_KEY_STORAGE } from './interfaces/provider-api-key-storage.interface';
-import { USER_PROVIDER_STORAGE } from './interfaces/user-provider-storage.interface';
-import { PROVISIONER_STORAGE } from './interfaces/provisioner-storage.interface';
-import { SSO_IDENTITY_STORAGE } from './interfaces/sso-identity-storage.interface';
-import { USER_PROVISIONER_STORAGE } from './interfaces/user-provisioner-storage.interface';
-import { PROVIDER_ARCHIVE_STORAGE } from './interfaces/provider-archive-storage.interface';
-import { REFRESH_TOKEN_STORAGE } from './interfaces/refresh-token-storage.interface';
 import { REGISTRATION_ENTRY_STORAGE } from './interfaces/registration-entry-storage.interface';
 import { PROJECTION_OUTBOX_STORAGE } from './interfaces/projection-outbox-storage.interface';
-import { CHAT_STORAGE } from './interfaces/chat-storage.interface';
+import { PROVIDER_API_KEY_STORAGE } from './interfaces/provider-api-key-storage.interface';
+import { USER_PROVISIONER_STORAGE } from './interfaces/user-provisioner-storage.interface';
+import { PROVIDER_ARCHIVE_STORAGE } from './interfaces/provider-archive-storage.interface';
+import { PROVIDER_CATALOG_STORAGE } from './interfaces/provider-catalog-storage.interface';
+import { USER_PROVIDER_STORAGE } from './interfaces/user-provider-storage.interface';
+import { REFRESH_TOKEN_STORAGE } from './interfaces/refresh-token-storage.interface';
+import { PARTICIPATION_STORAGE } from './interfaces/participation-storage.interface';
+import { SSO_IDENTITY_STORAGE } from './interfaces/sso-identity-storage.interface';
+import { PROVISIONER_STORAGE } from './interfaces/provisioner-storage.interface';
 import { TOURNAMENT_STORAGE } from './interfaces/tournament-storage.interface';
 import { ASSIGNMENT_STORAGE } from './interfaces/assignment-storage.interface';
-import { GRANT_STORAGE } from './interfaces/grant-storage.interface';
 import { AUTH_CODE_STORAGE } from './interfaces/auth-code-storage.interface';
 import { PROVIDER_STORAGE } from './interfaces/provider-storage.interface';
 import { TOPOLOGY_STORAGE } from './interfaces/topology-storage.interface';
-import { PROVIDER_CATALOG_STORAGE } from './interfaces/provider-catalog-storage.interface';
 import { CALENDAR_STORAGE } from './interfaces/calendar-storage.interface';
-import { PARTICIPATION_STORAGE } from './interfaces/participation-storage.interface';
+import { GRANT_STORAGE } from './interfaces/grant-storage.interface';
 import { AUDIT_STORAGE } from './interfaces/audit-storage.interface';
+import { CHAT_STORAGE } from './interfaces/chat-storage.interface';
 import { USER_STORAGE } from './interfaces/user-storage.interface';
 
-import { PostgresProvisionerProviderStorage } from './postgres/postgres-provisioner-provider.storage';
+import { PostgresDrawIntegrityFindingsStorage } from './postgres/postgres-draw-integrity-findings.storage';
 import { PostgresTournamentProvisionerStorage } from './postgres/postgres-tournament-provisioner.storage';
+import { PostgresProvisionerProviderStorage } from './postgres/postgres-provisioner-provider.storage';
 import { PostgresProvisionerApiKeyStorage } from './postgres/postgres-provisioner-api-key.storage';
-import { PostgresProviderApiKeyStorage } from './postgres/postgres-provider-api-key.storage';
-import { PostgresUserProviderStorage } from './postgres/postgres-user-provider.storage';
-import { PostgresProvisionerStorage } from './postgres/postgres-provisioner.storage';
-import { PostgresSsoIdentityStorage } from './postgres/postgres-sso-identity.storage';
+import { PostgresRegistrationEntryStorage } from './postgres/postgres-registration-entry.storage';
+import { PostgresProjectionOutboxStorage } from './postgres/postgres-projection-outbox.storage';
 import { PostgresUserProvisionerStorage } from './postgres/postgres-user-provisioner.storage';
 import { PostgresProviderArchiveStorage } from './postgres/postgres-provider-archive.storage';
+import { PostgresProviderCatalogStorage } from './postgres/postgres-provider-catalog.storage';
+import { PostgresProviderApiKeyStorage } from './postgres/postgres-provider-api-key.storage';
+import { PostgresParticipationStorage } from './postgres/postgres-participation.storage';
+import { PostgresUserProviderStorage } from './postgres/postgres-user-provider.storage';
 import { PostgresRefreshTokenStorage } from './postgres/postgres-refresh-token.storage';
-import { PostgresRegistrationEntryStorage } from './postgres/postgres-registration-entry.storage';
-import { PostgresAuditStorage } from './postgres/postgres-audit.storage';
-import { PostgresProjectionOutboxStorage } from './postgres/postgres-projection-outbox.storage';
-import { PostgresChatStorage } from './postgres/postgres-chat.storage';
+import { PostgresSsoIdentityStorage } from './postgres/postgres-sso-identity.storage';
+import { PostgresProvisionerStorage } from './postgres/postgres-provisioner.storage';
 import { PostgresTournamentStorage } from './postgres/postgres-tournament.storage';
 import { PostgresAssignmentStorage } from './postgres/postgres-assignment.storage';
-import { PostgresGrantStorage } from './postgres/postgres-grant.storage';
+import { PostgresAuthCodeStorage } from './postgres/postgres-auth-code.storage';
 import { PostgresProviderStorage } from './postgres/postgres-provider.storage';
 import { PostgresTopologyStorage } from './postgres/postgres-topology.storage';
-import { PostgresProviderCatalogStorage } from './postgres/postgres-provider-catalog.storage';
 import { PostgresCalendarStorage } from './postgres/postgres-calendar.storage';
-import { PostgresParticipationStorage } from './postgres/postgres-participation.storage';
-import { PostgresAuthCodeStorage } from './postgres/postgres-auth-code.storage';
-import { PostgresUserStorage } from './postgres/postgres-user.storage';
 import { MigrationRunnerService } from './postgres/migration-runner.service';
+import { PostgresAuditStorage } from './postgres/postgres-audit.storage';
+import { PostgresGrantStorage } from './postgres/postgres-grant.storage';
 import { PG_POOL, getPostgresConfig } from './postgres/postgres.config';
+import { PostgresChatStorage } from './postgres/postgres-chat.storage';
+import { PostgresUserStorage } from './postgres/postgres-user.storage';
 import { attachPoolErrorHandler } from './pool-error-handler';
 
-import { TournamentStorageService } from './tournament-storage.service';
 import { Global, Inject, Injectable, Module, OnModuleDestroy } from '@nestjs/common';
+import { TournamentStorageService } from './tournament-storage.service';
 import { Pool } from 'pg';
 
 const pgPoolProvider = {
@@ -122,6 +124,10 @@ const registrationEntryStorageProvider = makeStorageProvider(
 );
 const chatStorageProvider = makeStorageProvider(CHAT_STORAGE, PostgresChatStorage);
 const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_STORAGE, PostgresProjectionOutboxStorage);
+const drawIntegrityFindingsStorageProvider = makeStorageProvider(
+  DRAW_INTEGRITY_FINDINGS_STORAGE,
+  PostgresDrawIntegrityFindingsStorage,
+);
 
 @Global()
 @Module({
@@ -153,6 +159,7 @@ const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_ST
     registrationEntryStorageProvider,
     chatStorageProvider,
     projectionOutboxStorageProvider,
+    drawIntegrityFindingsStorageProvider,
     TournamentStorageService,
   ],
   exports: [
@@ -181,6 +188,7 @@ const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_ST
     REGISTRATION_ENTRY_STORAGE,
     CHAT_STORAGE,
     PROJECTION_OUTBOX_STORAGE,
+    DRAW_INTEGRITY_FINDINGS_STORAGE,
     TournamentStorageService,
   ],
 })
