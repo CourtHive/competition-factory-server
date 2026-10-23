@@ -66,6 +66,14 @@ function release(id: string): void {
   }
 }
 
+/**
+ * Whether a tournament's lock is held right now. For assertions that work runs OUTSIDE the lock (the deferred
+ * draw-integrity scan); never use it to decide whether to take the lock — that is a check-then-act race.
+ */
+export function isTournamentLocked(id: string): boolean {
+  return !!locks.get(id)?.active;
+}
+
 export async function withTournamentLock<T>(tournamentIds: string[], fn: () => Promise<T>): Promise<T> {
   const sortedIds = [...tournamentIds].sort();
   const acquiredIds: string[] = [];

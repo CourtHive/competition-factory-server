@@ -1,9 +1,9 @@
 import { auditConstants, governors, asyncEngine, globalState, topicConstants } from 'tods-competition-factory';
 import { afterCommandCommit } from 'src/storage/postgres/commandTransaction';
-import type { FactoryEngineTyped } from 'tods-competition-factory';
-import { Logger } from '@nestjs/common';
-import asyncGlobalState from './asyncGlobalState';
+import { drawIdsFromNotice } from '../helpers/executionQueueIntegrity';
 import { getRequestContext } from './requestContext';
+import asyncGlobalState from './asyncGlobalState';
+import { Logger } from '@nestjs/common';
 import {
   recordAddDraw,
   recordAddMatchUps,
@@ -28,7 +28,11 @@ import {
   recordTouchTournament,
   recordVenue,
 } from '../projection/deltaBuffer';
+
+// constants and types
 import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
+import type { FactoryEngineTyped } from 'tods-competition-factory';
+import type { FactoryRequestContext } from './requestContext';
 
 const traverse = true;
 const global = true;
@@ -498,6 +502,25 @@ export const ROSTER_SAFE_TOPICS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Record the draws a notice names, for the deferred draw-integrity scan. Only when the request asked for them (the
+ * sets exist), and never at the cost of the handler: a failure to record is a failure of the check, not the notice.
+ */
+function recordTouchedDraws(context: FactoryRequestContext, topic: string, params: any) {
+  if (!context.touchedDrawIds) return;
+  try {
+    const { touched, deleted, added } = drawIdsFromNotice(topic, params);
+    for (const drawId of touched) context.touchedDrawIds?.add(drawId);
+    for (const drawId of deleted) context.deletedDrawIds?.add(drawId);
+    for (const drawId of added) context.addedDrawIds?.add(drawId);
+  } catch (err: any) {
+    Logger.warn(
+      `draw-integrity: could not read drawIds from ${topic}: ${err?.message ?? String(err)}`,
+      'DrawIntegrity',
+    );
+  }
+}
+
+/**
  * The handler map, wrapped so every topic that fires is recorded on the request context.
  *
  * Wrapped centrally rather than by editing each handler: a topic added to `subscriptionHandlers`
@@ -508,7 +531,9 @@ const recordingSubscriptionHandlers = Object.fromEntries(
   Object.entries(subscriptionHandlers).map(([topic, handler]) => [
     topic,
     (params: any) => {
-      getRequestContext().noticeTopics?.add(topic);
+      const context = getRequestContext();
+      context.noticeTopics?.add(topic);
+      recordTouchedDraws(context, topic, params);
       return (handler as (p: any) => any)(params);
     },
   ]),
