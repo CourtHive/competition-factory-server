@@ -1,5 +1,5 @@
-import { drawIntegrityScanStats, resetDrawIntegrityMemory } from '../../helpers/executionQueueIntegrity';
-import { mocksEngine, queryGovernor, tournamentEngine, tools } from 'tods-competition-factory';
+import { drawIntegrityScanStats, drawScanner, resetDrawIntegrityMemory } from '../../helpers/executionQueueIntegrity';
+import { mocksEngine, tournamentEngine, tools } from 'tods-competition-factory';
 import { isTournamentLocked } from 'src/services/tournamentMutex';
 import { executionQueue } from './executionQueue';
 import { Logger } from '@nestjs/common';
@@ -88,7 +88,7 @@ describe('executionQueue draw integrity (report only, deferred)', () => {
   it('a clean mutation is scanned — and logs nothing', async () => {
     const record = generated();
     const storage = storageFor(record);
-    const scan = vi.spyOn(queryGovernor, 'getDrawInconsistencies');
+    const scan = vi.spyOn(drawScanner, 'getDrawInconsistencies');
 
     const result: any = await run(storage, record.tournamentId, scoreMethods(record));
     expect(result).toMatchObject({ success: true });
@@ -179,7 +179,7 @@ describe('executionQueue draw integrity (report only, deferred)', () => {
     const record = generated();
     const storage = storageFor(record);
     const tournamentId = record.tournamentId;
-    vi.spyOn(queryGovernor, 'getDrawInconsistencies').mockImplementation(() => {
+    vi.spyOn(drawScanner, 'getDrawInconsistencies').mockImplementation(() => {
       storage.events.push(`scan:locked=${isTournamentLocked(tournamentId)}`);
       return { success: true, inconsistencies: [] } as any;
     });
@@ -196,7 +196,7 @@ describe('executionQueue draw integrity (report only, deferred)', () => {
   it('a later mutation of the same draw cannot change what an earlier scan sees', async () => {
     const record = generated();
     const storage = storageFor(record);
-    const scan = vi.spyOn(queryGovernor, 'getDrawInconsistencies');
+    const scan = vi.spyOn(drawScanner, 'getDrawInconsistencies');
     const [first, second] = scoreMethods(record, 2);
 
     await run(storage, record.tournamentId, [first]);
@@ -218,7 +218,7 @@ describe('executionQueue draw integrity (report only, deferred)', () => {
     const record = generated();
     const drawId = record.events[0].drawDefinitions[0].drawId;
     const storage = storageFor(record);
-    const scan = vi.spyOn(queryGovernor, 'getDrawInconsistencies');
+    const scan = vi.spyOn(drawScanner, 'getDrawInconsistencies');
 
     await run(storage, record.tournamentId, [{ method: 'setTournamentName', params: { tournamentName: 'Renamed' } }]);
     await flushImmediates();
@@ -239,7 +239,7 @@ describe('executionQueue draw integrity (report only, deferred)', () => {
     const matchUpIds = draw.structures[0].matchUps.map((matchUp: any) => matchUp.matchUpId);
     expect(matchUpIds.length).toBeGreaterThan(0);
     const storage = storageFor(record);
-    const scan = vi.spyOn(queryGovernor, 'getDrawInconsistencies');
+    const scan = vi.spyOn(drawScanner, 'getDrawInconsistencies');
 
     const result: any = await run(storage, record.tournamentId, [
       { method: 'deleteAdHocMatchUps', params: { drawId: draw.drawId, matchUpIds: matchUpIds.slice(-1) } },
@@ -254,7 +254,7 @@ describe('executionQueue draw integrity (report only, deferred)', () => {
     const record = generated();
     const draw = record.events[0].drawDefinitions[0];
     const storage = storageFor(record);
-    const scan = vi.spyOn(queryGovernor, 'getDrawInconsistencies');
+    const scan = vi.spyOn(drawScanner, 'getDrawInconsistencies');
 
     await run(storage, record.tournamentId, scoreMethods(record));
     await flushImmediates();
@@ -276,7 +276,7 @@ describe('executionQueue draw integrity (report only, deferred)', () => {
     process.env.DRAW_INTEGRITY_MODE = 'off';
     const record = generated();
     const storage = storageFor(record);
-    const scan = vi.spyOn(queryGovernor, 'getDrawInconsistencies');
+    const scan = vi.spyOn(drawScanner, 'getDrawInconsistencies');
 
     const result: any = await run(storage, record.tournamentId, scoreMethods(record));
     expect(result).toMatchObject({ success: true });
@@ -306,7 +306,7 @@ describe('executionQueue draw integrity (report only, deferred)', () => {
   it('a scan that throws never reaches the mutation', async () => {
     const record = generated();
     const storage = storageFor(record);
-    vi.spyOn(queryGovernor, 'getDrawInconsistencies').mockImplementation(() => {
+    vi.spyOn(drawScanner, 'getDrawInconsistencies').mockImplementation(() => {
       throw new Error('scan exploded');
     });
 
@@ -320,7 +320,7 @@ describe('executionQueue draw integrity (report only, deferred)', () => {
   it('a failed mutation saves nothing and scans nothing', async () => {
     const record = generated();
     const storage = storageFor(record);
-    const scan = vi.spyOn(queryGovernor, 'getDrawInconsistencies');
+    const scan = vi.spyOn(drawScanner, 'getDrawInconsistencies');
 
     const result: any = await run(storage, record.tournamentId, [
       { method: 'setMatchUpStatus', params: { drawId: 'no-such-draw', matchUpId: 'no-such-matchUp' } },

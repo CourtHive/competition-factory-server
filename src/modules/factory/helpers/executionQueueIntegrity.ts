@@ -293,6 +293,16 @@ function recordShed(batch: DrawIntegrityBatch, target: DrawScanTarget) {
 
 // ── the scan ────────────────────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The factory call, behind an object CFS owns, so a spec can observe or replace it. The factory's governors cannot be
+ * spied on where CI resolves the package: the published ESM build exports them as module namespaces, which are not
+ * configurable. (A `link:` checkout can resolve differently and let a spy through — a local pass proved nothing.)
+ */
+export const drawScanner = {
+  getDrawInconsistencies: (params: { drawDefinition: any; drawId: string }): any =>
+    queryGovernor.getDrawInconsistencies(params),
+};
+
 function partition(issues: IntegrityIssue[]): DrawIntegrityResult {
   return {
     errors: issues.filter((issue) => issue.severity === 'error'),
@@ -342,7 +352,7 @@ export function scanDraw(target: DrawScanTarget, methods: string[]) {
     const startedAt = performance.now();
     let result: any;
     try {
-      result = queryGovernor.getDrawInconsistencies({ drawDefinition: target.drawDefinition, drawId: target.drawId });
+      result = drawScanner.getDrawInconsistencies({ drawDefinition: target.drawDefinition, drawId: target.drawId });
     } catch (err: any) {
       recordScanFailure(`integrity scan threw: ${err?.message ?? String(err)}`, {
         tournamentId: target.tournamentId,

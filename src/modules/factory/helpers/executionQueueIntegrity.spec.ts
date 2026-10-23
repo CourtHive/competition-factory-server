@@ -1,8 +1,9 @@
-import { mocksEngine, queryGovernor, topicConstants } from 'tods-competition-factory';
+import { mocksEngine, topicConstants } from 'tods-competition-factory';
 import { Logger } from '@nestjs/common';
 import {
   drawIdsFromNotice,
   drawIntegrityScanStats,
+  drawScanner,
   MAX_PENDING_SCANS,
   MAX_TRACKED_DRAWS,
   resetDrawIntegrityMemory,
@@ -228,7 +229,7 @@ describe('executionQueueIntegrity', () => {
 
     it('a draw whose first findings were below error severity logs its pre-existing set once, at LOG', () => {
       const scanned = target();
-      vi.spyOn(queryGovernor, 'getDrawInconsistencies').mockReturnValue({
+      vi.spyOn(drawScanner, 'getDrawInconsistencies').mockReturnValue({
         success: true,
         inconsistencies: [{ issueType: 'W', severity: 'warning', message: 'w', fingerprint: 'fw' }],
       } as any);
@@ -308,7 +309,7 @@ describe('executionQueueIntegrity', () => {
 
     it('keeps at most MAX_TRACKED_DRAWS draws, forgetting the least recently scanned', () => {
       const clean = { success: true, inconsistencies: [] } as any;
-      const scan = vi.spyOn(queryGovernor, 'getDrawInconsistencies').mockReturnValue(clean);
+      const scan = vi.spyOn(drawScanner, 'getDrawInconsistencies').mockReturnValue(clean);
       const draw = (index: number) => ({ tournamentId: 't', drawId: `d${index}`, drawDefinition: {} });
 
       for (let index = 0; index <= MAX_TRACKED_DRAWS; index++) scanDraw(draw(index), ['m']);
@@ -332,7 +333,7 @@ describe('executionQueueIntegrity', () => {
 
   describe('scan failures never propagate', () => {
     it('a scan that THROWS is logged once, counted, and swallowed; recovery is logged', () => {
-      const scan = vi.spyOn(queryGovernor, 'getDrawInconsistencies').mockImplementation(() => {
+      const scan = vi.spyOn(drawScanner, 'getDrawInconsistencies').mockImplementation(() => {
         throw new Error('corrupt beyond reading');
       });
       const scanned = target();
@@ -359,14 +360,14 @@ describe('executionQueueIntegrity', () => {
     });
 
     it('a scan that returns an ERROR is a failure, not a clean draw — and is not remembered as one', () => {
-      vi.spyOn(queryGovernor, 'getDrawInconsistencies').mockReturnValue({ error: { code: 'ERR_X' } } as any);
+      vi.spyOn(drawScanner, 'getDrawInconsistencies').mockReturnValue({ error: { code: 'ERR_X' } } as any);
       scanDraw(target(), ['m']);
       expect(drawIntegrityScanStats()).toMatchObject({ failures: 1, scans: 0, tracked: 0 });
       expect(lines(warn)[0].message).toContain('ERR_X');
     });
 
     it('a deferred scan that throws cannot reach the scheduler', async () => {
-      vi.spyOn(queryGovernor, 'getDrawInconsistencies').mockImplementation(() => {
+      vi.spyOn(drawScanner, 'getDrawInconsistencies').mockImplementation(() => {
         throw new Error('boom');
       });
       const scanned = target();
@@ -378,7 +379,7 @@ describe('executionQueueIntegrity', () => {
 
   describe('scheduleDrawIntegrityScan', () => {
     it('defers every scan: nothing is scanned synchronously', async () => {
-      const scan = vi.spyOn(queryGovernor, 'getDrawInconsistencies');
+      const scan = vi.spyOn(drawScanner, 'getDrawInconsistencies');
       scheduleDrawIntegrityScan({ methods: ['m'], draws: [target(), target()], deleted: [] });
       expect(scan).not.toHaveBeenCalled();
       expect(drawIntegrityScanStats().pending).toBe(2);
@@ -412,7 +413,7 @@ describe('executionQueueIntegrity', () => {
     });
 
     it(`sheds scans beyond MAX_PENDING_SCANS (${MAX_PENDING_SCANS}) and says so`, async () => {
-      vi.spyOn(queryGovernor, 'getDrawInconsistencies').mockReturnValue({ success: true, inconsistencies: [] } as any);
+      vi.spyOn(drawScanner, 'getDrawInconsistencies').mockReturnValue({ success: true, inconsistencies: [] } as any);
       const draws = Array.from({ length: MAX_PENDING_SCANS + 2 }, (_, index) => ({
         tournamentId: 't',
         drawId: `d${index}`,
