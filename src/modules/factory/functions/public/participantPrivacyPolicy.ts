@@ -31,6 +31,10 @@ const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PAR
  * private, and the TEAM participants themselves are already public, so it is opened for every provider. Each
  * element is limited to `PUBLIC_TEAM_TEMPLATE`, never the team's contacts or members. See `withPublicTeams`.
  *
+ * Factory 7.20.0 (#5710) made the default name `teams` itself, with the same four keys as `PUBLIC_TEAM_TEMPLATE`.
+ * The overlay stays: it REPLACES whatever the factory default names, so the public team shape is decided here and a
+ * later widening of the factory default cannot reach a public reader without a change to this file.
+ *
  * ⚠️ `person.sex` is a different case. Do NOT read its removal as "nobody needs this".
  * Removing it is safe *today*: the only consumer is courthive-public's name colouring, which loses a
  * tint, and the ITA duals carry no `person.sex` at all (`courthive-ingest/packages/ingest-runner/scripts/dual-to-codes.mjs:168`
@@ -63,9 +67,10 @@ export const PUBLIC_TEAM_TEMPLATE = Object.freeze({
 });
 
 /**
- * Open `teams` in BOTH participant blocks of a policy copy: the top-level `participant` (a singles
+ * Set `teams` in BOTH participant blocks of a policy copy: the top-level `participant` (a singles
  * INDIVIDUAL) and `participant.individualParticipants` (the members of a PAIR or TEAM, so a doubles player
- * gets a school too). Every caller passes a fresh copy, never the shared fixture.
+ * gets a school too). Replaces, never merges with, any `teams` the factory default names. Every caller passes
+ * a fresh copy, never the shared fixture.
  */
 function withPublicTeams(policy: any): any {
   const template = policy?.[POLICY_TYPE_PARTICIPANT]?.participant;
@@ -93,7 +98,8 @@ function withPublicTeams(policy: any): any {
  * 1. A policy ATTACHED to the tournamentRecord wins. It is stamped at creation and by
  *    "apply to existing", and it is the provider's explicit selection.
  * 2. Otherwise the provider's `participantPrivacy` toggles build a variant ON A COPY.
- * 3. Otherwise the shipped default, which strips (except `teams`, which every public route opens).
+ * 3. Otherwise the shipped default, which strips (except `teams`, which every public route opens, limited to
+ *    `PUBLIC_TEAM_TEMPLATE`).
  *
  * **Fails closed at every branch.** An unresolvable provider, a storage that was not
  * passed, or a thrown lookup all fall through to the default — the strictest option.
