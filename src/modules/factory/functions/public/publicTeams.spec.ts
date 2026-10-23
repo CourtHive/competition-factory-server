@@ -4,8 +4,9 @@
  * courthive-components `renderTeam` reads `individualParticipant.teams[0].participantName` for a draw's
  * "participant detail: TEAM" setting. TMX and courthive-public share that code, so a public route that
  * drops `teams` renders a blank line where the school belongs. The routes did exactly that once the shared
- * fixture stopped being widened in place: the default policy has no `teams` key, so the factory's
+ * fixture stopped being widened in place: the default policy then had no `teams` key, so the factory's
  * attribute filter removed it. Measured on a live ITA regional: 0 of 138 INDIVIDUALs carried `teams`.
+ * Factory 7.20.0 (#5710) names `teams` in the default with the same four keys; CFS still sets its own.
  */
 import { mocksEngine, tournamentEngine, factoryConstants, fixtures } from 'tods-competition-factory';
 
@@ -306,6 +307,5 @@ describe('opening teams opens nothing else', () => {
     await getCompetitionScheduleMatchUps({ tournamentId: TEST_TID, hydrateParticipants: false }, storage);
     await getParticipants({ tournamentId: TEST_TID }, storage);
     expect(JSON.stringify(fixtures.policies.POLICY_PRIVACY_DEFAULT)).toEqual(before);
-    expect((fixtures.policies.POLICY_PRIVACY_DEFAULT as any).participant.participant.teams).toBeUndefined();
   });
 });
