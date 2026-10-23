@@ -1,5 +1,24 @@
 # Changelog
 
+## [4.6.0](https://github.com/CourtHive/competition-factory-server/compare/v4.5.1...v4.6.0) (2026-10-23)
+
+
+### Features
+
+* **api:** take whole tournament records up to 64mb on the two import routes ([#1080](https://github.com/CourtHive/competition-factory-server/issues/1080)) ([2550870](https://github.com/CourtHive/competition-factory-server/commit/2550870b082c0081b137b35a02d0df225e5e75b3))
+* **factory:** persist executionqueue draw-integrity findings (migration 056) ([#1091](https://github.com/CourtHive/competition-factory-server/issues/1091)) ([ed568e5](https://github.com/CourtHive/competition-factory-server/commit/ed568e5f8ab81df01e29b28fee8dba9caeb99c68))
+* **factory:** report draw integrity on executionqueue mutations, deferred off the request path ([#1090](https://github.com/CourtHive/competition-factory-server/issues/1090)) ([89bc18f](https://github.com/CourtHive/competition-factory-server/commit/89bc18fd5a9708bed04b7ddca261d85e3c7b035b))
+* **factory:** scan draw integrity on wholesale save, report mode by default ([#1077](https://github.com/CourtHive/competition-factory-server/issues/1077)) ([0c40527](https://github.com/CourtHive/competition-factory-server/commit/0c40527f46414fd06cd92aeac228d566012cdb7a))
+* **storage:** migration 052 drops users.provider_id ([#1017](https://github.com/CourtHive/competition-factory-server/issues/1017)) ([ca34483](https://github.com/CourtHive/competition-factory-server/commit/ca34483f0711cec9745a5dcdb5498c26471ffb0f))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.19.0 ([6c17d4b](https://github.com/CourtHive/competition-factory-server/commit/6c17d4be88234774c93c86b866ec826910c8d4ee))
+* **deps:** update tods-competition-factory to 7.20.0 ([#1093](https://github.com/CourtHive/competition-factory-server/issues/1093)) ([282e01f](https://github.com/CourtHive/competition-factory-server/commit/282e01f3bb9a1f6930e1eb4e42d97e67b6ca005e))
+* **factory:** /factory/generate waits for the provisioner ownership row before answering ([#1083](https://github.com/CourtHive/competition-factory-server/issues/1083)) ([e033902](https://github.com/CourtHive/competition-factory-server/commit/e033902efcc8e5cf8a980d05fc68fd9967e674f4))
+* **public:** public routes carry each individual's team, limited to id and names ([#1082](https://github.com/CourtHive/competition-factory-server/issues/1082)) ([52fb62e](https://github.com/CourtHive/competition-factory-server/commit/52fb62ef78c0defe8b48171d11a9bb2dda713205))
+
 ## [4.5.1](https://github.com/CourtHive/competition-factory-server/compare/v4.5.0...v4.5.1) (2026-10-21)
 
 
