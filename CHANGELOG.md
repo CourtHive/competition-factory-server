@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.6.1](https://github.com/CourtHive/competition-factory-server/compare/v4.6.0...v4.6.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **deps:** update @courthive/provider-config to 0.19.0 ([#1096](https://github.com/CourtHive/competition-factory-server/issues/1096)) ([7636ad8](https://github.com/CourtHive/competition-factory-server/commit/7636ad8ac84b9bae2453a3380240b0466b645ecd))
+
 ## [4.6.0](https://github.com/CourtHive/competition-factory-server/compare/v4.5.1...v4.6.0) (2026-10-23)
 
 
