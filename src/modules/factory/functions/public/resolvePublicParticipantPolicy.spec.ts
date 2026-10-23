@@ -159,9 +159,14 @@ describe('resolvePublicParticipantPolicy', () => {
       block.teams.contacts = true;
     }
     expect(JSON.stringify(fixtures.policies.POLICY_PRIVACY_DEFAULT)).toBe(before);
+    // Since factory 7.20.0 the fixture names `teams` itself, so the copy's `teams` must be its own object in
+    // both blocks: sharing the fixture's would have let the writes above reach every reader in the process.
     const fixture: any = fixtures.policies.POLICY_PRIVACY_DEFAULT;
-    expect(fixture[POLICY_TYPE_PARTICIPANT].participant.teams).toBeUndefined();
-    expect(fixture[POLICY_TYPE_PARTICIPANT].participant.individualParticipants.teams).toBeUndefined();
+    const fixtureBlocks = [
+      fixture[POLICY_TYPE_PARTICIPANT].participant,
+      fixture[POLICY_TYPE_PARTICIPANT].participant.individualParticipants,
+    ];
+    participantBlocks(policy).forEach((block, i) => expect(block.teams).not.toBe(fixtureBlocks[i].teams));
     expect(participantBlocks(publicParticipantPrivacyPolicy())[0].teams).toEqual(PUBLIC_TEAM_TEMPLATE);
   });
 
