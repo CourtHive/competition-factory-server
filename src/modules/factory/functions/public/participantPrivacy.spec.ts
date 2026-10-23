@@ -17,6 +17,7 @@
 import { mocksEngine, tournamentEngine, tools, fixtures } from 'tods-competition-factory';
 
 import { getCompetitionScheduleMatchUps } from './getCompetitionScheduleMatchUps';
+import { publicParticipantPrivacyPolicy } from './participantPrivacyPolicy';
 import { getStructureData } from './getStructureData';
 import { getEventData } from './getEventData';
 import { getDrawData } from './getDrawData';
@@ -169,7 +170,9 @@ const storage = {
     tournamentId === TEST_TID ? { tournamentRecords: { [TEST_TID]: record } } : { error: 'NOT_FOUND' },
 } as unknown as ITournamentStorage;
 
-const template = (fixtures.policies.POLICY_PRIVACY_DEFAULT as any).participant.participant;
+// Judged against the PUBLIC policy, which is what the routes run under: the shipped default plus `teams`
+// (publicTeams.spec.ts). A copy, so a mutating route cannot poison the test's own notion of what is forbidden.
+const template = publicParticipantPrivacyPolicy().participant.participant;
 const forbidden = forbiddenData(record.participants ?? [], template);
 
 const structureId = record.events[0].drawDefinitions[0].structures[0].structureId;
@@ -213,9 +216,9 @@ describe('public routes honour the participant privacy policy', () => {
     expect(findings).toEqual([]);
   });
 
-  // Falsified: with the in-place widening restored, this test goes red too — because `template` is a
-  // live reference to the shared fixture, so a mutating route poisons even the test's own notion of
-  // what is forbidden. That is the contamination mechanism, demonstrated from the inside.
+  // `template` was once a live reference to the shared fixture, so a mutating route poisoned even the test's
+  // own notion of what is forbidden. It is a copy now; contamination is asserted directly by the
+  // "never mutated" suite below.
   it('the leak detector fires on a planted value — otherwise the assertions above are decoration', () => {
     const planted = { participants: [{ participantId: 'x', participantType: 'INDIVIDUAL', person: { sex: 'MALE' } }] };
     const { leaks } = findLeaks(planted, forbidden);
