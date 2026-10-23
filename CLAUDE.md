@@ -6,6 +6,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Before doing anything else, read `../Mentat/CLAUDE.md`, `../Mentat/TASKS.md`, `../Mentat/standards/coding-standards.md`, and every file in `../Mentat/in-flight/`. Mentat is the orchestration layer for the entire CourtHive ecosystem; its standards override per-repo conventions when they conflict. If you are about to start **building** (not just planning), you must claim a surface in `../Mentat/in-flight/` and run the air-traffic-control conflict check first. See the parent `../CLAUDE.md` "Mentat Orchestration" section for the full protocol.
 
+## Branching — cut from `dev`, not `main` (CA, 2026-10-23)
+
+`dev` is this repo's integration branch, as in factory, TMX, components and the dev-flow services. **Branch from
+`origin/dev` and open PRs against `dev`.** `main` advances only at checkpoints, by merging `dev` into it. CA: *"let's
+set CFS up to have the dev flow that the other repos have"*. `dev` was created from `main` at `ca34483f` (the #1017
+merge), byte-identical. **Renovate targets `dev`** (`baseBranches` in `renovate.json`).
+
+| workflow | trigger | consequence |
+| --- | --- | --- |
+| `ci.yml` | bare `pull_request:` + `push: [main]` | a PR into `dev` gets the full gate. A direct push to `dev` gets **no** run, so land work by PR |
+| `release-please.yml` | `push: [main]` ONLY | a checkpoint merge **refreshes** the release PR. Nothing is tagged or released |
+| `back-merge.yml` | `release: published` + `workflow_dispatch` | after a release, opens the `main` → `dev` PR with the release-bot App token |
+| `sync-i18n.yml` | `push: [main]`, path-filtered on the admin client's `en.json` | an i18n change on `dev` syncs only once it reaches `main` |
+| `deploy-storybook.yml` | `push: [main, master]`, path-filtered | storybook publishes only from `main` |
+
+**Deploys build `main`.** mentat's checkout of this repo is on `main` (as factory's is on `master` and TMX's on `main`),
+so work merged to `dev` reaches dev and prod only after a checkpoint.
+
+**`dev` is protected** (no deletion, no force-push; no required checks) and `delete_branch_on_merge` is on: merged feature
+branches delete themselves, and the protected `dev`/`main` heads of checkpoint and back-merge PRs survive. The checkpoint
+merge is a **merge commit**, never a squash, so release-please's changelog keeps every conventional commit; so is the
+back-merge (`main` → `dev`) after each release. Judge local branches by PR **state**, not ancestry
+(`gh pr list --repo CourtHive/competition-factory-server --state merged --head <branch>`).
+
 ## Project Overview
 
 NestJS 11 backend for the CourtHive tournament management platform. Provides a REST API, WebSocket gateway (Socket.IO), and Postgres storage. All tournament mutations flow through `tods-competition-factory` with per-tournament locking and per-request async state isolation.
