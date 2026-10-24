@@ -30,9 +30,12 @@ services:
       retries: 5
 
   # The competition-factory-server itself is normally run via `pnpm watch` or
-  # `pnpm start` so the developer keeps fast feedback. Uncomment the block
-  # below if you want a containerised server (e.g. on the arena Mac mini for
-  # production deploys).
+  # `pnpm start` so the developer keeps fast feedback.
+  #
+  # The block below is a SKETCH and will not build: this repo has no Dockerfile.
+  # Who owns the CFS image (CFS publishes one, or a consumer builds it from a
+  # pinned SHA) is an open decision. The relay variables in it have no effect
+  # either: RelayModule is not loaded (see docs/MAC_MINI_PROVISIONING.md).
   #
   # competition-factory-server:
   #   build:

@@ -39,8 +39,8 @@ cache -> /mnt/data/competition-factory-server/cache
 ### System Packages
 
 ```bash
-# Node.js 22 LTS
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+# Node.js 24 (engines.node is >=24)
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
 # nginx, Redis

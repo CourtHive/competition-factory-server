@@ -9,6 +9,14 @@ and [`Mentat/planning/ARENA_RELAY_DEPLOYMENT.md`](../../Mentat/planning/ARENA_RE
 The local server is the system of record during the event window. Cloud
 relay is downstream and eventually-consistent.
 
+> **Partly out of date (checked 2026-10-24).** Corrected below: the Node version (CFS needs Node 24) and
+> the schema bootstrap (`bolt_history` was dropped by migration 040; all 56 migrations now apply
+> automatically at boot). **Not corrected, because it is not a documentation problem:** the arena relay
+> settings in §5 have no effect. `RelayModule` is not imported by `app.module.ts`, so the outbound relay
+> queue and its drain loop never load in any deployment. Wiring or deleting it is an open decision
+> (`Mentat/planning/SITE_SERVER_LAN_RESILIENCE.md` D1). The venue appliance design that supersedes this
+> checklist is that document and `Mentat/planning/TMX_DESKTOP_LOCAL_SERVER.md`.
+
 ## 1. Hardware baseline
 
 - [ ] Mac mini M2 or better
@@ -29,9 +37,9 @@ relay is downstream and eventually-consistent.
 
 ## 3. Runtime dependencies
 
-- [ ] `brew install node@22` or `nvm install 22 && nvm alias default 22`
+- [ ] `brew install node@24` or `nvm install 24 && nvm alias default 24` (`engines.node` is `>=24`)
 - [ ] `brew install pnpm`
-- [ ] `brew install postgresql@16 && brew services start postgresql@16`
+- [ ] `brew install postgresql@18 && brew services start postgresql@18` (the version the cloud runs)
 - [ ] `brew install redis && brew services start redis`
 - [ ] `brew install jq` (handy for queue inspection)
 - [ ] Verify: `node -v`, `pnpm -v`, `psql --version`, `redis-cli ping`
@@ -41,11 +49,12 @@ relay is downstream and eventually-consistent.
 - [ ] `createdb courthive`
 - [ ] `createuser courthive --pwprompt` (set a strong password)
 - [ ] `psql courthive -c "GRANT ALL PRIVILEGES ON DATABASE courthive TO courthive;"`
-- [ ] Schema bootstrap is **automatic on first use** —
-      `PostgresBoltHistoryStorage.ensureSchema()` runs `CREATE TABLE IF NOT EXISTS bolt_history (...)`
-      lazily on the first read/write. No manual migration step required.
-- [ ] Optional: pre-apply other schemas via
-      `psql -d courthive -f competition-factory-server/src/storage/postgres/migrations/001-initial-schema.sql`
+- [ ] Schema bootstrap is **automatic at boot**: `MigrationRunnerService` applies every pending
+      migration in `src/storage/postgres/migrations/`, in order, under an advisory lock. No manual
+      step, and do not apply migration files by hand: the runner records what it applied in
+      `schema_migrations`.
+- [ ] After the first boot, create the admin idempotently: `pnpm admin:ensure -- -e <email> -p <password>`
+      (or set `CFS_ADMIN_EMAIL` / `CFS_ADMIN_PASSWORD`).
 
 ## 5. Repos
 
