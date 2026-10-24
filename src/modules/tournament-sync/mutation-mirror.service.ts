@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, OnModuleInit, OnModuleDestroy, Optional } f
 import { Pool } from 'pg';
 
 import { PG_POOL } from 'src/storage/postgres/postgres.config';
+import { upstreamCredentialProblem } from './upstreamCredential';
 import { RelayConfig } from '../relay/relay.config';
 
 const MAX_BACKOFF_MS = 60_000;
@@ -52,6 +53,19 @@ export class MutationMirrorService implements OnModuleInit, OnModuleDestroy {
       this.logger.log('MutationMirrorService disabled (UPSTREAM_SERVER_URL unset)');
       return;
     }
+    // Reported, not enforced: a deployment that works today keeps working, and one that cannot work says
+    // so once at boot instead of a WARN per drain that never names the cause.
+    const credentialProblem = upstreamCredentialProblem(this.config.upstreamApiKey);
+    if (credentialProblem) {
+      this.logger.error(
+        `MutationMirrorService cannot authenticate upstream: ${credentialProblem}. Every mirrored mutation ` +
+          'will be refused and the queue will hold from its first entry.',
+      );
+    }
+    // Also true of every deployment: entries carry no commandId, so upstream cannot recognise a resend.
+    this.logger.warn(
+      'MutationMirrorService sends no commandId: a post whose response is lost is re-applied upstream on retry.',
+    );
     this.scheduleNext(DRAIN_INTERVAL_MS);
     this.logger.log(`MutationMirrorService started — target=${this.config.upstreamServerUrl}`);
   }
