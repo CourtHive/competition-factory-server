@@ -44,5 +44,9 @@ export async function setMatchUpStatus(
     timestamp: payload?.timestamp,
   };
 
-  return await executionQueue(eqPayload, services, storage, auditService);
+  const result = await executionQueue(eqPayload, services, storage, auditService);
+  // The methods AS EXECUTED: executionQueue backfills drawId/eventId onto these params in place. The controller
+  // broadcasts them to connected TMX clients, which cannot apply a setMatchUpStatus without its drawId — broadcasting
+  // the request body instead left every open TMX failing ERR_MISSING_DRAWDEF on an integrator's matchUpId-only score.
+  return { ...result, methods };
 }
