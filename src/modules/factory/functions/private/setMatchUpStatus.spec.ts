@@ -24,6 +24,7 @@ const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
 describe('setMatchUpStatus', () => {
   let drawId: string;
   let matchUpId: string;
+  let otherMatchUpId: string;
 
   beforeAll(async () => {
     await removeTournamentRecords({ tournamentId: TOURNAMENT_ID });
@@ -49,6 +50,9 @@ describe('setMatchUpStatus', () => {
     const readyMatchUp = matchUps.find((m: any) => m.readyToScore && !m.winningSide);
     expect(readyMatchUp).toBeDefined();
     matchUpId = readyMatchUp!.matchUpId;
+    const otherReady = matchUps.find((m: any) => m.readyToScore && !m.winningSide && m.matchUpId !== matchUpId);
+    expect(otherReady).toBeDefined();
+    otherMatchUpId = otherReady!.matchUpId;
   });
 
   afterAll(async () => {
@@ -77,6 +81,34 @@ describe('setMatchUpStatus', () => {
       mockStorage,
     );
     expect(result.success).toEqual(true);
+  });
+
+  it('returns the methods as executed — with the drawId resolved for a matchUpId-only score', async () => {
+    // An integrator (IONSport, score-relay) may send no drawId; CFS resolves it under the lock. The controller
+    // broadcasts these methods to connected TMX clients, which cannot apply a setMatchUpStatus without its drawId.
+    let result: any = await setMatchUpStatus(
+      {
+        tournamentId: TOURNAMENT_ID,
+        matchUpId: otherMatchUpId,
+        outcome: {
+          score: {
+            sets: [
+              { side1Score: 6, side2Score: 3, winningSide: 1, setNumber: 1 },
+              { side1Score: 6, side2Score: 4, winningSide: 1, setNumber: 2 },
+            ],
+          },
+          matchUpFormat: 'SET3-S:6/TB7',
+          matchUpStatus: COMPLETED,
+          winningSide: 1,
+        },
+      },
+      undefined,
+      mockStorage,
+    );
+    expect(result.success).toEqual(true);
+    expect(result.methods).toHaveLength(1);
+    expect(result.methods[0].method).toEqual('setMatchUpStatus');
+    expect(result.methods[0].params).toMatchObject({ matchUpId: otherMatchUpId, drawId });
   });
 
   it('returns error for non-existent tournament', async () => {

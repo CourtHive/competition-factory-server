@@ -13,6 +13,12 @@
  *   list                           List all users with their roles
  *   create --email <e> --password <p>
  *                                  Create a new superadmin user
+ *   ensure [--email <e> --password <p>]
+ *                                  Create the superadmin only if absent; exit 0 either way.
+ *                                  Falls back to CFS_ADMIN_EMAIL / CFS_ADMIN_PASSWORD, so a
+ *                                  container entrypoint or a first-run step can call it on
+ *                                  every start. Run it after the server has booted once
+ *                                  (migrations apply at boot).
  *   reset-password --email <e> --password <p>
  *                                  Reset an existing user's password
  *   set-roles --email <e> --roles superadmin,admin,client
@@ -57,6 +63,7 @@ Usage:
 Commands:
   list                                         List all users
   create  -e <email> -p <password>             Create superadmin
+  ensure  [-e <email> -p <password>]           Create superadmin if absent (env: CFS_ADMIN_EMAIL/PASSWORD)
   reset-password  -e <email> -p <password>     Reset password
   set-roles  -e <email> -r <roles>             Set roles (comma-separated)
 
@@ -168,6 +175,29 @@ async function createUser(backend) {
     process.exit(1);
   }
 
+  await saveSuperadmin(backend, email, password);
+}
+
+// Idempotent `create`: safe to run on every start. An existing user is left exactly as it is, password
+// included, so a re-run can never reset a password someone has since changed.
+async function ensureUser(backend) {
+  const email = args.email || process.env.CFS_ADMIN_EMAIL;
+  const password = args.password || process.env.CFS_ADMIN_PASSWORD;
+
+  if (!email || !password) {
+    console.error('\n  Error: --email and --password (or CFS_ADMIN_EMAIL / CFS_ADMIN_PASSWORD) are required\n');
+    process.exit(1);
+  }
+
+  if (await backend.getUser(email)) {
+    console.log(`\n  Superadmin ${email} already exists; nothing to do.\n`);
+    return;
+  }
+
+  await saveSuperadmin(backend, email, password);
+}
+
+async function saveSuperadmin(backend, email, password) {
   const hashedPassword = await hashPassword(password);
   const userData = {
     email,
@@ -256,6 +286,9 @@ async function main() {
         break;
       case 'create':
         await createUser(backend);
+        break;
+      case 'ensure':
+        await ensureUser(backend);
         break;
       case 'reset-password':
         await resetPassword(backend);

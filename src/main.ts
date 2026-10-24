@@ -170,8 +170,9 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const appName = config.get('APP.name');
   const port = config.get('APP.port');
+  const host = config.get('APP.host');
 
-  await app.listen(port, '0.0.0.0');
+  await app.listen(port, host);
   Logger.verbose(`Application ${appName} is running on: ${await app.getUrl()}`);
   Logger.verbose(`Server version: ${serverVersion}`);
   Logger.verbose(`Factory ${version()}`);

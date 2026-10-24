@@ -16,8 +16,9 @@ All configuration is via environment variables in the `.env` file. The server us
   </thead>
   <tbody>
     <tr><td><code>APP_NAME</code></td><td><code>Competition Factory Server</code></td><td>Application name (logging, metadata)</td></tr>
-    <tr><td><code>APP_MODE</code></td><td><code>production</code></td><td><code>development</code> enables dev user and debug features</td></tr>
+    <tr><td><code>APP_MODE</code></td><td><code>production</code></td><td><code>development</code> enables debug features, and the built-in dev super-admin <strong>only against a loopback <code>PG_HOST</code></strong>; use another value on any shared host</td></tr>
     <tr><td><code>APP_PORT</code></td><td><code>8383</code></td><td>HTTP/WebSocket server port</td></tr>
+    <tr><td><code>APP_HOST</code></td><td><code>0.0.0.0</code></td><td>Interface to listen on; <code>127.0.0.1</code> behind a reverse proxy or as a local sidecar</td></tr>
   </tbody>
 </table>
 

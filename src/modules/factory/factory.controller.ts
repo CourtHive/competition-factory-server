@@ -455,9 +455,15 @@ export class FactoryController {
     if (result?.success && !result.deduplicated) {
       const { publicNotices } = result;
       const tournamentId = enriched.tournamentId || enriched.params?.tournamentId;
+      // Broadcast the methods as executed, not the request body: a producer may send only matchUpId (CFS resolves the
+      // drawId under the lock), and a connected TMX applies this broadcast locally, where a setMatchUpStatus without
+      // its drawId fails ERR_MISSING_DRAWDEF and the TD's view never shows the result.
+      const executed: any[] | undefined = Array.isArray(result.methods) ? result.methods : undefined;
       const payload = {
         tournamentIds: tournamentId ? [tournamentId] : [],
-        methods: [{ method: 'setMatchUpStatus', params: enriched.params || sms.params || sms }],
+        methods: executed?.map((m) => ({ ...m, params: { ...m.params, tournamentId } })) ?? [
+          { method: 'setMatchUpStatus', params: enriched.params || sms.params || sms },
+        ],
         userId: enriched.userId,
       };
       this.broadcastService.broadcastMutation(payload, {

@@ -3,9 +3,11 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 // `capturedClock` is declared locally so this compiles against a factory that predates it; the
 // factory calls the two hooks below only once it captures the clock per engine call (#5399(factory)).
+// `capturedStamps` likewise: the factory's per-call `updatedAt` ledger (#5756(factory)).
 type ImplemtationGlobalStateTypes = globalState.ImplemtationGlobalStateTypes & {
   capturedClock?: number;
   capturedCompetitionClock?: number;
+  capturedStamps?: WeakSet<object>;
   callRandomSource?: () => number;
 };
 
@@ -103,6 +105,8 @@ export default {
   setCapturedClock,
   getCapturedCompetitionClock,
   setCapturedCompetitionClock,
+  getCapturedStamps,
+  setCapturedStamps,
   getCallRandomSource,
   setCallRandomSource,
   deleteNotice,
@@ -147,6 +151,19 @@ export function getCapturedCompetitionClock(): number | undefined {
 
 export function setCapturedCompetitionClock(timeStamp?: number) {
   getInstanceState().capturedCompetitionClock = timeStamp;
+}
+
+/**
+ * The entities the engine call in flight has stamped `updatedAt` on, so each is stamped once per call
+ * (factory F2 (i)). Per request, like the captured clock: one request's stamps must not mark another
+ * request's entities as already stamped. A factory that predates the ledger never calls these.
+ */
+export function getCapturedStamps(): WeakSet<object> | undefined {
+  return asyncLocalStorage.getStore()?.capturedStamps;
+}
+
+export function setCapturedStamps(stamps?: WeakSet<object>) {
+  getInstanceState().capturedStamps = stamps;
 }
 
 /**

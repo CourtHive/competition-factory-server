@@ -39,7 +39,9 @@ export interface CachedLocale {
 @Injectable()
 export class I18nService implements OnModuleInit {
   private readonly logger = new Logger(I18nService.name);
-  private readonly i18nDir = join(process.cwd(), 'i18n');
+  // Relative to the working directory unless I18N_DIR says otherwise: a packaged server (a desktop
+  // sidecar, an image) cannot assume it is started from the repository root.
+  private readonly i18nDir = process.env.I18N_DIR || join(process.cwd(), 'i18n');
 
   private manifest: Manifest | null = null;
   private readonly localeCache = new Map<string, CachedLocale>();
