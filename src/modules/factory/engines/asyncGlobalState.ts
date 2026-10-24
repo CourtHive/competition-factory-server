@@ -1,3 +1,4 @@
+import type { Tournament, TournamentRecords } from 'tods-competition-factory';
 import { factoryConstants, globalState } from 'tods-competition-factory';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
@@ -195,12 +196,12 @@ export function getTournamentId() {
   return instanceState.tournamentId;
 }
 
-export function getTournamentRecord(tournamentId) {
+export function getTournamentRecord(tournamentId): Tournament {
   const instanceState = getInstanceState();
   return instanceState.tournamentRecords[tournamentId];
 }
 
-export function getTournamentRecords() {
+export function getTournamentRecords(): TournamentRecords {
   const instanceState = getInstanceState();
   return instanceState.tournamentRecords;
 }
