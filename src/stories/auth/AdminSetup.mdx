@@ -53,7 +53,7 @@ pnpm watch
 
 ## Development Mode
 
-When `APP_MODE=development` in `.env`, a hardcoded test user is available without any database entry:
+When `APP_MODE=development` in `.env` **and the database is on loopback** (`PG_HOST` is `localhost`, `127.0.0.1` or `::1`), a hardcoded test user is available without any database entry. Its password is published here, so it is never offered against a shared or remote database, and never when `NODE_ENV=production` (`src/modules/users/devTestUser.ts`):
 
 <table>
   <thead>
