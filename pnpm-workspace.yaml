@@ -30,6 +30,8 @@ minimumReleaseAgeExclude:
   - 'pdf-factory'
   - 'scoring-visualizations'
   - 'tabulator-scorecards'
+  # Renovate security update: body-parser@2.4.0
+  - body-parser@2.4.0
 
 # verifyDepsBeforeRun: false suppresses pnpm's pre-script deps-status check
 # (which otherwise runs `pnpm install` on every husky hook + script
