@@ -173,8 +173,9 @@ jobs:
           # describe.skip and the gate silently covers less than it appears to.
           STORAGE_PROVIDER: postgres
           # APP_MODE=development enables the built-in dev super-admin (axel@castle.com,
-          # users.service.ts:40) that those same specs authenticate as. It has no users row, so
-          # no amount of database seeding substitutes for it. NEVER set this in a deployed
+          # src/modules/users/devTestUser.ts) that those same specs authenticate as. It has no users
+          # row, so no amount of database seeding substitutes for it. It is offered only against a
+          # loopback PG_HOST, which is why PG_HOST below is 127.0.0.1. NEVER set this in a deployed
           # environment: it is a hardcoded super-admin with a published password.
           APP_MODE: development
           PG_HOST: 127.0.0.1
