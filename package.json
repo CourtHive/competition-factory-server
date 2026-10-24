@@ -44,6 +44,7 @@
     "check-types": "tsc --noEmit",
     "admin:list": "node src/scripts/admin-user.mjs list",
     "admin:create": "node src/scripts/admin-user.mjs create",
+    "admin:ensure": "node src/scripts/admin-user.mjs ensure",
     "admin:reset-password": "node src/scripts/admin-user.mjs reset-password",
     "sync-i18n": "node src/scripts/sync-i18n.mjs",
     "postinstall": "node src/scripts/sync-i18n.mjs || true",

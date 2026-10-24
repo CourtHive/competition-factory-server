@@ -1,9 +1,11 @@
-import { IsDefined, IsString, IsNumber, validateSync, MinLength, IsEnum } from 'class-validator';
+import { IsDefined, IsString, IsNumber, validateSync, MinLength, IsEnum, IsOptional } from 'class-validator';
 import { plainToClass } from 'class-transformer';
 import { Environment } from '../common/constants/app';
 
 class EnvironmentVariables {
-  @IsDefined()
+  // Optional: `APPConfig` defaults it to 8383. Required here, it made every fresh environment set a value
+  // the code already had.
+  @IsOptional()
   @IsNumber()
   APP_PORT?: number;
 

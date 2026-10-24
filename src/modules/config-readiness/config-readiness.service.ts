@@ -110,7 +110,6 @@ export class ConfigReadinessService implements OnApplicationBootstrap {
     return [
       this.checkCompetitionClock(),
       this.checkRequiredEnv('JWT_SECRET', { critical: true, suspectPlaceholder: true }),
-      this.checkRequiredEnv('DATABASE_URL', { critical: false, fallbackHint: 'PG_* variables' }),
       this.checkRequiredEnv('EMAIL_FROM', {
         critical: false,
         warningWhenMissing: 'Resend will reject outbound mail.',
