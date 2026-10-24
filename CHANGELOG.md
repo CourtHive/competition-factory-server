@@ -1,5 +1,26 @@
 # Changelog
 
+## [4.7.0](https://github.com/CourtHive/competition-factory-server/compare/v4.6.1...v4.7.0) (2026-10-24)
+
+
+### Features
+
+* **config:** a listen-host setting, an idempotent admin ensure, and three config fixes ([#1104](https://github.com/CourtHive/competition-factory-server/issues/1104)) ([3cde9f5](https://github.com/CourtHive/competition-factory-server/commit/3cde9f530b77eef729db415fa29e8a76fa494229))
+* **engines:** per-request captured stamps ledger for the factory's one updatedAt per call ([#1102](https://github.com/CourtHive/competition-factory-server/issues/1102)) ([8872bbc](https://github.com/CourtHive/competition-factory-server/commit/8872bbc78e64b75d7ba5113f751412f9b3753f12))
+
+
+### Bug Fixes
+
+* **auth:** offer the dev super-admin only against a loopback database ([#1107](https://github.com/CourtHive/competition-factory-server/issues/1107)) ([cd485bc](https://github.com/CourtHive/competition-factory-server/commit/cd485bc3c7ba30b8316a1f6be056d95403ff86dd))
+* **deps:** update tods-competition-factory to 7.21.0 ([#1103](https://github.com/CourtHive/competition-factory-server/issues/1103)) ([3e19353](https://github.com/CourtHive/competition-factory-server/commit/3e193532b78f7050c8deece8e8c86fe63b9571b5))
+* **score:** broadcast the score as executed, so a matchUpId-only result reaches TMX ([#1108](https://github.com/CourtHive/competition-factory-server/issues/1108)) ([1d4a2a9](https://github.com/CourtHive/competition-factory-server/commit/1d4a2a9b1c1fcc44d7129cd4ca450b1193e67893))
+* **sync:** say at boot when the mutation mirror cannot authenticate upstream ([#1105](https://github.com/CourtHive/competition-factory-server/issues/1105)) ([02bdf81](https://github.com/CourtHive/competition-factory-server/commit/02bdf81b62f52b1a99f2166670725021dd78e54e))
+
+
+### Documentation
+
+* **deploy:** node 24, migrations at boot, and say what the relay settings do not do ([#1106](https://github.com/CourtHive/competition-factory-server/issues/1106)) ([cb7a863](https://github.com/CourtHive/competition-factory-server/commit/cb7a8634bbe7b8318774e4b8d8652947862c3865))
+
 ## [4.6.1](https://github.com/CourtHive/competition-factory-server/compare/v4.6.0...v4.6.1) (2026-10-23)
 
 
