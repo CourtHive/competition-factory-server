@@ -473,6 +473,34 @@ describe('FactoryController', () => {
       expect(mockBroadcast.broadcastPublicNotices).toHaveBeenCalled();
     });
 
+    it('broadcasts the score methods AS EXECUTED, so a matchUpId-only score reaches TMX with its drawId', async () => {
+      // The request carries no drawId (an integrator may not know it); CFS resolved it. Broadcasting the request
+      // body left every connected TMX failing ERR_MISSING_DRAWDEF when it applied the mutation.
+      const executed = [{ method: 'setMatchUpStatus', params: { matchUpId: 'm1', drawId: 'resolved-draw' } }];
+      const mockService = {
+        score: vi.fn().mockResolvedValue({ success: true, publicNotices: [], methods: executed }),
+      } as unknown as FactoryService;
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
+
+      await mockController.scoreMatchUp({ tournamentId: 't1', matchUpId: 'm1' } as any, {} as any);
+
+      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tournamentIds: ['t1'],
+          methods: [
+            { method: 'setMatchUpStatus', params: { matchUpId: 'm1', drawId: 'resolved-draw', tournamentId: 't1' } },
+          ],
+        }),
+        expect.anything(),
+      );
+    });
+
     it('does not broadcast after failed score', async () => {
       const mockService = {
         score: vi.fn().mockResolvedValue({ error: 'invalid score' }),
