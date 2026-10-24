@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
 import { Pool } from 'pg';
 
-import { PG_POOL } from 'src/storage/postgres/postgres.config';
 import { upstreamCredentialProblem } from './upstreamCredential';
+import { PG_POOL } from 'src/storage/postgres/postgres.config';
 import { RelayConfig } from '../relay/relay.config';
 
 const MAX_BACKOFF_MS = 60_000;
