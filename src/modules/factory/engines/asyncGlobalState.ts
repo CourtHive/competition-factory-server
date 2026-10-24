@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 // `capturedClock` is declared locally so this compiles against a factory that predates it; the
 // factory calls the two hooks below only once it captures the clock per engine call (#5399(factory)).
-// `capturedStamps` likewise: the factory's per-call `updatedAt` ledger (#5756(competition-factory)).
+// `capturedStamps` likewise: the factory's per-call `updatedAt` ledger (#5756(factory)).
 type ImplemtationGlobalStateTypes = globalState.ImplemtationGlobalStateTypes & {
   capturedClock?: number;
   capturedCompetitionClock?: number;
