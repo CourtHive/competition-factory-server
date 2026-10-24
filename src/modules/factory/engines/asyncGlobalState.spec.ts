@@ -212,6 +212,39 @@ describe('asyncGlobalState — captured clock', () => {
   });
 });
 
+describe('asyncGlobalState — captured stamps', () => {
+  it('overlapping requests each keep their own ledger', async () => {
+    const entity = {};
+    const request = (stamps: WeakSet<object>, delay: number) =>
+      asyncGlobalState.runWithInstanceState(async () => {
+        asyncGlobalState.setCapturedStamps(stamps);
+        await tick(delay);
+        const held = asyncGlobalState.getCapturedStamps();
+        asyncGlobalState.setCapturedStamps(undefined);
+        return { held, released: asyncGlobalState.getCapturedStamps() };
+      });
+
+    const slowStamps = new WeakSet<object>([entity]);
+    const fastStamps = new WeakSet<object>();
+    // the slower request starts first, so the faster one sets and releases its ledger inside its await
+    const [slow, fast] = await Promise.all([request(slowStamps, 20), request(fastStamps, 1)]);
+    expect(slow.held).toBe(slowStamps);
+    expect(fast.held).toBe(fastStamps);
+    expect(fast.held?.has(entity)).toEqual(false);
+    expect(slow.released).toBeUndefined();
+    expect(fast.released).toBeUndefined();
+  });
+
+  it('a fresh request starts with no ledger, and reading creates no implicit state', async () => {
+    const before = asyncGlobalState.implicitContextCreations();
+    await asyncGlobalState.runWithInstanceState(async () => {
+      expect(asyncGlobalState.getCapturedStamps()).toBeUndefined();
+    });
+    expect(asyncGlobalState.getCapturedStamps()).toBeUndefined();
+    expect(asyncGlobalState.implicitContextCreations()).toEqual(before);
+  });
+});
+
 describe('asyncGlobalState — call random source', () => {
   it('overlapping requests each keep the seeded stream they scoped', async () => {
     const request = (source: () => number, delay: number) =>
