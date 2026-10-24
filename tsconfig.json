@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "ignoreDeprecations": "6.0",
     "lib": ["ESNext.Array", "ES2017"],
     "module": "commonjs",
     "declaration": true,
@@ -12,9 +11,10 @@
     "target": "ES6",
     "sourceMap": true,
     "outDir": "./build",
-    "baseUrl": "./",
+    // `src/...` imports resolve through this mapping. It replaced `baseUrl`, which TS7 refuses. The nest CLI
+    // rewrites these specifiers to relative paths at build time from the same mapping.
+    "paths": { "src/*": ["./src/*"] },
     "incremental": true,
-    "downlevelIteration": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "importHelpers": true,

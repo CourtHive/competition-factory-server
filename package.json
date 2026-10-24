@@ -31,7 +31,7 @@
     "start:debug": "NODE_ENV=test nest start --debug --watch",
     "start:prod": "NODE_ENV=production node dist/main",
     "lint:staged": "TZ=UTC lint-staged",
-    "lint:tsc": "tsc --project tsconfig.json",
+    "lint:tsc": "node_modules/typescript/bin/tsc --project tsconfig.json",
     "lint": "eslint src --cache --max-warnings 0 && pnpm run boundary:check",
     "lint:fix": "eslint src --fix --cache",
     "lint:report": "eslint src & eslint --cache src -f json > eslint-report.json",
@@ -41,7 +41,8 @@
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
-    "check-types": "tsc --noEmit",
+    "check-types": "node_modules/typescript7/bin/tsc --noEmit",
+    "check-types:ts6": "node_modules/typescript/bin/tsc --noEmit",
     "admin:list": "node src/scripts/admin-user.mjs list",
     "admin:create": "node src/scripts/admin-user.mjs create",
     "admin:ensure": "node src/scripts/admin-user.mjs ensure",
@@ -125,12 +126,13 @@
     "supertest": "7.3.1",
     "ts-loader": "9.6.2",
     "typescript": "6.0.3",
+    "typescript7": "npm:typescript@7.0.2",
     "unplugin-swc": "^2.0.0",
     "vitest": "^5.0.0"
   },
   "lint-staged": {
     "*.{js,ts}": "eslint --cache --fix",
     "*": "prettier --ignore-unknown --write",
-    "**/*.ts": "tsc --noEmit"
+    "**/*.ts": "node_modules/typescript/bin/tsc --noEmit"
   }
 }
