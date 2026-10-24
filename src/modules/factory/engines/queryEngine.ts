@@ -11,5 +11,7 @@ const methods = {
 // import. getMutationEngine already imports its governors with global=true for the same reason.
 askEngine.importMethods(methods, undefined, undefined, true);
 
-export const queryEngine = askEngine;
+// Annotated because the inferred type, FactoryEngine, is not exported by tods-competition-factory, so declaration
+// emit cannot name it (TS2883). `typeof askEngine` names it through the exported value.
+export const queryEngine: typeof askEngine = askEngine;
 export default queryEngine;
