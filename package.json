@@ -69,7 +69,7 @@
     "@nestjs/throttler": "6.7.1",
     "@nestjs/websockets": "12.2.0",
     "bcryptjs": "3.0.3",
-    "body-parser": "2.3.0",
+    "body-parser": "2.4.0",
     "cache-manager": "7.2.9",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.0",
