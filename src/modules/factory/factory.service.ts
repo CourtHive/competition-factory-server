@@ -13,6 +13,7 @@ import { executionQueue as eq } from './functions/private/executionQueue';
 import { runDurableCommand } from 'src/storage/postgres/commandReceipts';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
+import type { EventDataResult } from './functions/public/getEventData';
 import { computeEffectiveConfig } from '@courthive/provider-config';
 import { checkEngineError } from '../../common/errors/engineError';
 import { withTournamentLock } from 'src/services/tournamentMutex';
@@ -660,7 +661,7 @@ export class FactoryService {
     tournamentId: string;
     drawsProfile?: string;
     eventId: string;
-  }) {
+  }): Promise<EventDataResult> {
     return await publicQueries.getEventData(
       { hydrateParticipants, tournamentId, drawsProfile, eventId },
       this.tournamentStorage,
