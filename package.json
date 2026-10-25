@@ -65,7 +65,7 @@
     "@nestjs/jwt": "12.0.3",
     "@nestjs/platform-express": "12.2.0",
     "@nestjs/platform-socket.io": "12.2.0",
-    "@nestjs/swagger": "12.0.2",
+    "@nestjs/swagger": "12.0.3",
     "@nestjs/throttler": "6.7.1",
     "@nestjs/websockets": "12.2.0",
     "bcryptjs": "3.0.3",
