@@ -1,5 +1,14 @@
 # Changelog
 
+## [4.7.1](https://github.com/CourtHive/competition-factory-server/compare/v4.7.0...v4.7.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **deps:** update @courthive/i18n to 0.11.0 ([#1117](https://github.com/CourtHive/competition-factory-server/issues/1117)) ([a00ee1b](https://github.com/CourtHive/competition-factory-server/commit/a00ee1bb234b1c428cebee9e9d8d6682a3890078))
+* **deps:** update tods-competition-factory to 7.22.0 ([#1115](https://github.com/CourtHive/competition-factory-server/issues/1115)) ([10b1767](https://github.com/CourtHive/competition-factory-server/commit/10b17673c3c2ba01532fb72cc200f23cac05f129))
+* **deps:** update tods-competition-factory to 7.23.0 ([#1122](https://github.com/CourtHive/competition-factory-server/issues/1122)) ([ba4f50e](https://github.com/CourtHive/competition-factory-server/commit/ba4f50e3eafdeb10d87684a7d66d6ec8767c2e6c))
+
 ## [4.7.0](https://github.com/CourtHive/competition-factory-server/compare/v4.6.1...v4.7.0) (2026-10-24)
 
 
