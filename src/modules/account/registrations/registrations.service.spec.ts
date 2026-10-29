@@ -1,4 +1,4 @@
-import { sanctioningEngine, tournamentEngine } from 'tods-competition-factory';
+import { policyGovernor, sanctioningEngine, tournamentEngine } from 'tods-competition-factory';
 import type { Mock, MockInstance } from 'vitest';
 
 /**
@@ -459,9 +459,9 @@ describe('RegistrationsService', () => {
       afterEach(() => vi.restoreAllMocks());
 
       it('attaches the policies AMS resolved at approval, before persisting', async () => {
-        const attachSpy = vi
-          .spyOn(tournamentEngine as any, 'attachPolicies')
-          .mockReturnValue({ success: true, applied: ['seeding'] });
+        // not mocked: the record saved must carry the policy (the record is not in the engine's state, so only a call
+        // that writes to the record given attaches it)
+        const attachSpy = vi.spyOn(policyGovernor as any, 'attachPolicies');
         tournamentStorageService.findTournamentRecord
           .mockResolvedValueOnce({ tournamentRecord: null })
           .mockResolvedValue({ tournamentRecord: baseTournament });
@@ -481,10 +481,13 @@ describe('RegistrationsService', () => {
         expect(attachSpy.mock.invocationCallOrder[0]).toBeLessThan(
           tournamentStorageService.saveTournamentRecord.mock.invocationCallOrder[0],
         );
+        const saved = tournamentStorageService.saveTournamentRecord.mock.calls[0][0].tournamentRecord;
+        const applied = saved.extensions?.find(({ name }: any) => name === 'appliedPolicies')?.value;
+        expect(applied?.seeding).toEqual({ positioning: 'WATERFALL' });
       });
 
       it('activates normally when the record carries no attached policies', async () => {
-        const attachSpy = vi.spyOn(tournamentEngine as any, 'attachPolicies');
+        const attachSpy = vi.spyOn(policyGovernor as any, 'attachPolicies');
         tournamentStorageService.findTournamentRecord
           .mockResolvedValueOnce({ tournamentRecord: null })
           .mockResolvedValue({ tournamentRecord: baseTournament });
@@ -498,7 +501,7 @@ describe('RegistrationsService', () => {
       });
 
       it('a failed attach does not block activation', async () => {
-        vi.spyOn(tournamentEngine as any, 'attachPolicies').mockReturnValue({ error: { message: 'bad policy' } });
+        vi.spyOn(policyGovernor as any, 'attachPolicies').mockReturnValue({ error: { message: 'bad policy' } });
         tournamentStorageService.findTournamentRecord
           .mockResolvedValueOnce({ tournamentRecord: null })
           .mockResolvedValue({ tournamentRecord: baseTournament });
