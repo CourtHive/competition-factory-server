@@ -10,7 +10,18 @@ type ImplemtationGlobalStateTypes = globalState.ImplemtationGlobalStateTypes & {
   capturedCompetitionClock?: number;
   capturedStamps?: WeakSet<object>;
   callRandomSource?: () => number;
+  modifiedTournamentIds?: Set<string>;
 };
+
+// The factory's rule for which records a notice modifies, so only those take the factory stamp. Read optionally, like
+// the hooks above, so this compiles against a factory that predates it: without it every notice modifies every loaded
+// record, which is what the factory did before it asked for `cycleModifiedTournamentIds`.
+const modifiedRecords = globalState as typeof globalState & {
+  modifiedTournamentId?: (payload?: { tournamentId?: unknown }) => string;
+  noticeModifies?: (topic: string) => boolean;
+  UNNAMED_TOURNAMENT?: string;
+};
+const UNNAMED_TOURNAMENT = modifiedRecords.UNNAMED_TOURNAMENT ?? '*';
 
 const INVALID_VALUES = 'Invalid values';
 const SUCCESS = { success: true };
@@ -31,6 +42,7 @@ function newInstanceState(): ImplemtationGlobalStateTypes {
     tournamentRecords: {},
     subscriptions: {},
     modified: false,
+    modifiedTournamentIds: new Set(),
     notices: [],
     methods: {},
   };
@@ -102,6 +114,8 @@ export default {
   callListener,
   createInstanceState,
   cycleMutationStatus,
+  cycleModifiedTournamentIds,
+  markModified,
   getCapturedClock,
   setCapturedClock,
   getCapturedCompetitionClock,
@@ -283,11 +297,32 @@ function cycleMutationStatus() {
   return status;
 }
 
+// the tournaments the call modified, cleared as they are read (the factory's getMutationStatus stamps only these)
+function cycleModifiedTournamentIds(): Set<string> {
+  const instanceState = getInstanceState();
+  const tournamentIds = instanceState.modifiedTournamentIds ?? new Set<string>();
+  instanceState.modifiedTournamentIds = new Set();
+  return tournamentIds;
+}
+
+// marks a write modified without announcing it (a write made with suppressNotifications), the tournament named, or
+// every loaded record when none is
+function markModified(tournamentId?: string) {
+  const instanceState = getInstanceState();
+  instanceState.modified = true;
+  instanceState.modifiedTournamentIds ??= new Set();
+  instanceState.modifiedTournamentIds.add(tournamentId || UNNAMED_TOURNAMENT);
+}
+
 function addNotice({ topic, payload, key }, isGlobalSubscription?: boolean) {
   if (typeof topic !== 'string' || typeof payload !== 'object') return;
   const instanceState = getInstanceState();
-  // if there is a notice then the state has been modified, regardless of whether there is a subscription
-  if (!instanceState.disableNotifications) instanceState.modified = true;
+  // if there is a notice then the state has been modified, regardless of whether there is a subscription: the
+  // tournament it names (every loaded record when it names none), unless it only reports
+  const modifies = modifiedRecords.noticeModifies?.(topic) ?? true;
+  if (!instanceState.disableNotifications && modifies) {
+    markModified(modifiedRecords.modifiedTournamentId?.(payload) ?? UNNAMED_TOURNAMENT);
+  }
   if (instanceState.disableNotifications || (!instanceState.subscriptions[topic] && !isGlobalSubscription)) return;
 
   let outgoing = payload;
