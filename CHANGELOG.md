@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.7.3](https://github.com/CourtHive/competition-factory-server/compare/v4.7.2...v4.7.3) (2026-10-29)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.24.0 ([#1132](https://github.com/CourtHive/competition-factory-server/issues/1132)) ([960834c](https://github.com/CourtHive/competition-factory-server/commit/960834c6c46caf29fa298ebda9f70b5a58ed1048))
+* **state:** record the tournaments a call modified, so only those take the factory stamp ([#1131](https://github.com/CourtHive/competition-factory-server/issues/1131)) ([c85f000](https://github.com/CourtHive/competition-factory-server/commit/c85f000b2305fd9630599b350697c736816de64f))
+
 ## [4.7.2](https://github.com/CourtHive/competition-factory-server/compare/v4.7.1...v4.7.2) (2026-10-27)
 
 
