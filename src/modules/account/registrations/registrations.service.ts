@@ -21,7 +21,7 @@ import {
   Optional,
   UnauthorizedException,
 } from '@nestjs/common';
-import { sanctioningEngine, tools, tournamentEngine } from 'tods-competition-factory';
+import { policyGovernor, sanctioningEngine, tools, tournamentEngine } from 'tods-competition-factory';
 
 import { SanctioningClient, SanctioningRecordSnapshot } from '../sanctioning/sanctioning-client.service';
 import { DeclarationsClient, RegistrationSnapshot } from '../declarations/declarations-client.service';
@@ -559,7 +559,9 @@ export class RegistrationsService {
       ...attached.map(({ policyType, definition }) => ({ [policyType]: definition })),
     );
 
-    const result: any = tournamentEngine.attachPolicies({ tournamentRecord, policyDefinitions });
+    // the record is not in the engine's state: the governor writes to the record given, which is then saved (an engine
+    // call works only on the records it holds)
+    const result: any = policyGovernor.attachPolicies({ tournamentRecord, policyDefinitions });
     if (result?.error) {
       this.logger.warn(
         `tournament ${tournamentRecord?.tournamentId}: could not attach sanctioned policies — ${result.error?.message ?? result.error}`,
