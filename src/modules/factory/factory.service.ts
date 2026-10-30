@@ -13,7 +13,10 @@ import { executionQueue as eq } from './functions/private/executionQueue';
 import { runDurableCommand } from 'src/storage/postgres/commandReceipts';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
+import type { AssistantContextResult } from './functions/public/getAssistantContext';
+import type { TournamentInfoResult } from './functions/public/getTournamentInfo';
 import type { EventDataResult } from './functions/public/getEventData';
+import type { DrawDataResult } from './functions/public/getDrawData';
 import { computeEffectiveConfig } from '@courthive/provider-config';
 import { checkEngineError } from '../../common/errors/engineError';
 import { withTournamentLock } from 'src/services/tournamentMutex';
@@ -628,7 +631,7 @@ export class FactoryService {
     return undefined;
   }
 
-  async getAssistantContext({ tournamentId }: { tournamentId: string }) {
+  async getAssistantContext({ tournamentId }: { tournamentId: string }): Promise<AssistantContextResult> {
     return await publicQueries.getAssistantContext({ tournamentId }, this.tournamentStorage);
   }
 
@@ -644,7 +647,7 @@ export class FactoryService {
     withStructureDetails?: boolean;
     usePublishState?: boolean;
     withVenueData?: boolean;
-  }) {
+  }): Promise<TournamentInfoResult> {
     return await publicQueries.getTournamentInfo(
       { tournamentId, withMatchUpStats, withStructureDetails, usePublishState, withVenueData },
       this.tournamentStorage,
@@ -679,7 +682,7 @@ export class FactoryService {
     structuresProfile?: string;
     tournamentId: string;
     drawId: string;
-  }) {
+  }): Promise<DrawDataResult> {
     return await publicQueries.getDrawData(
       { hydrateParticipants, structuresProfile, tournamentId, drawId },
       this.tournamentStorage,
