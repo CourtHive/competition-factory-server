@@ -3,6 +3,19 @@ import { publishingGovernor, queryGovernor, Tournament } from 'tods-competition-
 import type { ITournamentStorage } from 'src/storage/interfaces';
 import { SUCCESS } from 'src/common/constants/app';
 
+/**
+ * Named so the declaration emit can refer to it: an inferred result reaching into the factory's types cannot be named
+ * under published resolution (TS2883), as `EventDataResult` found first
+ */
+export type TournamentInfoResult =
+  | { error: string }
+  | Awaited<ReturnType<ITournamentStorage['findTournamentRecord']>>
+  | ReturnType<typeof queryGovernor.getTournamentInfo>
+  | (typeof SUCCESS & {
+      tournamentInfo: ReturnType<typeof queryGovernor.getTournamentInfo>['tournamentInfo'];
+      visibleFrom: ReturnType<typeof publishingGovernor.getTournamentVisibleFrom>;
+    });
+
 export async function getTournamentInfo(
   {
     tournamentId,
@@ -18,7 +31,7 @@ export async function getTournamentInfo(
     withVenueData?: boolean;
   },
   storage: ITournamentStorage,
-) {
+): Promise<TournamentInfoResult> {
   if (!tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
   const findResult = await storage.findTournamentRecord({ tournamentId });
   if (findResult.error) return findResult;
