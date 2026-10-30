@@ -15,38 +15,38 @@ export async function getAssistantContext({ tournamentId }: { tournamentId: stri
     withMatchUpStats: true,
     withVenueData: true,
   });
-  if (infoResult.error) return infoResult;
-
   const info = infoResult.tournamentInfo;
+  if (infoResult.error || !info) return infoResult;
 
+  // the fields getTournamentInfo returns: events on `eventInfo`, counts on `matchUpStats` (`withMatchUpStats`); a
+  // tournament carries no category of its own, an event does
   const tournament = {
     tournamentName: info.tournamentName,
     startDate: info.startDate,
     endDate: info.endDate,
-    category: info.category?.categoryName,
     status: info.tournamentStatus,
   };
 
-  const events = (info.events ?? []).map((event: any) => ({
+  const events = (info.eventInfo ?? []).map((event) => ({
     eventName: event.eventName,
     eventType: event.eventType,
-    drawSize: event.drawDefinitions?.[0]?.drawSize,
-    entriesCount: event.entries?.length,
-    matchUpsCount: event.matchUpCounts?.total,
-    completedMatchUps: event.matchUpCounts?.completed,
+    category: event.category?.categoryName,
+    drawsCount: event.drawDefinitionCount ?? 0,
+    entriesCount: event.entriesCount,
   }));
 
-  const venues = (info.venues ?? []).map((venue: any) => ({
+  const venues = (info.venues ?? []).map((venue) => ({
     venueName: venue.venueName,
     courtsCount: venue.courts?.length ?? 0,
   }));
 
-  const scheduleStatus = info.matchUpCounts
+  const stats = info.matchUpStats;
+  const scheduleStatus = stats
     ? {
-        totalMatchUps: info.matchUpCounts.total ?? 0,
-        scheduledMatchUps: info.matchUpCounts.scheduled ?? 0,
-        completedMatchUps: info.matchUpCounts.completed ?? 0,
-        inProgressMatchUps: info.matchUpCounts.inProgress ?? 0,
+        totalMatchUps: stats.total,
+        scheduledMatchUps: stats.scheduled,
+        completedMatchUps: stats.completed,
+        percentComplete: stats.percentComplete,
       }
     : undefined;
 
