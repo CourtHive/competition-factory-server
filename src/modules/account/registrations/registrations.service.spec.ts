@@ -450,7 +450,8 @@ describe('RegistrationsService', () => {
         // Keep the sanctioningEngine singleton untouched — only assert it's invoked.
         activateSpy = vi
           .spyOn(sanctioningEngine as any, 'activateFromSanctioning')
-          .mockReturnValue({ tournamentRecord: baseTournament });
+          // a fresh record each time: the sanctioned policies are attached to it (the real governor writes to it)
+          .mockImplementation(() => ({ tournamentRecord: structuredClone(baseTournament) }));
         vi.spyOn(sanctioningEngine as any, 'reset').mockImplementation(() => undefined);
         vi.spyOn(sanctioningEngine as any, 'setState').mockImplementation(() => undefined);
         vi.spyOn(sanctioningEngine as any, 'setActiveSanctioningId').mockImplementation(() => undefined);
@@ -458,10 +459,21 @@ describe('RegistrationsService', () => {
 
       afterEach(() => vi.restoreAllMocks());
 
+      // the real policy governor throughout: the record being activated is not in the engine's state, so only a call
+      // that writes to the record given attaches anything (a published module namespace cannot be spied on either)
+      const savedSnapshot = () => {
+        const snapshots: any[] = [];
+        tournamentStorageService.saveTournamentRecord.mockImplementation(async ({ tournamentRecord }: any) => {
+          snapshots.push(structuredClone(tournamentRecord));
+          return { success: true };
+        });
+        return snapshots;
+      };
+      const appliedPoliciesOf = (record: any) =>
+        record?.extensions?.find(({ name }: any) => name === 'appliedPolicies')?.value;
+
       it('attaches the policies AMS resolved at approval, before persisting', async () => {
-        const attachSpy = vi
-          .spyOn(tournamentEngine as any, 'attachPolicies')
-          .mockReturnValue({ success: true, applied: ['seeding'] });
+        const snapshots = savedSnapshot();
         tournamentStorageService.findTournamentRecord
           .mockResolvedValueOnce({ tournamentRecord: null })
           .mockResolvedValue({ tournamentRecord: baseTournament });
@@ -474,17 +486,12 @@ describe('RegistrationsService', () => {
 
         await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
 
-        expect(attachSpy).toHaveBeenCalledWith(
-          expect.objectContaining({ policyDefinitions: { seeding: { positioning: 'WATERFALL' } } }),
-        );
-        // applied BEFORE the save, so the tournament is persisted carrying its policies
-        expect(attachSpy.mock.invocationCallOrder[0]).toBeLessThan(
-          tournamentStorageService.saveTournamentRecord.mock.invocationCallOrder[0],
-        );
+        // the record as it was saved (a copy taken at the save) carries the policy: it was attached before persisting
+        expect(appliedPoliciesOf(snapshots[0])?.seeding).toEqual({ positioning: 'WATERFALL' });
       });
 
       it('activates normally when the record carries no attached policies', async () => {
-        const attachSpy = vi.spyOn(tournamentEngine as any, 'attachPolicies');
+        const snapshots = savedSnapshot();
         tournamentStorageService.findTournamentRecord
           .mockResolvedValueOnce({ tournamentRecord: null })
           .mockResolvedValue({ tournamentRecord: baseTournament });
@@ -493,15 +500,17 @@ describe('RegistrationsService', () => {
 
         await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
 
-        expect(attachSpy).not.toHaveBeenCalled();
-        expect(tournamentStorageService.saveTournamentRecord).toHaveBeenCalled();
+        expect(snapshots).toHaveLength(1);
+        expect(appliedPoliciesOf(snapshots[0])).toBeUndefined();
       });
 
       it('a failed attach does not block activation', async () => {
-        vi.spyOn(tournamentEngine as any, 'attachPolicies').mockReturnValue({ error: { message: 'bad policy' } });
+        const snapshots = savedSnapshot();
+        const warnSpy = vi.spyOn((service as any).logger, 'warn').mockImplementation(() => undefined);
         tournamentStorageService.findTournamentRecord
           .mockResolvedValueOnce({ tournamentRecord: null })
           .mockResolvedValue({ tournamentRecord: baseTournament });
+        // an empty policy is refused by the factory (INVALID_VALUES)
         sanctioningClient.getRecordByTournamentId.mockResolvedValue({
           ...sanctioningRecord,
           attachedPolicies: [{ policyType: 'seeding', name: 'X', version: '1.0.0', definition: {} }],
@@ -509,7 +518,9 @@ describe('RegistrationsService', () => {
 
         await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
 
-        expect(tournamentStorageService.saveTournamentRecord).toHaveBeenCalled();
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('could not attach sanctioned policies'));
+        expect(snapshots).toHaveLength(1);
+        expect(appliedPoliciesOf(snapshots[0])).toBeUndefined();
       });
 
       it('skips activation when the tournamentRecord already exists', async () => {
