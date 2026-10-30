@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.7.4](https://github.com/CourtHive/competition-factory-server/compare/v4.7.3...v4.7.4) (2026-10-30)
+
+
+### Bug Fixes
+
+* **projection:** a disabled producer no longer holds the singleton lock ([#1136](https://github.com/CourtHive/competition-factory-server/issues/1136)) ([55d2563](https://github.com/CourtHive/competition-factory-server/commit/55d2563995be4f939745dbdc29023f6a8322f9cd))
+* **registrations:** attach sanctioned policies through the policy governor ([#1137](https://github.com/CourtHive/competition-factory-server/issues/1137)) ([f13089a](https://github.com/CourtHive/competition-factory-server/commit/f13089a2fe81ea0e8f2a880f7b53a51e9d81168a))
+
 ## [4.7.3](https://github.com/CourtHive/competition-factory-server/compare/v4.7.2...v4.7.3) (2026-10-29)
 
 
