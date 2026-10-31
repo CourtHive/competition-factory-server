@@ -24,6 +24,7 @@ import { MutationAuthorizationService } from './mutation-authorization.service';
 import { Public } from 'src/modules/account/auth/decorators/public.decorator';
 import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
+import { BackfillPrivacyPinsDto } from './dto/backfillPrivacyPins.dto';
 import { ApplyPrivacyPolicyDto } from './dto/applyPrivacyPolicy.dto';
 import { PayloadProfileEnum, tools } from 'tods-competition-factory';
 import { User } from '../account/auth/decorators/user.decorator';
@@ -656,5 +657,18 @@ export class FactoryController {
       throw new ForbiddenException('PROVIDER_ADMIN role required');
     }
     return this.factoryService.applyParticipantPrivacyToExisting({ providerId, includeInProgress }, ctx);
+  }
+
+  // One-off: pin the policy a provider's tournaments are served under today onto every one with none attached,
+  // completed included (CA 2026-10-31, for the ITA). Super-admin only: it writes to every tournament of a provider.
+  // Dry run unless the body says `dryRun: false`.
+  @Post('backfill-privacy-pins')
+  @Roles([SUPER_ADMIN])
+  @HttpCode(HttpStatus.OK)
+  backfillPrivacyPins(@Body() dto: BackfillPrivacyPinsDto, @UserCtx() ctx?: UserContext) {
+    const { providerId, dryRun } = dto ?? ({} as BackfillPrivacyPinsDto);
+    if (!providerId) return { error: 'providerId required' };
+    if (!ctx?.isSuperAdmin) throw new ForbiddenException('SUPER_ADMIN role required');
+    return this.factoryService.backfillParticipantPrivacyPins({ providerId, dryRun: dryRun !== false }, ctx);
   }
 }

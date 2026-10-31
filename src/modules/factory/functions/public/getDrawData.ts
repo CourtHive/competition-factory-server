@@ -13,7 +13,17 @@ import type { ITournamentStorage, IProviderStorage } from 'src/storage/interface
  *
  * `structuresProfile: 'STUBS'` narrows further — cheap per-structure metadata with no `roundMatchUps`.
  */
-export async function getDrawData(params: any, storage: ITournamentStorage, providerStorage?: IProviderStorage) {
+/** named for the declaration emit (TS2883 under published resolution), as `EventDataResult` */
+export type DrawDataResult =
+  | { error: string }
+  | Awaited<ReturnType<ITournamentStorage['findTournamentRecord']>>
+  | ReturnType<typeof queryGovernor.getDrawData>;
+
+export async function getDrawData(
+  params: any,
+  storage: ITournamentStorage,
+  providerStorage?: IProviderStorage,
+): Promise<DrawDataResult> {
   if (!params?.tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
   if (!params?.drawId) return { error: 'MISSING_DRAW_ID' };
 

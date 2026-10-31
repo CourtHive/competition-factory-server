@@ -1,4 +1,5 @@
 import { scheduleDrawIntegrityScan, snapshotTouchedDraws } from '../../helpers/executionQueueIntegrity';
+import { documentRequestTournamentIds } from '../../projection/participantDocumentRequests';
 import { HttpException, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { runWithRequestContext } from 'src/modules/factory/engines/requestContext';
 import { tournamentEngineAsync, factoryConstants } from 'tods-competition-factory';
@@ -228,6 +229,16 @@ export async function executionQueue(
                 await projectionOutbox.enqueue(deltas);
               } catch (err: any) {
                 Logger.error(`Projection outbox flush failed: ${err?.message}`, 'executionQueue');
+              }
+
+              // PUBLIC PARTICIPANT DOCUMENTS (W3): one row per stale tournament, inside the lock and the command's
+              // transaction, like a snapshot request. Projection-Producer builds the documents off the lock. Only a
+              // participant or policy change requests one, so scoring adds nothing here. Fail-soft, as above.
+              try {
+                const stale = documentRequestTournamentIds({ intents: deltaBuffer.intents, methods, tournamentIds });
+                if (stale.length) await projectionOutbox.requestParticipantDocuments(stale, 'mutation');
+              } catch (err: any) {
+                Logger.error(`Participant document request failed: ${err?.message}`, 'executionQueue');
               }
             }
 

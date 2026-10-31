@@ -6,6 +6,7 @@ import 'dotenv/config';
 import './modules/factory/engines/getMutationEngine';
 
 import { describeProducerLockHolder, tryAcquireProducerLock } from './modules/factory/projection/producerSingletonLock';
+import { drainParticipantDocumentRequests } from './modules/factory/projection/participantDocumentProducer';
 import { PostgresProjectionOutboxStorage } from './storage/postgres/postgres-projection-outbox.storage';
 import { drainSnapshotRequests } from './modules/factory/projection/snapshotProducer';
 import { getPostgresConfig } from './storage/postgres/postgres.config';
@@ -15,9 +16,12 @@ import { hostname } from 'node:os';
 import { Pool } from 'pg';
 
 /**
- * Projection-Producer: builds the read-model snapshot spans wholesale saves request in deferred mode
- * (`PROJECTION_SNAPSHOT_MODE=deferred`), in its own process so the build never runs on CFS's event loop
- * (Mentat/planning/CFS_LARGE_SAVES.md §10). Idle, and harmless, while CFS runs inline.
+ * Projection-Producer: builds, in its own process so the build never runs on CFS's event loop,
+ *   - the read-model snapshot spans wholesale saves request in deferred mode (`PROJECTION_SNAPSHOT_MODE=deferred`;
+ *     Mentat/planning/CFS_LARGE_SAVES.md §10), and
+ *   - the public participant document spans that participant changes request, in every mode
+ *     (Mentat/planning/PUBLIC_VIEWS_PRIVACY_PLACEMENT.md, W3). Public participant details go stale while it is down,
+ *     so courthive-notify alerts on the age of the oldest pending request.
  *
  * ONE instance: a session advisory lock is held for the life of the process; a second instance waits for it. Two
  * producers would only race the fence (which keeps the result correct), but would double the work.
@@ -66,9 +70,15 @@ async function run() {
 
   while (!stopping) {
     try {
-      const result = await drainSnapshotRequests(outbox, { limit: BATCH });
-      if (result.examined) logger.log(`drained ${JSON.stringify(result)}`);
-      if (!result.examined) await sleep(POLL_MS);
+      // Snapshots first: a wholesale save's rows matter more to readers than a participant's public details, and a
+      // documents span read after a snapshot sees the same stored record either way.
+      const snapshots = await drainSnapshotRequests(outbox, { limit: BATCH });
+      if (snapshots.examined) logger.log(`drained snapshots ${JSON.stringify(snapshots)}`);
+      const documents = await drainParticipantDocumentRequests(outbox, { limit: BATCH });
+      if (documents.examined) logger.log(`drained participant documents ${JSON.stringify(documents)}`);
+      if (documents.failed)
+        logger.error(`participant documents: ${documents.failed} build(s) failed; requests kept for retry`);
+      if (!snapshots.examined && !documents.examined) await sleep(POLL_MS);
     } catch (err: any) {
       logger.error(`drain failed: ${err?.message ?? String(err)}`);
       await sleep(POLL_MS);

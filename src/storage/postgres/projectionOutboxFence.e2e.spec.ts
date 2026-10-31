@@ -61,6 +61,9 @@ d('projection outbox fence and chunking (real Postgres)', () => {
     await pool.query(`CREATE TABLE IF NOT EXISTS projection_snapshot_requests (
       tournament_id TEXT PRIMARY KEY, requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), source TEXT,
       attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT)`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS projection_document_requests (
+      tournament_id TEXT PRIMARY KEY, requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), source TEXT,
+      attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT)`);
     await pool.query(`CREATE TABLE IF NOT EXISTS projection_queue (
       seq BIGSERIAL PRIMARY KEY, tournament_id TEXT, op TEXT, table_name TEXT, row_key JSONB, row_data JSONB,
       topic TEXT, created_at TIMESTAMPTZ DEFAULT NOW(), snapshot_id TEXT)`);
@@ -69,7 +72,9 @@ d('projection outbox fence and chunking (real Postgres)', () => {
   });
 
   beforeEach(async () => {
-    await pool.query('TRUNCATE tournaments, projection_queue, projection_snapshot_requests');
+    await pool.query(
+      'TRUNCATE tournaments, projection_queue, projection_snapshot_requests, projection_document_requests',
+    );
     await pool.query(`INSERT INTO tournaments (tournament_id, data) VALUES ('t-1', '{"tournamentId":"t-1"}')`);
   });
 
@@ -243,6 +248,72 @@ d('projection outbox fence and chunking (real Postgres)', () => {
       await pool.query(`UPDATE tournaments SET updated_at = NOW() WHERE tournament_id = 't-1'`);
 
       const outcome = await outbox.completeSnapshot({
+        tournamentId: 't-1',
+        requestedAt: request.requestedAt,
+        updatedAt: source!.updatedAt,
+        deltas: [delta('t-1', 1)],
+      });
+
+      expect(outcome).toBe('changed');
+      expect(await pending()).toHaveLength(1);
+      expect(await queued('t-1')).toEqual([]);
+    });
+  });
+  // Migration 057: the same mechanism over its own table, so a participant change and a wholesale save never consume
+  // each other's request.
+  describe('participant document requests', () => {
+    const pending = async () => outbox.pendingParticipantDocumentRequests(10);
+
+    it('coalesces repeat requests for one tournament and resets a failed one', async () => {
+      await outbox.requestParticipantDocuments(['t-1', 't-1'], 'mutation');
+      await outbox.recordParticipantDocumentFailure('t-1', 'boom');
+      await outbox.requestParticipantDocuments(['t-1'], 'factory-save');
+
+      const requests = await pending();
+      expect(requests).toHaveLength(1);
+      expect(requests[0]).toMatchObject({ tournamentId: 't-1', source: 'factory-save', attempts: 0 });
+    });
+
+    it('is separate from snapshot requests', async () => {
+      await outbox.requestParticipantDocuments(['t-1'], 'mutation');
+      expect(await outbox.pendingSnapshotRequests(10)).toEqual([]);
+
+      await outbox.requestSnapshots(['t-1'], 'factory-save');
+      const [snapshot] = await outbox.pendingSnapshotRequests(10);
+      const source = await outbox.readForProjection('t-1');
+      await outbox.completeSnapshot({
+        tournamentId: 't-1',
+        requestedAt: snapshot.requestedAt,
+        updatedAt: source!.updatedAt,
+        deltas: [],
+      });
+      expect(await pending()).toHaveLength(1);
+    });
+
+    it('completes a request: span written and request removed, in one commit', async () => {
+      await outbox.requestParticipantDocuments(['t-1'], 'mutation');
+      const [request] = await pending();
+      const source = await outbox.readForProjection('t-1');
+
+      const outcome = await outbox.completeParticipantDocuments({
+        tournamentId: 't-1',
+        requestedAt: request.requestedAt,
+        updatedAt: source!.updatedAt,
+        deltas: [{ ...delta('t-1', 1), snapshotId: 's' }],
+      });
+
+      expect(outcome).toBe('enqueued');
+      expect(await pending()).toEqual([]);
+      expect(await queued('t-1')).toHaveLength(1);
+    });
+
+    it('keeps the request, and writes nothing, when the record changed during the build', async () => {
+      await outbox.requestParticipantDocuments(['t-1'], 'mutation');
+      const [request] = await pending();
+      const source = await outbox.readForProjection('t-1');
+      await pool.query(`UPDATE tournaments SET updated_at = NOW() WHERE tournament_id = 't-1'`);
+
+      const outcome = await outbox.completeParticipantDocuments({
         tournamentId: 't-1',
         requestedAt: request.requestedAt,
         updatedAt: source!.updatedAt,

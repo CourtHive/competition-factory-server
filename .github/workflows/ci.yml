@@ -110,7 +110,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
 
       # Every override left is published, so strip them all and install from the registry.
       - name: 'Strip link: overrides (server)'
