@@ -15,6 +15,12 @@ export const TABLE_VENUES = 'venues';
 export const TABLE_COURTS = 'courts';
 export const TABLE_TOURNAMENT_VENUES = 'tournament_venues';
 /**
+ * Public participant documents (W3). Written ONLY as their own span by Projection-Producer, and deliberately OUT of
+ * SNAPSHOT_OWNED_TABLES: a record snapshot does not build documents (they need the attached privacy policy), so a
+ * snapshot that purged them would leave the tournament with none until the next participant change.
+ */
+export const TABLE_PUBLIC_PARTICIPANTS = 'public_participants';
+/**
  * The discovery projection — the read model's only AGGREGATE table.
  *
  * Cascade-covered, so it is registered in SNAPSHOT_CASCADE_COVERED_TABLES and must stay OUT of

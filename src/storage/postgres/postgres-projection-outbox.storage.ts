@@ -20,6 +20,13 @@ import {
  * until switched on — when disabled, `isEnabled` is false and executionQueue
  * never builds a delta buffer, so no rows are ever written.
  */
+const REQUEST_TABLES = {
+  snapshot: 'projection_snapshot_requests',
+  documents: 'projection_document_requests',
+} as const;
+type RequestTable = (typeof REQUEST_TABLES)[keyof typeof REQUEST_TABLES];
+type CompleteParams = { tournamentId: string; requestedAt: string; updatedAt: string; deltas: ProjectionDelta[] };
+
 /** Seven bind parameters per row: 5,000 rows is 35,000, well inside Postgres's 65,535. */
 export const MAX_DELTAS_PER_STATEMENT = 5_000;
 
@@ -72,11 +79,55 @@ export class PostgresProjectionOutboxStorage implements IProjectionOutboxStorage
   }
 
   async requestSnapshots(tournamentIds: string[], source: string, options?: { client?: PoolClient }): Promise<void> {
+    await this.request(REQUEST_TABLES.snapshot, tournamentIds, source, options);
+  }
+
+  async pendingSnapshotRequests(limit: number): Promise<SnapshotRequest[]> {
+    return this.pending(REQUEST_TABLES.snapshot, limit);
+  }
+
+  async completeSnapshot(params: CompleteParams): Promise<FencedEnqueueResult> {
+    return this.complete(REQUEST_TABLES.snapshot, params);
+  }
+
+  async recordSnapshotFailure(tournamentId: string, error: string): Promise<void> {
+    await this.recordFailure(REQUEST_TABLES.snapshot, tournamentId, error);
+  }
+
+  async requestParticipantDocuments(
+    tournamentIds: string[],
+    source: string,
+    options?: { client?: PoolClient },
+  ): Promise<void> {
+    await this.request(REQUEST_TABLES.documents, tournamentIds, source, options);
+  }
+
+  async pendingParticipantDocumentRequests(limit: number): Promise<SnapshotRequest[]> {
+    return this.pending(REQUEST_TABLES.documents, limit);
+  }
+
+  async completeParticipantDocuments(params: CompleteParams): Promise<FencedEnqueueResult> {
+    return this.complete(REQUEST_TABLES.documents, params);
+  }
+
+  async recordParticipantDocumentFailure(tournamentId: string, error: string): Promise<void> {
+    await this.recordFailure(REQUEST_TABLES.documents, tournamentId, error);
+  }
+
+  // Snapshot requests (055) and document requests (057) are the same mechanism over two tables: one pending request
+  // per tournament, recorded inside the save's lock, served off it through the fence. `table` is one of
+  // REQUEST_TABLES, never caller input.
+  private async request(
+    table: RequestTable,
+    tournamentIds: string[],
+    source: string,
+    options?: { client?: PoolClient },
+  ): Promise<void> {
     const ids = [...new Set(tournamentIds)].filter(Boolean);
     if (!ids.length) return;
     const request = (client: Pool | PoolClient) =>
       client.query(
-        `INSERT INTO projection_snapshot_requests (tournament_id, source)
+        `INSERT INTO ${table} (tournament_id, source)
          SELECT unnest($1::text[]), $2
          ON CONFLICT (tournament_id) DO UPDATE SET
            requested_at = NOW(), source = EXCLUDED.source, attempts = 0, last_error = NULL`,
@@ -90,16 +141,16 @@ export class PostgresProjectionOutboxStorage implements IProjectionOutboxStorage
     // deadlock a full pool, C1). The savepoint keeps a failed request from aborting the save.
     const borrowed = commandClient(this.pool);
     if (borrowed) {
-      await this.inSavepoint(borrowed, 'snapshot_request', () => request(borrowed));
+      await this.inSavepoint(borrowed, `${table}_request`, () => request(borrowed));
       return;
     }
     await request(this.pool);
   }
 
-  async pendingSnapshotRequests(limit: number): Promise<SnapshotRequest[]> {
+  private async pending(table: RequestTable, limit: number): Promise<SnapshotRequest[]> {
     const result = await this.pool.query(
       `SELECT tournament_id, requested_at::text AS requested_at, source, attempts
-         FROM projection_snapshot_requests ORDER BY requested_at ASC LIMIT $1`,
+         FROM ${table} ORDER BY requested_at ASC LIMIT $1`,
       [limit],
     );
     return result.rows.map((row) => ({
@@ -110,36 +161,29 @@ export class PostgresProjectionOutboxStorage implements IProjectionOutboxStorage
     }));
   }
 
-  async completeSnapshot({
-    tournamentId,
-    requestedAt,
-    updatedAt,
-    deltas,
-  }: {
-    tournamentId: string;
-    requestedAt: string;
-    updatedAt: string;
-    deltas: ProjectionDelta[];
-  }): Promise<FencedEnqueueResult> {
+  private async complete(
+    table: RequestTable,
+    { tournamentId, requestedAt, updatedAt, deltas }: CompleteParams,
+  ): Promise<FencedEnqueueResult> {
     return this.inTransaction(async (client) => {
       const outcome = await this.fencedInsert(client, tournamentId, updatedAt, deltas);
       if (outcome !== 'changed') {
         // Only the request this span served. A save that re-requested it meanwhile changed requested_at, and its
         // request stays for the next build.
-        await client.query(
-          'DELETE FROM projection_snapshot_requests WHERE tournament_id = $1 AND requested_at::text = $2',
-          [tournamentId, requestedAt],
-        );
+        await client.query(`DELETE FROM ${table} WHERE tournament_id = $1 AND requested_at::text = $2`, [
+          tournamentId,
+          requestedAt,
+        ]);
       }
       return outcome;
     });
   }
 
-  async recordSnapshotFailure(tournamentId: string, error: string): Promise<void> {
-    await this.pool.query(
-      'UPDATE projection_snapshot_requests SET attempts = attempts + 1, last_error = $2 WHERE tournament_id = $1',
-      [tournamentId, error.slice(0, 2000)],
-    );
+  private async recordFailure(table: RequestTable, tournamentId: string, error: string): Promise<void> {
+    await this.pool.query(`UPDATE ${table} SET attempts = attempts + 1, last_error = $2 WHERE tournament_id = $1`, [
+      tournamentId,
+      error.slice(0, 2000),
+    ]);
   }
 
   /**
