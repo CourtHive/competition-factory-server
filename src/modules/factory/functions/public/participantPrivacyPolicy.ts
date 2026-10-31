@@ -80,6 +80,18 @@ function withPublicTeams(policy: any): any {
 }
 
 /**
+ * The participant privacy policy attached to the record, or undefined. The record is where a tournament's policy is
+ * pinned (CA 2026-10-30): a provider's newer policy reaches an existing tournament only when it is attached to it.
+ */
+export function attachedParticipantPolicy(tournamentRecord: any): any {
+  const attached = queryGovernor.getPolicyDefinitions({
+    tournamentRecord,
+    policyTypes: [POLICY_TYPE_PARTICIPANT],
+  })?.policyDefinitions;
+  return attached?.[POLICY_TYPE_PARTICIPANT] ? attached : undefined;
+}
+
+/**
  * THE participant-privacy policy for every public route. One function, because the
  * routes are required to agree.
  *
@@ -105,18 +117,6 @@ function withPublicTeams(policy: any): any {
  * passed, or a thrown lookup all fall through to the default — the strictest option.
  * Widening privacy because a lookup failed is the one outcome that must be impossible.
  */
-/**
- * The participant privacy policy attached to the record, or undefined. The record is where a tournament's policy is
- * pinned (CA 2026-10-30): a provider's newer policy reaches an existing tournament only when it is attached to it.
- */
-export function attachedParticipantPolicy(tournamentRecord: any): any {
-  const attached = queryGovernor.getPolicyDefinitions({
-    tournamentRecord,
-    policyTypes: [POLICY_TYPE_PARTICIPANT],
-  })?.policyDefinitions;
-  return attached?.[POLICY_TYPE_PARTICIPANT] ? attached : undefined;
-}
-
 export async function resolvePublicParticipantPolicy({
   tournamentRecord,
   providerStorage,
