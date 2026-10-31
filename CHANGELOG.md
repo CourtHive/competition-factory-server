@@ -1,5 +1,25 @@
 # Changelog
 
+## [4.8.0](https://github.com/CourtHive/competition-factory-server/compare/v4.7.4...v4.8.0) (2026-10-31)
+
+
+### Features
+
+* **privacy:** backfill pins on tournaments with no attached privacy policy ([f8a16bd](https://github.com/CourtHive/competition-factory-server/commit/f8a16bd8c43068cd708dae404a277ee87b0efdcf))
+* **projection:** public participant documents built off the tournament lock ([1ba9b04](https://github.com/CourtHive/competition-factory-server/commit/1ba9b045944197d719def1e790a4bd35f1064b6d))
+* **projection:** public participant documents built off the tournament lock ([4da185b](https://github.com/CourtHive/competition-factory-server/commit/4da185b79aa0487df41d90c54dfac13fb18e9793))
+
+
+### Bug Fixes
+
+* **assistant-context:** read the fields getTournamentInfo returns; factory 7.25.0 ([#1141](https://github.com/CourtHive/competition-factory-server/issues/1141)) ([b60c9a6](https://github.com/CourtHive/competition-factory-server/commit/b60c9a641a2559786350338394f57b69f7de1262))
+* **deps:** update tods-competition-factory to 7.26.0 ([#1146](https://github.com/CourtHive/competition-factory-server/issues/1146)) ([71052e3](https://github.com/CourtHive/competition-factory-server/commit/71052e34ebeb04d464e71d2b830b3e2327e5509c))
+
+
+### Documentation
+
+* **privacy:** keep the fail-closed contract on resolvePublicParticipantPolicy ([0625edc](https://github.com/CourtHive/competition-factory-server/commit/0625edc0d08c778f966eee239bfab83b6d8b80e5))
+
 ## [4.7.4](https://github.com/CourtHive/competition-factory-server/compare/v4.7.3...v4.7.4) (2026-10-30)
 
 
