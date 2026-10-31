@@ -166,14 +166,21 @@ d('projection-verify (real DB)', () => {
   it('rebuild pipeline: projects a whole tournament to the outbox (backfill)', async () => {
     process.env.PROJECTION_OUTBOX_ENABLED = 'true';
     const tournamentId = testTournamentId(__filename);
-    await removeTournamentRecords({ tournamentId });
-    await generateTournamentRecord(
-      { tournamentAttributes: { tournamentId }, drawProfiles: [{ drawSize: 8 }], completeAllMatchUps: true },
-      { providerId: 'test-provider', roles: ['superadmin'] },
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({
+      tournamentAttributes: { tournamentId },
+      drawProfiles: [{ drawSize: 8 }],
+      completeAllMatchUps: true,
+    });
+    // The rebuild reads the STORED record from `tournaments` (readForProjection, fenced on updated_at), so the record
+    // is seeded there, not through file storage.
+    await pool.query(
+      `INSERT INTO tournaments (tournament_id, data) VALUES ($1, $2)
+       ON CONFLICT (tournament_id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
+      [tournamentId, tournamentRecord],
     );
     await pool.query('DELETE FROM projection_queue WHERE tournament_id = $1', [tournamentId]);
 
-    const storage: any = { findTournamentRecord: (p: any) => fileStorage.findTournamentRecord(p) };
+    const storage: any = {};
     const rebuild = new ProjectionRebuildService(storage, new PostgresProjectionOutboxStorage(pool));
     const deltaCount = await rebuild.rebuildTournament(tournamentId);
     expect(deltaCount).toBeGreaterThan(0);
@@ -185,7 +192,7 @@ d('projection-verify (real DB)', () => {
     expect(tables.has('match_up_competitors')).toBe(true);
     expect(rows.rows.length).toBe(deltaCount);
 
-    await removeTournamentRecords({ tournamentId });
+    await pool.query('DELETE FROM tournaments WHERE tournament_id = $1', [tournamentId]);
 
     console.log(`[verify] rebuild pipeline: projected ${deltaCount} deltas for the whole tournament`);
   });

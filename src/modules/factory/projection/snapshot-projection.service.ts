@@ -63,6 +63,14 @@ export class SnapshotProjectionService {
   }): Promise<number> {
     if (!this.outbox.isEnabled) return 0;
 
+    // A wholesale save can add, change or remove any participant, and attach a policy, without a notice. Its public
+    // participant documents are rebuilt off the lock in every mode (W3); the record snapshot never purges them.
+    try {
+      await this.outbox.requestParticipantDocuments(Object.keys(tournamentRecords ?? {}), source);
+    } catch (err: any) {
+      this.logger.error(`Participant document request failed for a wholesale save: ${err?.message}`);
+    }
+
     // DEFERRED: record that these tournaments need a snapshot and leave the build to the producer process, off this
     // request and off CFS's event loop (Mentat/planning/CFS_LARGE_SAVES.md §10). The caller is inside the tournament
     // lock, so the request is recorded in the same order as the save; the producer's fence does the rest.

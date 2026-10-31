@@ -1,8 +1,9 @@
+import { attachedParticipantPolicy, resolvePublicParticipantPolicy } from './functions/public/participantPrivacyPolicy';
 import { SnapshotProjectionService, snapshotMode } from './projection/snapshot-projection.service';
 import { BadRequestException, ConflictException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
+import { askEngine, factoryConstants, queryGovernor, readModel } from 'tods-competition-factory';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { attachProviderPrivacyOnCreate } from './helpers/attachProviderPrivacyOnCreate';
-import { askEngine, factoryConstants, queryGovernor } from 'tods-competition-factory';
 import { generateTournamentRecord as gen } from './helpers/generateTournamentRecord';
 import { queryTournamentRecords } from './functions/private/queryTournamentRecords';
 import { MutationMirrorService } from '../tournament-sync/mutation-mirror.service';
@@ -204,6 +205,74 @@ export class FactoryService {
         selected: targets.selected.length,
       },
     };
+  }
+
+  /**
+   * One-off backfill (CA 2026-10-31, for the ITA): pin, on every tournament of a provider that has NO attached
+   * participant-privacy policy, the policy its public pages are served under today, so a later change to the
+   * provider's settings no longer reaches it retroactively. Completed tournaments included, deliberately: unlike
+   * `applyParticipantPrivacyToExisting`, this changes nothing a reader sees; it freezes what they already see.
+   *
+   * "Served under today" is exactly what `resolvePublicParticipantPolicy` returns for a record of this provider with
+   * no attached policy, so the pinned policy cannot differ from the live one. Each pin is an `attachPolicies`
+   * mutation through the full path (lock, save, audit, projection, which also requests the documents). A record that
+   * already carries a participant policy is reported and left alone. Dry run unless `dryRun === false`.
+   */
+  async backfillParticipantPrivacyPins(
+    { providerId, dryRun = true }: { providerId: string; dryRun?: boolean },
+    userContext?: UserContext,
+  ) {
+    const provider: any = await this.providerStorage.getProvider(providerId);
+    if (!provider) return { error: 'Provider not found' };
+
+    const policyDefinitions = await resolvePublicParticipantPolicy({
+      tournamentRecord: { parentOrganisation: { organisationId: providerId } },
+      providerStorage: this.providerStorage,
+    });
+    const policyHash = readModel.participantPolicyHash(policyDefinitions);
+
+    const tournaments = await this.tournamentStorageService.listProviderTournaments({ providerId });
+    const pinned: string[] = [];
+    const alreadyPinned: string[] = [];
+    const failed: Array<{ tournamentId: string; error: any }> = [];
+
+    for (const { tournamentId } of tournaments ?? []) {
+      if (!tournamentId) continue;
+      const found: any = await this.tournamentStorageService.findTournamentRecord({ tournamentId });
+      if (!found?.tournamentRecord) {
+        failed.push({ tournamentId, error: 'record not found' });
+        continue;
+      }
+      if (attachedParticipantPolicy(found.tournamentRecord)) {
+        alreadyPinned.push(tournamentId);
+        continue;
+      }
+      if (dryRun) {
+        pinned.push(tournamentId);
+        continue;
+      }
+
+      const res: any = await eq(
+        {
+          methods: [{ method: 'attachPolicies', params: { policyDefinitions, tournamentId } }],
+          tournamentIds: [tournamentId],
+          userId: userContext?.userId,
+          source: 'privacy-pin-backfill',
+        },
+        this.mutationServices.build(),
+        this.tournamentStorageService,
+        this.auditService,
+      ).catch((err) => ({ error: err?.message ?? String(err) }));
+
+      const existingCode = (EXISTING_POLICY_TYPE as any)?.code ?? EXISTING_POLICY_TYPE;
+      const errorCode = res?.error?.code ?? res?.error;
+      if (res?.success) pinned.push(tournamentId);
+      // attached between the read and the lock: someone pinned it first, which is the outcome wanted
+      else if (errorCode === existingCode) alreadyPinned.push(tournamentId);
+      else failed.push({ tournamentId, error: errorCode ?? 'attach failed' });
+    }
+
+    return { success: true, dryRun, policyHash, pinned, alreadyPinned, failed };
   }
 
   async score(params, cacheManager) {

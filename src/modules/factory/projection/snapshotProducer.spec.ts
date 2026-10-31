@@ -21,6 +21,10 @@ function fakeOutbox(overrides: any = {}) {
     pendingSnapshotRequests: vi.fn().mockResolvedValue([]),
     completeSnapshot: vi.fn().mockResolvedValue('enqueued'),
     recordSnapshotFailure: vi.fn(),
+    requestParticipantDocuments: vi.fn(),
+    pendingParticipantDocumentRequests: vi.fn().mockResolvedValue([]),
+    completeParticipantDocuments: vi.fn().mockResolvedValue('enqueued'),
+    recordParticipantDocumentFailure: vi.fn(),
     ...overrides,
   } as any;
 }
@@ -45,6 +49,8 @@ describe('SnapshotProjectionService.enqueueSnapshots — mode', () => {
     expect(count).toBeGreaterThan(0);
     expect(outbox.enqueue).toHaveBeenCalledTimes(1);
     expect(outbox.requestSnapshots).not.toHaveBeenCalled();
+    // documents are never part of a record snapshot: they are requested for the producer in every mode
+    expect(outbox.requestParticipantDocuments).toHaveBeenCalledWith([record.tournamentId], 'factory-save');
   });
 
   it('records a request and builds nothing when deferred', async () => {
@@ -60,6 +66,7 @@ describe('SnapshotProjectionService.enqueueSnapshots — mode', () => {
     expect(count).toBe(0);
     expect(outbox.enqueue).not.toHaveBeenCalled();
     expect(outbox.requestSnapshots).toHaveBeenCalledWith([record.tournamentId], 'factory-save');
+    expect(outbox.requestParticipantDocuments).toHaveBeenCalledWith([record.tournamentId], 'factory-save');
   });
 });
 

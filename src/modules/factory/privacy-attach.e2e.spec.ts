@@ -181,4 +181,39 @@ describe('participant-privacy attachment (e2e)', () => {
     // No auth header → 401 from the guard (proves the endpoint is protected).
     await request(server).post('/factory/apply-privacy-policy').send({ providerId: PROVIDER_ID }).expect(401);
   });
+
+  // The pin backfill (CA 2026-10-31): going in, 'completed' is the only policy-less record. It pins the policy public
+  // pages use TODAY for a policy-less record, which is the provider's toggles, not its participantPrivacyPolicy setting.
+  describe('backfill-privacy-pins', () => {
+    const backfill = (body: any) => request(server).post('/factory/backfill-privacy-pins').set(auth()).send(body);
+
+    it('is a dry run unless told otherwise, and writes nothing', async () => {
+      const res = await backfill({ providerId: PROVIDER_ID }).expect(200);
+      expect(res.body).toMatchObject({ success: true, dryRun: true, failed: [] });
+      expect(res.body.pinned).toEqual([tid('completed')]);
+      expect(res.body.alreadyPinned).toEqual(expect.arrayContaining([tid('upcoming'), tid('created')]));
+      expect(participantPolicyOn(await fetchRecord(tid('completed')))).toBeUndefined();
+    });
+
+    it('pins the policy the record is served under today, completed included', async () => {
+      const res = await backfill({ providerId: PROVIDER_ID, dryRun: false }).expect(200);
+      expect(res.body).toMatchObject({ success: true, dryRun: false, pinned: [tid('completed')], failed: [] });
+
+      const pinned = participantPolicyOn(await fetchRecord(tid('completed')));
+      expect(pinned).toBeTruthy();
+      // not the provider's newer setting: that would be the retroactive change the pin exists to prevent
+      expect(pinned.policyName).not.toBe('E2E Privacy');
+      expect(pinned.participant.person.birthDate).toBe(false);
+    });
+
+    it('is idempotent: a second run pins nothing', async () => {
+      const res = await backfill({ providerId: PROVIDER_ID, dryRun: false }).expect(200);
+      expect(res.body.pinned).toEqual([]);
+      expect(res.body.alreadyPinned).toContain(tid('completed'));
+    });
+
+    it('requires authentication', async () => {
+      await request(server).post('/factory/backfill-privacy-pins').send({ providerId: PROVIDER_ID }).expect(401);
+    });
+  });
 });

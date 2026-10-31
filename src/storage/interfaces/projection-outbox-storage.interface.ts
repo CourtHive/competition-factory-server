@@ -112,4 +112,20 @@ export interface IProjectionOutboxStorage {
   }): Promise<FencedEnqueueResult>;
   /** Count a failed build against its request, keeping the error for /health/projection and an operator. */
   recordSnapshotFailure(tournamentId: string, error: string): Promise<void>;
+  /**
+   * Record, inside the save's tournament lock, that these tournaments' public participant documents need rebuilding
+   * (migration 057). Same coalescing, savepoint and transaction rules as `requestSnapshots`.
+   */
+  requestParticipantDocuments(tournamentIds: string[], source: string, options?: { client?: any }): Promise<void>;
+  /** The oldest pending document requests, at most `limit`. */
+  pendingParticipantDocumentRequests(limit: number): Promise<SnapshotRequest[]>;
+  /** The producer's commit for a documents span: the fence, the span, and the deletion of the request it served. */
+  completeParticipantDocuments(params: {
+    tournamentId: string;
+    requestedAt: string;
+    updatedAt: string;
+    deltas: ProjectionDelta[];
+  }): Promise<FencedEnqueueResult>;
+  /** Count a failed documents build against its request. */
+  recordParticipantDocumentFailure(tournamentId: string, error: string): Promise<void>;
 }

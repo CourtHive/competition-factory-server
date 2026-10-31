@@ -88,7 +88,11 @@ it('projects a new draw from the saved record without loading a copy per draw', 
   const eventId = template.events[0].eventId;
 
   const persisted = storage(withoutDraw);
-  const projectionOutbox = { isEnabled: true, enqueue: vi.fn(async () => undefined) };
+  const projectionOutbox = {
+    isEnabled: true,
+    enqueue: vi.fn(async () => undefined),
+    requestParticipantDocuments: vi.fn(async () => undefined),
+  };
   const setState = vi.spyOn(tournamentEngineAsync, 'setState');
 
   const result: any = await run(
@@ -103,4 +107,32 @@ it('projects a new draw from the saved record without loading a copy per draw', 
   const matchUpRows = deltas.filter((delta) => delta.table === 'match_ups');
   expect(matchUpRows).toHaveLength(3); // a draw of 4: two semifinals and a final
   expect(matchUpRows.every((delta) => delta.tournamentId === tournamentId)).toBe(true);
+  // a draw changes no participant, so no public participant document is requested
+  expect(projectionOutbox.requestParticipantDocuments).not.toHaveBeenCalled();
+});
+
+it("requests the tournament's public participant documents when a participant changes", async () => {
+  const projectionOutbox = {
+    isEnabled: true,
+    enqueue: vi.fn(async () => undefined),
+    requestParticipantDocuments: vi.fn(async () => undefined),
+  };
+  const participant = {
+    participantId: 'w3-new-participant',
+    participantType: 'INDIVIDUAL',
+    participantRole: 'COMPETITOR',
+    person: { standardFamilyName: 'New', standardGivenName: 'Player' },
+  };
+
+  const result: any = await run(
+    {
+      tournamentIds: [tournamentId],
+      methods: [{ method: 'addParticipants', params: { participants: [participant] } }],
+    },
+    storage(),
+    { projectionOutbox },
+  );
+
+  expect(result.success).toBe(true);
+  expect(projectionOutbox.requestParticipantDocuments).toHaveBeenCalledWith([tournamentId], 'mutation');
 });
