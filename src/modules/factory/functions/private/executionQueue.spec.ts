@@ -20,6 +20,22 @@ const mockStorage = {
 const testUser = { providerId: 'test-provider', roles: ['superadmin'] };
 
 describe('executionQueue', () => {
+  it('refuses test-data methods before reading or writing the record', async () => {
+    const fetchTournamentRecords = vi.fn();
+    const saveTournamentRecords = vi.fn();
+    const storage = { fetchTournamentRecords, saveTournamentRecords } as unknown as TournamentStorageService;
+
+    const result: any = await executionQueue(
+      { methods: [{ method: 'anonymizeTournamentRecord', params: {} }], tournamentIds: [tournamentId] },
+      undefined,
+      storage,
+    );
+    expect(result.error.code).toEqual(factoryConstants.errorConditionConstants.INVALID_ACTION.code);
+    expect(result.context.refused).toEqual(['anonymizeTournamentRecord']);
+    expect(fetchTournamentRecords).not.toHaveBeenCalled();
+    expect(saveTournamentRecords).not.toHaveBeenCalled();
+  });
+
   it('can generate a tournamentRecord', async () => {
     // FIRST: remove any existing tournamentRecord with this tournamentId
     let result: any = await removeTournamentRecords({ tournamentId });
