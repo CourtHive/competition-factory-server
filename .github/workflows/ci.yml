@@ -194,6 +194,34 @@ jobs:
           CALENDAR_DB_TESTS: 'true'
         run: pnpm test
 
+      # The projection outbox's opt-in real-Postgres specs. Each skips unless its flag is set, so
+      # before this step they skipped on every PR: projection-verify was red from #1049 until
+      # 2d189570 and nobody saw it (W3 deploy gate, Mentat/deploy-gates/2026-10-31-public-views-w3.md).
+      #
+      # A separate step, not flags on the full suite: both specs set PROJECTION_OUTBOX_ENABLED in
+      # process.env, and projection-verify clears the shared projection_queue table, which would
+      # race the full suite's other workers. Run alone, the two files touch nothing else.
+      - name: Test (projection outbox, real Postgres)
+        working-directory: competition-factory-server
+        env:
+          APP_NAME: competition-factory-server-ci
+          APP_PORT: '8383'
+          JWT_SECRET: ci-only-value-not-used-by-any-deployment
+          NODE_ENV: test
+          STORAGE_PROVIDER: postgres
+          APP_MODE: development
+          PG_HOST: 127.0.0.1
+          PG_PORT: '5432'
+          PG_USER: guidon
+          PG_PASSWORD: guidon
+          PG_DATABASE: guidon_ci
+          REDIS_URL: redis://127.0.0.1:6379/1
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: '6379'
+          PROJECTION_DB_TESTS: 'true'
+          PROJECTION_OUTBOX_ENABLED: 'true'
+        run: pnpm exec vitest run src/storage/postgres/projectionOutboxFence.e2e.spec.ts src/tests/projection-verify.e2e.spec.ts
+
       - name: Build
         working-directory: competition-factory-server
         run: pnpm build
