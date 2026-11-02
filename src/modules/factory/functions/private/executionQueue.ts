@@ -7,6 +7,7 @@ import { buildProjectionDeltas } from '../../projection/buildProjectionDeltas';
 import { afterCommandCommit } from 'src/storage/postgres/commandTransaction';
 import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
 import { runDurableCommand } from 'src/storage/postgres/commandReceipts';
+import { refusedTestDataMethods } from '../../helpers/testDataMethods';
 import { getMutationEngine } from '../../engines/getMutationEngine';
 import { withTournamentLock } from 'src/services/tournamentMutex';
 import { createDeltaBuffer } from '../../projection/deltaBuffer';
@@ -32,6 +33,14 @@ export async function executionQueue(
   }
 
   if (!storage) return { error: 'Storage not provided' };
+
+  // refused before the lock and the first write: a test-data method rewrites the live record (helpers/testDataMethods)
+  const refused = refusedTestDataMethods(methods);
+  if (refused.length) {
+    Logger.warn(`executionQueue refused test-data methods: ${refused.join(', ')}`);
+    const { INVALID_ACTION } = factoryConstants.errorConditionConstants;
+    return { error: { ...INVALID_ACTION, message: 'Test-data methods are not accepted' }, context: { refused } };
+  }
 
   try {
     const publicNotices: any[] = [];
