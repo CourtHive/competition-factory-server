@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.8.1](https://github.com/CourtHive/competition-factory-server/compare/v4.8.0...v4.8.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.27.0 ([#1152](https://github.com/CourtHive/competition-factory-server/issues/1152)) ([c971f95](https://github.com/CourtHive/competition-factory-server/commit/c971f9599d1f97474e33abdd15a085782dd19ab5))
+* **factory:** refuse test-data methods in executionQueue before the first write ([#1150](https://github.com/CourtHive/competition-factory-server/issues/1150)) ([d1412d9](https://github.com/CourtHive/competition-factory-server/commit/d1412d9f9509709b5819b5a974cca3d010938b22))
+
 ## [4.8.0](https://github.com/CourtHive/competition-factory-server/compare/v4.7.4...v4.8.0) (2026-10-31)
 
 
