@@ -25,7 +25,8 @@ const basePrivacy: any = fixtures.policies.POLICY_PRIVACY_DEFAULT[POLICY_TYPE_PA
 const privacyPolicy = { ...basePrivacy, policyName: 'E2E Privacy' };
 
 function participantPolicyOn(record: any) {
-  const applied = record?.extensions?.find((e: any) => e.name === 'appliedPolicies')?.value;
+  // the record's own policies in either CODES form: the first-class attribute, else the extension
+  const applied = record?.appliedPolicies ?? record?.extensions?.find((e: any) => e.name === 'appliedPolicies')?.value;
   return applied?.[POLICY_TYPE_PARTICIPANT];
 }
 

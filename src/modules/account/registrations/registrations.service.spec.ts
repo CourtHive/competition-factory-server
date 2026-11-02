@@ -469,8 +469,9 @@ describe('RegistrationsService', () => {
         });
         return snapshots;
       };
+      // a record's own policies in either CODES form: the first-class attribute, else the extension
       const appliedPoliciesOf = (record: any) =>
-        record?.extensions?.find(({ name }: any) => name === 'appliedPolicies')?.value;
+        record?.appliedPolicies ?? record?.extensions?.find(({ name }: any) => name === 'appliedPolicies')?.value;
 
       it('attaches the policies AMS resolved at approval, before persisting', async () => {
         const snapshots = savedSnapshot();
