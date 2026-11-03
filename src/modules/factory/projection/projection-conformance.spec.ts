@@ -479,10 +479,10 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       const playoffStructureId = (await tournamentEngineAsync.getEvent({ drawId })).drawDefinition.structures.find(
         (st: any) => st.structureId !== structureId,
       ).structureId;
-      const removal = await tournamentEngineAsync.removeStructure({ structureId: playoffStructureId, drawId });
+      const removal: any = await tournamentEngineAsync.removeStructure({ structureId: playoffStructureId, drawId });
       expect(removal.success).toEqual(true);
 
-      const finalRecord = (await tournamentEngineAsync.getTournament()).tournamentRecord;
+      const finalRecord: any = (await tournamentEngineAsync.getTournament()).tournamentRecord;
       records[tournamentId] = finalRecord;
 
       // What the fixed factory dispatches: the deletes, the draw, and a MODIFY_MATCHUP per
@@ -757,7 +757,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       completeAllMatchUps: true,
     });
     await tournamentEngineAsync.setState(tournamentRecord);
-    const seeded = (await tournamentEngineAsync.getTournament()).tournamentRecord;
+    const seeded: any = (await tournamentEngineAsync.getTournament()).tournamentRecord;
     const entered = new Set(seeded.events[0].entries.map((e: any) => e.participantId));
     const competing = seeded.participants.find(
       (p: any) => p.participantType === 'INDIVIDUAL' && entered.has(p.participantId),
@@ -786,7 +786,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     const removedOk: any = await tournamentEngineAsync.deleteParticipants({ participantIds: [spare.participantId] });
     expect(removedOk?.success).toEqual(true);
 
-    const finalRecord = (await tournamentEngineAsync.getTournament()).tournamentRecord;
+    const finalRecord: any = (await tournamentEngineAsync.getTournament()).tournamentRecord;
     records[tournamentId] = finalRecord;
     const incrementalDeltas = await buildProjectionDeltas({
       intents: [{ kind: 'deleteParticipants', tournamentId, participantIds: [spare.participantId] }],
@@ -1195,11 +1195,9 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     });
     await tournamentEngineAsync.setState(tournamentRecord);
     const structureId = (await tournamentEngineAsync.getEvent({ drawId })).drawDefinition.structures[0].structureId;
-    await tournamentEngineAsync.publishEvent({
-      eventId,
-      removePriorValues: true,
-      drawDetails: { [drawId]: { structureDetails: { [structureId]: { roundLimit: 1, published: true } } } },
-    });
+    // structure details only; the typed publishEvent signature also expects publishingDetail
+    const drawDetails: any = { [drawId]: { structureDetails: { [structureId]: { roundLimit: 1, published: true } } } };
+    await tournamentEngineAsync.publishEvent({ eventId, removePriorValues: true, drawDetails });
     const mutated: any = (await tournamentEngineAsync.getState()).tournamentRecords[tournamentRecord.tournamentId];
 
     const flattenDraw = await flattenDrawOf(mutated);
