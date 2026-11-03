@@ -10,7 +10,8 @@ import { ConsumerEndpoint, ConsumerRegistryService } from './consumer-registry.s
  *   SCORE_RELAY_URL              — base URL of the LAN score-relay (Decision 1 = C)
  *   EXPRESSION_URL               — direct URL of the Expression broadcast scorebug (optional)
  *   VIDEO_BOARD_URL              — direct URL of the in-arena video board renderer (optional)
- *   CLOUD_RELAY_API_KEY          — used as Bearer token for the score-relay route, if set
+ *   SCORE_RELAY_API_KEY          — used as Bearer token for the score-relay route, if set; must
+ *                                  match the relay's PROJECTION_API_KEY
  *   SCORE_RELAY_INTERNAL_URL     — base URL of score-relay's internal webhook intake
  *                                  (Phase 3 slice 6 — crowd writes). When set together with
  *                                  INTERNAL_WEBHOOK_SECRET, registers a `matchup-finalized`
