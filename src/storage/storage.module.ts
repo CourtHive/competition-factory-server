@@ -21,7 +21,6 @@ import { TOPOLOGY_STORAGE } from './interfaces/topology-storage.interface';
 import { CALENDAR_STORAGE } from './interfaces/calendar-storage.interface';
 import { GRANT_STORAGE } from './interfaces/grant-storage.interface';
 import { AUDIT_STORAGE } from './interfaces/audit-storage.interface';
-import { CHAT_STORAGE } from './interfaces/chat-storage.interface';
 import { USER_STORAGE } from './interfaces/user-storage.interface';
 
 import { PostgresDrawIntegrityFindingsStorage } from './postgres/postgres-draw-integrity-findings.storage';
@@ -49,7 +48,6 @@ import { MigrationRunnerService } from './postgres/migration-runner.service';
 import { PostgresAuditStorage } from './postgres/postgres-audit.storage';
 import { PostgresGrantStorage } from './postgres/postgres-grant.storage';
 import { PG_POOL, getPostgresConfig } from './postgres/postgres.config';
-import { PostgresChatStorage } from './postgres/postgres-chat.storage';
 import { PostgresUserStorage } from './postgres/postgres-user.storage';
 import { attachPoolErrorHandler } from './pool-error-handler';
 
@@ -122,7 +120,6 @@ const registrationEntryStorageProvider = makeStorageProvider(
   REGISTRATION_ENTRY_STORAGE,
   PostgresRegistrationEntryStorage,
 );
-const chatStorageProvider = makeStorageProvider(CHAT_STORAGE, PostgresChatStorage);
 const projectionOutboxStorageProvider = makeStorageProvider(PROJECTION_OUTBOX_STORAGE, PostgresProjectionOutboxStorage);
 const drawIntegrityFindingsStorageProvider = makeStorageProvider(
   DRAW_INTEGRITY_FINDINGS_STORAGE,
@@ -157,7 +154,6 @@ const drawIntegrityFindingsStorageProvider = makeStorageProvider(
     providerArchiveStorageProvider,
     refreshTokenStorageProvider,
     registrationEntryStorageProvider,
-    chatStorageProvider,
     projectionOutboxStorageProvider,
     drawIntegrityFindingsStorageProvider,
     TournamentStorageService,
@@ -186,7 +182,6 @@ const drawIntegrityFindingsStorageProvider = makeStorageProvider(
     PROVIDER_ARCHIVE_STORAGE,
     REFRESH_TOKEN_STORAGE,
     REGISTRATION_ENTRY_STORAGE,
-    CHAT_STORAGE,
     PROJECTION_OUTBOX_STORAGE,
     DRAW_INTEGRITY_FINDINGS_STORAGE,
     TournamentStorageService,

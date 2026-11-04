@@ -1,25 +1,18 @@
 import { initRoomJoins, recordRoomJoin, SocketIoRealtimeAdapter } from '../realtime/socket-io-realtime.adapter';
 import { buildUserContext } from 'src/modules/account/auth/helpers/buildUserContext';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
-import { MAX_CHAT_MESSAGE_LENGTH, toAdminFeed, toWireMessage } from './chatWire';
 import { AssignmentsService } from 'src/modules/factory/assignments.service';
 import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
 import { SocketGuard } from 'src/modules/account/auth/guards/socket.guard';
 import { Public } from '../../account/auth/decorators/public.decorator';
 import { UseGuards, Logger, Inject, Injectable } from '@nestjs/common';
-import { TournamentChatService } from './tournament-chat.service';
 import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
 import { UsersService } from 'src/modules/users/users.service';
 import { userCanViewTournament } from './tournamentVisibility';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { resolveCorsOrigins } from 'src/common/cors';
 import { Server, Socket } from 'socket.io';
-import {
-  TOURNAMENT_ROOM_PREFIX,
-  ADMIN_CHAT_MONITOR_ROOM,
-  tournamentChannel,
-  adminChatMonitorChannel,
-} from '../realtime/channels';
+import { TOURNAMENT_ROOM_PREFIX, tournamentChannel } from '../realtime/channels';
 import {
   USER_PROVIDER_STORAGE,
   type IUserProviderStorage,
@@ -31,8 +24,6 @@ import {
   type IUserStorage,
   PROVIDER_STORAGE,
   type IProviderStorage,
-  CHAT_STORAGE,
-  type IChatStorage,
 } from 'src/storage/interfaces';
 import {
   MessageBody,
@@ -74,12 +65,10 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     private readonly provisionerProviderStorage: IProvisionerProviderStorage,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
-    @Inject(CHAT_STORAGE) private readonly chatStorage: IChatStorage,
     private readonly tournamentStorageService: TournamentStorageService,
     private readonly assignmentsService: AssignmentsService,
     private readonly usersService: UsersService,
     private readonly realtime: SocketIoRealtimeAdapter,
-    private readonly tournamentChat: TournamentChatService,
   ) {}
 
   private readonly logger = new Logger(TmxGateway.name);
@@ -166,11 +155,6 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     this.logger.log(`[room] Client ${client.id} joined ${room} — room now has ${roomMembers.length} member(s)`);
     await this.broadcastRoomPresence(tournamentId);
 
-    // Backfill recent chat to the joining socket only. The visibility check
-    // above already gated entry into the room, so this needs no extra gate.
-    const { records: chatHistory } = await this.chatStorage.recentMessages({ tournamentId });
-    client.emit('chatHistory', { tournamentId, messages: (chatHistory ?? []).map(toWireMessage) });
-
     // Loading a tournament is the strongest signal of "active" we have.
     // - User: always stamp lastAccess (super-admins included; that's per-user
     //   activity, distinct from provider access).
@@ -216,133 +200,10 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   // authorizes, stamps identity, executes, broadcasts to this namespace and evicts the public caches.
   // The socket `executionQueue` handler was retired on 2026-10-09 (CA): it duplicated that path and
   // could not evict the cache tiers whose keys only the controller tracks.
-
-  // ── Chat relay ──
-
-  @SubscribeMessage('chatMessage')
-  @Roles([CLIENT, SUPER_ADMIN])
-  async chatMessage(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
-    // Shared with POST /tmx/chat (TournamentChatService). The relay excludes this connection; the
-    // sender reconciles its optimistic copy from the ack below.
-    const result = await this.tournamentChat.send(data, {
-      userContext: await this.resolveUserContext(client),
-      verifiedUser: client.data?.user,
-      excludeConnectionId: client.id,
-    });
-    if ('accepted' in result) client.emit('chatAccepted', result.accepted);
-    if ('rejected' in result) client.emit('chatRejected', result.rejected);
-  }
-
-  /**
-   * Gap fill: a client that detects its `lastSeenSeq` trails the latest seq it
-   * has observed requests everything newer. Gated by current room membership —
-   * the socket can only be in the room if `joinTournament` (with its
-   * `canViewTournament` check) succeeded, so no separate auth path is needed.
-   */
-  @SubscribeMessage('chatSince')
-  @Roles([CLIENT, SUPER_ADMIN])
-  async chatSince(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
-    const tournamentId = data?.tournamentId;
-    const afterSeq = Number(data?.afterSeq);
-    if (!tournamentId || !Number.isFinite(afterSeq)) return;
-    if (!client.rooms.has(tournamentChannel(tournamentId).room)) return;
-
-    const { records } = await this.chatStorage.messagesSince({ tournamentId, afterSeq });
-    client.emit('chatHistory', { tournamentId, gap: true, messages: (records ?? []).map(toWireMessage) });
-  }
-
-  // ── Admin chat monitor (SUPER_ADMIN only) ──
-
-  /**
-   * Super-admin joins the global chat monitor room to receive all chat
-   * messages across all tournaments and providers.
-   */
-  @SubscribeMessage('joinChatMonitor')
-  @Roles([SUPER_ADMIN])
-  async joinChatMonitor(@ConnectedSocket() client: Socket): Promise<void> {
-    await client.join(ADMIN_CHAT_MONITOR_ROOM);
-    this.logger.log(`[chat-monitor] ${client.id} joined admin chat monitor`);
-
-    // Backfill the most-recent cross-tournament page so the monitor opens
-    // populated regardless of how recent the last activity was. The client
-    // can page further back via `adminChatLoadOlder` to the 30d retention edge.
-    const { records } = await this.chatStorage.adminMessagesBefore({});
-    client.emit('adminChatHistory', { messages: (records ?? []).map(toAdminFeed), older: false });
-  }
-
-  /**
-   * Super-admin pages back through cross-tournament history. Returns the page
-   * of messages immediately older than `beforeSeq` (the oldest seq the client
-   * currently holds). An empty `messages` array signals the retention edge —
-   * the client disables its "load older" affordance.
-   */
-  @SubscribeMessage('adminChatLoadOlder')
-  @Roles([SUPER_ADMIN])
-  async adminChatLoadOlder(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
-    if (!client.rooms.has(ADMIN_CHAT_MONITOR_ROOM)) return;
-    const beforeSeq = Number(data?.beforeSeq);
-    if (!Number.isFinite(beforeSeq)) return;
-
-    const { records } = await this.chatStorage.adminMessagesBefore({ beforeSeq });
-    client.emit('adminChatHistory', { messages: (records ?? []).map(toAdminFeed), older: true });
-  }
-
-  @SubscribeMessage('leaveChatMonitor')
-  @Roles([SUPER_ADMIN])
-  async leaveChatMonitor(@ConnectedSocket() client: Socket): Promise<void> {
-    await client.leave(ADMIN_CHAT_MONITOR_ROOM);
-    this.logger.log(`[chat-monitor] ${client.id} left admin chat monitor`);
-  }
-
-  /**
-   * Super-admin sends a message into a specific tournament room from the
-   * chat monitor. The message appears as a regular chatMessage to all
-   * clients in that tournament room.
-   */
-  @SubscribeMessage('adminChatReply')
-  @Roles([SUPER_ADMIN])
-  async adminChatReply(@MessageBody() data: any, @ConnectedSocket() client: Socket): Promise<void> {
-    const tournamentId = data?.tournamentId;
-    if (!tournamentId || !data?.message) return;
-
-    const verifiedUser = client.data?.user;
-    const userName = data.userName || verifiedUser?.email || 'Admin';
-    const message = String(data.message).slice(0, MAX_CHAT_MESSAGE_LENGTH);
-
-    // Persist the admin reply too (is_admin) so it appears in tournament
-    // backfill and gap fills like any other message. Tolerate persist failure
-    // — still relay so the live experience degrades gracefully.
-    const { record } = await this.chatStorage.appendMessage({
-      tournamentId,
-      providerId: data.providerId,
-      providerAbbr: data.providerAbbr,
-      tournamentName: data.tournamentName,
-      userName,
-      message,
-      isAdmin: true,
-    });
-    const wire = record ? toWireMessage(record) : { userName, message, timestamp: Date.now(), isAdmin: true };
-
-    // Send to the tournament room (all clients including the admin if they're in that room)
-    this.realtime.publish(tournamentChannel(tournamentId), 'chatMessage', wire);
-
-    // Also echo back to the monitor room so other monitoring admins see it
-    this.realtime.publish(
-      adminChatMonitorChannel(),
-      'adminChatFeed',
-      record
-        ? toAdminFeed(record)
-        : {
-            ...wire,
-            tournamentId,
-            providerId: data.providerId,
-            providerAbbr: data.providerAbbr,
-            tournamentName: data.tournamentName,
-          },
-    );
-
-    this.logger.log(`[chat-monitor] admin reply to ${tournamentId}: ${message.substring(0, 50)}`);
-  }
+  //
+  // Chat is not on this socket either. It moved to courthive-ams (storage) and score-relay's `/chat` namespace
+  // (delivery) on 2026-10-29; CFS's chat handlers, service and storage were removed in phase 4a (Mentat
+  // planning/CHAT_TO_AMS.md). The `chat_messages` table stays until its own migration (phase 4c).
 
   @SubscribeMessage('tmx')
   @Roles([CLIENT, SUPER_ADMIN])
