@@ -233,7 +233,7 @@ describe('REST → Socket.IO broadcast', () => {
         receivedBroadcast = true;
       });
 
-      // Send a mutation that will fail (missing required params)
+      // Send a mutation the engine refuses (missing required params): a refusal answers 400 with the factory code
       await request(httpServer)
         .post('/factory')
         .set('Authorization', `Bearer ${token}`)
@@ -241,7 +241,8 @@ describe('REST → Socket.IO broadcast', () => {
           tournamentId,
           methods: [{ method: 'addEvent', params: {} }],
         })
-        .expect((res) => expect([200, 500]).toContain(res.status));
+        .expect(400)
+        .expect((res) => expect(res.body.code).toMatch(/^ERR_/));
 
       // Wait to confirm no broadcast was sent
       await new Promise((r) => setTimeout(r, 500));
