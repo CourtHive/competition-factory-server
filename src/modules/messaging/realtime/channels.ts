@@ -8,16 +8,10 @@ import type { RealtimeChannel } from './realtime.types';
 export const TOURNAMENT_ROOM_PREFIX = 'tournament:';
 export const PUBLIC_TOURNAMENT_ROOM_PREFIX = 'public:tournament:';
 export const PERSON_ROOM_PREFIX = 'hiveid:person:';
-export const ADMIN_CHAT_MONITOR_ROOM = 'admin:chatMonitor';
 
-/** TMX operators viewing a tournament: mutations, chat, presence, facility fan-out. */
+/** TMX operators viewing a tournament: mutations, presence, facility fan-out. */
 export function tournamentChannel(tournamentId: string): RealtimeChannel {
   return { namespace: 'tmx', room: TOURNAMENT_ROOM_PREFIX + tournamentId };
-}
-
-/** Super-admins watching chat across every tournament. */
-export function adminChatMonitorChannel(): RealtimeChannel {
-  return { namespace: 'tmx', room: ADMIN_CHAT_MONITOR_ROOM };
 }
 
 /** Anonymous public viewers of a tournament: sanitized updates and live scores. */
