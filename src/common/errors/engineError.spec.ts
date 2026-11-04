@@ -1,4 +1,4 @@
-import { InternalServerErrorException, Logger } from '@nestjs/common';
+import { InternalServerErrorException, BadRequestException, Logger } from '@nestjs/common';
 import { checkEngineError } from './engineError';
 
 describe('checkEngineError', () => {
@@ -61,7 +61,7 @@ describe('checkEngineError', () => {
       info: 'scheduledDate must be within tournament start and end dates',
       stack: ['addMatchUpScheduleItems'],
     };
-    expect(() => checkEngineError(result)).toThrow(InternalServerErrorException);
+    expect(() => checkEngineError(result)).toThrow(BadRequestException);
     expect(spy).toHaveBeenCalledWith(
       'addMatchUpScheduleItems: Invalid Date | context: {"scheduledDate":"2026-03-21"} | info: scheduledDate must be within tournament start and end dates',
     );
@@ -76,7 +76,7 @@ describe('checkEngineError', () => {
       context: { scheduledDate: 'banana' },
       stack: ['addMatchUpScheduleItems'],
     };
-    expect(() => checkEngineError(result)).toThrow(InternalServerErrorException);
+    expect(() => checkEngineError(result)).toThrow(BadRequestException);
     expect(spy).toHaveBeenCalledWith('addMatchUpScheduleItems: Invalid Date | context: {"scheduledDate":"banana"}');
     spy.mockRestore();
   });
@@ -95,5 +95,51 @@ describe('checkEngineError', () => {
       expect(response.message).toBe('error: Invalid participantIds');
       expect(response.context).toEqual({ gender: 'MALE' });
     }
+  });
+
+  describe("status: a refusal is the client's, a failure is the server's", () => {
+    const status = (result: any) => {
+      try {
+        checkEngineError(result);
+      } catch (err: any) {
+        return err.getStatus();
+      }
+      return undefined;
+    };
+
+    it('answers 400 for a factory error constant, as the production INVALID_SCORE was', () => {
+      const result = {
+        success: false,
+        error: { message: 'Invalid score', code: 'ERR_INVALID_SCORE' },
+        stack: ['setMatchUpStatus'],
+      };
+      expect(status(result)).toBe(400);
+      try {
+        checkEngineError(result);
+      } catch (err: any) {
+        expect(err.getResponse()).toMatchObject({
+          message: 'setMatchUpStatus: Invalid score',
+          code: 'ERR_INVALID_SCORE',
+        });
+      }
+    });
+
+    it('stays 500 for a persistence failure, even one that carries a code', () => {
+      expect(status({ error: 'Could not persist tournament record(s)', retryable: true })).toBe(500);
+      expect(status({ error: { message: 'x', code: 'ERR_X' }, retryable: true })).toBe(500);
+    });
+
+    it('stays 500 for a fenced save', () => {
+      expect(status({ error: 'Fenced: tournament is owned by a newer epoch', fenced: true })).toBe(500);
+      expect(status({ error: { message: 'x', code: 'ERR_X' }, fenced: true })).toBe(500);
+    });
+
+    it('stays 500 for a bare-string error (exceptions caught by executionQueue)', () => {
+      expect(status({ error: 'connection terminated unexpectedly' })).toBe(500);
+    });
+
+    it('stays 500 for an error object with no code', () => {
+      expect(status({ error: { message: 'Missing event' } })).toBe(500);
+    });
   });
 });
