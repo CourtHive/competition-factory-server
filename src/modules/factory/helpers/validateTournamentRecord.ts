@@ -172,29 +172,35 @@ export function validateL2(tournamentRecord: any): ValidationResult {
 
 /**
  * L3 — Deep domain validation.
- * Extends L2 with matchUpFormat, category, and tieFormat checks.
+ * Extends L2 with every stored matchUpFormat code, read by the factory's `getMatchUpFormatReport`: event, draw,
+ * structure, matchUp, tieFormat collections, competitionFormat, schedule timing and applied policies. A MALFORMED
+ * code is an error (nothing can read it; CA 2026-11-04); a code REFUSED_FOR_NEW_USE is a warning, since a stored
+ * code is still read and scored as written and records from older versions are expected to hold some.
  */
 export function validateL3(tournamentRecord: any): ValidationResult {
   const l2 = validateL2(tournamentRecord);
   if (!l2.valid) return l2;
 
+  const errors = [...l2.errors];
   const warnings = [...l2.warnings];
   const engine = syncEngine;
   engine.setState(tournamentRecord);
 
-  for (const event of tournamentRecord.events ?? []) {
-    if (event.matchUpFormat) {
-      try {
-        const valid = engine.isValidMatchUpFormat({ matchUpFormat: event.matchUpFormat });
-        if (!valid) warnings.push(`Event ${event.eventId} has invalid matchUpFormat: ${event.matchUpFormat}`);
-      } catch {
-        warnings.push(`Event ${event.eventId} matchUpFormat validation threw`);
-      }
+  const report: any = engine.getMatchUpFormatReport();
+  if (report.error) {
+    errors.push(`matchUpFormat report failed: ${report.error.message ?? report.error}`);
+  }
+  for (const entry of report.entries ?? []) {
+    if (entry.verdict === 'MALFORMED') {
+      errors.push(`Malformed matchUpFormat ${JSON.stringify(entry.matchUpFormat)} at ${entry.path}`);
+    } else if (entry.verdict === 'REFUSED_FOR_NEW_USE') {
+      const info = entry.info ? `: ${entry.info}` : '';
+      warnings.push(`matchUpFormat ${entry.matchUpFormat} at ${entry.path} is refused for new use${info}`);
     }
   }
 
   engine.reset();
-  return { valid: l2.errors.length === 0, errors: l2.errors, warnings };
+  return { valid: errors.length === 0, errors, warnings };
 }
 
 /**
