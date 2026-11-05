@@ -6,7 +6,8 @@ import request from 'supertest';
 import { mocksEngine, factoryConstants } from 'tods-competition-factory';
 import { saveAndCommit } from '../helpers/saveAndCommit';
 import { seededRng } from '../helpers/seededRng';
-import { TEST_EMAIL, TEST_PASSWORD, testTournamentId } from '../../common/constants/test';
+import { testTournamentId } from '../../common/constants/test';
+import { superAdminToken } from 'src/tests/helpers/sessionToken';
 
 const { SINGLES } = factoryConstants.eventConstants;
 
@@ -22,12 +23,7 @@ describe('ClientGeneratedTournamentRecord', () => {
     app = moduleRef.createNestApplication();
     await app.init();
 
-    const loginReq = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
-      .expect(200);
-
-    token = loginReq.body.token;
+    token = await superAdminToken(app);
   });
 
   it('should have a token', async () => {

@@ -131,9 +131,9 @@ describe('ConfigReadinessService', () => {
     expect(c.status).toBe('fail');
   });
 
-  it('flags an unset EMAIL_FROM as WARN, not CRITICAL', () => {
-    delete process.env.EMAIL_FROM;
-    const c = get('EMAIL_FROM');
+  it('flags an unset non-critical variable (PERSONS_BASE_URL) as WARN, not CRITICAL', () => {
+    delete process.env.PERSONS_BASE_URL;
+    const c = get('PERSONS_BASE_URL');
     expect(c.level).toBe('WARN');
     expect(c.status).toBe('warn');
   });

@@ -5,11 +5,11 @@ import { mocksEngine } from 'tods-competition-factory';
 import { AppModule } from 'src/modules/app/app.module';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import bcrypt from 'bcryptjs';
 import request from 'supertest';
 
 import { PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
 import { PG_POOL } from 'src/storage/postgres/postgres.config';
+import { signSessionToken } from 'src/tests/helpers/sessionToken';
 
 // Hermetic: seeds its own superadmin + provider + tournaments, and stands up a
 // stub "rankings pipeline" (records ingest + snapshot POSTs) so the FULL CFS
@@ -17,7 +17,6 @@ import { PG_POOL } from 'src/storage/postgres/postgres.config';
 // courthive-rankings service. RANKINGS_PIPELINE_URL is read at service
 // construction, so the stub must be listening + the env set BEFORE app boot.
 const ADMIN_EMAIL = 'e2e-rankings-admin@courthive.test';
-const ADMIN_PASSWORD = 'e2e-verify-pass';
 const PROVIDER_ID = 'e2e-rankings-provider';
 const PROVIDER_ABBR = 'E2ERANK';
 const tid = (s: string) => `test-rankings-e2e-${s}`;
@@ -75,16 +74,14 @@ describe('provider rankings recompute (e2e)', () => {
     server = app.getHttpServer();
     pool = app.get(PG_POOL);
 
-    const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
     await pool.query(
       `INSERT INTO users (email, password, roles, permissions, data, must_change_password, email_verified_at, updated_at)
        VALUES ($1, $2, $3, '{}'::jsonb, '{}'::jsonb, false, NOW(), NOW())
        ON CONFLICT (email) DO UPDATE SET password = EXCLUDED.password, roles = EXCLUDED.roles,
          must_change_password = false, email_verified_at = NOW()`,
-      [ADMIN_EMAIL, passwordHash, JSON.stringify(['superadmin', 'admin', 'client'])],
+      [ADMIN_EMAIL, '', JSON.stringify(['superadmin', 'admin', 'client'])],
     );
-    token = (await request(server).post('/auth/login').send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD })).body
-      .token;
+    token = await signSessionToken(app, { email: ADMIN_EMAIL });
     expect(token).toBeTruthy();
 
     // Clean slate + seed provider (needs an abbreviation for calendar + policy routing).

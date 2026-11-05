@@ -1,5 +1,7 @@
+import { TournamentAuthModule } from '../tournament-auth/tournament-auth.module';
 import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
 import { MutationAuthorizationService } from './mutation-authorization.service';
+import { ConfigsModule } from 'src/config/config.module';
 import { GrantsService } from './grants.service';
 import { AssignmentsService } from './assignments.service';
 import { FactoryController } from './factory.controller';
@@ -12,7 +14,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
 import { FactoryService } from './factory.service';
-import { AuthModule } from '../account/auth/auth.module';
 import { ConfigService } from '@nestjs/config';
 
 describe('AppService', () => {
@@ -24,7 +25,8 @@ describe('AppService', () => {
       // test module mirrors the real provider graph — A1. Telemetry is inert
       // without LOAD_PROFILE_ENABLED.
       imports: [
-        AuthModule,
+        TournamentAuthModule,
+        ConfigsModule,
         UsersModule,
         CacheModule,
         StorageModule,

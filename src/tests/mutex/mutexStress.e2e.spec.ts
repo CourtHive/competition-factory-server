@@ -6,7 +6,7 @@ import request from 'supertest';
 
 import { AppModule } from '../../modules/app/app.module';
 import { saveAndCommit } from '../helpers/saveAndCommit';
-import { TEST_EMAIL, TEST_PASSWORD } from '../../common/constants/test';
+import { superAdminToken } from 'src/tests/helpers/sessionToken';
 
 vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
 
@@ -72,12 +72,7 @@ describe('Mutex Stress Test — E2E HTTP', () => {
     server = app.getHttpServer();
 
     // Authenticate
-    const loginRes = await request(server)
-      .post('/auth/login')
-      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
-      .expect(200);
-
-    token = loginRes.body.token;
+    token = await superAdminToken(app);
     expect(token).toBeDefined();
 
     // Create and save test tournaments

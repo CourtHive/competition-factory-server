@@ -6,10 +6,6 @@
     "deleteOutDir": true,
     "assets": [
       {
-        "include": "modules/account/email/templates/**/*",
-        "outDir": "build/src"
-      },
-      {
         "include": "storage/postgres/migrations/**/*.sql",
         "outDir": "build/src"
       }

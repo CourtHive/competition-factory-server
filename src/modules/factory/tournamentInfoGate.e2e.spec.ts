@@ -4,9 +4,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
-import { TEST_EMAIL, TEST_PASSWORD, testTournamentId } from 'src/common/constants/test';
+import { testTournamentId } from 'src/common/constants/test';
 import { saveAndCommit } from 'src/tests/helpers/saveAndCommit';
 import { seededRng } from 'src/tests/helpers/seededRng';
+import { superAdminToken } from 'src/tests/helpers/sessionToken';
 
 /**
  * The public tournament-info gate through the REAL app: guards, AuthMiddleware and storage.
@@ -29,11 +30,7 @@ describe('public tournament info gate (e2e)', () => {
     app = moduleRef.createNestApplication();
     await app.init();
 
-    const login = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
-      .expect(200);
-    token = login.body.token;
+    token = await superAdminToken(app);
 
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       tournamentAttributes: { tournamentId },
