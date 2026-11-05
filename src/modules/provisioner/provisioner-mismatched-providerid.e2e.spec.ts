@@ -27,7 +27,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
-import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
+import { superAdminToken } from 'src/tests/helpers/sessionToken';
 
 const e2eEnabled = process.env.STORAGE_PROVIDER === 'postgres';
 const d = e2eEnabled ? describe : describe.skip;
@@ -57,11 +57,7 @@ d('Provisioner / mismatched X-Provider-Id', () => {
     httpServer.keepAliveTimeout = 0;
     httpServer.headersTimeout = 0;
 
-    const loginRes = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
-      .expect(200);
-    adminToken = loginRes.body.token;
+    adminToken = await superAdminToken(app);
 
     // 1. Create a provisioner that mirrors IONSport.
     const provRes = await request(app.getHttpServer())

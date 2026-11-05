@@ -110,14 +110,6 @@ export class ConfigReadinessService implements OnApplicationBootstrap {
     return [
       this.checkCompetitionClock(),
       this.checkRequiredEnv('JWT_SECRET', { critical: true, suspectPlaceholder: true }),
-      this.checkRequiredEnv('EMAIL_FROM', {
-        critical: false,
-        warningWhenMissing: 'Resend will reject outbound mail.',
-      }),
-      this.checkRequiredEnv('APP_BASE_URL', {
-        critical: false,
-        warningWhenMissing: 'Email-verification + password-reset link emails will use a placeholder URL.',
-      }),
       this.checkRequiredEnv('PERSONS_BASE_URL', {
         critical: false,
         warningWhenMissing: 'PersonsClient will use the default http://localhost:3100.',
@@ -126,10 +118,6 @@ export class ConfigReadinessService implements OnApplicationBootstrap {
         critical: false,
         warningWhenMissing:
           "score-relay persistence will be anonymous (CFS RolesGuard rejects). Mint a JWT with aud: 'score' (or 'admin') AND the SCORE role, then set this. /factory/score declares @Audience(['admin', 'score']).",
-      }),
-      this.checkRequiredEnv('RESEND_API_KEY', {
-        critical: false,
-        warningWhenMissing: 'Outbound email is disabled until set.',
       }),
       this.checkNodeVersion(),
       this.checkImportBodyLimit(),

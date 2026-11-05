@@ -1,9 +1,10 @@
+import { TournamentAuthModule } from '../tournament-auth/tournament-auth.module';
 import { StorageModule } from 'src/storage/storage.module';
+import { ConfigsModule } from 'src/config/config.module';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersModule } from '../users/users.module';
 import { CacheModule } from '../cache/cache.module';
 import { AppController } from './app.controller';
-import { AuthModule } from '../account/auth/auth.module';
 import { AppService } from './app.service';
 
 describe('AppController', () => {
@@ -12,7 +13,7 @@ describe('AppController', () => {
 
   beforeEach(async () => {
     app = await Test.createTestingModule({
-      imports: [AuthModule, UsersModule, CacheModule, StorageModule],
+      imports: [TournamentAuthModule, UsersModule, ConfigsModule, CacheModule, StorageModule],
       controllers: [AppController],
       providers: [AppService],
     }).compile();

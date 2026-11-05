@@ -8,10 +8,11 @@ Provisioners create and manage SSO users — users who authenticate via the prov
 
 > **`POST /provisioner/users` is the only user-creation endpoint available to a provisioner
 > API key.** It creates an SSO-only account and validates the provisioner→provider relationship
-> directly. The console admin endpoints that create **password** accounts and send "set your
-> password" onboarding email (`/auth/admin-create-user`) — along with `/auth/admin-reset-password`,
-> `/auth/modify`, and the `user_providers` association endpoints — **reject API-key callers with
-> 403**. Those require a real authenticated administrator (a human `PROVIDER_ADMIN`/`SUPER_ADMIN`,
+> directly. Password accounts and their onboarding email (`/auth/admin-create-user`,
+> `/auth/admin-reset-password`, `/auth/modify`) are the identity provider's (courthive-hiveid),
+> which takes session tokens only, never a provisioner API key; CFS no longer serves those routes.
+> The `user_providers` association endpoints, which CFS keeps, **reject API-key callers with
+> 403**: they require a real authenticated administrator (a human `PROVIDER_ADMIN`/`SUPER_ADMIN`,
 > or a `PROVISIONER`-role JWT user). See **Provisioner/Authentication → Authorization boundary**
 > for why.
 

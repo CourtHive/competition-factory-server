@@ -2,18 +2,17 @@ import { mocksEngine, factoryConstants, fixtures } from 'tods-competition-factor
 import { AppModule } from 'src/modules/app/app.module';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import bcrypt from 'bcryptjs';
 import request from 'supertest';
 
 import { PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
 import { PG_POOL } from 'src/storage/postgres/postgres.config';
+import { signSessionToken } from 'src/tests/helpers/sessionToken';
 
 const POLICY_TYPE_PARTICIPANT = factoryConstants.policyConstants.POLICY_TYPE_PARTICIPANT;
 
 // Hermetic: the spec seeds its own superadmin (below) so it needs no external
 // user fixture — only Postgres + Redis, which the app itself requires.
 const ADMIN_EMAIL = 'e2e-privacy-admin@courthive.test';
-const ADMIN_PASSWORD = 'e2e-verify-pass';
 
 const PROVIDER_ID = 'e2e-privacy-provider';
 const PROVIDER_ABBR = 'E2EPRIV';
@@ -81,19 +80,17 @@ describe('participant-privacy attachment (e2e)', () => {
     server = app.getHttpServer();
     pool = app.get(PG_POOL);
 
-    // Seed a self-contained superadmin (bcrypt hash, verified, no forced change).
-    const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
+    // Seed a self-contained superadmin (no password: it never logs in; its session is signed below).
     await pool.query(
       `INSERT INTO users (email, password, roles, permissions, data, must_change_password, email_verified_at, updated_at)
        VALUES ($1, $2, $3, '{}'::jsonb, '{}'::jsonb, false, NOW(), NOW())
        ON CONFLICT (email) DO UPDATE SET
          password = EXCLUDED.password, roles = EXCLUDED.roles,
          must_change_password = false, email_verified_at = NOW()`,
-      [ADMIN_EMAIL, passwordHash, JSON.stringify(['superadmin', 'admin', 'client'])],
+      [ADMIN_EMAIL, '', JSON.stringify(['superadmin', 'admin', 'client'])],
     );
 
-    const loginReq = await request(server).post('/auth/login').send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
-    token = loginReq.body.token;
+    token = await signSessionToken(app, { email: ADMIN_EMAIL });
     expect(token).toBeTruthy();
 
     // Start from a clean slate (defends against leftovers from an aborted run).

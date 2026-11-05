@@ -79,20 +79,9 @@ curl http://localhost:8383/api
 # Should return a response (or 404 for undefined root)
 ```
 
-## Development User
+## Logging In
 
-When `APP_MODE=development` in `.env`, a hardcoded test user is available:
-
-<table>
-  <thead>
-    <tr><th style={{ textAlign: 'left' }}>Email</th><th style={{ textAlign: 'left' }}>Password</th><th style={{ textAlign: 'left' }}>Roles</th></tr>
-  </thead>
-  <tbody>
-    <tr><td><code>axel@castle.com</code></td><td><code>castle</code></td><td>superadmin, admin, developer, client, score</td></tr>
-  </tbody>
-</table>
-
-This user works without any database entry and is convenient for local development.
+CFS verifies tokens; it does not issue sessions. Run **courthive-hiveid** (`:3140`) beside it and sign in there, or seed a local cast with `node Mentat/scripts/local/seed-local.mjs`. See *Auth / Admin Setup*.
 
 ## Available Scripts
 

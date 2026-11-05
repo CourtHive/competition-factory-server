@@ -6,7 +6,8 @@ import request from 'supertest';
 
 import { saveAndCommit } from 'src/tests/helpers/saveAndCommit';
 import { seededRng } from 'src/tests/helpers/seededRng';
-import { TEST_EMAIL, TEST_PASSWORD, testTournamentId } from 'src/common/constants/test';
+import { testTournamentId } from 'src/common/constants/test';
+import { superAdminToken } from 'src/tests/helpers/sessionToken';
 
 const tournamentId = testTournamentId(__filename);
 
@@ -45,12 +46,7 @@ describe('FactoryService', () => {
   });
 
   it('should get JWT then successful executionQueue', async () => {
-    const loginReq = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
-      .expect(200);
-
-    const token = loginReq.body.token;
+    const token = await superAdminToken(app);
 
     // ENSURE: tournamentRecord exists (use save to await persistence).
     // Seeded RNG keeps the generated tournament_name stable across runs.
@@ -91,11 +87,7 @@ describe('FactoryService', () => {
   });
 
   it('/POST /factory/save rejects a malformed tournamentRecord with 400 + validationErrors', async () => {
-    const loginReq = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
-      .expect(200);
-    const token = loginReq.body.token;
+    const token = await superAdminToken(app);
 
     // startDate in the wrong format — L1 inside L2 will flag it
     const malformed = {

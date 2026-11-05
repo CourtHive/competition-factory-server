@@ -11,9 +11,8 @@
  *     verifyJwt), and the JWKS controller (`/.well-known/jwks.json` stays on CFS);
  *   - the global JwtModule registration (verify + local SPLIT signing).
  *
- * These used to live in account/auth's AuthModule. Moving them here is what makes
- * the eventual `AccountModule` drop a safe removal — the verify infra + SPLIT
- * surface no longer hang off the MOVE tree.
+ * These used to live in account/auth's AuthModule, which was dropped with the rest
+ * of the MOVE tree once `/auth/*` and `/account/*` were served by the IdP.
  *
  * The AuthGuard, AuthMiddleware, and decorators physically remain in account/auth/
  * as documented boundary exceptions (shared verify infra, like role.guard /
@@ -21,6 +20,7 @@
  */
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { JwtModule } from '@nestjs/jwt';
 
 import { SplitTokenSigner } from 'src/services/split-token-signer.service';
 import { HiveIDTournamentController } from './hiveid-tournament.controller';
@@ -33,14 +33,20 @@ import { JwksController } from './jwks.controller';
 import { AuditModule } from '../audit/audit.module';
 import { UsersModule } from '../users/users.module';
 
-// ⚠ DROP-STEP: the global JwtModule this module's AuthGuard / AuthMiddleware /
-// TrackerTokenService rely on is registered by AuthModule (the MOVE module) and
-// available app-wide in coexistence. When AccountModule/AuthModule are dropped at
-// the nginx cutover, ADD the JwtModule.register({ global: true, secret,
-// signOptions }) block here so this survivor stays self-sufficient
-// (ACCOUNT_MOVE_PHASE3_EXECUTION_PLAN.md §C/§D).
+function isValidJwtExpiresIn(val: string): boolean {
+  return /^(\d+|(\d+)([smhdwMy]))$/.test(val);
+}
+
+const rawValidity = process.env.JWT_VALIDITY;
+const expiresIn: any = rawValidity && isValidJwtExpiresIn(rawValidity) ? rawValidity : '1d';
+
 @Module({
-  imports: [UsersModule, AuditModule],
+  imports: [
+    UsersModule,
+    AuditModule,
+    // Global: the AuthGuard, AuthMiddleware and socket guard verify with it, and the SPLIT token routes sign with it.
+    JwtModule.register({ signOptions: { expiresIn }, secret: process.env.JWT_SECRET, global: true }),
+  ],
   controllers: [TournamentTokenController, HiveIDTournamentController, JwksController],
   providers: [
     TrackerTokenService,

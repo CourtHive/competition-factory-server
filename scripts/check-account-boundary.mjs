@@ -2,14 +2,14 @@
 /**
  * Account extraction boundary guard.
  *
- * `src/modules/account/` is a future-microservice candidate (auth / identity /
- * email — see Mentat/planning/ACCOUNT_SERVICE_BOUNDARY.md). The single rule that
- * keeps the eventual CFS -> AMS lift-out an NGINX route flip rather than a
- * refactor:
+ * `src/modules/account/` held the account tree that lifted out to the identity
+ * provider, courthive-hiveid (login, sessions, identity, email). That code is
+ * gone from CFS; what remains under account/ is verify-side infra and the
+ * tournament-admin modules CFS keeps, pending relocation to neutral territory.
+ * The rule still holds until then:
  *
- *   Nothing OUTSIDE src/modules/account/ may import from INSIDE it, except via
- *   the public module surface (AccountModule) or the shared verify-side infra
- *   exceptions listed below.
+ *   Nothing OUTSIDE src/modules/account/ may import from INSIDE it, except the
+ *   shared verify-side infra and module entrypoints listed below.
  *
  * This script scans every source file outside account/, resolves each import
  * that lands inside account/, and fails (exit 1) on any import that is not an
@@ -35,9 +35,6 @@ const ACCOUNT_DIR = join(SRC, 'modules', 'account');
  * Keep this list in sync with the exception table in ACCOUNT_SERVICE_BOUNDARY.md.
  */
 const ALLOWED = [
-  // Public module surface + module entrypoints (Nest wiring / test harnesses)
-  /^account\.module$/,
-  /^auth\/auth\.module$/,
   // Decorators — pure Nest metadata, no account-service runtime dependency
   /^auth\/decorators\/[^/]+$/,
   // Verify-side enforcement guards (paired with the decorators above)
@@ -119,7 +116,7 @@ if (violations.length > 0) {
     console.error(`    imports "${v.spec}"  (account/${v.sub})`);
   }
   console.error(
-    `\n  ${violations.length} violation(s). Route through AccountModule or relocate genuinely-shared`,
+    `\n  ${violations.length} violation(s). Relocate genuinely-shared`,
   );
   console.error('  infra to neutral territory. See Mentat/planning/ACCOUNT_SERVICE_BOUNDARY.md.\n');
   process.exit(1);

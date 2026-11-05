@@ -3,7 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
-import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
+import { superAdminToken } from 'src/tests/helpers/sessionToken';
 
 /**
  * End-to-end integration test for the full provisioner lifecycle.
@@ -44,11 +44,7 @@ d('Provisioner E2E', () => {
     httpServer.headersTimeout = 0;
 
     // Get SUPER_ADMIN JWT
-    const loginRes = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
-      .expect(200);
-    adminToken = loginRes.body.token;
+    adminToken = await superAdminToken(app);
   });
 
   afterAll(async () => {
@@ -251,23 +247,6 @@ d('Provisioner E2E', () => {
 
     expect(res.body.users.length).toBeGreaterThanOrEqual(1);
     expect(res.body.users.some((u) => u.userId === ssoUserId)).toBe(true);
-  });
-
-  it('rejects SSO user direct login', async () => {
-    const user = await request(app.getHttpServer())
-      .get(`/provisioner/users?providerId=${providerId}`)
-      .set('Authorization', `Bearer ${apiKey}`)
-      .expect(200);
-
-    const ssoEmail = user.body.users.find((u) => u.userId === ssoUserId)?.email;
-    if (ssoEmail) {
-      const loginRes = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({ email: ssoEmail, password: 'anything' })
-        .expect(401);
-
-      expect(loginRes.body.message).toContain('SSO');
-    }
   });
 
   // ── Phase 0: Impersonated tournament operations ──

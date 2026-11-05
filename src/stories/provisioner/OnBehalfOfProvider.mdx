@@ -181,7 +181,7 @@ See **Provisioner/Provider Management**, **Provisioner/User Management**, and
     <tr><td><code>401 Unauthorized</code></td><td>Missing, malformed, revoked, or expired provisioner key.</td></tr>
     <tr><td><code>401</code> / <code>403</code></td><td>A provider-scoped (<code>/factory/&#42;</code>) call with no <code>X-Provider-Id</code>, or an <code>X-Provider-Id</code> you have no relationship to — no provider context is injected, so authorization fails.</td></tr>
     <tr><td><code>403</code></td><td>An owner-only <code>/provisioner/&#42;</code> operation attempted with a <code>subsidiary</code> relationship.</td></tr>
-    <tr><td><code>403</code></td><td>A user-administration endpoint (<code>/auth/admin-create-user</code>, <code>/auth/admin-reset-password</code>, <code>/auth/modify</code>, or a <code>user_providers</code> association mutation) called with an API key — the synthetic <code>PROVIDER_ADMIN</code> does not grant user administration. Use <code>POST /provisioner/users</code> instead.</td></tr>
+    <tr><td><code>403</code></td><td>A <code>user_providers</code> association mutation called with an API key — the synthetic <code>PROVIDER_ADMIN</code> does not grant user administration. Use <code>POST /provisioner/users</code> instead.</td></tr>
   </tbody>
 </table>
 

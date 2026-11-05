@@ -16,7 +16,8 @@ import { saveAndCommit } from 'src/tests/helpers/saveAndCommit';
 import { seededRng } from 'src/tests/helpers/seededRng';
 
 // constants
-import { TEST_EMAIL, TEST_PASSWORD, testTournamentId } from 'src/common/constants/test';
+import { testTournamentId } from 'src/common/constants/test';
+import { superAdminToken } from 'src/tests/helpers/sessionToken';
 
 const tournamentId = testTournamentId(__filename);
 
@@ -40,11 +41,7 @@ describe('REST → Socket.IO broadcast', () => {
     baseUrl = `http://127.0.0.1:${address.port}`;
 
     // Get JWT token
-    const loginRes = await request(httpServer)
-      .post('/auth/login')
-      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
-      .expect(200);
-    token = loginRes.body.token;
+    token = await superAdminToken(app);
 
     // Save a tournament record so mutations have something to operate on.
     // Seeded RNG keeps tournament_name + draw IDs stable across runs.

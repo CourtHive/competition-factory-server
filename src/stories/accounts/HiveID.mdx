@@ -4,9 +4,14 @@ import { Meta } from '@storybook/addon-docs/blocks';
 
 # HiveID
 
-HiveID is the **public-facing federated identity** layer, sibling to the admin-side `AuthController`/`AuthService`. It lets a person (player, parent, fan) create or link a CourtHive identity, verify their email, and claim the tournament Participant records that represent them — without holding an admin/provider role.
+HiveID is the **public-facing federated identity** layer. It lets a person (player, parent, fan) create or link a CourtHive identity, verify their email, and claim the tournament Participant records that represent them — without holding an admin/provider role.
 
 HiveID tokens carry an `aud: 'hiveid'` claim (or `aud: ['admin', 'hiveid']` for an admin who has also verified a HiveID). Admin and public audiences stay isolated at the guard layer, so a HiveID token can never reach an admin route.
+
+> **Where it runs.** Sign-up, verify-existing, magic links, `/me`, verification resend and contact email are served by
+> the identity provider, **courthive-hiveid** (production nginx routes `/auth/*` there). CFS keeps only the routes that
+> read tournament data — `me/claimable/:tournamentId` and `me/claim` (`HiveIDTournamentController`) — and verifies
+> hiveid's tokens. The table below describes the whole `/auth/hiveid/*` surface.
 
 ## Endpoints (`/auth/hiveid/*`)
 
@@ -77,8 +82,8 @@ The `/hiveid` Socket.IO namespace (`HiveIDGateway`) is the authenticated public-
     <tr><th style={{ textAlign: 'left' }}>File</th><th style={{ textAlign: 'left' }}>Purpose</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>src/modules/account/auth/hiveid.controller.ts</code></td><td><code>/auth/hiveid/*</code> routes</td></tr>
-    <tr><td><code>src/modules/account/auth/hiveid.service.ts</code></td><td>Signup / verify / magic-link / me / claim logic</td></tr>
+    <tr><td><code>src/modules/tournament-auth/hiveid-tournament.controller.ts</code></td><td>The claim routes CFS keeps (<code>me/claimable</code>, <code>me/claim</code>)</td></tr>
+    <tr><td><code>courthive-hiveid</code> (its own repository)</td><td>Signup / verify / magic-link / me / contact email</td></tr>
     <tr><td><code>src/modules/account/auth/hiveid.constants.ts</code></td><td><code>CANONICAL_PERSON</code>, <code>hmlk_</code> prefix</td></tr>
     <tr><td><code>src/modules/account/auth/guards/auth.guard.ts</code></td><td>Audience-aware JWT guard</td></tr>
     <tr><td><code>src/modules/account/auth/decorators/audience.decorator.ts</code></td><td><code>@Audience(...)</code> + claim type</td></tr>

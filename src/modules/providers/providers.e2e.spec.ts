@@ -4,7 +4,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { PG_POOL } from 'src/storage/postgres/postgres.config';
-import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
+import { superAdminToken } from 'src/tests/helpers/sessionToken';
 
 // Seeded by this spec so the provider-list assertion below has something to find. It used to
 // rely on whatever providers the database happened to hold — true on a developer machine with
@@ -68,12 +68,7 @@ describe('ProvidersService', () => {
   });
 
   it('should get JWT then successful executionQueue', async () => {
-    const loginReq = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
-      .expect(200);
-
-    const token = loginReq.body.token;
+    const token = await superAdminToken(app);
 
     const result = await request(app.getHttpServer())
       .post('/provider/allproviders')
