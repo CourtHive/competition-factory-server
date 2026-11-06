@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.9.1](https://github.com/CourtHive/competition-factory-server/compare/v4.9.0...v4.9.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **storage:** set lz4 as an operator step, not at boot ([6f780f5](https://github.com/CourtHive/competition-factory-server/commit/6f780f59a582dc41ba9c1fea5e40c05ac67b8fd8))
+
+
+### Performance
+
+* **auth:** authorise a mutation from a projection, not a second whole-record fetch ([af7c2a0](https://github.com/CourtHive/competition-factory-server/commit/af7c2a08d3e5126e3d69f15bc52cd3ba4b5c1f12))
+* **storage:** compress tournaments.data with lz4 ([53dc314](https://github.com/CourtHive/competition-factory-server/commit/53dc31465caf8ef5b46a6344f22a856b333c76f6))
+* **storage:** write the participation index and calendar row only when they change ([dfdf47b](https://github.com/CourtHive/competition-factory-server/commit/dfdf47bae13114e7b31fc18b190bbd48765dd0e1))
+
 ## [4.9.0](https://github.com/CourtHive/competition-factory-server/compare/v4.8.1...v4.9.0) (2026-11-06)
 
 
