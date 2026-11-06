@@ -13,9 +13,13 @@
  * provisioner-authenticated requests the synthetic role is ignored and authority
  * must come from a real provisioner→provider relationship (which an API key,
  * carrying no provisionerIds, never has). This test pins that an API-key
- * provisioner is now rejected while:
- *   - the provisioner's legitimate (non-user-admin) surface still works, and
- *   - SUPER_ADMIN can still create users through the same endpoint.
+ * provisioner is now rejected while the provisioner's legitimate
+ * (non-user-admin) surface still works.
+ *
+ * `/auth/admin-create-user` and `/auth/admin-reset-password` have since left CFS
+ * with the rest of user administration (the identity provider, courthive-hiveid,
+ * serves them and takes no provisioner API keys). What this spec pins for them
+ * now is that CFS no longer answers them at all.
  *
  * Requires STORAGE_PROVIDER=postgres + Redis (same as the other provisioner e2e).
  */
@@ -24,7 +28,8 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 
-import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
+import { TEST_EMAIL } from 'src/common/constants/test';
+import { superAdminToken } from 'src/tests/helpers/sessionToken';
 
 const e2eEnabled = process.env.STORAGE_PROVIDER === 'postgres';
 const d = e2eEnabled ? describe : describe.skip;
@@ -35,7 +40,6 @@ d('Provisioner / user-administration loophole', () => {
   let provisionerId: string;
   let apiKey: string;
   let providerId: string;
-  const createdUserEmails: string[] = [];
 
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
@@ -49,11 +53,7 @@ d('Provisioner / user-administration loophole', () => {
     httpServer.keepAliveTimeout = 0;
     httpServer.headersTimeout = 0;
 
-    const loginRes = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
-      .expect(200);
-    adminToken = loginRes.body.token;
+    adminToken = await superAdminToken(app);
 
     const provRes = await request(app.getHttpServer())
       .post('/admin/provisioners')
@@ -80,18 +80,6 @@ d('Provisioner / user-administration loophole', () => {
 
   afterAll(async () => {
     try {
-      // Remove any users created by the SUPER_ADMIN control case.
-      for (const email of createdUserEmails) {
-        try {
-          await request(app.getHttpServer())
-            .post('/auth/remove')
-            .set('Authorization', `Bearer ${adminToken}`)
-            .send({ email });
-        } catch {
-          /* ignore */
-        }
-      }
-
       if (provisionerId && adminToken) {
         try {
           await request(app.getHttpServer())
@@ -118,32 +106,16 @@ d('Provisioner / user-administration loophole', () => {
     }
   });
 
-  it('rejects API-key provisioner creating a user via /auth/admin-create-user (loophole closed)', async () => {
-    const res = await request(app.getHttpServer())
-      .post('/auth/admin-create-user')
-      .set('Authorization', `Bearer ${apiKey}`)
-      .set('X-Provider-Id', providerId)
-      .send({
-        email: `loophole-${Date.now()}@example.com`,
-        providerId,
-        providerRole: 'DIRECTOR',
-      });
+  it('no longer serves user administration: an API-key provisioner finds no route', async () => {
+    for (const path of ['/auth/admin-create-user', '/auth/admin-reset-password']) {
+      const res = await request(app.getHttpServer())
+        .post(path)
+        .set('Authorization', `Bearer ${apiKey}`)
+        .set('X-Provider-Id', providerId)
+        .send({ email: TEST_EMAIL, providerId, providerRole: 'DIRECTOR' });
 
-    expect(res.status).toBe(403);
-    expect(res.body?.success).toBeUndefined();
-  });
-
-  it('rejects API-key provisioner resetting a password via /auth/admin-reset-password', async () => {
-    const res = await request(app.getHttpServer())
-      .post('/auth/admin-reset-password')
-      .set('Authorization', `Bearer ${apiKey}`)
-      .set('X-Provider-Id', providerId)
-      .send({ email: TEST_EMAIL });
-
-    // The synthetic PROVIDER_ADMIN no longer authorises; SUPER_ADMIN is the
-    // only editor the target (TEST_EMAIL) would resolve to, which the API key
-    // is not. Authorization fails before any reset occurs.
-    expect(res.status).toBe(403);
+      expect(res.status, path).toBe(404);
+    }
   });
 
   it('rejects API-key provisioner mutating user_providers associations', async () => {
@@ -164,18 +136,5 @@ d('Provisioner / user-administration loophole', () => {
       .expect(200);
 
     expect(Array.isArray(res.body) || Array.isArray(res.body?.providers)).toBe(true);
-  });
-
-  it('still allows SUPER_ADMIN to create a user via the same endpoint', async () => {
-    const email = `admin-created-${Date.now()}@example.com`;
-    const res = await request(app.getHttpServer())
-      .post('/auth/admin-create-user')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ email, providerId, providerRole: 'DIRECTOR' }) // no contactEmail → clipboard path, no mail sent
-      .expect(200);
-
-    expect(res.body?.success).toBe(true);
-    expect(res.body?.mode).toBe('password-returned');
-    createdUserEmails.push(email);
   });
 });

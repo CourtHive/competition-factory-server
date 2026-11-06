@@ -19,7 +19,8 @@ import { mocksEngine, tools } from 'tods-competition-factory';
 import request from 'supertest';
 
 import { saveAndCommit } from 'src/tests/helpers/saveAndCommit';
-import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
+import { TEST_EMAIL } from 'src/common/constants/test';
+import { superAdminToken } from 'src/tests/helpers/sessionToken';
 
 const AUDIT_TOURNAMENT_ID = `audit-e2e-${Date.now()}`;
 const AUDIT_PROVIDER_ABBR = `AUDITE2E${Date.now()}`;
@@ -41,11 +42,7 @@ d('Audit Trail E2E', () => {
     await app.init();
 
     // Login as super-admin
-    const loginReq = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
-      .expect(200);
-    token = loginReq.body.token;
+    token = await superAdminToken(app);
 
     // Create a test provider
     const providerResult = await request(app.getHttpServer())

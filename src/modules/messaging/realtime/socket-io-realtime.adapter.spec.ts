@@ -50,7 +50,7 @@ describe('SocketIoRealtimeAdapter', () => {
       const nsp = makeNamespace();
       adapter.bind('tmx', nsp as any);
 
-      adapter.publish(tournamentChannel('t1'), 'chatMessage', {}, { excludeConnectionId: 'sock-9' });
+      adapter.publish(tournamentChannel('t1'), 'tournamentMutation', {}, { excludeConnectionId: 'sock-9' });
       expect(nsp.emitted[0]).toMatchObject({ room: 'tournament:t1', except: 'sock-9' });
     });
 
@@ -114,7 +114,7 @@ describe('SocketIoRealtimeAdapter', () => {
     });
 
     it('lists rooms by prefix', async () => {
-      adapter.bind('tmx', makeNamespace({ 'tournament:t1': [], 'tournament:t2': [], 'admin:chatMonitor': [] }) as any);
+      adapter.bind('tmx', makeNamespace({ 'tournament:t1': [], 'tournament:t2': [], 'hiveid:person:p1': [] }) as any);
       const rooms = await adapter.rooms('tmx', 'tournament:');
       expect(rooms.sort((x, y) => x.localeCompare(y))).toEqual(['tournament:t1', 'tournament:t2']);
     });

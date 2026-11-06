@@ -9,7 +9,7 @@ import { AssignmentsService } from './assignments.service';
 import { StorageModule } from 'src/storage/storage.module';
 import { FactoryController } from './factory.controller';
 import { ConfigsModule } from 'src/config/config.module';
-import { AuthModule } from '../account/auth/auth.module';
+import { TournamentAuthModule } from '../tournament-auth/tournament-auth.module';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuditModule } from '../audit/audit.module';
 import { CacheModule } from '../cache/cache.module';
@@ -42,7 +42,7 @@ describe('FactoryController', () => {
       // test module mirrors the real provider graph — A1. Telemetry is inert
       // without LOAD_PROFILE_ENABLED.
       imports: [
-        AuthModule,
+        TournamentAuthModule,
         UsersModule,
         ConfigsModule,
         CacheModule,

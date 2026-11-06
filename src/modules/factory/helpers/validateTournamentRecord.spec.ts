@@ -138,12 +138,34 @@ describe('validateTournamentRecord', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('warns on invalid matchUpFormat', () => {
+    it('a malformed matchUpFormat is an error', () => {
       const record = makeFullRecord();
       record.events[0].matchUpFormat = 'BOGUS-FORMAT';
       let result: any = validateL3(record);
-      // May pass valid (formats are warnings not errors) but should warn
-      expect(result.warnings.some((w: string) => w.includes('matchUpFormat'))).toBe(true);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toEqual([
+        'Malformed matchUpFormat "BOGUS-FORMAT" at tournamentRecord.events[0].matchUpFormat',
+      ]);
+    });
+
+    it('reads formats beyond the event: a malformed draw format is an error', () => {
+      const record = makeFullRecord();
+      record.events[0].drawDefinitions[0].matchUpFormat = 'BOGUS-FORMAT';
+      let result: any = validateL3(record);
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('drawDefinitions[0].matchUpFormat');
+    });
+
+    it('a matchUpFormat refused for new use is a warning and leaves the record valid', () => {
+      const record = makeFullRecord();
+      // well-formed, but an implicit best-of with an even count is refused when a format is set
+      record.events[0].matchUpFormat = 'SET2-S:6/TB7';
+      let result: any = validateL3(record);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toEqual([]);
+      expect(result.warnings.some((w: string) => w.includes('SET2-S:6/TB7') && w.includes('refused for new use'))).toBe(
+        true,
+      );
     });
   });
 

@@ -93,9 +93,10 @@ no `provisionerIds`, so it never satisfies that check and is rejected with **403
   </tbody>
 </table>
 
-The user-administration endpoints gated this way are `/auth/admin-create-user`,
-`/auth/admin-reset-password`, `/auth/modify`, and the admin-UI `user_providers` association
-endpoints (`PUT`/`DELETE /provisioner/users/:userId/providers/:providerId`). To provision end-user
+The user-administration endpoints gated this way are the admin-UI `user_providers` association
+endpoints (`PUT`/`DELETE /provisioner/users/:userId/providers/:providerId`). Password-account
+administration (`/auth/admin-create-user`, `/auth/admin-reset-password`, `/auth/modify`) left CFS
+for the identity provider, courthive-hiveid, which accepts no provisioner API keys at all. To provision end-user
 accounts from an integration, use the SSO endpoint `POST /provisioner/users` (see
 **Provisioner/User Management**), which is purpose-built for API-key callers and validates the
 provisioner→provider relationship directly.

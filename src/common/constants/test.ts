@@ -1,17 +1,12 @@
 import { basename } from 'node:path';
 import { randomBytes } from 'node:crypto';
 
-export const TEST_EMAIL = 'axel@castle.com';
-export const TEST_PASSWORD = 'castle';
-
 /**
- * Stable userId for the dev-mode test super-admin (TEST_EMAIL). A valid UUID so
- * it can be compared against `uuid`-typed `user_id` columns without a cast error.
- * The dev user has no `users` row, so this id resolves to no DB record — but its
- * presence on the JWT lets the HiveID `/me` surface (which keys off
- * `req.user.userId`) work in development instead of 401ing on an absent claim.
+ * The live-stack specs' super-admin: a real `users` row, created and signed for by
+ * `src/tests/helpers/sessionToken.ts`. CFS has no built-in account any more; login is the
+ * identity provider's.
  */
-export const TEST_USER_ID = 'de7de7de-0000-4000-8000-000000000000';
+export const TEST_EMAIL = 'e2e-superadmin@courthive.test';
 
 /**
  * Legacy literal — kept for non-storage assertions. Do NOT use as a

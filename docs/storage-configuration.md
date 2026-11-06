@@ -90,7 +90,7 @@ directory; it will apply on the next boot.
 ```text
 Controllers / Gateways
         |
-    Services (FactoryService, AuthService, etc.)
+    Services (FactoryService, UsersService, etc.)
         |
     TournamentStorageService   <-- calendar + permission side-effects
         |

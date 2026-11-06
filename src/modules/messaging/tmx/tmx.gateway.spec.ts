@@ -1,5 +1,4 @@
 import { SocketIoRealtimeAdapter } from '../realtime/socket-io-realtime.adapter';
-import { TournamentChatService } from './tournament-chat.service';
 import { TOURNAMENT_ROOM_PREFIX } from '../realtime/channels';
 import type { Mock } from 'vitest';
 import { TmxGateway } from './tmx.gateway';
@@ -107,25 +106,6 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
   const userProviderStorage: any = { findByEmail: vi.fn().mockResolvedValue([]) };
   const userProvisionerStorage: any = { findProvisionerIdsByUser: vi.fn().mockResolvedValue([]) };
   const provisionerProviderStorage: any = { findByProvisioner: vi.fn().mockResolvedValue([]) };
-  const chatStorage: any = {
-    appendMessage: vi.fn().mockResolvedValue({
-      record: {
-        seq: 1,
-        tournamentId: 't',
-        userName: 'u',
-        message: 'm',
-        isAdmin: false,
-        createdAt: new Date(0).toISOString(),
-      },
-    }),
-    recentMessages: vi.fn().mockResolvedValue({ records: [] }),
-    messagesSince: vi.fn().mockResolvedValue({ records: [] }),
-    adminMessagesBefore: vi.fn().mockResolvedValue({ records: [] }),
-    pruneOlderThan: vi.fn().mockResolvedValue({ deleted: 0 }),
-  };
-
-  // One adapter for the gateway and the chat service, as in production (RealtimeModule binds both
-  // to the same instance).
   const realtime = new SocketIoRealtimeAdapter();
   const gateway = new TmxGateway(
     cacheManager,
@@ -134,176 +114,13 @@ function buildGateway(opts: { userStorage?: any; providerStorage?: any } = {}) {
     provisionerProviderStorage,
     userStorage,
     providerStorage,
-    chatStorage,
     tournamentStorageService,
     assignmentsService,
     usersService,
     realtime,
-    new TournamentChatService(chatStorage, realtime, tournamentStorageService, assignmentsService),
   );
-  return { gateway, userStorage, providerStorage, chatStorage };
+  return { gateway, userStorage, providerStorage };
 }
-
-describe('TmxGateway chat persistence', () => {
-  it('persists a chatMessage, relays it with seq, and acks the sender', async () => {
-    const { gateway, chatStorage } = buildGateway();
-    chatStorage.appendMessage.mockResolvedValue({
-      record: {
-        seq: 42,
-        tournamentId: 't1',
-        userName: 'u',
-        message: 'hi',
-        isAdmin: false,
-        clientMsgId: 'c1',
-        createdAt: new Date(1000).toISOString(),
-      },
-    });
-    const socket = makeSocket();
-    const server = attachServer(gateway, makeMockServer({}));
-
-    await gateway.chatMessage({ tournamentId: 't1', userName: 'u', message: 'hi', clientMsgId: 'c1' }, socket as any);
-
-    expect(chatStorage.appendMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ tournamentId: 't1', message: 'hi', clientMsgId: 'c1' }),
-    );
-    // Relayed to the room (sender excluded) with the persisted seq.
-    expect(server.emitted).toContainEqual({
-      room: 'tournament:t1',
-      except: 'sock-1',
-      event: 'chatMessage',
-      payload: expect.objectContaining({ seq: 42, message: 'hi' }),
-    });
-    // Sender gets the authoritative seq to reconcile its optimistic copy.
-    expect(socket.emit).toHaveBeenCalledWith('chatAccepted', expect.objectContaining({ clientMsgId: 'c1', seq: 42 }));
-  });
-
-  it('drops an empty message without persisting', async () => {
-    const { gateway, chatStorage } = buildGateway();
-    const socket = makeSocket();
-    await gateway.chatMessage({ tournamentId: 't1', userName: 'u', message: '   ' }, socket as any);
-    expect(chatStorage.appendMessage).not.toHaveBeenCalled();
-  });
-
-  it('rejects to the sender when persistence fails', async () => {
-    const { gateway, chatStorage } = buildGateway();
-    chatStorage.appendMessage.mockResolvedValue({ error: 'db down' });
-    const socket = makeSocket();
-    await gateway.chatMessage({ tournamentId: 't1', userName: 'u', message: 'hi', clientMsgId: 'c9' }, socket as any);
-    expect(socket.emit).toHaveBeenCalledWith('chatRejected', expect.objectContaining({ clientMsgId: 'c9' }));
-  });
-
-  it('backfills chat history to the joining socket', async () => {
-    const { gateway, chatStorage } = buildGateway();
-    chatStorage.recentMessages.mockResolvedValue({
-      records: [
-        {
-          seq: 1,
-          tournamentId: 't1',
-          userName: 'a',
-          message: 'm1',
-          isAdmin: false,
-          createdAt: new Date(0).toISOString(),
-        },
-      ],
-    });
-    const socket = makeSocket({ user: { email: 'me@test.com' } });
-    attachServer(gateway, makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] }));
-
-    await gateway.joinTournament({ tournamentId: 't1' }, socket as any);
-
-    expect(chatStorage.recentMessages).toHaveBeenCalledWith({ tournamentId: 't1' });
-    expect(socket.emit).toHaveBeenCalledWith(
-      'chatHistory',
-      expect.objectContaining({ tournamentId: 't1', messages: expect.any(Array) }),
-    );
-  });
-
-  it('chatSince only answers when the socket is in the tournament room', async () => {
-    const { gateway, chatStorage } = buildGateway();
-    const socket = makeSocket();
-
-    // Not in the room → ignored.
-    await gateway.chatSince({ tournamentId: 't1', afterSeq: 5 }, socket as any);
-    expect(chatStorage.messagesSince).not.toHaveBeenCalled();
-
-    // In the room → answered with a gap-flagged chatHistory.
-    socket.rooms.add('tournament:t1');
-    chatStorage.messagesSince.mockResolvedValue({ records: [] });
-    await gateway.chatSince({ tournamentId: 't1', afterSeq: 5 }, socket as any);
-    expect(chatStorage.messagesSince).toHaveBeenCalledWith({ tournamentId: 't1', afterSeq: 5 });
-    expect(socket.emit).toHaveBeenCalledWith('chatHistory', expect.objectContaining({ gap: true }));
-  });
-
-  it('backfills the most-recent cross-tournament page when an admin joins the monitor', async () => {
-    const { gateway, chatStorage } = buildGateway();
-    chatStorage.adminMessagesBefore.mockResolvedValue({
-      records: [
-        {
-          seq: 7,
-          tournamentId: 't9',
-          providerId: 'p',
-          providerAbbr: 'ACME',
-          tournamentName: 'Open',
-          userName: 'x',
-          message: 'hey',
-          isAdmin: false,
-          createdAt: new Date(0).toISOString(),
-        },
-      ],
-    });
-    const socket = makeSocket({ user: { email: 'admin@test.com', roles: ['superadmin'] } });
-
-    await gateway.joinChatMonitor(socket as any);
-
-    // Opens with the most-recent page (no beforeSeq), flagged as not-older.
-    expect(chatStorage.adminMessagesBefore).toHaveBeenCalledWith({});
-    expect(socket.emit).toHaveBeenCalledWith(
-      'adminChatHistory',
-      expect.objectContaining({
-        older: false,
-        messages: [expect.objectContaining({ seq: 7, providerAbbr: 'ACME', tournamentName: 'Open' })],
-      }),
-    );
-  });
-
-  it('pages older cross-tournament history on adminChatLoadOlder (older: true)', async () => {
-    const { gateway, chatStorage } = buildGateway();
-    chatStorage.adminMessagesBefore.mockResolvedValue({
-      records: [
-        {
-          seq: 3,
-          tournamentId: 't9',
-          providerAbbr: 'ACME',
-          tournamentName: 'Open',
-          userName: 'x',
-          message: 'older',
-          isAdmin: false,
-          createdAt: new Date(0).toISOString(),
-        },
-      ],
-    });
-    const socket = makeSocket({ user: { email: 'admin@test.com', roles: ['superadmin'] } });
-    socket.rooms.add('admin:chatMonitor');
-
-    await gateway.adminChatLoadOlder({ beforeSeq: 7 }, socket as any);
-
-    expect(chatStorage.adminMessagesBefore).toHaveBeenCalledWith({ beforeSeq: 7 });
-    expect(socket.emit).toHaveBeenCalledWith(
-      'adminChatHistory',
-      expect.objectContaining({ older: true, messages: [expect.objectContaining({ seq: 3 })] }),
-    );
-  });
-
-  it('ignores adminChatLoadOlder when the socket is not in the monitor room', async () => {
-    const { gateway, chatStorage } = buildGateway();
-    const socket = makeSocket({ user: { email: 'admin@test.com', roles: ['superadmin'] } });
-
-    await gateway.adminChatLoadOlder({ beforeSeq: 7 }, socket as any);
-
-    expect(chatStorage.adminMessagesBefore).not.toHaveBeenCalled();
-    expect(socket.emit).not.toHaveBeenCalled();
-  });
-});
 
 describe('TmxGateway.handleConnection', () => {
   it('records connectedAt and an empty per-room joinedAt map', () => {
@@ -401,7 +218,7 @@ describe('TmxGateway.joinTournament', () => {
 describe('TmxGateway.getActiveRoomPresence', () => {
   it('returns empty list when no tournament rooms exist', async () => {
     const { gateway } = buildGateway();
-    attachServer(gateway, makeMockServer({ 'admin:chatMonitor': [makeSocket()] }));
+    attachServer(gateway, makeMockServer({ 'admin:other': [makeSocket()] }));
 
     const presence = await gateway.getActiveRoomPresence();
     expect(presence).toEqual([]);
@@ -449,9 +266,20 @@ describe('TmxGateway room presence', () => {
       payload: { tournamentId: 't1', count: 1 },
     });
   });
+
+  it('sends no chat history on join: chat lives on courthive-ams and the relay (phase 4a)', async () => {
+    const { gateway } = buildGateway();
+    const socket = makeSocket({ user: { email: 'a@x.com' } });
+    attachServer(gateway, makeMockServer({ [TOURNAMENT_ROOM_PREFIX + 't1']: [socket] }));
+
+    await gateway.joinTournament({ tournamentId: 't1' }, socket as any);
+
+    expect(socket.join).toHaveBeenCalledWith('tournament:t1');
+    expect(socket.emit).not.toHaveBeenCalledWith('chatHistory', expect.anything());
+  });
 });
 
-describe('TmxGateway room leave and admin replies', () => {
+describe('TmxGateway room leave', () => {
   it('leaveTournament leaves the room and publishes the new count to it', async () => {
     const { gateway } = buildGateway();
     const socket = makeSocket({ user: { email: 'a@x.com' } });
@@ -477,63 +305,5 @@ describe('TmxGateway room leave and admin replies', () => {
 
     expect(socket.leave).not.toHaveBeenCalled();
     expect(server.emitted).toHaveLength(0);
-  });
-
-  it('adminChatReply publishes to the whole room (sender included) and to the monitor feed', async () => {
-    const { gateway, chatStorage } = buildGateway();
-    chatStorage.appendMessage.mockResolvedValue({
-      record: {
-        seq: 9,
-        tournamentId: 't1',
-        userName: 'Admin',
-        message: 'hello',
-        isAdmin: true,
-        createdAt: new Date(0).toISOString(),
-      },
-    });
-    const socket = makeSocket({ user: { email: 'admin@x.com', roles: ['superadmin'] } });
-    const server = attachServer(gateway, makeMockServer({}));
-
-    await gateway.adminChatReply({ tournamentId: 't1', message: 'hello' }, socket as any);
-
-    expect(server.emitted).toContainEqual({
-      room: 'tournament:t1',
-      except: undefined,
-      event: 'chatMessage',
-      payload: expect.objectContaining({ seq: 9, message: 'hello', isAdmin: true }),
-    });
-    expect(server.emitted).toContainEqual({
-      room: 'admin:chatMonitor',
-      except: undefined,
-      event: 'adminChatFeed',
-      payload: expect.objectContaining({ seq: 9, tournamentId: 't1' }),
-    });
-  });
-
-  it('adminChatReply still relays when persisting fails, with the identity it was given', async () => {
-    const { gateway, chatStorage } = buildGateway();
-    chatStorage.appendMessage.mockResolvedValue({ error: 'db down' });
-    const socket = makeSocket({ user: { email: 'admin@x.com', roles: ['superadmin'] } });
-    const server = attachServer(gateway, makeMockServer({}));
-
-    await gateway.adminChatReply(
-      { tournamentId: 't1', message: 'hi', providerId: 'p1', providerAbbr: 'ACME', tournamentName: 'Open' },
-      socket as any,
-    );
-
-    expect(server.emitted).toContainEqual(
-      expect.objectContaining({
-        room: 'tournament:t1',
-        event: 'chatMessage',
-        payload: expect.objectContaining({ message: 'hi' }),
-      }),
-    );
-    expect(server.emitted).toContainEqual(
-      expect.objectContaining({
-        room: 'admin:chatMonitor',
-        event: 'adminChatFeed',
-        payload: expect.objectContaining({ tournamentId: 't1', providerAbbr: 'ACME', tournamentName: 'Open' }),
-      }),
-    );
   });
 });

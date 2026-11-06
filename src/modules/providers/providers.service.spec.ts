@@ -1,16 +1,17 @@
+import { TournamentAuthModule } from '../tournament-auth/tournament-auth.module';
 import { ProviderLifecycleService } from './provider-lifecycle.service';
 import { ProviderCleanupService } from './provider-cleanup.service';
 import { ProviderArchiveService } from './provider-archive.service';
 import { AmsPoliciesClient } from './ams-policies-client.service';
 import { ProvidersController } from './providers.controller';
 import { StorageModule } from 'src/storage/storage.module';
+import { ConfigsModule } from 'src/config/config.module';
 import { ProvidersService } from './providers.service';
 import { TopologiesService } from './topologies.service';
 import { ProviderCatalogService } from './provider-catalog.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CacheModule } from '../cache/cache.module';
 import { UsersModule } from '../users/users.module';
-import { AuthModule } from '../account/auth/auth.module';
 import { ConfigService } from '@nestjs/config';
 
 describe('ProvidersService', () => {
@@ -19,7 +20,7 @@ describe('ProvidersService', () => {
 
   beforeAll(async () => {
     app = await Test.createTestingModule({
-      imports: [AuthModule, UsersModule, CacheModule, StorageModule],
+      imports: [TournamentAuthModule, UsersModule, ConfigsModule, CacheModule, StorageModule],
       providers: [
         ProvidersService,
         TopologiesService,

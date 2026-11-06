@@ -51,20 +51,11 @@ pnpm admin:create \
 pnpm watch
 ```
 
-## Development Mode
+## Logging In
 
-When `APP_MODE=development` in `.env` **and the database is on loopback** (`PG_HOST` is `localhost`, `127.0.0.1` or `::1`), a hardcoded test user is available without any database entry. Its password is published here, so it is never offered against a shared or remote database, and never when `NODE_ENV=production` (`src/modules/users/devTestUser.ts`):
+CFS does not log anyone in. Login, sessions, password and magic-link flows and user administration belong to the identity provider, **courthive-hiveid** (`:3140` locally; in production nginx routes `/auth/*` and `/account/*` to it). CFS verifies the tokens it issues. Create an account with the admin script above and sign in through hiveid; `Mentat/scripts/local/seed-local.mjs` seeds a full local cast the same way.
 
-<table>
-  <thead>
-    <tr><th style={{ textAlign: 'left' }}>Email</th><th style={{ textAlign: 'left' }}>Password</th><th style={{ textAlign: 'left' }}>Roles</th></tr>
-  </thead>
-  <tbody>
-    <tr><td><code>axel@castle.com</code></td><td><code>castle</code></td><td>superadmin, admin, developer, client, score</td></tr>
-  </tbody>
-</table>
-
-This user is checked before the database lookup — it works even with an empty database.
+There is no built-in development account any more: the old `axel@castle.com` login lived in CFS's own login path and went with it.
 
 ## Password Recovery
 

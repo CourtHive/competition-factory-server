@@ -18,7 +18,7 @@ import { mocksEngine, tools } from 'tods-competition-factory';
 import request from 'supertest';
 
 import { saveAndCommit } from 'src/tests/helpers/saveAndCommit';
-import { TEST_EMAIL, TEST_PASSWORD } from 'src/common/constants/test';
+import { superAdminToken } from 'src/tests/helpers/sessionToken';
 
 const SUFFIX = Date.now();
 const ALPHA_ABBR = `PKEYALPHA${SUFFIX}`;
@@ -44,11 +44,7 @@ d('Provider API Key E2E', () => {
     await app.init();
     server = app.getHttpServer();
 
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
-      .expect(200);
-    token = login.body.token;
+    token = await superAdminToken(app);
 
     const alphaRes = await request(server)
       .post('/provider/add')

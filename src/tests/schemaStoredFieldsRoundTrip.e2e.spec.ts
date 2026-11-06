@@ -1,5 +1,5 @@
 import { mocksEngine, tournamentEngine, fixtures, factoryConstants } from 'tods-competition-factory';
-import { TEST_EMAIL, TEST_PASSWORD, testTournamentId } from '../common/constants/test';
+import { testTournamentId } from '../common/constants/test';
 import tournamentSchema from 'tods-competition-factory/schema/tournament.schema.json';
 import asyncGlobalState from '../modules/factory/engines/asyncGlobalState';
 import { saveAndCommit } from './helpers/saveAndCommit';
@@ -10,6 +10,7 @@ import { Test } from '@nestjs/testing';
 import addFormats from 'ajv-formats';
 import request from 'supertest';
 import Ajv from 'ajv';
+import { superAdminToken } from 'src/tests/helpers/sessionToken';
 
 /**
  * A RECORD THE SERVER STORED STILL VALIDATES AGAINST THE PUBLISHED SCHEMA.
@@ -193,11 +194,7 @@ describe('a stored record validates against the published schema', () => {
     // the testing module does not run main.ts; mount the same body parsers it does
     applyBodyParsers(app);
     await app.init();
-    const login = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: TEST_EMAIL, password: TEST_PASSWORD })
-      .expect(200);
-    token = login.body.token;
+    token = await superAdminToken(app);
   });
 
   afterAll(async () => {

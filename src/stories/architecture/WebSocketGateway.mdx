@@ -31,8 +31,6 @@ Each handler is a `@SubscribeMessage(...)` method on `TmxGateway`, guarded by `S
   <tbody>
     <tr><td><code>executionQueue</code></td><td>Execute tournament mutations (the primary mutation path)</td></tr>
     <tr><td><code>joinTournament</code> / <code>leaveTournament</code></td><td>Join/leave a tournament room (<code>tournament:&#123;id&#125;</code>); join runs a <code>canViewTournament</code> visibility check</td></tr>
-    <tr><td><code>chatMessage</code> / <code>chatSince</code></td><td>Send a tournament chat message / request messages after a sequence number (gap fill)</td></tr>
-    <tr><td><code>joinChatMonitor</code> / <code>leaveChatMonitor</code> / <code>adminChatLoadOlder</code> / <code>adminChatReply</code></td><td>Super-admin cross-tournament chat monitor (SUPER_ADMIN only)</td></tr>
     <tr><td><code>timestamp</code></td><td>Latency/clock probe — server echoes its current time</td></tr>
     <tr><td><code>test</code></td><td>Unauthenticated connectivity/cache probe (<code>@Public()</code>)</td></tr>
   </tbody>
@@ -49,8 +47,6 @@ Each handler is a `@SubscribeMessage(...)` method on `TmxGateway`, guarded by `S
     <tr><td><code>tournamentMutation</code></td><td>Approved methods broadcast to other clients in the tournament room</td></tr>
     <tr><td><code>roomPresence</code></td><td>Current socket count for a tournament room</td></tr>
     <tr><td><code>boltHistoryUpdated</code></td><td>Live-scoreboard document update for a tournament</td></tr>
-    <tr><td><code>chatMessage</code> / <code>chatHistory</code> / <code>chatAccepted</code> / <code>chatRejected</code></td><td>Chat relay, backfill, and per-message ack/reject</td></tr>
-    <tr><td><code>adminChatFeed</code> / <code>adminChatHistory</code></td><td>Cross-tournament chat feed for the super-admin monitor</td></tr>
     <tr><td><code>exception</code></td><td>Auth/authorization error (e.g. missing token, not authorized to view a tournament)</td></tr>
   </tbody>
 </table>

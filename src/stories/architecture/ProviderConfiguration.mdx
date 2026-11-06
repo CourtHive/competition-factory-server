@@ -439,7 +439,7 @@ Authorization: Bearer <jwt>
 
 ## Login Response Embedding
 
-`AuthService.signIn` computes the effective config for the user's
+The identity provider's sign-in (courthive-hiveid) computes the effective config for the user's
 home provider and embeds it in the JWT/login payload as
 `user.activeProviderConfig`. TMX applies it directly via
 `providerConfig.set()` with no extra fetch on boot.

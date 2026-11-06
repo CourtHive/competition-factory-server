@@ -14,5 +14,4 @@ export const APPConfig = registerAs(ConfigKey.App, () => ({
   // verification + (future) password-reset links. Example values:
   //   prod:   https://nest.courthive.com
   //   dev:    http://localhost:8383   (or whatever NGINX exposes)
-  baseUrl: process.env.APP_BASE_URL || '',
 }));
