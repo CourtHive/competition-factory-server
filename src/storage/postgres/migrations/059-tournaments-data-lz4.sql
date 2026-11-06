@@ -1,0 +1,14 @@
+-- 059-tournaments-data-lz4.sql
+-- AFFECTS: admin
+--
+-- A deliberate no-op. This migration first set lz4 compression on `tournaments.data`, but
+-- `ALTER TABLE ... SET COMPRESSION` takes an ACCESS EXCLUSIVE lock on `tournaments` (measured), and migrations run
+-- at CFS boot against the database mentat and nest share. Waiting behind any open transaction on `tournaments`, it
+-- would have queued every live read and write of tournaments behind it. Bounding it with `lock_timeout` does not
+-- help here: a timed-out migration either stops the server from booting or, if swallowed, is recorded as applied
+-- without having done anything.
+--
+-- So the change is an operator step instead, run at a quiet moment with a short lock_timeout and retries:
+-- src/scripts/data-fixes/2026-11-06-tournaments-data-lz4.sql. The number stays taken (it may already be recorded in
+-- schema_migrations where the first version ran), and this no-op keeps every environment consistent.
+SELECT 1;

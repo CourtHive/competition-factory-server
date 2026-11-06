@@ -52,8 +52,22 @@ function build({
       providerConfigSettings: permissions ? { permissions } : {},
     }),
   };
+  // ONE record, served two ways as Postgres serves it: whole (`fetchTournamentRecords`), and as the server-side
+  // projection the gate reads (`fetchTournamentUpdatedAt`: id, provider, extensions — never the record).
+  let record: any = makeTournament();
   const tournamentStorageService: any = {
-    fetchTournamentRecords: vi.fn().mockResolvedValue({ tournamentRecords: { [TID]: makeTournament() } }),
+    setRecord: (next: any) => (record = next),
+    fetchTournamentRecords: vi.fn(async () => ({ tournamentRecords: { [TID]: record } })),
+    fetchTournamentUpdatedAt: vi.fn(async ({ tournamentId }: { tournamentId: string }) =>
+      record && tournamentId === record.tournamentId
+        ? {
+            success: true,
+            tournamentId: record.tournamentId,
+            providerId: record.parentOrganisation?.organisationId,
+            extensions: record.extensions ?? [],
+          }
+        : { error: 'MISSING_TOURNAMENT_RECORD' },
+    ),
   };
   const grantStorage: any = { findForSubject: vi.fn().mockResolvedValue(grants) };
   const assignmentsService: any = {
@@ -134,6 +148,27 @@ describe('MutationAuthorizationService.gate', () => {
     ).toBeNull();
     expect(await service.gate({ userContext: director, tournamentIds: [], requestedMethods: ['addEvent'] })).toBeNull();
     expect(tournamentStorageService.fetchTournamentRecords).not.toHaveBeenCalled();
+    expect(tournamentStorageService.fetchTournamentUpdatedAt).not.toHaveBeenCalled();
+  });
+
+  // Every mutation fetched and parsed the WHOLE record here, before the lock, and executionQueue fetched it again
+  // inside the lock — half the fetch cost of a score entry (Mentat planning/CFS_RECORD_SHARDING_EXPLORATION.md §3.2).
+  it('authorises from the projection, never the whole record, when no grant needs the target located', async () => {
+    const { service, tournamentStorageService } = build({ assignmentRole: 'DIRECTOR' });
+    expect(
+      await service.gate({ userContext: director, tournamentIds: [TID], requestedMethods: ['addEvent'] }),
+    ).toBeNull();
+    expect(tournamentStorageService.fetchTournamentUpdatedAt).toHaveBeenCalledTimes(1);
+    expect(tournamentStorageService.fetchTournamentRecords).not.toHaveBeenCalled();
+  });
+
+  it('skips a tournament it cannot read, as before: the mutation fails inside the lock instead', async () => {
+    const { service, tournamentStorageService } = build({ assignmentRole: 'DIRECTOR' });
+    tournamentStorageService.setRecord(undefined);
+    expect(
+      await service.gate({ userContext: director, tournamentIds: [TID], requestedMethods: ['addEvent'] }),
+    ).toBeNull();
+    expect(tournamentStorageService.fetchTournamentRecords).not.toHaveBeenCalled();
   });
 });
 
@@ -171,7 +206,7 @@ describe("MutationAuthorizationService.gate — the session's provider (CA, 2026
   it('refuses to modify a tournament with no provider, except for a super-admin', async () => {
     const { service, tournamentStorageService } = build({ assignmentRole: 'DIRECTOR' });
     const unscoped = { ...makeTournament(), parentOrganisation: undefined };
-    tournamentStorageService.fetchTournamentRecords.mockResolvedValue({ tournamentRecords: { [TID]: unscoped } });
+    tournamentStorageService.setRecord(unscoped);
     expect(await service.gate({ userContext: director, tournamentIds: [TID], requestedMethods: ['addEvent'] })).toBe(
       'Not authorized to modify this tournament',
     );
@@ -209,6 +244,17 @@ describe('MutationAuthorizationService.gate — scoped grants', () => {
         methods: score('court7-match'),
       });
       expect(denial).toBeNull();
+    });
+
+    it('loads the record, once, only because the grant must locate the matchUp on a court', async () => {
+      const { service, tournamentStorageService } = build({ assignmentRole: 'DIRECTOR', grants: courtSeven });
+      await service.gate({
+        userContext: director,
+        tournamentIds: [TID],
+        requestedMethods: ['setMatchUpStatus', 'setMatchUpStatus'],
+        methods: [...score('court7-match'), ...score('court7-match')],
+      });
+      expect(tournamentStorageService.fetchTournamentRecords).toHaveBeenCalledTimes(1);
     });
 
     it('may NOT score the final on Centre', async () => {

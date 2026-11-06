@@ -39,14 +39,19 @@ export class PostgresCalendarStorage implements ICalendarStorage {
       return Array.isArray(value) ? JSON.stringify(value) : value;
     });
     const placeholders = CALENDAR_TOURNAMENT_COLUMNS.map((_column, index) => `$${index + 1}`).join(', ');
-    const updates = CALENDAR_TOURNAMENT_COLUMNS.filter((column) => column !== 'tournament_id')
-      .map((column) => `${column} = EXCLUDED.${column}`)
-      .join(', ');
+    const carried = CALENDAR_TOURNAMENT_COLUMNS.filter((column) => column !== 'tournament_id');
+    const updates = carried.map((column) => `${column} = EXCLUDED.${column}`).join(', ');
+    // Every save reaches here, score entries included, and almost none changes the calendar row. Rewriting an
+    // identical row costs a new tuple, its index entries and WAL, and moves `row_updated_at` for nothing: an unchanged
+    // row is left alone, so `row_updated_at` keeps meaning "when this row last changed".
+    const stored = carried.map((column) => `calendar_tournaments.${column}`).join(', ');
+    const incoming = carried.map((column) => `EXCLUDED.${column}`).join(', ');
 
     await (commandClient(this.pool) ?? this.pool).query(
       `INSERT INTO calendar_tournaments (${COLUMNS})
        VALUES (${placeholders})
-       ON CONFLICT (tournament_id) DO UPDATE SET ${updates}, row_updated_at = NOW()`,
+       ON CONFLICT (tournament_id) DO UPDATE SET ${updates}, row_updated_at = NOW()
+         WHERE (${stored}) IS DISTINCT FROM (${incoming})`,
       values,
     );
     return { ...SUCCESS };

@@ -30,7 +30,10 @@ export interface IParticipationStorage {
    * upsert-only maintenance path leaves that row behind forever. Scoped to the one tournamentId, so
    * it stays O(participants-in-one-tournament) however large the table grows.
    */
-  replaceTournamentRows(tournamentId: string, rows: ParticipationRow[]): Promise<{ success: boolean }>;
+  replaceTournamentRows(
+    tournamentId: string,
+    rows: ParticipationRow[],
+  ): Promise<{ success: boolean; unchanged?: boolean }>;
 
   /**
    * Every tournament one subject took part in, earliest first. O(rows-for-this-subject).
