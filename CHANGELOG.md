@@ -1,5 +1,21 @@
 # Changelog
 
+## [4.10.0](https://github.com/CourtHive/competition-factory-server/compare/v4.9.1...v4.10.0) (2026-11-06)
+
+
+### Features
+
+* **factory:** record modifying notice topics for the factory's stampScope ([6edd33f](https://github.com/CourtHive/competition-factory-server/commit/6edd33f8d6da73f4502e12556a72bd32f3359393))
+* **factory:** sampled shard shadow check, report only and off by default ([001262d](https://github.com/CourtHive/competition-factory-server/commit/001262df5a35c2600662fc8af7c1da7e7ad59876))
+* **storage:** an optional storage-layout seam, document by default ([ddc7e30](https://github.com/CourtHive/competition-factory-server/commit/ddc7e305359414429c94b951771af6d9a886aaa4))
+* **storage:** optional shard dual-write and match-up index (off until enabled) ([0a55a7b](https://github.com/CourtHive/competition-factory-server/commit/0a55a7b86650e8b52290bcd24c5323eafe9164ee))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.32.0, shadow specs on the real footprint tools ([a5d5616](https://github.com/CourtHive/competition-factory-server/commit/a5d5616c04a625346b7b3f669da9040caf1837dc))
+* **storage:** take the tournament lock for upstream pulls and lazy activation ([e1365b8](https://github.com/CourtHive/competition-factory-server/commit/e1365b83712b7dbe956be3f233748c9bafd227ca))
+
 ## [4.9.1](https://github.com/CourtHive/competition-factory-server/compare/v4.9.0...v4.9.1) (2026-11-06)
 
 
