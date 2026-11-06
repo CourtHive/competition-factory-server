@@ -16,6 +16,7 @@ import {
   USTA_PARTICIPANT_OTHER_ID,
 } from './foreignIdentity.fixture';
 
+import { isTournamentLocked } from 'src/services/tournamentMutex';
 import { RegistrationsService } from './registrations.service';
 
 vi.mock('../../factory/functions/private/executionQueue', () => ({
@@ -476,7 +477,8 @@ describe('RegistrationsService', () => {
       it('attaches the policies AMS resolved at approval, before persisting', async () => {
         const snapshots = savedSnapshot();
         tournamentStorageService.findTournamentRecord
-          .mockResolvedValueOnce({ tournamentRecord: null })
+          .mockResolvedValueOnce({ tournamentRecord: null }) // ensureActivated: absent
+          .mockResolvedValueOnce({ tournamentRecord: null }) // the re-check under the lock: still absent
           .mockResolvedValue({ tournamentRecord: baseTournament });
         sanctioningClient.getRecordByTournamentId.mockResolvedValue({
           ...sanctioningRecord,
@@ -494,7 +496,8 @@ describe('RegistrationsService', () => {
       it('activates normally when the record carries no attached policies', async () => {
         const snapshots = savedSnapshot();
         tournamentStorageService.findTournamentRecord
-          .mockResolvedValueOnce({ tournamentRecord: null })
+          .mockResolvedValueOnce({ tournamentRecord: null }) // ensureActivated: absent
+          .mockResolvedValueOnce({ tournamentRecord: null }) // the re-check under the lock: still absent
           .mockResolvedValue({ tournamentRecord: baseTournament });
         // `[]` — approved, and nothing differed from factory defaults
         sanctioningClient.getRecordByTournamentId.mockResolvedValue({ ...sanctioningRecord, attachedPolicies: [] });
@@ -509,7 +512,8 @@ describe('RegistrationsService', () => {
         const snapshots = savedSnapshot();
         const warnSpy = vi.spyOn((service as any).logger, 'warn').mockImplementation(() => undefined);
         tournamentStorageService.findTournamentRecord
-          .mockResolvedValueOnce({ tournamentRecord: null })
+          .mockResolvedValueOnce({ tournamentRecord: null }) // ensureActivated: absent
+          .mockResolvedValueOnce({ tournamentRecord: null }) // the re-check under the lock: still absent
           .mockResolvedValue({ tournamentRecord: baseTournament });
         // an empty policy is refused by the factory (INVALID_VALUES)
         sanctioningClient.getRecordByTournamentId.mockResolvedValue({
@@ -543,6 +547,7 @@ describe('RegistrationsService', () => {
       it('activates + persists from the approved proposal on first accept (authorized), then proceeds', async () => {
         tournamentStorageService.findTournamentRecord
           .mockResolvedValueOnce({ tournamentRecord: null }) // ensureActivated: absent
+          .mockResolvedValueOnce({ tournamentRecord: null }) // the re-check under the lock: still absent
           .mockResolvedValue({ tournamentRecord: baseTournament }); // assertAdminAccess + rest
         sanctioningClient.getRecordByTournamentId.mockResolvedValue(sanctioningRecord);
         personsClient.getById.mockResolvedValue({ person: { standardGivenName: 'Jane', standardFamilyName: 'Doe' } });
@@ -554,6 +559,31 @@ describe('RegistrationsService', () => {
           expect.objectContaining({ tournamentRecord: baseTournament }),
         );
         expect(mockExecutionQueue).toHaveBeenCalled(); // accept proceeded on the activated record
+      });
+
+      it('saves under the tournament lock, and not at all when a racing accept activated it first', async () => {
+        let lockedDuringSave = false;
+        tournamentStorageService.saveTournamentRecord.mockImplementation(async () => {
+          lockedDuringSave = isTournamentLocked('t-1');
+          return { success: true };
+        });
+        tournamentStorageService.findTournamentRecord
+          .mockResolvedValueOnce({ tournamentRecord: null })
+          .mockResolvedValueOnce({ tournamentRecord: null })
+          .mockResolvedValue({ tournamentRecord: baseTournament });
+        sanctioningClient.getRecordByTournamentId.mockResolvedValue(sanctioningRecord);
+        personsClient.getById.mockResolvedValue({ person: { standardGivenName: 'Jane', standardFamilyName: 'Doe' } });
+        await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
+        expect(lockedDuringSave).toBe(true);
+
+        tournamentStorageService.saveTournamentRecord.mockClear();
+        tournamentStorageService.findTournamentRecord
+          .mockReset()
+          .mockResolvedValueOnce({ tournamentRecord: null }) // absent before the lock
+          .mockResolvedValue({ tournamentRecord: baseTournament }); // another accept activated it meanwhile
+        await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
+        expect(tournamentStorageService.saveTournamentRecord).not.toHaveBeenCalled();
+        expect(mockExecutionQueue).toHaveBeenCalled();
       });
 
       it('rejects activation when the caller is not authorised for the proposal provider', async () => {
