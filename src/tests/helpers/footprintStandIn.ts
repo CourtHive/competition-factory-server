@@ -1,3 +1,4 @@
+import { shadowFootprint } from 'src/modules/factory/helpers/executionQueueShadow';
 import { tools } from 'tods-competition-factory';
 
 /**
@@ -31,9 +32,18 @@ const standIn = {
 /** Install the stand-in unless the factory has the real tools; returns the undo. */
 export function installFootprintStandIn(): () => void {
   if (nativeFootprintTools) return () => undefined;
-  Object.assign(tools as any, standIn);
+  const original = shadowFootprint.tools;
+  shadowFootprint.tools = () => standIn;
   return () => {
-    delete (tools as any).getMutationFootprint;
-    delete (tools as any).reduceRecordToFootprint;
+    shadowFootprint.tools = original;
+  };
+}
+
+/** Remove the footprint tools, for the spec that proves the shadow is inert without them; returns the undo. */
+export function removeFootprintTools(): () => void {
+  const original = shadowFootprint.tools;
+  shadowFootprint.tools = () => undefined;
+  return () => {
+    shadowFootprint.tools = original;
   };
 }

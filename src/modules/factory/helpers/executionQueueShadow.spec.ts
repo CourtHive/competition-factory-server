@@ -1,5 +1,5 @@
-import { installFootprintStandIn, nativeFootprintTools } from 'src/tests/helpers/footprintStandIn';
-import { mocksEngine, tournamentEngine, tools } from 'tods-competition-factory';
+import { installFootprintStandIn, removeFootprintTools } from 'src/tests/helpers/footprintStandIn';
+import { mocksEngine, tournamentEngine } from 'tods-competition-factory';
 
 import {
   captureShardShadow,
@@ -66,10 +66,9 @@ describe('shard shadow', () => {
     expect(planShardShadow({ ...args, random: () => 0.7 })).toBeUndefined();
     expect(planShardShadow({ ...args, random: () => 0.2 })).toBeDefined();
 
-    if (!nativeFootprintTools) {
-      delete (tools as any).getMutationFootprint;
-      expect(planShardShadow({ ...args, random: () => 0 })).toBeUndefined();
-    }
+    const restore = removeFootprintTools();
+    expect(planShardShadow({ ...args, random: () => 0 })).toBeUndefined();
+    restore();
   });
 
   it('skips a queue whose footprint needs the whole record, and multi-tournament queues', () => {
