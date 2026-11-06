@@ -1,4 +1,5 @@
 import { TournamentSyncService } from './tournament-sync.service';
+import { isTournamentLocked } from 'src/services/tournamentMutex';
 import { RelayConfig } from '../relay/relay.config';
 
 // Minimal mock of TournamentStorageService
@@ -100,6 +101,22 @@ describe('TournamentSyncService', () => {
       expect(mockStorageService.saveTournamentRecord).toHaveBeenCalledWith({
         tournamentRecord: mockRecord,
       });
+    });
+
+    it('saves the pulled record under the tournament lock', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ success: true, tournamentRecord: mockRecord }),
+      });
+      let lockedDuringSave = false;
+      mockStorageService.saveTournamentRecord.mockImplementation(async () => {
+        lockedDuringSave = isTournamentLocked('t1');
+        return { success: true };
+      });
+
+      await service.pullTournament('t1');
+      expect(lockedDuringSave).toBe(true);
+      expect(isTournamentLocked('t1')).toBe(false);
     });
 
     it('tracks sync status after successful pull', async () => {

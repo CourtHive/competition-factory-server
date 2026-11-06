@@ -25,7 +25,12 @@ describe('durable command atomic commit and recovery', () => {
     admin = new Pool(getPostgresConfig());
     await admin.query(`CREATE SCHEMA ${schema}`);
     pool = new Pool({ ...getPostgresConfig(), options: `-c search_path=${schema}` });
-    for (const file of ['001-initial-schema.sql', '042-add-tournament-owner-epoch.sql', '054-command-receipts.sql']) {
+    for (const file of [
+      '001-initial-schema.sql',
+      '042-add-tournament-owner-epoch.sql',
+      '054-command-receipts.sql',
+      '061-tournament-storage-layout.sql',
+    ]) {
       await pool.query(await readFile(join(__dirname, 'migrations', file), 'utf8'));
     }
     storage = new PostgresTournamentStorage(pool);
