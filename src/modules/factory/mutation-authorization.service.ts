@@ -103,9 +103,16 @@ export class MutationAuthorizationService {
     const methodSummary = requestedMethods.join('|');
 
     for (const tid of tournamentIds) {
-      const result: any = await this.tournamentStorageService.fetchTournamentRecords({ tournamentId: tid });
-      const tournament = result?.tournamentRecords?.[tid];
+      const tournament = await this.authorizationView(tid);
       if (!tournament) continue;
+      let fullRecord: any;
+      const loadRecord = async () => {
+        if (fullRecord === undefined) {
+          const result: any = await this.tournamentStorageService.fetchTournamentRecords({ tournamentId: tid });
+          fullRecord = result?.tournamentRecords?.[tid] ?? null;
+        }
+        return fullRecord;
+      };
 
       // Not behind ENABLE_TOURNAMENT_ACCESS_SCOPING: a provider-less tournament is not written by anyone but a
       // super-admin, and a session writes only to the provider it acts for (CA, 2026-10-06).
@@ -122,7 +129,7 @@ export class MutationAuthorizationService {
         return 'Not authorized to modify this tournament';
       }
 
-      const outOfScope = await this.checkGrantScope(tournament, userContext, methods ?? []);
+      const outOfScope = await this.checkGrantScope(tournament, userContext, methods ?? [], loadRecord);
       if (outOfScope) {
         this.logger.warn(`[executionQueue] out of granted scope for ${actor}: ${outOfScope.method} on ${tid}`);
         return outOfScope.reason ?? `Not authorized for this ${outOfScope.dimension}`;
@@ -141,6 +148,29 @@ export class MutationAuthorizationService {
   }
 
   /**
+   * What the gates read of a tournament, and nothing more: its id, its owning provider and its extensions (for
+   * `createdByUserId`), projected by Postgres so the record itself is never transferred or parsed.
+   *
+   * The gate used to fetch and parse the WHOLE record here, before the tournament lock, and executionQueue then
+   * fetched it again inside the lock: every mutation read the record twice. Measured through Postgres on a 400 KiB
+   * record, the first read was half the fetch cost of a score entry (Mentat
+   * planning/CFS_RECORD_SHARDING_EXPLORATION.md §3.2). The same projection already authorises wholesale saves
+   * (`gateWholesaleSave`). Only a grant that needs the target enriched from the record loads it (`loadRecord`).
+   *
+   * A tournament that cannot be read is skipped, as before: the mutation then fails inside the lock, where the record
+   * is fetched for real.
+   */
+  private async authorizationView(tournamentId: string): Promise<any> {
+    const view: any = await this.tournamentStorageService.fetchTournamentUpdatedAt({ tournamentId });
+    if (!view?.success) return undefined;
+    return {
+      tournamentId: view.tournamentId,
+      ...(view.providerId ? { parentOrganisation: { organisationId: view.providerId } } : {}),
+      extensions: view.extensions ?? [],
+    };
+  }
+
+  /**
    * Scoped grants narrow what an already-authorized user may touch.
    *
    * Returns the first method that falls outside every grant, or null.
@@ -155,6 +185,7 @@ export class MutationAuthorizationService {
     tournament: any,
     userContext: any,
     methods: { method?: string; params?: any }[],
+    loadRecord: () => Promise<any>,
   ): Promise<{ method: string; dimension: string; reason?: string } | null> {
     if (userContext.isSuperAdmin || !methods.length) return null;
     const tournamentId = tournament?.tournamentId;
@@ -194,7 +225,8 @@ export class MutationAuthorizationService {
 
       let target = targetFromParams(method);
       const needed = applicable.flatMap((grant) => requiredTargetFields(grant.scope));
-      if (needed.length) target = enrichTargetFromRecord(target, tournament, needed);
+      // Locating a matchUp's court, date or structure needs the record itself — loaded once, only here.
+      if (needed.length) target = enrichTargetFromRecord(target, await loadRecord(), needed);
 
       const covered = applicable.some((grant) => isTargetInScope(grant.scope, target));
       if (!covered) {
