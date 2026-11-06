@@ -69,11 +69,23 @@ export function shardShadowSampleRate(): number {
   return Number.isFinite(rate) && rate > 0 ? Math.min(rate, 1) : 0;
 }
 
-function footprintTools(): { getMutationFootprint: any; reduceRecordToFootprint: any } | undefined {
+export interface FootprintTools {
+  getMutationFootprint: (args: { methods: any[]; outcomePipeline?: string }) => any;
+  reduceRecordToFootprint: (args: { tournamentRecord: any; footprint: any }) => any;
+}
+
+function factoryFootprintTools(): FootprintTools | undefined {
   const { getMutationFootprint, reduceRecordToFootprint } = (tools ?? {}) as any;
   if (typeof getMutationFootprint !== 'function' || typeof reduceRecordToFootprint !== 'function') return undefined;
   return { getMutationFootprint, reduceRecordToFootprint };
 }
+
+/**
+ * Where the footprint tools come from: the factory's, when it has them. An object rather than a direct call so specs
+ * can substitute them where CI resolves the package: the published ESM build exports `tools` as a module namespace,
+ * which cannot be assigned to (the same reason as `drawScanner` in executionQueueIntegrity.ts).
+ */
+export const shadowFootprint = { tools: factoryFootprintTools };
 
 /**
  * Inside the lock, BEFORE the queue runs (it mutates the fetched record in place). Returns undefined when this
@@ -94,7 +106,7 @@ export function planShardShadow({
 }): ShadowPlan | undefined {
   const rate = shardShadowSampleRate();
   if (!rate || tournamentIds.length !== 1 || !methods?.length) return undefined;
-  const footprintFns = footprintTools();
+  const footprintFns = shadowFootprint.tools();
   if (!footprintFns) return undefined;
   if (random() >= rate) return undefined;
 
