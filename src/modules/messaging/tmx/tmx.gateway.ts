@@ -203,7 +203,7 @@ export class TmxGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   //
   // Chat is not on this socket either. It moved to courthive-ams (storage) and score-relay's `/chat` namespace
   // (delivery) on 2026-10-29; CFS's chat handlers, service and storage were removed in phase 4a (Mentat
-  // planning/CHAT_TO_AMS.md). The `chat_messages` table stays until its own migration (phase 4c).
+  // planning/CHAT_TO_AMS.md), and its `chat_messages` table by migration 058 (phase 4c).
 
   @SubscribeMessage('tmx')
   @Roles([CLIENT, SUPER_ADMIN])
