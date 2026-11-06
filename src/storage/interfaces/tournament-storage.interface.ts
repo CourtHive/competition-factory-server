@@ -1,5 +1,12 @@
 export const TOURNAMENT_STORAGE = Symbol('TOURNAMENT_STORAGE');
 
+/**
+ * How a tournament's record is stored. `document` is the one-row-per-tournament `tournaments.data` and is the default
+ * and always-supported layout; `sharded` (shell, draws and participants in rows of their own) is optional and
+ * per tournament. A tournament with no layout row is in `document`.
+ */
+export type StorageLayout = 'document' | 'sharded';
+
 export interface ITournamentStorage {
   findTournamentRecord(params: { tournamentId: string }): Promise<{ tournamentRecord?: any; error?: string }>;
 
@@ -69,4 +76,7 @@ export interface ITournamentStorage {
   }): Promise<{ success?: boolean; error?: string }>;
 
   listTournamentIds(): Promise<string[]>;
+
+  /** The layout of each requested tournament; every id is present in the result, `document` when it has no row. */
+  fetchStorageLayouts(params: { tournamentIds: string[] }): Promise<Record<string, StorageLayout>>;
 }

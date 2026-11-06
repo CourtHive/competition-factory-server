@@ -26,6 +26,7 @@ describe('durable command transactional outbox', () => {
     '047-add-calendar-tournaments.sql',
     '054-command-receipts.sql',
     '055-projection-snapshot-id-and-requests.sql',
+    '061-tournament-storage-layout.sql',
   ];
   let admin: Pool;
   let pool: Pool;

@@ -25,6 +25,7 @@ describe('durable command uses one connection through the storage facade', () =>
     '046-participation-issuing-organisation.sql',
     '047-add-calendar-tournaments.sql',
     '054-command-receipts.sql',
+    '061-tournament-storage-layout.sql',
   ];
   let admin: Pool;
   let pool: Pool;

@@ -1,4 +1,4 @@
-import { ITournamentStorage } from '../interfaces/tournament-storage.interface';
+import { ITournamentStorage, StorageLayout } from '../interfaces/tournament-storage.interface';
 import { FENCED_BY_NEWER_OWNER, SUCCESS } from 'src/common/constants/app';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -44,7 +44,7 @@ export class PostgresTournamentStorage implements ITournamentStorage {
 
   async findTournamentRecord({ tournamentId }: { tournamentId: string }) {
     const result = await (commandClient(this.pool) ?? this.pool).query(
-      'SELECT data FROM tournaments WHERE tournament_id = $1',
+      'SELECT tournament_document(tournament_id, data) AS data FROM tournaments WHERE tournament_id = $1',
       [tournamentId],
     );
     if (!result.rows.length) return { error: 'Tournament not found' };
@@ -62,7 +62,7 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     }
 
     const result = await (commandClient(this.pool) ?? this.pool).query(
-      'SELECT tournament_id, data, updated_at FROM tournaments WHERE tournament_id = ANY($1)',
+      'SELECT tournament_id, tournament_document(tournament_id, data) AS data, updated_at FROM tournaments WHERE tournament_id = ANY($1)',
       [tournamentIds],
     );
 
@@ -90,11 +90,11 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     // the full `data` JSONB blob is never transferred.
     const result = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT tournament_id,
-              data->>'updatedAt' AS updated_at,
+              shell->>'updatedAt' AS updated_at,
               updated_at AS row_updated_at,
-              data->'parentOrganisation'->>'organisationId' AS provider_id,
-              data->'extensions' AS extensions
-         FROM tournaments
+              shell->'parentOrganisation'->>'organisationId' AS provider_id,
+              shell->'extensions' AS extensions
+         FROM tournaments, tournament_shell(tournament_id, data) AS shell
         WHERE tournament_id = $1`,
       [tournamentId],
     );
@@ -267,5 +267,16 @@ export class PostgresTournamentStorage implements ITournamentStorage {
       'SELECT tournament_id FROM tournaments ORDER BY tournament_id',
     );
     return result.rows.map((row) => row.tournament_id);
+  }
+
+  async fetchStorageLayouts({ tournamentIds }: { tournamentIds: string[] }): Promise<Record<string, StorageLayout>> {
+    const layouts: Record<string, StorageLayout> = Object.fromEntries(tournamentIds.map((id) => [id, 'document']));
+    if (!tournamentIds.length) return layouts;
+    const result = await (commandClient(this.pool) ?? this.pool).query(
+      'SELECT tournament_id, layout FROM tournament_storage_layout WHERE tournament_id = ANY($1)',
+      [tournamentIds],
+    );
+    for (const row of result.rows) layouts[row.tournament_id] = row.layout;
+    return layouts;
   }
 }

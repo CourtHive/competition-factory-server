@@ -59,7 +59,7 @@ export class PostgresProjectionOutboxStorage implements IProjectionOutboxStorage
 
   async readForProjection(tournamentId: string): Promise<ProjectionSource | undefined> {
     const result = await this.pool.query(
-      'SELECT data, updated_at::text AS updated_at FROM tournaments WHERE tournament_id = $1',
+      'SELECT tournament_document(tournament_id, data) AS data, updated_at::text AS updated_at FROM tournaments WHERE tournament_id = $1',
       [tournamentId],
     );
     const row = result.rows[0];

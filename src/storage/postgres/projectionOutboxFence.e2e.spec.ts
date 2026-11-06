@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Pool } from 'pg';
 
 import { MAX_DELTAS_PER_STATEMENT, PostgresProjectionOutboxStorage } from './postgres-projection-outbox.storage';
@@ -58,6 +60,8 @@ d('projection outbox fence and chunking (real Postgres)', () => {
     await pool.query(
       'CREATE TABLE IF NOT EXISTS tournaments (tournament_id TEXT PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())',
     );
+    // every whole-record read selects through tournament_document() (061)
+    await pool.query(readFileSync(join(__dirname, 'migrations', '061-tournament-storage-layout.sql'), 'utf8'));
     await pool.query(`CREATE TABLE IF NOT EXISTS projection_snapshot_requests (
       tournament_id TEXT PRIMARY KEY, requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), source TEXT,
       attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT)`);
