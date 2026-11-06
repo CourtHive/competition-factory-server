@@ -164,7 +164,9 @@ export class ProviderArchiveService {
     // stays manageable: one JSON file per tournament, content roughly
     // equal to what the live DB already stores.
     const tournaments = await this.pool.query(
-      'SELECT tournament_id, provider_id, tournament_name, start_date, end_date, data, created_at, updated_at FROM tournaments WHERE provider_id = $1',
+      `SELECT tournament_id, provider_id, tournament_name, start_date, end_date,
+              tournament_document(tournament_id, data) AS data, created_at, updated_at
+         FROM tournaments WHERE provider_id = $1`,
       [provider.providerId],
     );
     const tournamentIds = tournaments.rows.map((r) => r.tournament_id);
