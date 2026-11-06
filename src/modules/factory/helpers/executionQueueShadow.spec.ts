@@ -81,29 +81,41 @@ describe('shard shadow', () => {
     expect(planShardShadow({ methods, tournamentIds: [tournamentId, 'other'], tournamentRecords })).toBeUndefined();
   });
 
-  it('a draw-bounded score entry gives the same draw on the partial record: match', async () => {
-    const { tournamentRecord, tournamentId, drawId, methods } = scoreFirstMatchUp();
-    const plan = planShardShadow({
-      methods,
-      tournamentIds: [tournamentId],
-      tournamentRecords: { [tournamentId]: tournamentRecord },
-      outcomePipeline: 'v2',
-    });
-    expect(plan?.partialRecord.participants).toEqual([]);
-    expect(plan?.partialRecord.events.flatMap((e: any) => e.drawDefinitions).map((d: any) => d.drawId)).toEqual([
-      drawId,
-    ]);
+  // the pipeline is the factory's, process-wide: executionQueue plans with the one the mutation engine runs, and the
+  // shadow engine runs that same one, so the spec sets it for both
+  it.each(['v1', 'v2'])(
+    'a draw-bounded score entry gives the same draw on the partial record: match (%s)',
+    async (outcomePipeline) => {
+      tournamentEngine.outcomePipeline(outcomePipeline);
+      try {
+        const { tournamentRecord, tournamentId, drawId, methods } = scoreFirstMatchUp();
+        const plan = planShardShadow({
+          methods,
+          tournamentIds: [tournamentId],
+          tournamentRecords: { [tournamentId]: tournamentRecord },
+          outcomePipeline,
+        });
+        // v1 resolves a TEAM line's sides against every participant; v2 decides from the draw alone
+        const participants = plan?.partialRecord.participants ?? [];
+        expect(participants.length).toBe(outcomePipeline === 'v2' ? 0 : tournamentRecord.participants.length);
+        expect(plan?.partialRecord.events.flatMap((e: any) => e.drawDefinitions).map((d: any) => d.drawId)).toEqual([
+          drawId,
+        ]);
 
-    // the mutation itself, on the whole record, as executionQueue runs it
-    tournamentEngine.setState(tournamentRecord);
-    let result: any = tournamentEngine.executionQueue(methods);
-    expect(result.success).toBe(true);
-    result = tournamentEngine.getTournament();
-    const batch = captureShardShadow(plan, { [tournamentId]: result.tournamentRecord });
-    expect(Object.keys(batch?.savedDraws ?? {})).toEqual([drawId]);
+        // the mutation itself, on the whole record, as executionQueue runs it
+        tournamentEngine.setState(tournamentRecord);
+        let result: any = tournamentEngine.executionQueue(methods);
+        expect(result.success).toBe(true);
+        result = tournamentEngine.getTournament();
+        const batch = captureShardShadow(plan, { [tournamentId]: result.tournamentRecord });
+        expect(Object.keys(batch?.savedDraws ?? {})).toEqual([drawId]);
 
-    expect(await runShardShadow(batch!)).toBe('match');
-  });
+        expect(await runShardShadow(batch!)).toBe('match');
+      } finally {
+        tournamentEngine.outcomePipeline('v1');
+      }
+    },
+  );
 
   it('reports a mismatch when the partial run does not reproduce the saved draw', async () => {
     const { tournamentRecord, tournamentId, drawId, methods } = scoreFirstMatchUp();
