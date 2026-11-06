@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import { withTournamentLock } from 'src/services/tournamentMutex';
 import { RelayConfig } from '../relay/relay.config';
 
 export interface SyncStatus {
@@ -72,7 +73,11 @@ export class TournamentSyncService {
       }
 
       const tournamentRecord = data.tournamentRecord;
-      const saveResult = await this.storageService.saveTournamentRecord({ tournamentRecord });
+      // A pull replaces the whole record: under the tournament lock, so it cannot land between an executionQueue's
+      // fetch and its save (that mutation would then overwrite the pull, or the pull would erase the mutation).
+      const saveResult = await withTournamentLock([tournamentRecord.tournamentId ?? tournamentId], () =>
+        this.storageService.saveTournamentRecord({ tournamentRecord }),
+      );
       if (saveResult.error) {
         return { error: saveResult.error };
       }

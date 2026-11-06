@@ -29,6 +29,7 @@ import { executionQueue as runExecutionQueue } from '../../factory/functions/pri
 import { TournamentBroadcastService } from '../../messaging/broadcast/tournament-broadcast.service';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { canMutateTournament } from '../../factory/helpers/checkTournamentAccess';
+import { withTournamentLock } from 'src/services/tournamentMutex';
 import type { UserContext } from '../auth/decorators/user-context.decorator';
 import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
 import { AssignmentsService } from '../../factory/assignments.service';
@@ -527,10 +528,18 @@ export class RegistrationsService {
 
     this.attachSanctionedPolicies(activated.tournamentRecord, sanctioningRecord);
 
-    const saveResult: any = await this.tournamentStorageService.saveTournamentRecord({
-      tournamentRecord: activated.tournamentRecord,
-      userId: ctx.userContext.userId,
+    // Under the tournament lock, re-checked: two first accepts racing here must not both write, and an executionQueue
+    // must never interleave its fetch and save with this one.
+    const userId = ctx.userContext.userId;
+    const saveResult: any = await withTournamentLock([ctx.tournamentId], async () => {
+      const raced = await this.tournamentStorageService.findTournamentRecord({ tournamentId: ctx.tournamentId });
+      if (raced?.tournamentRecord) return { success: true, raced: true };
+      return this.tournamentStorageService.saveTournamentRecord({
+        tournamentRecord: activated.tournamentRecord,
+        userId,
+      });
     });
+    if (saveResult?.raced) return;
     if (saveResult?.error) {
       throw new BadRequestException(`Failed to persist activated tournament: ${saveResult.error}`);
     }
