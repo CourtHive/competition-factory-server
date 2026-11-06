@@ -60,7 +60,11 @@ d('participation_index with its fingerprint (real Postgres)', () => {
     });
     await pool.query(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`);
     await pool.query(`CREATE SCHEMA ${SCHEMA}`);
-    for (const file of ['045-add-participation-index.sql', '046-participation-issuing-organisation.sql', '060-participation-index-state.sql']) {
+    for (const file of [
+      '045-add-participation-index.sql',
+      '046-participation-issuing-organisation.sql',
+      '060-participation-index-state.sql',
+    ]) {
       await pool.query(migration(file));
     }
     storage = new PostgresParticipationStorage(pool as any);
@@ -83,7 +87,10 @@ d('participation_index with its fingerprint (real Postgres)', () => {
       ['b', '2026-07-01', 1],
     ]);
 
-    expect(await storage.replaceTournamentRows('t-1', [row('b'), row('a')])).toEqual({ success: true, unchanged: true });
+    expect(await storage.replaceTournamentRows('t-1', [row('b'), row('a')])).toEqual({
+      success: true,
+      unchanged: true,
+    });
     const second = await rowsOf();
     expect(second.map((r) => r.updated_at.toISOString())).toEqual(first.map((r) => r.updated_at.toISOString()));
   });
@@ -95,7 +102,9 @@ d('participation_index with its fingerprint (real Postgres)', () => {
   });
 
   it('writes 600 rows in a single statement, nulls and dates intact', async () => {
-    const many = Array.from({ length: 600 }, (_, i) => row(`s-${String(i).padStart(3, '0')}`, i % 2 ? { startDate: undefined, eventCount: undefined } : {}));
+    const many = Array.from({ length: 600 }, (_, i) =>
+      row(`s-${String(i).padStart(3, '0')}`, i % 2 ? { startDate: undefined, eventCount: undefined } : {}),
+    );
     await storage.replaceTournamentRows('t-1', many);
     const stored = await rowsOf();
     expect(stored).toHaveLength(600);

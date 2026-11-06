@@ -155,7 +155,9 @@ describe('MutationAuthorizationService.gate', () => {
   // inside the lock — half the fetch cost of a score entry (Mentat planning/CFS_RECORD_SHARDING_EXPLORATION.md §3.2).
   it('authorises from the projection, never the whole record, when no grant needs the target located', async () => {
     const { service, tournamentStorageService } = build({ assignmentRole: 'DIRECTOR' });
-    expect(await service.gate({ userContext: director, tournamentIds: [TID], requestedMethods: ['addEvent'] })).toBeNull();
+    expect(
+      await service.gate({ userContext: director, tournamentIds: [TID], requestedMethods: ['addEvent'] }),
+    ).toBeNull();
     expect(tournamentStorageService.fetchTournamentUpdatedAt).toHaveBeenCalledTimes(1);
     expect(tournamentStorageService.fetchTournamentRecords).not.toHaveBeenCalled();
   });
@@ -163,7 +165,9 @@ describe('MutationAuthorizationService.gate', () => {
   it('skips a tournament it cannot read, as before: the mutation fails inside the lock instead', async () => {
     const { service, tournamentStorageService } = build({ assignmentRole: 'DIRECTOR' });
     tournamentStorageService.setRecord(undefined);
-    expect(await service.gate({ userContext: director, tournamentIds: [TID], requestedMethods: ['addEvent'] })).toBeNull();
+    expect(
+      await service.gate({ userContext: director, tournamentIds: [TID], requestedMethods: ['addEvent'] }),
+    ).toBeNull();
     expect(tournamentStorageService.fetchTournamentRecords).not.toHaveBeenCalled();
   });
 });

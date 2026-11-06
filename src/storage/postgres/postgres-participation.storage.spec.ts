@@ -52,7 +52,9 @@ describe('PostgresParticipationStorage.replaceTournamentRows', () => {
     const many = Array.from({ length: 600 }, (_, i) => row({ subjectId: `s-${i}`, participantId: `p-${i}` }));
     await new PostgresParticipationStorage(pool).replaceTournamentRows('dual-1', many);
 
-    const inserts = client.query.mock.calls.filter(([sql]) => /^INSERT INTO participation_index\s/.test(String(sql).trim()));
+    const inserts = client.query.mock.calls.filter(([sql]) =>
+      /^INSERT INTO participation_index\s/.test(String(sql).trim()),
+    );
     expect(inserts).toHaveLength(1);
     expect((inserts[0][1] as any[])[2]).toHaveLength(600);
   });
@@ -68,9 +70,12 @@ describe('PostgresParticipationStorage.replaceTournamentRows', () => {
     expect(await fingerprintOf([a, b])).toBe(await fingerprintOf([b, a]));
     expect(await fingerprintOf([a, b])).not.toBe(await fingerprintOf([a, { ...b, eventCount: 2 }]));
     // a repeated key: the per-row upsert this replaced let the last one win; so does the single insert
-    expect(await fingerprintOf([{ ...a, eventCount: 1 }, { ...a, eventCount: 3 }])).toBe(
-      await fingerprintOf([{ ...a, eventCount: 3 }]),
-    );
+    expect(
+      await fingerprintOf([
+        { ...a, eventCount: 1 },
+        { ...a, eventCount: 3 },
+      ]),
+    ).toBe(await fingerprintOf([{ ...a, eventCount: 3 }]));
   });
 
   it('deletes the fingerprint with the rows, so a re-created tournament writes its rows again', async () => {
@@ -120,7 +125,9 @@ describe('PostgresParticipationStorage.replaceTournamentRows', () => {
     const { pool, client } = makePool(() => ({ rows: [] }));
     await new PostgresParticipationStorage(pool).replaceTournamentRows('dual-1', [row({ organisationId: 'body-A' })]);
 
-    const insert = client.query.mock.calls.find(([sql]) => /^INSERT INTO participation_index\s/.test(String(sql).trim()));
+    const insert = client.query.mock.calls.find(([sql]) =>
+      /^INSERT INTO participation_index\s/.test(String(sql).trim()),
+    );
     // Assert the INSERT happened before reading it: a `.find()` miss would otherwise fail on
     // `undefined[0]` and read as a broken test rather than a missing statement.
     expect(insert).toBeDefined();
