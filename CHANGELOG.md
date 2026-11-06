@@ -1,5 +1,25 @@
 # Changelog
 
+## [4.9.0](https://github.com/CourtHive/competition-factory-server/compare/v4.8.1...v4.9.0) (2026-11-06)
+
+
+### Features
+
+* **validation:** validateL3 reads every stored matchUpFormat via getMatchUpFormatReport ([#1169](https://github.com/CourtHive/competition-factory-server/issues/1169)) ([7cf92c8](https://github.com/CourtHive/competition-factory-server/commit/7cf92c8b4b853f33bda1c4c67840cd3cbf62ab7b))
+
+
+### Bug Fixes
+
+* answer engine refusals with 400, not 500 ([#1167](https://github.com/CourtHive/competition-factory-server/issues/1167)) ([7b001fd](https://github.com/CourtHive/competition-factory-server/commit/7b001fd43ff7a505ba37a426b63c3ac1c64eb2a1))
+* **deps:** update tods-competition-factory to 7.28.0 ([#1166](https://github.com/CourtHive/competition-factory-server/issues/1166)) ([c1023d8](https://github.com/CourtHive/competition-factory-server/commit/c1023d810b54d8d051fd2a815eea32243dcf448f))
+* **deps:** update tods-competition-factory to 7.29.0 ([011dab2](https://github.com/CourtHive/competition-factory-server/commit/011dab2b6e9581d397d5211fa02bfe39633f340f))
+* **deps:** update tods-competition-factory to 7.30.0 ([#1172](https://github.com/CourtHive/competition-factory-server/issues/1172)) ([ef88bf1](https://github.com/CourtHive/competition-factory-server/commit/ef88bf179b554fa435d0dfc664b770456d7a1485))
+
+
+### Documentation
+
+* **projectors:** name SCORE_RELAY_API_KEY as the score-relay bearer ([#1162](https://github.com/CourtHive/competition-factory-server/issues/1162)) ([df583dd](https://github.com/CourtHive/competition-factory-server/commit/df583ddccedf11bf68aeca3846f9ec9763a57dcf))
+
 ## [4.8.1](https://github.com/CourtHive/competition-factory-server/compare/v4.8.0...v4.8.1) (2026-11-02)
 
 
