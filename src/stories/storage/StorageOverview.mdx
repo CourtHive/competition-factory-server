@@ -69,6 +69,27 @@ PostgreSQL is the storage backend. The pluggable abstraction remains in place, s
   </tbody>
 </table>
 
+## Storage Layouts (optional record sharding)
+
+Every tournament is stored in the **`document`** layout: one row per tournament, the whole record in
+`tournaments.data`. That is the default, and it stays fully supported whether or not sharding is ever used. The
+**`sharded`** layout (a shell, one row per draw, one row per participant) is optional, per tournament, and today
+only **dual-written**: reads still come from `tournaments.data`. Design: Mentat
+`planning/CFS_RECORD_SHARDING_EXPLORATION.md`.
+
+<table>
+  <thead>
+    <tr><th style={{ textAlign: 'left' }}>Piece</th><th style={{ textAlign: 'left' }}>What it does</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>tournament_document()</code>, <code>tournament_shell()</code> (061)</td><td>The one place SQL assembles a record. Every whole-record read selects through them. Identity today, inlined by the planner.</td></tr>
+    <tr><td><code>tournament_storage_layout</code> (061)</td><td>One row per tournament NOT in <code>document</code>. <code>ITournamentStorage.fetchStorageLayouts</code>.</td></tr>
+    <tr><td>Shard tables and functions (062)</td><td><code>tournament_shells</code>, <code>draw_definitions</code>, <code>tournament_participants</code>, <code>match_up_index</code>; <code>set_tournament_storage_layout(id, layout)</code> shards a tournament and refuses unless its reassembly equals its record; <code>tournament_shard_drift</code> lists any disagreement.</td></tr>
+    <tr><td><code>src/scripts/sharding/enable-record-sharding.sql</code></td><td>Operator step: installs the trigger that dual-writes sharded tournaments (lock timeout, retries). Without it, nothing is ever sharded. <code>disable-record-sharding.sql</code> undoes it.</td></tr>
+    <tr><td><code>SHARD_SHADOW_SAMPLE_RATE</code></td><td>Fraction of draw-bounded mutations re-run on a partial record (shell + the footprint's draws) after the response, and compared with the saved draw. Report only; 0 (off) by default; inert until the factory has footprints. Outcomes are logged under <code>ShardShadow</code>.</td></tr>
+  </tbody>
+</table>
+
 ## Key Files
 
 <table>

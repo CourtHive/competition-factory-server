@@ -1,4 +1,5 @@
 import { scheduleDrawIntegrityScan, snapshotTouchedDraws } from '../../helpers/executionQueueIntegrity';
+import { captureShardShadow, planShardShadow, scheduleShardShadow } from '../../helpers/executionQueueShadow';
 import { documentRequestTournamentIds } from '../../projection/participantDocumentRequests';
 import { HttpException, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { runWithRequestContext } from 'src/modules/factory/engines/requestContext';
@@ -15,6 +16,7 @@ import { drawIntegrityMode } from '../../helpers/drawIntegrity';
 import { warmEventDataCache } from './warmEventDataCache';
 
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import type { ShadowBatch, ShadowPlan } from '../../helpers/executionQueueShadow';
 import type { DrawIntegrityBatch } from '../../helpers/executionQueueIntegrity';
 import type { AuditService } from 'src/modules/audit/audit.service';
 
@@ -81,6 +83,9 @@ export async function executionQueue(
     const deletedDrawIds = integrityEnabled ? new Set<string>() : undefined;
     const addedDrawIds = integrityEnabled ? new Set<string>() : undefined;
     let integrityBatch: DrawIntegrityBatch | undefined;
+    // SHARD SHADOW (sampled, off by default): see executionQueueShadow.ts
+    let shadowPlan: ShadowPlan | undefined;
+    let shadowBatch: ShadowBatch | undefined;
 
     // DECISION: establish this mutation's OWN factory engine state before taking the lock.
     // WHY: the engine state was previously seeded once at module scope, so every request in the
@@ -134,6 +139,13 @@ export async function executionQueue(
             const mutationEngine = getMutationEngine();
             const loaded = loadFetchedRecords(result.tournamentRecords);
             if (loaded.error) return loaded;
+            // Before the queue runs: it mutates the fetched records in place, and the shadow needs them as fetched.
+            shadowPlan = planShardShadow({
+              methods,
+              tournamentIds,
+              tournamentRecords: result.tournamentRecords,
+              outcomePipeline: (mutationEngine as any).getOutcomePipeline?.(),
+            });
             const innerResult = await mutationEngine.executionQueue(methods, rollbackOnError);
             // When the saved rows were written, and when they had been written before this mutation (read
             // inside the lock, so nothing came between). The ack and the broadcast carry both: a client that
@@ -192,6 +204,7 @@ export async function executionQueue(
               // runs this, so the scan can never report on a state that was not saved. References, not copies —
               // see snapshotTouchedDraws. Synchronous and non-throwing.
               await afterCommandCommit(async () => {
+                shadowBatch = captureShardShadow(shadowPlan, mutatedTournamentRecords);
                 integrityBatch = snapshotTouchedDraws({
                   tournamentRecords: mutatedTournamentRecords,
                   touchedDrawIds,
@@ -306,6 +319,7 @@ export async function executionQueue(
     // DRAW_INTEGRITY_MODE says (`enforce` governs the wholesale save; enforcing here is a separate decision).
     // Changes in a draw's finding set are also persisted (draw_integrity_findings) when the bag carries the writer.
     scheduleDrawIntegrityScan(integrityBatch, services?.drawIntegrityFindings);
+    scheduleShardShadow(shadowBatch);
 
     return {
       ...mutationResult,
