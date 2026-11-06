@@ -14,7 +14,7 @@ import { PostgresTournamentStorage } from './postgres-tournament.storage';
  * holds every matchUp; deleting the tournament or returning it to `document` drops its shards; and a `document`
  * tournament is never sharded, trigger or not.
  *
- * Opt-in: skipped unless STORAGE_LAYOUT_DB_TESTS=true, because CI has no Postgres. Built from the migration files in a
+ * Opt-in: skipped unless STORAGE_LAYOUT_DB_TESTS=true (CI's full-suite step sets it). Built from the migration files in a
  * scratch schema, so no real `tournaments` row is in reach:
  *
  *   STORAGE_LAYOUT_DB_TESTS=true PGGSSENCMODE=disable pnpm test -- storageShards

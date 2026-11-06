@@ -13,7 +13,7 @@ import { PostgresTournamentStorage } from './postgres-tournament.storage';
  * byte), the planner inlines both functions (no function call per row), and a tournament with no layout row is in
  * `document`. A mocked pool cannot show any of that.
  *
- * Opt-in: skipped unless STORAGE_LAYOUT_DB_TESTS=true, because CI has no Postgres. Built from the migration files in a
+ * Opt-in: skipped unless STORAGE_LAYOUT_DB_TESTS=true (CI's full-suite step sets it). Built from the migration files in a
  * scratch schema, so no real `tournaments` row is in reach:
  *
  *   STORAGE_LAYOUT_DB_TESTS=true PGGSSENCMODE=disable pnpm test -- storageLayout

@@ -192,6 +192,11 @@ jobs:
           # defect the mocked suite could not: the pg driver returns DATE as a JS Date at local
           # midnight, which serialised as the PREVIOUS DAY east of UTC.
           CALENDAR_DB_TESTS: 'true'
+          # The storage-layout seam (061) and the shard tables, trigger and operator scripts (062), against real
+          # Postgres. Each spec builds its own scratch schema from the migration files and drops it, so they share
+          # nothing with the suite's other workers. Skipped before this flag: the guards that prove a sharded record
+          # reassembles byte-for-byte never ran on a PR.
+          STORAGE_LAYOUT_DB_TESTS: 'true'
         run: pnpm test
 
       # The projection outbox's opt-in real-Postgres specs. Each skips unless its flag is set, so
