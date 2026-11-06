@@ -114,6 +114,23 @@ d('calendar_tournaments (real Postgres)', () => {
     expect(await storage.getTournament('t-1')).toEqual(original);
   });
 
+  // Every save reaches the calendar, score entries included, and almost none changes the row: rewriting it anyway
+  // costs a tuple, its index entries and WAL, and moves `row_updated_at` for nothing.
+  it('leaves an unchanged row alone, and still writes a changed one', async () => {
+    const stamp = async () =>
+      (await pool.query("SELECT row_updated_at FROM calendar_tournaments WHERE tournament_id = 't-same'")).rows[0]
+        .row_updated_at as Date;
+    await seed([entry('t-same', P_ADMIN)]);
+    const first = await stamp();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    await seed([entry('t-same', P_ADMIN)]);
+    expect((await stamp()).toISOString()).toBe(first.toISOString());
+
+    await seed([entry('t-same', P_ADMIN, { searchText: 'renamed' })]);
+    expect((await stamp()).getTime()).toBeGreaterThan(first.getTime());
+  });
+
   it('relocates the row on a provider move — no second copy, no sweep', async () => {
     await seed([entry('t-move', P_DIRECTOR), entry('t-stay', P_DIRECTOR)]);
     await storage.upsertTournament(toRow(entry('t-move', P_ADMIN), P_ADMIN, 'ABBR'));
