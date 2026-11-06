@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 import { PostgresParticipationStorage } from './postgres-participation.storage';
 
 /**
- * `participation_index` and its fingerprint (migration 060), and lz4 on `tournaments.data` (059), against a REAL
+ * `participation_index` and its fingerprint (migration 060), and the lz4 operator script for `tournaments.data`, against a REAL
  * Postgres.
  *
  * The unit spec mocks the pool, so it cannot tell whether the SQL runs: the `unnest` with its `date[]` and `int[]`
@@ -126,19 +126,48 @@ d('participation_index with its fingerprint (real Postgres)', () => {
     expect(await rowsOf('t-2')).toHaveLength(1);
   });
 
-  it('059 sets lz4 on tournaments.data, or keeps pglz and says so where lz4 is unavailable', async () => {
-    await pool.query('CREATE TABLE tournaments (tournament_id TEXT PRIMARY KEY, data JSONB NOT NULL)');
-    await pool.query(migration('059-tournaments-data-lz4.sql'));
-    await pool.query(migration('059-tournaments-data-lz4.sql')); // idempotent
-    const { rows } = await pool.query(
-      `SELECT attcompression FROM pg_attribute
-        WHERE attrelid = '${SCHEMA}.tournaments'::regclass AND attname = 'data'`,
-    );
-    // Decide what to expect from the server itself, so neither branch can pass vacuously.
-    const lz4Available = await pool.query('SET LOCAL default_toast_compression = lz4').then(
-      () => true,
-      () => false,
-    );
-    expect(rows[0].attcompression).toBe(lz4Available ? 'l' : '');
+  describe('lz4 on tournaments.data', () => {
+    const LZ4_SCRIPT = join(__dirname, '..', '..', 'scripts', 'data-fixes', '2026-11-06-tournaments-data-lz4.sql');
+    const compression = async () =>
+      (
+        await pool.query(
+          `SELECT attcompression FROM pg_attribute WHERE attrelid = '${SCHEMA}.tournaments'::regclass AND attname = 'data'`,
+        )
+      ).rows[0].attcompression;
+
+    beforeEach(async () => {
+      await pool.query('DROP TABLE IF EXISTS tournaments');
+      await pool.query('CREATE TABLE tournaments (tournament_id TEXT PRIMARY KEY, data JSONB NOT NULL)');
+    });
+
+    // SET COMPRESSION takes an ACCESS EXCLUSIVE lock, so it must not run at boot, where it would queue live traffic.
+    it('059 is a no-op: booting never touches the table', async () => {
+      await pool.query(migration('059-tournaments-data-lz4.sql'));
+      expect(await compression()).toBe('');
+    });
+
+    it('the operator script sets lz4, idempotently', async () => {
+      const script = readFileSync(LZ4_SCRIPT, 'utf8');
+      await pool.query(script);
+      await pool.query(script);
+      expect(await compression()).toBe('l');
+    });
+
+    it('waits at most 2 s per attempt behind a busy table, then succeeds once it frees', async () => {
+      const holder = await pool.connect();
+      await holder.query('BEGIN');
+      await holder.query('LOCK TABLE tournaments IN ACCESS SHARE MODE');
+      const release = setTimeout(() => void holder.query('COMMIT'), 4500);
+      const started = Date.now();
+      try {
+        await pool.query(readFileSync(LZ4_SCRIPT, 'utf8'));
+      } finally {
+        clearTimeout(release);
+        await holder.query('ROLLBACK').catch(() => undefined);
+        holder.release();
+      }
+      expect(await compression()).toBe('l');
+      expect(Date.now() - started).toBeGreaterThan(4000); // it waited for the holder rather than failing
+    }, 30000);
   });
 });
