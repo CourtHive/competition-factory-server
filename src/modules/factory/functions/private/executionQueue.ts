@@ -126,13 +126,16 @@ export async function executionQueue(
             // contended tournament look expensive when it is merely popular.
             const startedAt = Date.now();
 
+            // Backfill drawId/eventId for matchUpId-only setMatchUpStatus calls
+            // (score-relay-style producers don't know the drawId): from
+            // match_up_index BEFORE the fetch, where a sharded tournament has one
+            // (what a footprint-driven fetch needs: the draws named before anything
+            // is loaded), then from the lock-acquired record for whatever is left.
+            await resolveMatchUpReferencesFromIndex(methods, tournamentIds, storage);
+
             const result: any = await storage.fetchTournamentRecords({ tournamentIds });
             if (result.error) return result;
 
-            // Backfill drawId/eventId for matchUpId-only setMatchUpStatus calls
-            // (score-relay-style producers don't know the drawId). Runs against
-            // the lock-acquired record, replacing the prior pre-lock fetch in
-            // setMatchUpStatus.ts that doubled the storage round-trip.
             await resolveMatchUpReferences(methods, result.tournamentRecords);
 
             // After getMutationEngine(): constructing the engine resets this request's instance state.
@@ -483,6 +486,36 @@ function recordLoadProfile({
  * factory promoted `tournamentEngineAsync` to its public index in PR
  * #4405 so this swap is now possible without a custom governor build.
  */
+// a setMatchUpStatus that names its matchUp but neither its draw nor its event
+const unresolvedScoreEntries = (methods: any[]) =>
+  (methods ?? []).filter(
+    (m) => m?.method === 'setMatchUpStatus' && m.params?.matchUpId && !m.params.drawId && !m.params.eventId,
+  );
+
+/**
+ * The draws of matchUpId-only score entries from `match_up_index`, inside the lock and before the fetch. The index is
+ * kept for sharded tournaments alone (migration 062's trigger rebuilds it from every saved record), so for a document
+ * tournament this finds nothing and `resolveMatchUpReferences` resolves from the record, as before. One indexed query,
+ * and only when the queue holds such an entry.
+ */
+async function resolveMatchUpReferencesFromIndex(
+  methods: any[],
+  tournamentIds: string[],
+  storage: TournamentStorageService,
+): Promise<void> {
+  if (tournamentIds?.length !== 1) return;
+  const pending = unresolvedScoreEntries(methods);
+  if (!pending.length) return;
+  const matchUpIds = [...new Set<string>(pending.map(({ params }) => params.matchUpId))];
+  const draws = await storage.fetchMatchUpDraws({ tournamentId: tournamentIds[0], matchUpIds });
+  for (const { params } of pending) {
+    const found = draws?.[params.matchUpId];
+    if (!found) continue;
+    params.drawId = found.drawId;
+    if (found.eventId) params.eventId = found.eventId;
+  }
+}
+
 async function resolveMatchUpReferences(
   methods: any[],
   tournamentRecords: Record<string, any> | undefined,
@@ -496,11 +529,7 @@ async function resolveMatchUpReferences(
   // tournamentEngineAsync's setState + findMatchUp return promises; the
   // per-call state isolation runs the methods through asyncEngineInvoke
   // which is genuinely async. Each iteration awaits both calls.
-  for (const m of methods) {
-    if (m?.method !== 'setMatchUpStatus') continue;
-    const params = m.params;
-    if (!params?.matchUpId) continue;
-    if (params.drawId || params.eventId) continue;
+  for (const { params } of unresolvedScoreEntries(methods)) {
     await tournamentEngineAsync.setState(tournamentRecord);
     const found: any = await tournamentEngineAsync.findMatchUp({ matchUpId: params.matchUpId });
     if (found?.matchUp?.drawId) {
