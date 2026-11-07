@@ -1,4 +1,3 @@
-import { installFootprintStandIn, removeFootprintTools } from 'src/tests/helpers/footprintStandIn';
 import { mocksEngine, tournamentEngine } from 'tods-competition-factory';
 
 import {
@@ -11,8 +10,7 @@ import {
 } from './executionQueueShadow';
 
 /**
- * The shard shadow check, against the real engine. The footprint tools are the factory's when the installed factory
- * has them, a stand-in with the same contract otherwise (src/tests/helpers/footprintStandIn.ts).
+ * The shard shadow check, against the real engine and the factory's own footprint tools.
  */
 const scoreFirstMatchUp = () => {
   const {
@@ -42,20 +40,17 @@ const scoreFirstMatchUp = () => {
 
 describe('shard shadow', () => {
   const ORIGINAL = { ...process.env };
-  let uninstall: () => void;
 
   beforeEach(() => {
     resetShardShadowStats();
     process.env.SHARD_SHADOW_SAMPLE_RATE = '1';
-    uninstall = installFootprintStandIn();
   });
 
   afterEach(() => {
     process.env = { ...ORIGINAL };
-    uninstall();
   });
 
-  it('is off unless sampled, and inert without the factory footprint tools', () => {
+  it('is off unless sampled', () => {
     const { tournamentRecord, tournamentId, methods } = scoreFirstMatchUp();
     const args = { methods, tournamentIds: [tournamentId], tournamentRecords: { [tournamentId]: tournamentRecord } };
 
@@ -65,10 +60,6 @@ describe('shard shadow', () => {
     process.env.SHARD_SHADOW_SAMPLE_RATE = '0.5';
     expect(planShardShadow({ ...args, random: () => 0.7 })).toBeUndefined();
     expect(planShardShadow({ ...args, random: () => 0.2 })).toBeDefined();
-
-    const restore = removeFootprintTools();
-    expect(planShardShadow({ ...args, random: () => 0 })).toBeUndefined();
-    restore();
   });
 
   it('skips a queue whose footprint needs the whole record, and multi-tournament queues', () => {
@@ -83,7 +74,7 @@ describe('shard shadow', () => {
 
   // the pipeline is the factory's, process-wide: executionQueue plans with the one the mutation engine runs, and the
   // shadow engine runs that same one, so the spec sets it for both
-  it.each(['v1', 'v2'])(
+  it.each(['v1', 'v2'] as const)(
     'a draw-bounded score entry gives the same draw on the partial record: match (%s)',
     async (outcomePipeline) => {
       tournamentEngine.outcomePipeline(outcomePipeline);

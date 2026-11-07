@@ -279,4 +279,27 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     for (const row of result.rows) layouts[row.tournament_id] = row.layout;
     return layouts;
   }
+
+  async fetchMatchUpDraws({
+    tournamentId,
+    matchUpIds,
+  }: {
+    tournamentId: string;
+    matchUpIds: string[];
+  }): Promise<Record<string, { drawId: string; eventId?: string }>> {
+    const draws: Record<string, { drawId: string; eventId?: string }> = {};
+    if (!tournamentId || !matchUpIds.length) return draws;
+    // only while the tournament is sharded: the trigger maintains the index for those alone
+    const result = await (commandClient(this.pool) ?? this.pool).query(
+      `SELECT m.match_up_id, m.draw_id, m.event_id
+         FROM match_up_index m
+         JOIN tournament_storage_layout l ON l.tournament_id = m.tournament_id AND l.layout = 'sharded'
+        WHERE m.tournament_id = $1 AND m.match_up_id = ANY($2) AND m.draw_id IS NOT NULL`,
+      [tournamentId, matchUpIds],
+    );
+    for (const row of result.rows) {
+      draws[row.match_up_id] = { drawId: row.draw_id, ...(row.event_id ? { eventId: row.event_id } : {}) };
+    }
+    return draws;
+  }
 }

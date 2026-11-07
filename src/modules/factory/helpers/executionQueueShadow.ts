@@ -26,8 +26,6 @@ import '../engines/getMutationEngine';
  *   mismatch   a draw differs (ERROR: the footprint, or partial loading, is wrong for these methods);
  *   refused    the partial run was refused (ERROR when FOOTPRINT_NOT_LOADED: an under-declared footprint);
  *   error      the partial run threw.
- *
- * Inert, whatever the rate, against a factory without footprints (published 7.30.0): nothing is sampled.
  */
 
 const CONTEXT = 'ShardShadow';
@@ -69,23 +67,7 @@ export function shardShadowSampleRate(): number {
   return Number.isFinite(rate) && rate > 0 ? Math.min(rate, 1) : 0;
 }
 
-export interface FootprintTools {
-  getMutationFootprint: (args: { methods: any[]; outcomePipeline?: string }) => any;
-  reduceRecordToFootprint: (args: { tournamentRecord: any; footprint: any }) => any;
-}
-
-function factoryFootprintTools(): FootprintTools | undefined {
-  const { getMutationFootprint, reduceRecordToFootprint } = (tools ?? {}) as any;
-  if (typeof getMutationFootprint !== 'function' || typeof reduceRecordToFootprint !== 'function') return undefined;
-  return { getMutationFootprint, reduceRecordToFootprint };
-}
-
-/**
- * Where the footprint tools come from: the factory's, when it has them. An object rather than a direct call so specs
- * can substitute them where CI resolves the package: the published ESM build exports `tools` as a module namespace,
- * which cannot be assigned to (the same reason as `drawScanner` in executionQueueIntegrity.ts).
- */
-export const shadowFootprint = { tools: factoryFootprintTools };
+type OutcomePipeline = Parameters<typeof tools.getMutationFootprint>[0]['outcomePipeline'];
 
 /**
  * Inside the lock, BEFORE the queue runs (it mutates the fetched record in place). Returns undefined when this
@@ -101,13 +83,11 @@ export function planShardShadow({
   methods: any[];
   tournamentIds: string[];
   tournamentRecords: Record<string, any>;
-  outcomePipeline?: string;
+  outcomePipeline?: OutcomePipeline;
   random?: () => number;
 }): ShadowPlan | undefined {
   const rate = shardShadowSampleRate();
   if (!rate || tournamentIds.length !== 1 || !methods?.length) return undefined;
-  const footprintFns = shadowFootprint.tools();
-  if (!footprintFns) return undefined;
   if (random() >= rate) return undefined;
 
   const [tournamentId] = tournamentIds;
@@ -115,7 +95,7 @@ export function planShardShadow({
   if (!tournamentRecord) return undefined;
 
   try {
-    const footprint = footprintFns.getMutationFootprint({ methods, outcomePipeline });
+    const footprint = tools.getMutationFootprint({ methods, outcomePipeline });
     if (footprint?.tournament) {
       stats.wholeRecord += 1;
       return undefined;
@@ -125,7 +105,7 @@ export function planShardShadow({
       tournamentId,
       footprint,
       methods: structuredClone(methods),
-      partialRecord: footprintFns.reduceRecordToFootprint({ tournamentRecord, footprint }),
+      partialRecord: tools.reduceRecordToFootprint({ tournamentRecord, footprint }),
     };
   } catch (err: any) {
     Logger.error(`shadow plan failed for ${tournamentId}: ${err?.message ?? err}`, CONTEXT);

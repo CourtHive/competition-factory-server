@@ -15,6 +15,8 @@ const mockStorage = {
   fetchTournamentRecords: (params) => fileStorage.fetchTournamentRecords(params),
   saveTournamentRecords: (params) => fileStorage.saveTournamentRecords(params),
   modifyProviderCalendar: () => Promise.resolve({ success: true }),
+  // a document-layout tournament: match_up_index names nothing, so matchUpId-only scores resolve from the record
+  fetchMatchUpDraws: () => Promise.resolve({}),
 } as unknown as TournamentStorageService;
 
 const TOURNAMENT_ID = 'test-score';

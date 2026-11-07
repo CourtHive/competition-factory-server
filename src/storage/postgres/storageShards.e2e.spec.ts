@@ -14,7 +14,7 @@ import { PostgresTournamentStorage } from './postgres-tournament.storage';
  * holds every matchUp; deleting the tournament or returning it to `document` drops its shards; and a `document`
  * tournament is never sharded, trigger or not.
  *
- * Opt-in: skipped unless STORAGE_LAYOUT_DB_TESTS=true, because CI has no Postgres. Built from the migration files in a
+ * Opt-in: skipped unless STORAGE_LAYOUT_DB_TESTS=true (CI's full-suite step sets it). Built from the migration files in a
  * scratch schema, so no real `tournaments` row is in reach:
  *
  *   STORAGE_LAYOUT_DB_TESTS=true PGGSSENCMODE=disable pnpm test -- storageShards
@@ -172,6 +172,42 @@ d('optional record sharding, dual-write (real Postgres)', () => {
       const after = await versions();
       const changed = Object.keys(before).filter((k) => before[k] !== after[k]);
       expect(changed).toEqual([`draw:${drawA.drawId}`]);
+    });
+
+    it('fetchMatchUpDraws answers from the index for a sharded tournament only', async () => {
+      const sharded = RECORDS.elimination();
+      const plain = RECORDS.elimination();
+      for (const record of [sharded, plain]) await save(record);
+      await pool.query("SELECT set_tournament_storage_layout($1, 'sharded')", [sharded.tournamentId]);
+
+      const idsOf = (record: any) => {
+        tournamentEngine.setState(record);
+        return (tournamentEngine.allTournamentMatchUps({ inContext: true }).matchUps ?? []).map(
+          ({ matchUpId, drawId, eventId }: any) => ({ matchUpId, drawId, eventId }),
+        );
+      };
+      const ids = idsOf(sharded);
+      const [first, last] = [ids[0], ids[ids.length - 1]];
+      expect(first.drawId).not.toEqual(last.drawId); // two draws, so the draw is read per matchUp
+      expect(
+        await storage.fetchMatchUpDraws({
+          tournamentId: sharded.tournamentId,
+          matchUpIds: [first.matchUpId, last.matchUpId, 'not-a-matchUp'],
+        }),
+      ).toEqual({
+        [first.matchUpId]: { drawId: first.drawId, eventId: first.eventId },
+        [last.matchUpId]: { drawId: last.drawId, eventId: last.eventId },
+      });
+
+      // a document tournament has no index: the caller resolves from the record
+      const [plainMatchUp] = idsOf(plain);
+      expect(
+        await storage.fetchMatchUpDraws({ tournamentId: plain.tournamentId, matchUpIds: [plainMatchUp.matchUpId] }),
+      ).toEqual({});
+      await pool.query("SELECT set_tournament_storage_layout($1, 'document')", [sharded.tournamentId]);
+      expect(
+        await storage.fetchMatchUpDraws({ tournamentId: sharded.tournamentId, matchUpIds: [first.matchUpId] }),
+      ).toEqual({});
     });
 
     it('a document tournament is never sharded', async () => {
