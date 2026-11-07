@@ -1,3 +1,4 @@
+import { commandClient } from './commandTransaction';
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -10,7 +11,7 @@ export class PostgresAssignmentStorage implements IAssignmentStorage {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   async findByTournamentId(tournamentId: string): Promise<TournamentAssignmentRow[]> {
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT ta.tournament_id, ta.user_id, ta.provider_id, ta.assignment_role, ta.granted_by, ta.granted_at, u.email
        FROM tournament_assignments ta
        JOIN users u ON u.user_id = ta.user_id
@@ -23,7 +24,7 @@ export class PostgresAssignmentStorage implements IAssignmentStorage {
 
   async findByUserId(userId: string, providerId?: string): Promise<TournamentAssignmentRow[]> {
     if (providerId) {
-      const result = await this.pool.query(
+      const result = await (commandClient(this.pool) ?? this.pool).query(
         `SELECT ta.tournament_id, ta.user_id, ta.provider_id, ta.assignment_role, ta.granted_by, ta.granted_at, u.email
          FROM tournament_assignments ta
          JOIN users u ON u.user_id = ta.user_id
@@ -33,7 +34,7 @@ export class PostgresAssignmentStorage implements IAssignmentStorage {
       );
       return result.rows.map(mapRow);
     }
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT ta.tournament_id, ta.user_id, ta.provider_id, ta.assignment_role, ta.granted_by, ta.granted_at, u.email
        FROM tournament_assignments ta
        JOIN users u ON u.user_id = ta.user_id
@@ -45,7 +46,7 @@ export class PostgresAssignmentStorage implements IAssignmentStorage {
   }
 
   async findOne(tournamentId: string, userId: string): Promise<TournamentAssignmentRow | null> {
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT ta.tournament_id, ta.user_id, ta.provider_id, ta.assignment_role, ta.granted_by, ta.granted_at, u.email
        FROM tournament_assignments ta
        JOIN users u ON u.user_id = ta.user_id
@@ -56,7 +57,7 @@ export class PostgresAssignmentStorage implements IAssignmentStorage {
   }
 
   async grant(row: TournamentAssignmentRow): Promise<{ success: boolean }> {
-    await this.pool.query(
+    await (commandClient(this.pool) ?? this.pool).query(
       `INSERT INTO tournament_assignments (tournament_id, user_id, provider_id, assignment_role, granted_by)
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (tournament_id, user_id) DO NOTHING`,
@@ -66,10 +67,10 @@ export class PostgresAssignmentStorage implements IAssignmentStorage {
   }
 
   async revoke(tournamentId: string, userId: string): Promise<{ success: boolean }> {
-    await this.pool.query('DELETE FROM tournament_assignments WHERE tournament_id = $1 AND user_id = $2', [
-      tournamentId,
-      userId,
-    ]);
+    await (commandClient(this.pool) ?? this.pool).query(
+      'DELETE FROM tournament_assignments WHERE tournament_id = $1 AND user_id = $2',
+      [tournamentId, userId],
+    );
     return { ...SUCCESS };
   }
 }

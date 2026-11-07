@@ -239,6 +239,36 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Record a super-admin provider move. FAIL-CLOSED, unlike every other `record*` here: it runs inside the move's
+   * durable command, so a failed append rolls the move back. A tournament silently changing hands with no trail of who
+   * moved it and why is worse than a move that has to be retried.
+   */
+  async recordProviderMove(params: {
+    tournamentId: string;
+    userId?: string;
+    userEmail?: string;
+    reason: string;
+    commandId: string;
+    before: Record<string, any>;
+    after: Record<string, any>;
+  }): Promise<void> {
+    const { tournamentId, userId, userEmail, reason, commandId, before, after } = params;
+    await this.auditStorage.append({
+      auditId: tools.UUID(),
+      tournamentId,
+      userId,
+      userEmail,
+      actor: toActor({ userId }),
+      source: 'admin',
+      occurredAt: new Date().toISOString(),
+      actionType: 'MOVE_TOURNAMENT_PROVIDER',
+      methods: [{ method: 'moveTournamentProvider', params: { toProviderId: after.providerId } }],
+      status: 'applied',
+      metadata: { reason, commandId, before, after },
+    });
+  }
+
+  /**
    * Record a provisioner deletion event. Uses the provisionerId in the
    * tournamentId column (which is just a denormalized indexed string with no
    * FK) so the row is queryable by `findByActionType('DELETE_PROVISIONER')`.

@@ -1,3 +1,4 @@
+import { commandClient } from './commandTransaction';
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -13,7 +14,7 @@ export class PostgresTournamentProvisionerStorage implements ITournamentProvisio
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   async getByTournament(tournamentId: string): Promise<TournamentProvisionerRow | null> {
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       'SELECT tournament_id, provisioner_id, provider_id, created_at FROM tournament_provisioner WHERE tournament_id = $1',
       [tournamentId],
     );
@@ -22,7 +23,7 @@ export class PostgresTournamentProvisionerStorage implements ITournamentProvisio
 
   async getByProvisioner(provisionerId: string, providerId?: string): Promise<TournamentProvisionerRow[]> {
     if (providerId) {
-      const result = await this.pool.query(
+      const result = await (commandClient(this.pool) ?? this.pool).query(
         `SELECT tournament_id, provisioner_id, provider_id, created_at
          FROM tournament_provisioner
          WHERE provisioner_id = $1 AND provider_id = $2
@@ -31,7 +32,7 @@ export class PostgresTournamentProvisionerStorage implements ITournamentProvisio
       );
       return result.rows.map(mapRow);
     }
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT tournament_id, provisioner_id, provider_id, created_at
        FROM tournament_provisioner
        WHERE provisioner_id = $1
@@ -42,7 +43,7 @@ export class PostgresTournamentProvisionerStorage implements ITournamentProvisio
   }
 
   async create(row: Omit<TournamentProvisionerRow, 'createdAt'>): Promise<{ success: boolean }> {
-    await this.pool.query(
+    await (commandClient(this.pool) ?? this.pool).query(
       `INSERT INTO tournament_provisioner (tournament_id, provisioner_id, provider_id)
        VALUES ($1, $2, $3)
        ON CONFLICT (tournament_id) DO NOTHING`,
@@ -51,8 +52,21 @@ export class PostgresTournamentProvisionerStorage implements ITournamentProvisio
     return { ...SUCCESS };
   }
 
+  async reassign(
+    tournamentId: string,
+    to: { provisionerId: string; providerId: string },
+  ): Promise<{ success: boolean }> {
+    const result = await (commandClient(this.pool) ?? this.pool).query(
+      'UPDATE tournament_provisioner SET provisioner_id = $2, provider_id = $3 WHERE tournament_id = $1',
+      [tournamentId, to.provisionerId, to.providerId],
+    );
+    return { success: (result.rowCount ?? 0) > 0 };
+  }
+
   async remove(tournamentId: string): Promise<{ success: boolean }> {
-    await this.pool.query('DELETE FROM tournament_provisioner WHERE tournament_id = $1', [tournamentId]);
+    await (commandClient(this.pool) ?? this.pool).query('DELETE FROM tournament_provisioner WHERE tournament_id = $1', [
+      tournamentId,
+    ]);
     return { ...SUCCESS };
   }
 }

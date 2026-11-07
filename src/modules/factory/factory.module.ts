@@ -1,5 +1,7 @@
 import { SnapshotProjectionService } from './projection/snapshot-projection.service';
 import { ProjectionRebuildService } from './projection/projection-rebuild.service';
+import { AdminTournamentMoveController } from './admin-tournament-move.controller';
+import { AdminTournamentMoveService } from './admin-tournament-move.service';
 import { AdminProjectionController } from './admin-projection.controller';
 import { BroadcastModule } from '../messaging/broadcast/broadcast.module';
 import { AssignmentsController } from './assignments.controller';
@@ -23,8 +25,15 @@ import { Module } from '@nestjs/common';
     ConfigService,
     ProjectionRebuildService,
     SnapshotProjectionService,
+    AdminTournamentMoveService,
   ],
-  controllers: [FactoryController, AssignmentsController, GrantsController, AdminProjectionController],
+  controllers: [
+    FactoryController,
+    AssignmentsController,
+    GrantsController,
+    AdminProjectionController,
+    AdminTournamentMoveController,
+  ],
   exports: [
     FactoryService,
     AssignmentsService,

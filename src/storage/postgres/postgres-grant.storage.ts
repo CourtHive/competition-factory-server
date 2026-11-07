@@ -1,3 +1,4 @@
+import { commandClient } from './commandTransaction';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { IGrantStorage, TournamentGrantRow } from '../interfaces/grant-storage.interface';
@@ -25,7 +26,7 @@ export class PostgresGrantStorage implements IGrantStorage {
   constructor(@Inject(PG_POOL) private readonly pool: any) {}
 
   async findForSubject(userId: string, tournamentId: string): Promise<TournamentGrantRow[]> {
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT ${COLUMNS} FROM tournament_grants WHERE user_id = $1 AND tournament_id = $2`,
       [userId, tournamentId],
     );
@@ -33,7 +34,7 @@ export class PostgresGrantStorage implements IGrantStorage {
   }
 
   async findByTournamentId(tournamentId: string): Promise<TournamentGrantRow[]> {
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT ${COLUMNS} FROM tournament_grants WHERE tournament_id = $1 ORDER BY granted_at`,
       [tournamentId],
     );
@@ -41,13 +42,16 @@ export class PostgresGrantStorage implements IGrantStorage {
   }
 
   async findById(grantId: string): Promise<TournamentGrantRow | null> {
-    const result = await this.pool.query(`SELECT ${COLUMNS} FROM tournament_grants WHERE grant_id = $1`, [grantId]);
+    const result = await (commandClient(this.pool) ?? this.pool).query(
+      `SELECT ${COLUMNS} FROM tournament_grants WHERE grant_id = $1`,
+      [grantId],
+    );
     const row = result.rows[0];
     return row ? toRow(row) : null;
   }
 
   async create(row: Omit<TournamentGrantRow, 'grantId' | 'grantedAt'>): Promise<{ grantId: string }> {
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       `INSERT INTO tournament_grants
          (tournament_id, user_id, provider_id, capability, scope, not_before, not_after, granted_by)
        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
@@ -67,15 +71,18 @@ export class PostgresGrantStorage implements IGrantStorage {
   }
 
   async revoke(grantId: string): Promise<{ success: boolean }> {
-    const result = await this.pool.query(`DELETE FROM tournament_grants WHERE grant_id = $1`, [grantId]);
+    const result = await (commandClient(this.pool) ?? this.pool).query(
+      `DELETE FROM tournament_grants WHERE grant_id = $1`,
+      [grantId],
+    );
     return { success: (result.rowCount ?? 0) > 0 };
   }
 
   async revokeForSubject(userId: string, tournamentId: string): Promise<{ revoked: number }> {
-    const result = await this.pool.query(`DELETE FROM tournament_grants WHERE user_id = $1 AND tournament_id = $2`, [
-      userId,
-      tournamentId,
-    ]);
+    const result = await (commandClient(this.pool) ?? this.pool).query(
+      `DELETE FROM tournament_grants WHERE user_id = $1 AND tournament_id = $2`,
+      [userId, tournamentId],
+    );
     return { revoked: result.rowCount ?? 0 };
   }
 }

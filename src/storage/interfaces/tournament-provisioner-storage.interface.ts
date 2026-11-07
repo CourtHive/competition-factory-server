@@ -15,6 +15,12 @@ export interface ITournamentProvisionerStorage {
   /** Record that a provisioner created a tournament. */
   create(row: Omit<TournamentProvisionerRow, 'createdAt'>): Promise<{ success: boolean }>;
 
+  /**
+   * Point an existing mapping at another provider (and, for a cross-provisioner move, another provisioner). Used only by
+   * the super-admin provider move; `created_at` is kept, so the row still says when the tournament was first provisioned.
+   */
+  reassign(tournamentId: string, to: { provisionerId: string; providerId: string }): Promise<{ success: boolean }>;
+
   /** Remove a tournament's provisioner mapping (e.g. on tournament deletion). */
   remove(tournamentId: string): Promise<{ success: boolean }>;
 }

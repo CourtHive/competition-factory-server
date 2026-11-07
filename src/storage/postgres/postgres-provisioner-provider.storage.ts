@@ -1,3 +1,4 @@
+import { commandClient } from './commandTransaction';
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -13,7 +14,7 @@ export class PostgresProvisionerProviderStorage implements IProvisionerProviderS
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   async findByProvisioner(provisionerId: string): Promise<ProvisionerProviderRow[]> {
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT provisioner_id, provider_id, relationship, granted_by, created_at
        FROM provisioner_providers
        WHERE provisioner_id = $1
@@ -24,7 +25,7 @@ export class PostgresProvisionerProviderStorage implements IProvisionerProviderS
   }
 
   async findByProvider(providerId: string): Promise<ProvisionerProviderRow[]> {
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT provisioner_id, provider_id, relationship, granted_by, created_at
        FROM provisioner_providers
        WHERE provider_id = $1
@@ -35,7 +36,7 @@ export class PostgresProvisionerProviderStorage implements IProvisionerProviderS
   }
 
   async getRelationship(provisionerId: string, providerId: string): Promise<'owner' | 'subsidiary' | null> {
-    const result = await this.pool.query(
+    const result = await (commandClient(this.pool) ?? this.pool).query(
       'SELECT relationship FROM provisioner_providers WHERE provisioner_id = $1 AND provider_id = $2',
       [provisionerId, providerId],
     );
@@ -49,7 +50,7 @@ export class PostgresProvisionerProviderStorage implements IProvisionerProviderS
     relationship: 'owner' | 'subsidiary',
     grantedBy?: string,
   ): Promise<{ success: boolean }> {
-    await this.pool.query(
+    await (commandClient(this.pool) ?? this.pool).query(
       `INSERT INTO provisioner_providers (provisioner_id, provider_id, relationship, granted_by)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (provisioner_id, provider_id) DO UPDATE SET
@@ -65,7 +66,7 @@ export class PostgresProvisionerProviderStorage implements IProvisionerProviderS
     providerId: string,
     relationship: 'owner' | 'subsidiary',
   ): Promise<{ success: boolean }> {
-    await this.pool.query(
+    await (commandClient(this.pool) ?? this.pool).query(
       'UPDATE provisioner_providers SET relationship = $1 WHERE provisioner_id = $2 AND provider_id = $3',
       [relationship, provisionerId, providerId],
     );
@@ -73,10 +74,10 @@ export class PostgresProvisionerProviderStorage implements IProvisionerProviderS
   }
 
   async disassociate(provisionerId: string, providerId: string): Promise<{ success: boolean }> {
-    await this.pool.query('DELETE FROM provisioner_providers WHERE provisioner_id = $1 AND provider_id = $2', [
-      provisionerId,
-      providerId,
-    ]);
+    await (commandClient(this.pool) ?? this.pool).query(
+      'DELETE FROM provisioner_providers WHERE provisioner_id = $1 AND provider_id = $2',
+      [provisionerId, providerId],
+    );
     return { ...SUCCESS };
   }
 }
