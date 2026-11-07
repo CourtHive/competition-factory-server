@@ -1,5 +1,4 @@
 import { resetShardShadowStats, shardShadowStats } from '../../helpers/executionQueueShadow';
-import { installFootprintStandIn } from 'src/tests/helpers/footprintStandIn';
 import { mocksEngine, tournamentEngine } from 'tods-competition-factory';
 import { executionQueue } from './executionQueue';
 
@@ -63,16 +62,13 @@ const run = async (rate?: string) => {
 
 describe('executionQueue with the shard shadow', () => {
   const ORIGINAL = { ...process.env };
-  let uninstall: () => void;
 
   beforeEach(() => {
     resetShardShadowStats();
-    uninstall = installFootprintStandIn();
   });
 
   afterEach(() => {
     process.env = { ...ORIGINAL };
-    uninstall();
   });
 
   it('checks a sampled score entry after the response, and finds the same draw', async () => {
