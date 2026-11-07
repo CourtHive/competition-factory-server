@@ -174,6 +174,42 @@ d('optional record sharding, dual-write (real Postgres)', () => {
       expect(changed).toEqual([`draw:${drawA.drawId}`]);
     });
 
+    it('fetchMatchUpDraws answers from the index for a sharded tournament only', async () => {
+      const sharded = RECORDS.elimination();
+      const plain = RECORDS.elimination();
+      for (const record of [sharded, plain]) await save(record);
+      await pool.query("SELECT set_tournament_storage_layout($1, 'sharded')", [sharded.tournamentId]);
+
+      const idsOf = (record: any) => {
+        tournamentEngine.setState(record);
+        return (tournamentEngine.allTournamentMatchUps({ inContext: true }).matchUps ?? []).map(
+          ({ matchUpId, drawId, eventId }: any) => ({ matchUpId, drawId, eventId }),
+        );
+      };
+      const ids = idsOf(sharded);
+      const [first, last] = [ids[0], ids[ids.length - 1]];
+      expect(first.drawId).not.toEqual(last.drawId); // two draws, so the draw is read per matchUp
+      expect(
+        await storage.fetchMatchUpDraws({
+          tournamentId: sharded.tournamentId,
+          matchUpIds: [first.matchUpId, last.matchUpId, 'not-a-matchUp'],
+        }),
+      ).toEqual({
+        [first.matchUpId]: { drawId: first.drawId, eventId: first.eventId },
+        [last.matchUpId]: { drawId: last.drawId, eventId: last.eventId },
+      });
+
+      // a document tournament has no index: the caller resolves from the record
+      const [plainMatchUp] = idsOf(plain);
+      expect(
+        await storage.fetchMatchUpDraws({ tournamentId: plain.tournamentId, matchUpIds: [plainMatchUp.matchUpId] }),
+      ).toEqual({});
+      await pool.query("SELECT set_tournament_storage_layout($1, 'document')", [sharded.tournamentId]);
+      expect(
+        await storage.fetchMatchUpDraws({ tournamentId: sharded.tournamentId, matchUpIds: [first.matchUpId] }),
+      ).toEqual({});
+    });
+
     it('a document tournament is never sharded', async () => {
       const record = RECORDS.doubles();
       await save(record);

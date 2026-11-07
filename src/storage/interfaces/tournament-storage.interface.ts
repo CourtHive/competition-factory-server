@@ -79,4 +79,11 @@ export interface ITournamentStorage {
 
   /** The layout of each requested tournament; every id is present in the result, `document` when it has no row. */
   fetchStorageLayouts(params: { tournamentIds: string[] }): Promise<Record<string, StorageLayout>>;
+
+  // The draw (and event) of each named matchUp, from `match_up_index`: kept for SHARDED tournaments only, so a document
+  // tournament, or a matchUp the index does not name, is absent and the caller resolves it from the record.
+  fetchMatchUpDraws(params: {
+    tournamentId: string;
+    matchUpIds: string[];
+  }): Promise<Record<string, { drawId: string; eventId?: string }>>;
 }
