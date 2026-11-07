@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.11.0](https://github.com/CourtHive/competition-factory-server/compare/v4.10.0...v4.11.0) (2026-11-07)
+
+
+### Features
+
+* **storage:** resolve a matchUpId-only score entry's draw from match_up_index before the fetch ([fe500bf](https://github.com/CourtHive/competition-factory-server/commit/fe500bf418478099498abbc4696dd530a6b7f027))
+
 ## [4.10.0](https://github.com/CourtHive/competition-factory-server/compare/v4.9.1...v4.10.0) (2026-11-06)
 
 
