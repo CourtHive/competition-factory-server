@@ -5,6 +5,7 @@ describe('AssignmentsService', () => {
   let mockAssignmentStorage: any;
   let mockUserProviderStorage: any;
   let mockUserStorage: any;
+  let mockTournamentStorageService: any;
 
   const adminCtx: any = {
     userId: 'admin-uuid',
@@ -42,7 +43,19 @@ describe('AssignmentsService', () => {
     mockUserStorage = {
       findOne: vi.fn().mockResolvedValue({ userId: 'grantee-uuid', email: 'grantee@test.com' }),
     };
-    service = new AssignmentsService(mockAssignmentStorage, mockUserProviderStorage, mockUserStorage);
+    // The projection the service authorizes against: t-1 belongs to prov-1, t-other to prov-2.
+    const owners: Record<string, string> = { 't-1': 'prov-1', 't-other': 'prov-2' };
+    mockTournamentStorageService = {
+      fetchTournamentUpdatedAt: vi.fn(async ({ tournamentId }: any) =>
+        owners[tournamentId] ? { success: true, tournamentId, providerId: owners[tournamentId] } : { error: 'nf' },
+      ),
+    };
+    service = new AssignmentsService(
+      mockAssignmentStorage,
+      mockUserProviderStorage,
+      mockUserStorage,
+      mockTournamentStorageService,
+    );
   });
 
   describe('list', () => {
@@ -50,6 +63,18 @@ describe('AssignmentsService', () => {
       let result: any = await service.list({ tournamentId: 't-1' }, adminCtx);
       expect(result.success).toBe(true);
       expect(mockAssignmentStorage.findByTournamentId).toHaveBeenCalledWith('t-1');
+    });
+
+    // Until 2026-11-08 the tournament form had no check: any authenticated token listed any tournament's staff.
+    it("refuses a tournament's list to a director, and to another provider's admin", async () => {
+      expect(await service.list({ tournamentId: 't-1' }, directorCtx)).toMatchObject({ error: expect.any(String) });
+      expect(await service.list({ tournamentId: 't-other' }, adminCtx)).toMatchObject({ error: expect.any(String) });
+      expect(mockAssignmentStorage.findByTournamentId).not.toHaveBeenCalled();
+    });
+
+    it("gives a super-admin any tournament's list, and refuses an unknown tournament", async () => {
+      expect(await service.list({ tournamentId: 't-other' }, superCtx)).toMatchObject({ success: true });
+      expect(await service.list({ tournamentId: 'missing' }, superCtx)).toMatchObject({ error: expect.any(String) });
     });
 
     it('lists by userId when no tournamentId', async () => {
@@ -132,6 +157,34 @@ describe('AssignmentsService', () => {
         directorCtx,
       );
       expect(result.error).toContain('Insufficient permissions');
+    });
+  });
+
+  // The provider an assignment route authorizes against is the TOURNAMENT's, never the one the caller sends.
+  describe("another provider's tournament", () => {
+    const attack = { tournamentId: 't-other', userEmail: 'grantee@test.com', providerId: 'prov-1' };
+
+    it("refuses a grant onto it, even naming the admin's own provider", async () => {
+      expect(await service.grant(attack, adminCtx)).toMatchObject({ error: expect.any(String) });
+      expect(mockAssignmentStorage.grant).not.toHaveBeenCalled();
+    });
+
+    it("refuses a revoke from it, even naming the admin's own provider", async () => {
+      expect(await service.revoke(attack, adminCtx)).toMatchObject({ error: expect.any(String) });
+      expect(mockAssignmentStorage.revoke).not.toHaveBeenCalled();
+    });
+
+    it("refuses its own provider's admin a claim that names a different provider", async () => {
+      const otherAdmin: any = { ...adminCtx, providerRoles: { 'prov-2': 'PROVIDER_ADMIN' }, providerIds: ['prov-2'] };
+      expect(await service.revoke(attack, otherAdmin)).toMatchObject({
+        error: expect.stringContaining('not the provider'),
+      });
+    });
+
+    it('records the grant against the owning provider', async () => {
+      const result: any = await service.grant({ tournamentId: 't-1', userEmail: 'grantee@test.com' } as any, adminCtx);
+      expect(result.success).toBe(true);
+      expect(mockAssignmentStorage.grant).toHaveBeenCalledWith(expect.objectContaining({ providerId: 'prov-1' }));
     });
   });
 
