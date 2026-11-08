@@ -1,5 +1,22 @@
 # Changelog
 
+## [4.12.0](https://github.com/CourtHive/competition-factory-server/compare/v4.11.0...v4.12.0) (2026-11-08)
+
+
+### Features
+
+* **admin:** super-admin move of a tournament between providers ([e5944f9](https://github.com/CourtHive/competition-factory-server/commit/e5944f9668c5f2c7957c6d431620e3e002fb6833))
+* **admin:** super-admin move of a tournament between providers ([63fe7c4](https://github.com/CourtHive/competition-factory-server/commit/63fe7c45933caea35528c7e536562cc775cc6a1f))
+
+
+### Bug Fixes
+
+* **admin:** declare SUPER_ADMIN on the provider-move handler as well as the class ([051e7b0](https://github.com/CourtHive/competition-factory-server/commit/051e7b0986ccec99de45b9669378866f86acf7ae))
+* **auth:** read class-level role metadata in the roles guard; guard three admin controllers ([7592289](https://github.com/CourtHive/competition-factory-server/commit/75922890c3f07ad8936bde2a8c8057f8e2fe1c18))
+* **auth:** read class-level role metadata in the roles guard; guard three admin controllers ([4d4ad6b](https://github.com/CourtHive/competition-factory-server/commit/4d4ad6bcb6fbf70fdd17484d785e538578874004))
+* **deps:** update tods-competition-factory to 7.33.0 ([6e2590f](https://github.com/CourtHive/competition-factory-server/commit/6e2590f0ee1f3852e7b76c17854ff4d54b751ab2))
+* **deps:** update tods-competition-factory to 7.33.0 ([adcc097](https://github.com/CourtHive/competition-factory-server/commit/adcc09738af88cfca46a601f41945413db1ac407))
+
 ## [4.11.0](https://github.com/CourtHive/competition-factory-server/compare/v4.10.0...v4.11.0) (2026-11-07)
 
 
