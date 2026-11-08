@@ -1,3 +1,4 @@
+import { commandClient } from './commandTransaction';
 import { Inject, Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 
@@ -18,7 +19,7 @@ export class PostgresAuditStorage implements IAuditStorage {
     const legacyUserUuid = !row.actor && isUuid(row.userId) ? row.userId : null;
     const actor = row.actor ?? (isUuid(row.userId) ? { kind: 'user' as const, id: row.userId! } : undefined);
 
-    await this.pool.query(
+    await (commandClient(this.pool) ?? this.pool).query(
       `INSERT INTO audit_log
          (audit_id, tournament_id, user_id, user_email, source, occurred_at,
           action_type, methods, status, metadata, error_code, actor_type, actor_id)
@@ -42,7 +43,10 @@ export class PostgresAuditStorage implements IAuditStorage {
   }
 
   async findById(auditId: string): Promise<AuditRow | null> {
-    const result = await this.pool.query('SELECT * FROM audit_log WHERE audit_id = $1 LIMIT 1', [auditId]);
+    const result = await (commandClient(this.pool) ?? this.pool).query(
+      'SELECT * FROM audit_log WHERE audit_id = $1 LIMIT 1',
+      [auditId],
+    );
     return result.rows.length ? mapRow(result.rows[0]) : null;
   }
 
@@ -64,7 +68,7 @@ export class PostgresAuditStorage implements IAuditStorage {
 
     params.push(clampLimit(options?.limit, 500));
     const sql = `SELECT * FROM audit_log WHERE ${conditions.join(' AND ')} ORDER BY occurred_at DESC LIMIT $${params.length}`;
-    const result = await this.pool.query(sql, params);
+    const result = await (commandClient(this.pool) ?? this.pool).query(sql, params);
     return result.rows.map(mapRow);
   }
 
@@ -86,7 +90,7 @@ export class PostgresAuditStorage implements IAuditStorage {
 
     params.push(clampLimit(options?.limit, 100));
     const sql = `SELECT * FROM audit_log WHERE ${conditions.join(' AND ')} ORDER BY occurred_at DESC LIMIT $${params.length}`;
-    const result = await this.pool.query(sql, params);
+    const result = await (commandClient(this.pool) ?? this.pool).query(sql, params);
     return result.rows.map(mapRow);
   }
 
@@ -109,12 +113,14 @@ export class PostgresAuditStorage implements IAuditStorage {
 
     params.push(clampLimit(options?.limit, 100));
     const sql = `SELECT * FROM audit_log WHERE ${conditions.join(' AND ')} ORDER BY occurred_at DESC LIMIT $${params.length}`;
-    const result = await this.pool.query(sql, params);
+    const result = await (commandClient(this.pool) ?? this.pool).query(sql, params);
     return result.rows.map(mapRow);
   }
 
   async prune(olderThan: Date): Promise<number> {
-    const result = await this.pool.query('DELETE FROM audit_log WHERE occurred_at < $1', [olderThan.toISOString()]);
+    const result = await (commandClient(this.pool) ?? this.pool).query('DELETE FROM audit_log WHERE occurred_at < $1', [
+      olderThan.toISOString(),
+    ]);
     return result.rowCount ?? 0;
   }
 
@@ -127,7 +133,7 @@ export class PostgresAuditStorage implements IAuditStorage {
     // tomorrow's caller (a `throw 'string'`, a wrapper with an optional
     // message argument, etc.) shouldn't be able to silently wipe the
     // useful prior error from the side-table.
-    await this.pool.query(
+    await (commandClient(this.pool) ?? this.pool).query(
       `INSERT INTO audit_failure_counts (action_type, count, first_failure_at, last_failure_at, last_failure_message)
        VALUES ($1, 1, NOW(), NOW(), $2)
        ON CONFLICT (action_type) DO UPDATE
@@ -139,11 +145,15 @@ export class PostgresAuditStorage implements IAuditStorage {
   }
 
   async clearFailureCount(actionType: string): Promise<void> {
-    await this.pool.query('DELETE FROM audit_failure_counts WHERE action_type = $1', [actionType]);
+    await (commandClient(this.pool) ?? this.pool).query('DELETE FROM audit_failure_counts WHERE action_type = $1', [
+      actionType,
+    ]);
   }
 
   async loadFailureCounts(): Promise<Array<{ actionType: string; count: number }>> {
-    const result = await this.pool.query('SELECT action_type, count FROM audit_failure_counts');
+    const result = await (commandClient(this.pool) ?? this.pool).query(
+      'SELECT action_type, count FROM audit_failure_counts',
+    );
     return result.rows.map((r: any) => ({ actionType: r.action_type, count: r.count }));
   }
 }
