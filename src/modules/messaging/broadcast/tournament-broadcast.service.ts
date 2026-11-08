@@ -108,6 +108,17 @@ export class TournamentBroadcastService {
   }
 
   /**
+   * Tell TMX clients in a tournament's room that the server replaced the record outside `executionQueue` (today only
+   * the super-admin provider move), so there are no methods they could replay. A client holding it reloads from the
+   * server instead of mutating a copy whose ownership changed underneath it. Carries no record content.
+   */
+  broadcastTournamentReplaced(tournamentId: string, details: { reason: string; serverUpdatedAt?: string }): void {
+    const event = { tournamentId, reason: details.reason, serverUpdatedAt: details.serverUpdatedAt };
+    this.publisher.publish(tournamentChannel(tournamentId), 'tournamentReplaced', event);
+    this.logger.log(`[broadcast] tournamentReplaced (${details.reason}) to room of ${tournamentId}`);
+  }
+
+  /**
    * Debounce a facility-schedule-changed fan-out per source tournament. Accumulates the burst's touched
    * venues (and, for a link-graph mutation, the batch's other tournamentIds) then arms a single flush.
    * Cheap + synchronous — the storage read + emit happen later, off the mutation path.

@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 
 import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
+import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
 import { TournamentSyncService } from './tournament-sync.service';
 
 /**
@@ -10,7 +11,9 @@ import { TournamentSyncService } from './tournament-sync.service';
  *
  * All endpoints require SUPER_ADMIN role.
  */
+// Every route is SUPER_ADMIN; without the guard the per-route @Roles enforced nothing (found 2026-11-08).
 @Controller('factory/sync')
+@UseGuards(RolesGuard)
 export class TournamentSyncController {
   constructor(private readonly syncService: TournamentSyncService) {}
 

@@ -1,11 +1,14 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
 import { Roles } from '../account/auth/decorators/roles.decorator';
 import { User } from '../account/auth/decorators/user.decorator';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
+import { RolesGuard } from '../account/auth/guards/role.guard';
 import { AuditService } from './audit.service';
 
+// Every route is SUPER_ADMIN; without the guard the per-route @Roles enforced nothing (found 2026-11-08).
 @Controller('audit')
+@UseGuards(RolesGuard)
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
