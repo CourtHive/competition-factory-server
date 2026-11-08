@@ -63,19 +63,12 @@ describe('RolesGuard', () => {
  * `@Roles` only means something under `RolesGuard` — the global AuthGuard checks authentication and audience, never
  * roles. A controller that declares `@Roles` without the guard LOOKS role-gated and admits any authenticated token.
  *
- * These four declare CLIENT/SCORE and authorize in their services (canMutateTournament / isProviderAdminFor), which is
- * the real gate; attaching the guard would start refusing tokens whose roles lack `client`, a behaviour change on live
- * routes, so it is CA's call (Mentat memory feedback_roles_decorator_inert_without_rolesguard). Anything NEW fails here.
+ * No exceptions since 2026-11-08: the four controllers once allow-listed here (assignments, availability,
+ * registrations, tournament-token) authorize in their services, against the tournament, and no longer declare a
+ * @Roles that nothing enforced.
  */
 // `@UseGuards(A, RolesGuard)` counts: two provisioner controllers combine it with ProvisionerWritesMovedGuard.
 const UNDER_ROLES_GUARD = /@UseGuards\([^)]*\bRolesGuard\b/;
-
-const UNGUARDED_BY_DECISION = new Set([
-  'modules/account/declarations/admin-availability.controller.ts',
-  'modules/account/registrations/admin-registrations.controller.ts',
-  'modules/factory/assignments.controller.ts',
-  'modules/tournament-auth/tournament-token.controller.ts',
-]);
 
 describe('every controller that declares @Roles is under RolesGuard', () => {
   const root = join(__dirname, '../../../..');
@@ -91,15 +84,7 @@ describe('every controller that declares @Roles is under RolesGuard', () => {
 
   it.each(controllers)('%s', (file) => {
     const source = readFileSync(join(root, file), 'utf8');
-    if (!source.includes('@Roles(') || UNGUARDED_BY_DECISION.has(file)) return;
+    if (!source.includes('@Roles(')) return;
     expect(source).toMatch(UNDER_ROLES_GUARD);
-  });
-
-  it('keeps the allow-list honest: each entry still declares @Roles without the guard', () => {
-    for (const file of UNGUARDED_BY_DECISION) {
-      const source = readFileSync(join(root, file), 'utf8');
-      expect(source).toContain('@Roles(');
-      expect(source).not.toMatch(UNDER_ROLES_GUARD);
-    }
   });
 });
