@@ -1,9 +1,10 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
-import { CLIENT, SUPER_ADMIN } from 'src/common/constants/roles';
-import { Roles } from '../account/auth/decorators/roles.decorator';
 import { AssignmentsService } from './assignments.service';
 
+// No @Roles: authorization is in the service, against the tournament (AssignmentsService: the tournament's owning
+// provider's admin, or a super-admin). A @Roles here enforced nothing —
+// no RolesGuard ran — and read as a check that did not happen (removed 2026-11-08).
 @Controller('factory/assignments')
 export class AssignmentsController {
   constructor(private readonly assignmentsService: AssignmentsService) {}
@@ -13,7 +14,6 @@ export class AssignmentsController {
    * requesting user (when no tournamentId is provided).
    */
   @Post('list')
-  @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   list(@Body() body: { tournamentId?: string }, @UserCtx() ctx: UserContext) {
     return this.assignmentsService.list(body, ctx);
@@ -25,7 +25,6 @@ export class AssignmentsController {
    * Grantee must have a user_providers row for the same provider.
    */
   @Post('grant')
-  @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   grant(
     @Body() body: { tournamentId: string; userEmail: string; providerId: string; role?: string },
@@ -38,7 +37,6 @@ export class AssignmentsController {
    * Revoke a user's access to a tournament.
    */
   @Post('revoke')
-  @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   revoke(@Body() body: { tournamentId: string; userEmail: string; providerId: string }, @UserCtx() ctx: UserContext) {
     return this.assignmentsService.revoke(body, ctx);
@@ -49,7 +47,6 @@ export class AssignmentsController {
    * For the manage-access UI's autocomplete picker.
    */
   @Post('eligible-users')
-  @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   eligibleUsers(@Body() body: { providerId: string }, @UserCtx() ctx: UserContext) {
     return this.assignmentsService.eligibleUsers(body, ctx);
