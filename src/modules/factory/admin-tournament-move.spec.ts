@@ -387,5 +387,6 @@ describe('AdminTournamentMoveService — move a tournament between providers', (
     const guards = Reflect.getMetadata('__guards__', AdminTournamentMoveController);
     expect(guards).toContain(RolesGuard);
     expect(new Reflector().get(Roles, AdminTournamentMoveController)).toEqual([SUPER_ADMIN]);
+    expect(new Reflector().get(Roles, AdminTournamentMoveController.prototype.moveProvider)).toEqual([SUPER_ADMIN]);
   });
 });

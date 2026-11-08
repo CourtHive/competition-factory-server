@@ -18,7 +18,9 @@ import { SUPER_ADMIN } from 'src/common/constants/roles';
 export class AdminTournamentMoveController {
   constructor(private readonly moves: AdminTournamentMoveService) {}
 
+  // Declared on the handler too, so the requirement sits on the route it protects.
   @Post(':tournamentId/move-provider')
+  @Roles([SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   async moveProvider(
     @Param('tournamentId') tournamentId: string,
