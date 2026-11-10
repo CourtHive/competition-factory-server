@@ -2,60 +2,81 @@
   <a href="http://courthive.com/" target="blank"><img src="./src/common/images/red-ch-logo.png" width="220" alt="CourtHive Logo" /></a>
 </p>
 
-  <p align="center">CourtHive is an Open Source / Open Data initiative to develop components to support the emergence of a standards based ecosystem of services for competition.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~tods-competition-factory" target="_blank"><img src="https://img.shields.io/npm/v/tods-competition-factory" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~tods-competition-factory" target="_blank"><img src="https://img.shields.io/npm/l/tods-competition-factory" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~tods-competition-factory" target="_blank"><img src="https://img.shields.io/npm/dm/tods-competition-factory" alt="NPM Downloads" /></a>
+<p align="center">The server of the CourtHive competition management platform.</p>
+<p align="center">
+<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
+<a href="https://courthive.github.io/competition-factory-server/"><img src="https://img.shields.io/badge/docs-Storybook-ff4785" alt="Documentation" /></a>
 </p>
 
 ## Description
 
-The **Competition Factory Server** is a production-ready backend for managing competitions across sports disciplines, built on [NestJS 11](https://nestjs.com/) and powered by the [tods-competition-factory](https://github.com/CourtHive/tods-competition-factory) engine. It is built on open data standards — specifically CODES (Competition Open Data Exchange Standards) — providing a vendor-neutral foundation for representing tournament structures, participants, draws, scheduling, and results across any sport.
+The **Competition Factory Server** is the backend of the CourtHive platform, built on
+[NestJS 11](https://nestjs.com/) and the [Competition Factory](https://github.com/CourtHive/competition-factory)
+engine (`tods-competition-factory`). Every record it stores is a **CODES** record, CourtHive's canonical
+competition data standard (a superset of the ITF's TODS), so the record the server writes is the same object
+the [TMX](https://github.com/CourtHive/TMX) desk client and the
+[public viewer](https://github.com/CourtHive/courthive-public) read.
 
-The server provides a real-time WebSocket gateway (Socket.IO) for client-server mutation synchronization, a REST API for public competition data, PostgreSQL persistence (JSONB), Redis-backed caching, JWT authentication with role-based access control, and per-tournament concurrency locks to prevent lost updates from interleaved mutations.
-
-It is designed to work with the [TMX](https://github.com/CourtHive/TMX) tournament management client as its primary frontend, but can serve any client that speaks its WebSocket protocol or REST endpoints.
+The server and its clients run the same engine. A mutation is executed on the server first, under a
+per-tournament lock, and is then applied by the client that sent it; other clients receive it as a broadcast.
 
 ### Key Features
 
-- **Standards-based** — Built on CODES (Competition Open Data Exchange Standards) for interoperability across sports and systems
-- **Real-time mutation sync** — Server-first architecture ensures data consistency; clients apply mutations locally only after server acknowledgment
-- **PostgreSQL storage** — JSONB-backed persistence with calendar + permission side-effects layered through a thin storage facade
-- **Role-based access control** — JWT authentication with hierarchical roles (superadmin, admin, client) and provider-scoped permissions
-- **Per-tournament locking** — Async mutex with sorted acquisition prevents deadlocks and lost updates from concurrent requests
-- **Provider multi-tenancy** — Organizations (providers) manage their own competitions, users, and calendars in isolation
-- **Factory engine integration** — All competition business logic runs through the shared `tods-competition-factory`, ensuring consistency between client and server
-- **Redis caching** — Published competition data, event data, and schedule info are cached for fast public access
+- **Mutations over HTTP** — clients send an `executionQueue` of factory methods to `POST /factory`. The server
+  authorizes the call, takes the tournament lock, runs the methods, saves the record and answers; the
+  response is the client's acknowledgement
+- **Realtime push over Socket.IO** — `/tmx` broadcasts mutations to everyone working on a tournament,
+  `/public` delivers score and publish changes to the public viewer, `/hiveid` delivers person updates to
+  signed-in participants
+- **PostgreSQL storage** — JSONB records (lz4 compression is an operator option) behind a storage facade
+  that keeps calendar, permission and participation indexes in step with each save; versioned migrations
+  run at boot
+- **Validated writes** — a wholesale record save is validated before anything is written, whatever its size;
+  draw integrity is scanned and reported after mutations
+- **Provider multi-tenancy** — organisations (providers) own their tournaments, users and configuration;
+  provider-scoped roles (`PROVIDER_ADMIN`, `DIRECTOR`) are resolved per request
+- **Identity from the identity provider** — sign-in, account and session routes moved to CourtHive's identity
+  provider in v4.9.0; this server verifies tokens and enforces roles
+- **Publishing and caching** — published tournament, event and schedule data is served from public routes
+  that honour embargoes, with Redis caching; a Redis outage degrades to cache misses
+- **Read-model projection** — public views are built off the request path from a transactional outbox
+- **Score relay, rankings and ingest integration** — live scores, a rankings proxy and webhook, upstream
+  tournament sync, and an audit log
 
 ## Documentation
 
-Full setup instructions, architecture guides, and configuration reference are available in the interactive documentation:
+Setup, architecture and API reference live in the documentation site:
 
-**[https://courthive.github.io/competition-factory-server/](https://courthive.github.io/competition-factory-server/)**
+**[courthive.github.io/competition-factory-server](https://courthive.github.io/competition-factory-server/)**
 
-The documentation covers:
-
-- **Getting Started** — Prerequisites, installation, and environment configuration
-- **Storage** — PostgreSQL schema, calendar + permission side-effects, storage facade
-- **Authentication** — Admin account creation, roles and permissions, JWT structure
-- **Architecture** — Server modules, mutation flow, WebSocket gateway, provider configuration
+It covers getting started (prerequisites, installation, configuration), storage, authentication and roles,
+the mutation flow and WebSocket gateway, read-model projection, public notifications, response caching, the
+provider API, the provisioner, the score relay, the audit log and a Swagger UI. Operator notes are in
+[`docs/`](docs/) — admin setup and recovery, storage configuration, provider theming and deployment.
 
 ## Quick Start
 
+Requires Node.js >= 24, pnpm, PostgreSQL (configured through the `PG_*` variables in `.env`) and Redis.
+
 ```bash
 pnpm install
-pnpm watch        # development server with hot reload
+pnpm admin:create -e admin@example.com -p yourpassword   # first super-admin
+pnpm watch                                               # development server with reload
 ```
 
-See the [full documentation](https://courthive.github.io/competition-factory-server/) for Redis setup, environment configuration, storage options, and user creation.
-
-## Testing
+## Development
 
 ```bash
-pnpm test          # run all tests
-pnpm test:watch    # watch mode
+pnpm build          # NestJS compile to build/
+pnpm start          # production server
+pnpm lint           # ESLint, fails on any warning
+pnpm check-types    # tsc --noEmit
+pnpm test:unit      # Vitest, everything that does not need a live stack
+pnpm test           # Vitest, the full suite including the *.e2e.spec.ts that need one
+pnpm storybook      # the documentation site, locally
 ```
+
+Branch from `dev` and open pull requests against `dev`; `main` advances at release checkpoints.
 
 ## Support
 
