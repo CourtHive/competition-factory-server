@@ -18,6 +18,7 @@ function makeService() {
     getProvider: vi.fn().mockResolvedValue({ organisationName: 'College', teamColors: storedColors, unrelated: true }),
     getProviders: vi.fn().mockResolvedValue([]),
     setProvider: vi.fn(),
+    patchProvider: vi.fn().mockResolvedValue({ success: true }),
   };
   const service = new ProvidersService(storage as any, {} as any, {} as any, {} as any, {} as any);
   return { service, storage };
@@ -48,21 +49,33 @@ describe.each(payloads)('generic provider writes carrying %s as teamColors', (_l
     await expect(attempt).rejects.toThrow(/PUT \/provider\/:providerId\/team-display/);
     expect(storage.getProvider).not.toHaveBeenCalled();
     expect(storage.setProvider).not.toHaveBeenCalled();
+    expect(storage.patchProvider).not.toHaveBeenCalled();
   });
 });
 
-it('generic writes without teamColors still succeed and leave stored defaults untouched', async () => {
+it('generic writes without teamColors still succeed and never carry stored defaults', async () => {
   const { service, storage } = makeService();
   expect(await service.modifyProvider({ providerId: 'college', organisationName: 'Renamed' })).toMatchObject({
     success: true,
   });
-  const saved = storage.setProvider.mock.calls[0][1];
-  expect(saved.organisationName).toBe('Renamed');
-  expect(saved.teamColors).toEqual(storedColors);
-  expect(saved.unrelated).toBe(true);
+  // modify sends ONLY the supplied keys; it never reads the record and writes it back whole, so a
+  // stale teamColors can never ride along and undo a concurrent PUT /team-display.
+  expect(storage.patchProvider).toHaveBeenCalledWith('college', { organisationName: 'Renamed' });
+  expect(storage.getProvider).not.toHaveBeenCalled();
+  expect(storage.setProvider).not.toHaveBeenCalled();
 
   expect(await service.addProvider({ organisationAbbreviation: 'NEW', organisationName: 'New' })).toMatchObject({
     success: true,
   });
-  expect(storage.setProvider.mock.calls[1][1]).not.toHaveProperty('teamColors');
+  expect(storage.setProvider.mock.calls[0][1]).not.toHaveProperty('teamColors');
+});
+
+it('modifyProvider keeps the provider-not-found answer', async () => {
+  const { service, storage } = makeService();
+  storage.patchProvider.mockResolvedValue({ success: false });
+  expect(await service.modifyProvider({ providerId: 'missing', organisationName: 'X' })).toEqual({
+    error: 'Provider not found',
+  });
+  expect(await service.modifyProvider({ organisationName: 'No id' })).toEqual({ error: 'Provider not found' });
+  expect(storage.patchProvider).toHaveBeenCalledTimes(1);
 });

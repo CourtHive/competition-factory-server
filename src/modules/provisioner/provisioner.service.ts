@@ -360,17 +360,18 @@ export class ProvisionerService {
       inactive?: boolean;
     },
   ) {
-    const provider = await this.providerStorage.getProvider(providerId);
-    if (!provider) return { error: 'Provider not found', code: 'PROVIDER_NOT_FOUND' };
-
-    const updated = { ...provider };
+    // Only the named keys are written, in one statement (`patchProvider`): rewriting the whole
+    // stored record would put back a stale copy of keys other routes own, e.g. teamColors.
+    const patch: Record<string, any> = {};
     const capsUpdate = params.providerConfigCaps ?? params.providerConfig;
-    if (capsUpdate !== undefined) updated.providerConfigCaps = capsUpdate;
-    if (params.providerConfigSettings !== undefined) updated.providerConfigSettings = params.providerConfigSettings;
-    if (params.organisationName !== undefined) updated.organisationName = params.organisationName;
-    if (params.inactive !== undefined) updated.inactive = params.inactive;
+    if (capsUpdate !== undefined) patch.providerConfigCaps = capsUpdate;
+    if (params.providerConfigSettings !== undefined) patch.providerConfigSettings = params.providerConfigSettings;
+    if (params.organisationName !== undefined) patch.organisationName = params.organisationName;
+    if (params.inactive !== undefined) patch.inactive = params.inactive;
 
-    return this.providerStorage.setProvider(providerId, updated);
+    const result = await this.providerStorage.patchProvider(providerId, patch);
+    if (!result?.success) return { error: 'Provider not found', code: 'PROVIDER_NOT_FOUND' };
+    return result;
   }
 
   /**

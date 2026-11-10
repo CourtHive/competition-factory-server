@@ -284,10 +284,11 @@ export class ProvidersService {
     refuseGenericTeamColorsWrite(provider);
     const { providerId, organisationId, ...value } = provider;
     const key = providerId ?? organisationId;
-    const storedProvider = await this.providerStorage.getProvider(key);
-    if (!storedProvider) return { error: 'Provider not found' };
-
-    await this.providerStorage.setProvider(key, { ...storedProvider, ...value });
+    if (!key) return { error: 'Provider not found' };
+    // One-statement merge of only the supplied keys. A read-modify-write of the whole record here
+    // would write back a stale teamColors/caps/settings and undo a concurrent scoped write.
+    const result = await this.providerStorage.patchProvider(key, value);
+    if (!result?.success) return { error: 'Provider not found' };
     return { ...SUCCESS };
   }
 
