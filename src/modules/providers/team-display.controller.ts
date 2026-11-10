@@ -13,6 +13,8 @@ import {
   ForbiddenException,
   Get,
   Inject,
+  InternalServerErrorException,
+  Logger,
   NotFoundException,
   Param,
   Put,
@@ -20,10 +22,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+/** ILIKE treats `%`, `_` and `\` as pattern syntax; a search term must match them literally. */
+export function escapeLikeTerm(term: string): string {
+  return term.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 /** Public-safe team identity defaults. No provider permissions, keys or contacts cross this boundary. */
 @UseGuards(RolesGuard)
 @Controller('provider')
 export class TeamDisplayController {
+  private readonly logger = new Logger(TeamDisplayController.name);
+
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   /** Bounded safe directory: names/IDs only, not every provider record or every stored palette. */
@@ -34,8 +43,8 @@ export class TeamDisplayController {
     if (typeof query !== 'string' || query.length > 100 || !Number.isSafeInteger(start) || start < 0)
       throw new BadRequestException('Invalid team display search');
     const { rows } = await this.pool.query(
-      "SELECT provider_id, organisation_name FROM providers WHERE data ? 'teamColors' AND (organisation_name ILIKE $1 OR provider_id = $2) ORDER BY organisation_name, provider_id LIMIT 51 OFFSET $3",
-      [`%${query.trim()}%`, query.trim(), start],
+      "SELECT provider_id, organisation_name FROM providers WHERE data ? 'teamColors' AND (organisation_name ILIKE $1 ESCAPE '\\' OR provider_id = $2) ORDER BY organisation_name, provider_id LIMIT 51 OFFSET $3",
+      [`%${escapeLikeTerm(query.trim())}%`, query.trim(), start],
     );
     return {
       teams: rows
@@ -55,7 +64,12 @@ export class TeamDisplayController {
     const row = rows[0];
     if (!row) throw new NotFoundException('Team provider not found');
     const teamColors = row.team_colors == null ? undefined : normalizeTeamPalette(row.team_colors);
-    if (row.team_colors != null && !teamColors) throw new BadRequestException('Provider team display is invalid');
+    if (row.team_colors != null && !teamColors) {
+      // The request is fine; the STORED record is not. That is a server-side data fault, so it is a 500
+      // and an ERROR line an operator can find, never a 400 that blames the caller.
+      this.logger.error(`Stored teamColors for provider ${providerId} fail CODES validation`);
+      throw new InternalServerErrorException('Stored provider team display is invalid');
+    }
     return {
       participant: {
         participantId: row.provider_id,

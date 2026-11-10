@@ -37,6 +37,14 @@ describe.skipIf(process.env.STORAGE_PROVIDER !== 'postgres')('provider defaults 
     expect(exported.participant.participantId).toBe(providerId);
     expect(exported.participant.teamColors?.display?.roles).toEqual(colors.display.roles);
     expect(JSON.stringify(exported)).not.toContain('privateKey');
+    // ILIKE pattern syntax in the search term is matched literally against the real engine.
+    const found = async (q: string) =>
+      (await controller.list(q, '0')).teams.some((t) => t.participantId === providerId);
+    expect(await found('Test College')).toBe(true);
+    expect(await found('Test_College')).toBe(false);
+    expect(await found('%')).toBe(false);
+    expect(await found('Test%College')).toBe(false);
+    expect(await found('\\')).toBe(false);
     await controller.put(providerId, { teamColors: {} }, ctx);
     expect((await controller.get(providerId)).participant).not.toHaveProperty('teamColors');
     const cleared = await pool.query('SELECT data FROM providers WHERE provider_id = $1', [providerId]);

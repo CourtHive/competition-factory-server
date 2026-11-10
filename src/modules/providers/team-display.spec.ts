@@ -1,5 +1,5 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { TeamDisplayController } from './team-display.controller';
+import { BadRequestException, ForbiddenException, InternalServerErrorException, Logger } from '@nestjs/common';
+import { escapeLikeTerm, TeamDisplayController } from './team-display.controller';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
 
 const colors = { palette: [{ colorId: 'navy', value: '#13294b' }], display: { roles: { 'team.surface': 'navy' } } };
@@ -52,4 +52,25 @@ it('bounds directory reads and returns only team identifiers and names', async (
   expect(query.mock.calls[0][1]).toEqual(['%College%', 'College', 50]);
   expect(JSON.stringify(result)).not.toContain('secret');
   await expect(controller.list('College', '-1')).rejects.toBeInstanceOf(BadRequestException);
+});
+
+it('reports an invalid STORED palette as a logged server fault, not a client error', async () => {
+  const errorLog = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+  const query = vi.fn().mockResolvedValue({
+    rows: [{ provider_id: 'alpha', organisation_name: 'Alpha', team_colors: { palette: 'navy' } }],
+  });
+  const controller = new TeamDisplayController({ query } as any);
+  await expect(controller.get('alpha')).rejects.toBeInstanceOf(InternalServerErrorException);
+  expect(errorLog).toHaveBeenCalledTimes(1);
+  expect(String(errorLog.mock.calls[0][0])).toContain('alpha');
+  errorLog.mockRestore();
+});
+
+it('escapes ILIKE pattern syntax so a search term matches literally', async () => {
+  expect(escapeLikeTerm('50%_Club\\')).toBe('50\\%\\_Club\\\\');
+  const query = vi.fn().mockResolvedValue({ rows: [] });
+  const controller = new TeamDisplayController({ query } as any);
+  await controller.list(' %_ ', '0');
+  expect(query.mock.calls[0][0]).toContain("ILIKE $1 ESCAPE '\\'");
+  expect(query.mock.calls[0][1]).toEqual(['%\\%\\_%', '%_', 0]);
 });

@@ -5,7 +5,7 @@ Team/provider administrators edit defaults once in the management console's prov
 
 - `GET /provider/team-displays?q=...&offset=...` supplies authenticated users a bounded directory of
   providers with display defaults. Each page returns at most 50 IDs/names, plus optional `nextOffset`.
-  It never loads all provider records or their palettes. Search is parameterized; invalid paging is 400.
+  It never loads all provider records or their palettes. Search is parameterized and `%`, `_`, `\` match literally; invalid paging is 400.
 - `GET /provider/:providerId/team-display` supplies authenticated users a public-safe TEAM participant:
   stable participantId equal to providerId, name, TEAM/COMPETITOR markers, and validated optional teamColors.
   No provider configuration, keys, contacts or permissions are returned.
@@ -15,8 +15,9 @@ Team/provider administrators edit defaults once in the management console's prov
 
 A surgical JSONB update changes only teamColors and updated_at. Unrelated provider settings survive
 concurrent updates. Invalid defaults are rejected before SQL writes. Invalid stored branding is visible
-as an error rather than silently omitted. Existing provider detail responses also carry teamColors. Generic provider add/modify writes reuse the
-same validator so another administration path cannot store malformed defaults.
+as a 500 and an ERROR log line rather than silently omitted. Existing provider detail responses also carry teamColors.
+The scoped PUT is the only write path: generic `POST /provider/add` and `/provider/modify` refuse any payload
+naming `teamColors` (400), because `/provider/modify` is not scoped to the provider's own administrator.
 
 TMX fetches selected provider TEAM details before submitting its normal participant mutation batch.
 Imports carry the full palette/defaults. Refresh modifies only imported teamColors; local names/rosters
