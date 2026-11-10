@@ -1,9 +1,10 @@
-import { buildCalendarScope } from 'src/modules/factory/helpers/checkTournamentAccess';
-import { pagingFor, resolveWindow, type MyCalendarsParams } from './helpers/calendarPaging';
-import { publicCalendar } from './helpers/publicCalendarEntry';
-import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
-import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { computeEffectiveConfig, DEFAULT_SCORING_LAUNCH, validateSettings } from '@courthive/provider-config';
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
+import { pagingFor, resolveWindow, type MyCalendarsParams } from './helpers/calendarPaging';
+import { buildCalendarScope } from 'src/modules/factory/helpers/checkTournamentAccess';
+import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import { providerTeamColorPlan } from './team-display.contract';
+import { publicCalendar } from './helpers/publicCalendarEntry';
 import { Inject, Injectable } from '@nestjs/common';
 import { tools } from 'tods-competition-factory';
 
@@ -274,7 +275,13 @@ export class ProvidersService {
       return { error: 'organisationAbbreviation already exists' };
     }
     const providerId = tools.UUID();
-    await this.providerStorage.setProvider(providerId, { ...provider, organisationId: providerId });
+    const record = { ...provider, organisationId: providerId };
+    if (Object.prototype.hasOwnProperty.call(provider, 'teamColors')) {
+      const { clear, colors } = providerTeamColorPlan(provider.teamColors);
+      if (clear) delete record.teamColors;
+      else record.teamColors = colors;
+    }
+    await this.providerStorage.setProvider(providerId, record);
     return { ...SUCCESS, providerId };
   }
 
@@ -284,7 +291,13 @@ export class ProvidersService {
     const storedProvider = await this.providerStorage.getProvider(key);
     if (!storedProvider) return { error: 'Provider not found' };
 
-    await this.providerStorage.setProvider(key, { ...storedProvider, ...value });
+    const record = { ...storedProvider, ...value };
+    if (Object.prototype.hasOwnProperty.call(value, 'teamColors')) {
+      const { clear, colors } = providerTeamColorPlan(value.teamColors);
+      if (clear) delete record.teamColors;
+      else record.teamColors = colors;
+    }
+    await this.providerStorage.setProvider(key, record);
     return { ...SUCCESS };
   }
 

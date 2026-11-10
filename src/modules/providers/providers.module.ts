@@ -1,22 +1,23 @@
-import { ProviderLifecycleService } from './provider-lifecycle.service';
-import { ProviderCleanupService } from './provider-cleanup.service';
-import { AmsPoliciesClient } from './ams-policies-client.service';
-import { ProviderArchiveService } from './provider-archive.service';
-import { ProviderApiKeyService } from './provider-api-key.service';
-import { ProviderApiKeyMiddleware } from './provider-api-key.middleware';
-import { ProvidersController } from './providers.controller';
 import { AdminProviderKeysController } from './admin-provider-keys.controller';
-import { ProviderKeyController } from './provider-key.controller';
-import { ProvidersService } from './providers.service';
-import { TopologiesService } from './topologies.service';
-import { ProviderCatalogService } from './provider-catalog.service';
-import { AuditModule } from '../audit/audit.module';
-import { FactoryModule } from '../factory/factory.module';
+import { ProviderApiKeyMiddleware } from './provider-api-key.middleware';
+import { ProviderLifecycleService } from './provider-lifecycle.service';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { ProviderCleanupService } from './provider-cleanup.service';
+import { ProviderArchiveService } from './provider-archive.service';
+import { ProviderCatalogService } from './provider-catalog.service';
+import { ProviderApiKeyService } from './provider-api-key.service';
+import { TeamDisplayController } from './team-display.controller';
+import { AmsPoliciesClient } from './ams-policies-client.service';
+import { ProviderKeyController } from './provider-key.controller';
+import { ProvidersController } from './providers.controller';
+import { FactoryModule } from '../factory/factory.module';
+import { TopologiesService } from './topologies.service';
+import { ProvidersService } from './providers.service';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [AuditModule, FactoryModule],
-  controllers: [ProvidersController, AdminProviderKeysController, ProviderKeyController],
+  controllers: [ProvidersController, AdminProviderKeysController, ProviderKeyController, TeamDisplayController],
   providers: [
     ProvidersService,
     TopologiesService,
