@@ -13,12 +13,10 @@ import { Body, Controller, HttpCode, HttpStatus, Post, Req } from '@nestjs/commo
 
 import { UserCtx, type UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import { ProviderScoringTokenDto } from './dto/providerScoringToken.dto';
-import { SUPER_ADMIN, SCORE } from 'src/common/constants/roles';
 import { Audience } from 'src/modules/account/auth/decorators/audience.decorator';
 import { TrackerTokenService } from './tracker-token.service';
 import { TrackerTokenDto } from './dto/trackerToken.dto';
 import { ScorerTokenDto } from './dto/scorerToken.dto';
-import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
 import { User } from 'src/modules/account/auth/decorators/user.decorator';
 import { Throttle } from '@nestjs/throttler';
 
@@ -26,6 +24,9 @@ import { Throttle } from '@nestjs/throttler';
 // surface, layered on the global 300/60s default (see app.module.ts).
 const TOKEN_THROTTLE = { default: { limit: 10, ttl: 60_000 } };
 
+// No @Roles: authorization is in the service, against the tournament (TrackerTokenService: canMutateTournament;
+// scorer-token is HiveID-audience only). A @Roles here enforced nothing —
+// no RolesGuard ran — and read as a check that did not happen (removed 2026-11-08).
 @Controller('auth')
 export class TournamentTokenController {
   constructor(private readonly trackerTokenService: TrackerTokenService) {}
@@ -37,7 +38,6 @@ export class TournamentTokenController {
    * the caller can only mint for tournaments it owns. TTL default 1h; max 8h.
    */
   @Post('tracker-token')
-  @Roles([SCORE, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   async mintTrackerToken(
     @Body() body: TrackerTokenDto,
@@ -63,7 +63,6 @@ export class TournamentTokenController {
    * tournament and carrying the provider-attested scorer identity.
    */
   @Post('provider-scoring-token')
-  @Roles([SCORE, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   async mintProviderScoringToken(
     @Body() body: ProviderScoringTokenDto,

@@ -21,21 +21,25 @@ import {
   Optional,
   UnauthorizedException,
 } from '@nestjs/common';
-import { policyGovernor, sanctioningEngine, tools, tournamentEngine } from 'tods-competition-factory';
+import { tools, tournamentEngine } from 'tods-competition-factory';
 
-import { SanctioningClient, SanctioningRecordSnapshot } from '../sanctioning/sanctioning-client.service';
 import { DeclarationsClient, RegistrationSnapshot } from '../declarations/declarations-client.service';
 import { executionQueue as runExecutionQueue } from '../../factory/functions/private/executionQueue';
 import { TournamentBroadcastService } from '../../messaging/broadcast/tournament-broadcast.service';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { canMutateTournament } from '../../factory/helpers/checkTournamentAccess';
-import { withTournamentLock } from 'src/services/tournamentMutex';
+import { SanctioningClient } from '../sanctioning/sanctioning-client.service';
 import type { UserContext } from '../auth/decorators/user-context.decorator';
 import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
 import { AssignmentsService } from '../../factory/assignments.service';
 import { PersonsClient } from '../persons/persons-client.service';
 import { type RegistrationEntry } from 'src/storage/interfaces';
 import { AuditService } from '../../audit/audit.service';
+import {
+  canActivateForProvider,
+  owningProviderOf,
+  storeActivatedTournament,
+} from '../sanctioning/sanctioning-activation';
 
 // Declaration statuses (courthive-declarations) a registration may be accepted
 // from. Kept as literals CFS-side; the declarations service owns the vocabulary.
@@ -512,76 +516,19 @@ export class RegistrationsService {
     const sanctioningRecord = await this.sanctioningClient.getRecordByTournamentId(ctx.tournamentId);
     if (!sanctioningRecord) return; // nothing to activate from — let assertAdminAccess 404
 
-    // Activation is authorized against the proposal's provider (the tournamentRecord
-    // doesn't exist yet, so canMutateTournament can't gate it).
-    const provider = sanctioningRecord.governingBody?.organisationId ?? sanctioningRecord.governingBodyId ?? '';
-    if (!canActivateForProvider(ctx.userContext, provider)) {
+    // Activation is authorized against the provider that owns the proposal (the tournamentRecord doesn't exist yet,
+    // so canMutateTournament can't gate it).
+    if (!canActivateForProvider(ctx.userContext, owningProviderOf(sanctioningRecord))) {
       throw new ForbiddenException('Not authorised to activate this tournament');
     }
 
-    const activated = activateSanctioning(sanctioningRecord);
-    if (!activated?.tournamentRecord) {
-      throw new BadRequestException(
-        `Could not activate tournament from sanctioning record: ${activated?.error ?? 'unknown error'}`,
-      );
-    }
-
-    this.attachSanctionedPolicies(activated.tournamentRecord, sanctioningRecord);
-
-    // Under the tournament lock, re-checked: two first accepts racing here must not both write, and an executionQueue
-    // must never interleave its fetch and save with this one.
-    const userId = ctx.userContext.userId;
-    const saveResult: any = await withTournamentLock([ctx.tournamentId], async () => {
-      const raced = await this.tournamentStorageService.findTournamentRecord({ tournamentId: ctx.tournamentId });
-      if (raced?.tournamentRecord) return { success: true, raced: true };
-      return this.tournamentStorageService.saveTournamentRecord({
-        tournamentRecord: activated.tournamentRecord,
-        userId,
-      });
+    await storeActivatedTournament({
+      sanctioningRecord,
+      userId: ctx.userContext.userId,
+      tournamentStorageService: this.tournamentStorageService,
+      sanctioningClient: this.sanctioningClient,
+      logger: this.logger,
     });
-    if (saveResult?.raced) return;
-    if (saveResult?.error) {
-      throw new BadRequestException(`Failed to persist activated tournament: ${saveResult.error}`);
-    }
-    this.logger.log(
-      `lazy-activated tournamentRecord ${ctx.tournamentId} from sanctioning ${sanctioningRecord.sanctioningId} on first accept`,
-    );
-  }
-
-  /**
-   * Apply the policies AMS resolved when the record was approved.
-   *
-   * AMS owns WHICH policies apply — the governing body outranks the provider, and only policies
-   * differing from factory defaults are sent — so this applies what it is given and decides nothing.
-   * `rankingPoints` never arrives here by construction.
-   *
-   * Applied before the first save so the tournament is persisted with its policies already on it.
-   * Failures are logged rather than thrown: a tournament that activates without an optional policy
-   * override is recoverable; one that fails to activate blocks the first accepted registration.
-   */
-  private attachSanctionedPolicies(tournamentRecord: any, sanctioningRecord: SanctioningRecordSnapshot): void {
-    const attached = sanctioningRecord.attachedPolicies;
-    if (!attached?.length) return;
-
-    const policyDefinitions = Object.assign(
-      {},
-      ...attached.map(({ policyType, definition }) => ({ [policyType]: definition })),
-    );
-
-    // the record is not in the engine's state: the governor writes to the record given, which is then saved (an engine
-    // call works only on the records it holds)
-    const result: any = policyGovernor.attachPolicies({ tournamentRecord, policyDefinitions });
-    if (result?.error) {
-      this.logger.warn(
-        `tournament ${tournamentRecord?.tournamentId}: could not attach sanctioned policies — ${result.error?.message ?? result.error}`,
-      );
-      return;
-    }
-    this.logger.log(
-      `tournament ${tournamentRecord?.tournamentId}: attached ${attached.length} sanctioned policy definition(s) (${attached
-        .map((p) => p.policyType)
-        .join(', ')})`,
-    );
   }
 
   private async assertAdminAccess(
@@ -598,30 +545,6 @@ export class RegistrationsService {
     }
     return { tournamentRecord };
   }
-}
-
-// Authorize lazy-activation against the proposal's provider (super-admin, a direct
-// provider role, or a provisioner-managed provider). Mirrors the provider dimension
-// of canMutateTournament, since no tournamentRecord exists yet to gate against.
-function canActivateForProvider(userContext: UserContext, provider: string): boolean {
-  if (userContext.isSuperAdmin) return true;
-  if (!provider) return false;
-  if (userContext.providerIds?.includes(provider)) return true;
-  return !!userContext.provisionerProviderIds?.includes(provider);
-}
-
-// Run the factory `activateFromSanctioning` via the sanctioningEngine. The engine is a
-// module-level singleton (not per-request isolated like the tournament mutation engine),
-// so the reset→setState→activate→reset sequence is kept strictly SYNCHRONOUS — no awaits —
-// making it atomic under Node's single thread. Callers await the fetch/save AROUND it.
-function activateSanctioning(sanctioningRecord: SanctioningRecordSnapshot): { tournamentRecord?: any; error?: any } {
-  const engine = sanctioningEngine as any;
-  engine.reset();
-  engine.setState({ [sanctioningRecord.sanctioningId]: sanctioningRecord });
-  engine.setActiveSanctioningId(sanctioningRecord.sanctioningId);
-  const result = engine.activateFromSanctioning({});
-  engine.reset();
-  return result ?? {};
 }
 
 // Map a declarations registration's `eventIds` onto the activated tournamentRecord's

@@ -10,6 +10,7 @@ import {
   type IUserStorage,
 } from 'src/storage/interfaces';
 import { INSUFFICIENT_PERMISSIONS, isProviderAdminFor } from './helpers/providerAdmin';
+import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 
 import type { UserContext } from '../account/auth/decorators/user-context.decorator';
 
@@ -21,11 +22,35 @@ export class AssignmentsService {
     @Inject(ASSIGNMENT_STORAGE) private readonly assignmentStorage: IAssignmentStorage,
     @Inject(USER_PROVIDER_STORAGE) private readonly userProviderStorage: IUserProviderStorage,
     @Inject(USER_STORAGE) private readonly userStorage: IUserStorage,
+    private readonly tournamentStorageService: TournamentStorageService,
   ) {}
 
-  /** List assignments for a tournament, or all assignments for the requesting user. */
+  /**
+   * The provider that OWNS a tournament, from the storage projection (the record itself is never loaded), and the
+   * only provider an assignment route authorizes against. Until 2026-11-08 grant and revoke authorized against the
+   * `providerId` the CALLER sent, never checked against the tournament: an admin of provider X could revoke anyone's
+   * access to provider Y's tournament, and write X's users onto it, by sending `providerId: X`. A `providerId` in the
+   * request is now only a claim, refused when it is not the owner. Mirrors GrantsService.resolveProviderId.
+   */
+  private async owningProvider(tournamentId: string | undefined, claimed?: string) {
+    if (!tournamentId) return { error: 'tournamentId is required' };
+    const view: any = await this.tournamentStorageService.fetchTournamentUpdatedAt({ tournamentId });
+    const providerId: string | undefined = view?.success ? view.providerId : undefined;
+    if (!providerId) return { error: 'Tournament not found, or it has no provider' };
+    if (claimed && claimed !== providerId) return { error: 'providerId is not the provider of this tournament' };
+    return { providerId };
+  }
+
+  /**
+   * A tournament's assignments, for whoever may change them (its provider's admin, or a super-admin) — or, with no
+   * tournamentId, the caller's own. The tournament form had no check at all until 2026-11-08: any authenticated
+   * admin-audience token could list who is assigned to any tournament, emails included.
+   */
   async list(params: { tournamentId?: string }, userContext: UserContext) {
     if (params.tournamentId) {
+      const owner = await this.owningProvider(params.tournamentId);
+      if (owner.error) return { error: owner.error };
+      if (!isProviderAdminFor(userContext, owner.providerId)) return { error: INSUFFICIENT_PERMISSIONS };
       return { success: true, assignments: await this.assignmentStorage.findByTournamentId(params.tournamentId) };
     }
     return { success: true, assignments: await this.assignmentStorage.findByUserId(userContext.userId) };
@@ -36,9 +61,13 @@ export class AssignmentsService {
     params: { tournamentId: string; userEmail: string; providerId: string; role?: string },
     grantor: UserContext,
   ) {
-    const { tournamentId, userEmail, providerId, role } = params;
+    const { tournamentId, userEmail, role } = params;
 
-    // Grantor must be PROVIDER_ADMIN for this provider or SUPER_ADMIN
+    const owner = await this.owningProvider(tournamentId, params.providerId);
+    if (owner.error) return { error: owner.error };
+    const providerId = owner.providerId!;
+
+    // Grantor must be PROVIDER_ADMIN for the tournament's provider or SUPER_ADMIN
     if (!isProviderAdminFor(grantor, providerId)) {
       return { error: INSUFFICIENT_PERMISSIONS };
     }
@@ -71,9 +100,12 @@ export class AssignmentsService {
 
   /** Revoke a user's access to a tournament. */
   async revoke(params: { tournamentId: string; userEmail: string; providerId: string }, grantor: UserContext) {
-    const { tournamentId, userEmail, providerId } = params;
+    const { tournamentId, userEmail } = params;
 
-    if (!isProviderAdminFor(grantor, providerId)) {
+    const owner = await this.owningProvider(tournamentId, params.providerId);
+    if (owner.error) return { error: owner.error };
+
+    if (!isProviderAdminFor(grantor, owner.providerId)) {
       return { error: INSUFFICIENT_PERMISSIONS };
     }
 

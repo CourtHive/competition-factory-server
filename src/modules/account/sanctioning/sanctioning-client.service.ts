@@ -3,9 +3,10 @@
  * Mirrors DeclarationsClient/PersonsClient: Node native fetch, base URL + disable
  * switch from env, no new npm deps.
  *
- * The only call CFS makes is the service-token-guarded FULL sanctioning record by
- * tournamentId, used to lazy-activate a tournamentRecord on the first accept for a
- * sanctioning-originated tournament (runs the factory `activateFromSanctioning`).
+ * CFS reads the FULL sanctioning record (service token) to activate a tournament from it: by the
+ * tournamentId assigned at open-registration, on the first accepted registration; or by the record's own id, when
+ * the provider administrator activates from the AMS console. Having stored the tournament, it tells AMS the record is
+ * ACTIVE. Only CFS stores tournaments, so AMS never activates on its own.
  */
 import { Injectable, Logger } from '@nestjs/common';
 
@@ -94,5 +95,35 @@ export class SanctioningClient {
       throw new Error(`sanctioning getRecordByTournamentId failed: HTTP ${res.status}`);
     }
     return (await res.json()) as SanctioningRecordSnapshot | null;
+  }
+
+  /** The full sanctioning record by its own id. Returns null when disabled or absent (404). */
+  async getRecordById(sanctioningId: string): Promise<SanctioningRecordSnapshot | null> {
+    if (!sanctioningId) return null;
+    if (this.isDisabled()) {
+      this.logger.log('sanctioning client disabled — skipping record fetch');
+      return null;
+    }
+    const res = await fetch(`${this.baseUrl}/sanctioning/record-by-id/${encodeURIComponent(sanctioningId)}`, {
+      headers: { 'x-service-token': this.serviceToken },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`sanctioning getRecordById failed: HTTP ${res.status}`);
+    const text = await res.text();
+    return text ? (JSON.parse(text) as SanctioningRecordSnapshot | null) : null;
+  }
+
+  /**
+   * Tell AMS the tournament for an APPROVED record now exists, so the record becomes ACTIVE under its id. AMS answers
+   * success again for a record already ACTIVE under the same tournament, so a retry is safe.
+   */
+  async markActivated(sanctioningId: string, tournamentId: string): Promise<void> {
+    if (this.isDisabled()) return;
+    const res = await fetch(`${this.baseUrl}/sanctioning/records/${encodeURIComponent(sanctioningId)}/activated`, {
+      method: 'POST',
+      headers: { 'x-service-token': this.serviceToken, 'content-type': 'application/json' },
+      body: JSON.stringify({ tournamentId }),
+    });
+    if (!res.ok) throw new Error(`sanctioning markActivated failed: HTTP ${res.status} ${await res.text()}`);
   }
 }
