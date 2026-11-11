@@ -6,6 +6,9 @@ import { IProviderStorage } from '../interfaces/provider-storage.interface';
 import { PG_POOL } from './postgres.config';
 import { SUCCESS } from 'src/common/constants/app';
 
+/** Keys a patch never writes into `data`: identity, and the fields that live in their own columns. */
+const NON_DATA_PATCH_KEYS = new Set(['organisationId', 'providerId', 'organisationAbbreviation', 'organisationName']);
+
 @Injectable()
 export class PostgresProviderStorage implements IProviderStorage {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
@@ -86,6 +89,32 @@ export class PostgresProviderStorage implements IProviderStorage {
       [providerId, organisationAbbreviation ?? '', organisationName ?? null, JSON.stringify(rest)],
     );
     return { ...SUCCESS };
+  }
+
+  async patchProvider(providerId: string, patch: Record<string, any>): Promise<{ success: boolean }> {
+    if (!providerId) return { success: false };
+    const supplied = Object.entries(patch ?? {}).filter(([, value]) => value !== undefined);
+    const fields = Object.fromEntries(supplied);
+    const dataPatch = Object.fromEntries(supplied.filter(([key]) => !NON_DATA_PATCH_KEYS.has(key)));
+    // `||` replaces only the top-level keys in the patch, against the row as it is when the UPDATE
+    // runs — so a key written concurrently by a narrower path is never overwritten with a stale copy.
+    const result = await (commandClient(this.pool) ?? this.pool).query(
+      `UPDATE providers
+         SET organisation_abbreviation = CASE WHEN $2::boolean THEN $3::text ELSE organisation_abbreviation END,
+             organisation_name = CASE WHEN $4::boolean THEN $5::text ELSE organisation_name END,
+             data = COALESCE(data, '{}'::jsonb) || $6::jsonb,
+             updated_at = NOW()
+       WHERE provider_id = $1`,
+      [
+        providerId,
+        'organisationAbbreviation' in fields,
+        fields.organisationAbbreviation ?? '',
+        'organisationName' in fields,
+        fields.organisationName ?? null,
+        JSON.stringify(dataPatch),
+      ],
+    );
+    return { success: (result.rowCount ?? 0) > 0 };
   }
 
   async updateProviderCaps(providerId: string, caps: any): Promise<{ success: boolean }> {

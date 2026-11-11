@@ -1,9 +1,10 @@
-import { buildCalendarScope } from 'src/modules/factory/helpers/checkTournamentAccess';
-import { pagingFor, resolveWindow, type MyCalendarsParams } from './helpers/calendarPaging';
-import { publicCalendar } from './helpers/publicCalendarEntry';
-import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
-import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { computeEffectiveConfig, DEFAULT_SCORING_LAUNCH, validateSettings } from '@courthive/provider-config';
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
+import { pagingFor, resolveWindow, type MyCalendarsParams } from './helpers/calendarPaging';
+import { buildCalendarScope } from 'src/modules/factory/helpers/checkTournamentAccess';
+import { TournamentStorageService } from 'src/storage/tournament-storage.service';
+import { refuseGenericTeamColorsWrite } from './team-display.contract';
+import { publicCalendar } from './helpers/publicCalendarEntry';
 import { Inject, Injectable } from '@nestjs/common';
 import { tools } from 'tods-competition-factory';
 
@@ -266,6 +267,7 @@ export class ProvidersService {
   }
 
   async addProvider(provider) {
+    refuseGenericTeamColorsWrite(provider);
     if (!provider?.organisationAbbreviation) return { error: 'organisationAbbreviation is required' };
     const providerResult: any = await this.getProviders();
 
@@ -279,12 +281,14 @@ export class ProvidersService {
   }
 
   async modifyProvider(provider) {
+    refuseGenericTeamColorsWrite(provider);
     const { providerId, organisationId, ...value } = provider;
     const key = providerId ?? organisationId;
-    const storedProvider = await this.providerStorage.getProvider(key);
-    if (!storedProvider) return { error: 'Provider not found' };
-
-    await this.providerStorage.setProvider(key, { ...storedProvider, ...value });
+    if (!key) return { error: 'Provider not found' };
+    // One-statement merge of only the supplied keys. A read-modify-write of the whole record here
+    // would write back a stale teamColors/caps/settings and undo a concurrent scoped write.
+    const result = await this.providerStorage.patchProvider(key, value);
+    if (!result?.success) return { error: 'Provider not found' };
     return { ...SUCCESS };
   }
 

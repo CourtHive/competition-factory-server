@@ -72,6 +72,7 @@ function buildProviderStorage(participantPrivacy?: { cityState?: boolean }): IPr
     getProvider: async () => ({ providerConfigCaps: {}, providerConfigSettings: { participantPrivacy } }),
     getProviders: async () => [],
     setProvider: async () => ({ success: true }),
+    patchProvider: async () => ({ success: true }),
     removeProvider: async () => ({ success: true }),
     updateLastAccess: async () => undefined,
     updateLastAccessByTournament: async () => undefined,
