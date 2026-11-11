@@ -66,6 +66,7 @@ describe('RegistrationsService', () => {
     };
     sanctioningClient = {
       getRecordByTournamentId: vi.fn().mockResolvedValue(null),
+      markActivated: vi.fn().mockResolvedValue(undefined),
     };
     service = new RegistrationsService(
       tournamentStorageService,
@@ -559,6 +560,41 @@ describe('RegistrationsService', () => {
           expect.objectContaining({ tournamentRecord: baseTournament }),
         );
         expect(mockExecutionQueue).toHaveBeenCalled(); // accept proceeded on the activated record
+      });
+
+      it('tells AMS the record is ACTIVE once the tournament is stored, and not when none was stored', async () => {
+        tournamentStorageService.findTournamentRecord
+          .mockResolvedValueOnce({ tournamentRecord: null }) // ensureActivated: absent
+          .mockResolvedValueOnce({ tournamentRecord: null }) // the re-check under the lock: still absent
+          .mockResolvedValue({ tournamentRecord: baseTournament });
+        sanctioningClient.getRecordByTournamentId.mockResolvedValue(sanctioningRecord);
+        personsClient.getById.mockResolvedValue({ person: { standardGivenName: 'Jane', standardFamilyName: 'Doe' } });
+        await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
+        expect(sanctioningClient.markActivated).toHaveBeenCalledWith(sanctioningRecord.sanctioningId, 't-1');
+
+        sanctioningClient.markActivated.mockClear();
+        tournamentStorageService.findTournamentRecord
+          .mockReset()
+          .mockResolvedValue({ tournamentRecord: baseTournament });
+        await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
+        expect(sanctioningClient.markActivated).not.toHaveBeenCalled();
+      });
+
+      it('still accepts when AMS cannot be told: the tournament exists either way', async () => {
+        const warnSpy = vi.spyOn((service as any).logger, 'warn').mockImplementation(() => undefined);
+        tournamentStorageService.findTournamentRecord
+          .mockResolvedValueOnce({ tournamentRecord: null })
+          .mockResolvedValueOnce({ tournamentRecord: null })
+          .mockResolvedValue({ tournamentRecord: baseTournament });
+        sanctioningClient.getRecordByTournamentId.mockResolvedValue(sanctioningRecord);
+        sanctioningClient.markActivated.mockRejectedValue(new Error('AMS unreachable'));
+        personsClient.getById.mockResolvedValue({ person: { standardGivenName: 'Jane', standardFamilyName: 'Doe' } });
+
+        await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
+
+        expect(tournamentStorageService.saveTournamentRecord).toHaveBeenCalled();
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('AMS not told'));
+        expect(mockExecutionQueue).toHaveBeenCalled();
       });
 
       it('saves under the tournament lock, and not at all when a racing accept activated it first', async () => {
