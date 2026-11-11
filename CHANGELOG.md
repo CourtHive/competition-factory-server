@@ -1,5 +1,25 @@
 # Changelog
 
+## [4.13.0](https://github.com/CourtHive/competition-factory-server/compare/v4.12.0...v4.13.0) (2026-11-11)
+
+
+### Features
+
+* persist scoped provider team display defaults ([#1202](https://github.com/CourtHive/competition-factory-server/issues/1202)) ([61aebe9](https://github.com/CourtHive/competition-factory-server/commit/61aebe95e0e9e6941e55bf2bb67f060c49eab4d2))
+
+
+### Bug Fixes
+
+* **assignments:** authorize against the tournament's own provider; check the list ([a580f52](https://github.com/CourtHive/competition-factory-server/commit/a580f526edfb713b1eaa16e53f26d6e3c0872581))
+* **deps:** update tods-competition-factory to 7.36.0 ([#1204](https://github.com/CourtHive/competition-factory-server/issues/1204)) ([852e522](https://github.com/CourtHive/competition-factory-server/commit/852e522c63328c35359ac3eab0a9c566b7ed8cc9))
+* **deps:** update tods-competition-factory to 7.36.1 ([#1206](https://github.com/CourtHive/competition-factory-server/issues/1206)) ([9671bf0](https://github.com/CourtHive/competition-factory-server/commit/9671bf0ab4d2bdcf28825abc7bfe62bd655bfa71))
+* **sanctioning:** activate an approved record from the console, and tell ams it is active ([#1205](https://github.com/CourtHive/competition-factory-server/issues/1205)) ([b249a12](https://github.com/CourtHive/competition-factory-server/commit/b249a126d2508b67b3545cc44ff8681355dd80f9))
+
+
+### Documentation
+
+* add the MIT license file and bring the README up to date ([#1203](https://github.com/CourtHive/competition-factory-server/issues/1203)) ([d294301](https://github.com/CourtHive/competition-factory-server/commit/d29430116b1f9237f80f568a514da00fc63a3483))
+
 ## [4.12.0](https://github.com/CourtHive/competition-factory-server/compare/v4.11.0...v4.12.0) (2026-11-08)
 
 
