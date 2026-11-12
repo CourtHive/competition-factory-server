@@ -140,6 +140,7 @@ export function stampVerifiedIdentity(payload: any, verifiedUser?: VerifiedUser)
 // gets the shared `occurredAt` only and the factory mints its ids.
 const SINGLE_ATTESTATION_METHODS = new Set([
   'toggleParticipantCheckInState',
+  'setParticipantCheckInState',
   'checkInParticipant',
   'checkOutParticipant',
 ]);

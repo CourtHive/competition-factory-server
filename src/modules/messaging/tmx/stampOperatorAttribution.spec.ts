@@ -203,7 +203,7 @@ describe('settlement stamping at the verified identity boundary', () => {
 describe('presence attestation stamping', () => {
   const NOW = '2026-11-12T12:00:00.000Z';
 
-  it.each(['toggleParticipantCheckInState', 'checkInParticipant', 'checkOutParticipant'])(
+  it.each(['toggleParticipantCheckInState', 'setParticipantCheckInState', 'checkInParticipant', 'checkOutParticipant'])(
     'fills occurredAt and attestationId on %s and marks the command canonical',
     (method) => {
       const payload: any = payloadWith(undefined, method);

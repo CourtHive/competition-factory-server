@@ -551,10 +551,14 @@ export class FactoryController {
       const { publicNotices } = result;
       // The stamped payload, as the socket path broadcasts: it carries the verified userId, and the
       // sender's `originClientId` so the sender recognises its own mutation (no connection to exclude).
-      this.broadcastService.broadcastMutation(payload, {
-        serverUpdatedAt: result.serverUpdatedAt,
-        previousServerUpdatedAt: result.previousServerUpdatedAt,
-      });
+      // Its methods are the canonical ones: an intention that wrote nothing is never replayed elsewhere.
+      this.broadcastService.broadcastMutation(
+        { ...payload, methods: result.appliedMethods ?? payload.methods },
+        {
+          serverUpdatedAt: result.serverUpdatedAt,
+          previousServerUpdatedAt: result.previousServerUpdatedAt,
+        },
+      );
       this.broadcastService.broadcastPublicNotices(payload, publicNotices);
       this.invalidateTournamentCache(
         eqd.tournamentIds ?? [],
