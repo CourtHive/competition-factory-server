@@ -167,7 +167,23 @@ const clearCache = (tournamentId) => {
  * per-request values from the request context — drive them inside
  * `runWithRequestContext({ deltaBuffer, publicNotices })`.
  */
+const INDIVIDUAL_MERGE_TOPIC =
+  (topicConstants as Record<string, string>).MERGE_INDIVIDUAL_PARTICIPANTS ?? 'mergeIndividualParticipants';
+
 export const subscriptionHandlers = {
+  [INDIVIDUAL_MERGE_TOPIC]: (params) => {
+    // A consolidation changes competitive identities without changing draw positions or scores.
+    // Ordinary MODIFY_MATCHUP projects slim result columns only; rebuild the affected competitor rows explicitly.
+    for (const item of params ?? []) {
+      recordPositionAssignments(
+        requestDeltaBuffer(),
+        (item.drawIds ?? []).map((drawId: string) => ({
+          tournamentId: item.tournamentId,
+          drawId,
+        })),
+      );
+    }
+  },
   [topicConstants.MODIFY_MATCHUP]: (params) => {
     for (const item of params) {
       clearCache(item.tournamentId);
