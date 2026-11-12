@@ -42,7 +42,7 @@ export interface SanctioningRecordSnapshot {
     name: string;
     version: string;
     definition: Record<string, unknown>;
-    sourceProviderId?: string;
+    sourceId?: string;
     sourceRole?: string;
   }>;
   proposal: {
