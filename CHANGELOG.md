@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.13.1](https://github.com/CourtHive/competition-factory-server/compare/v4.13.0...v4.13.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **deps:** update @courthive/i18n to 0.13.2 ([#1211](https://github.com/CourtHive/competition-factory-server/issues/1211)) ([8d6f104](https://github.com/CourtHive/competition-factory-server/commit/8d6f104ece4ae06f0745d78aecca1c98757078ec))
+
 ## [4.13.0](https://github.com/CourtHive/competition-factory-server/compare/v4.12.0...v4.13.0) (2026-11-11)
 
 
