@@ -1,4 +1,9 @@
-import { operatorAttribution, stampOperatorAttribution, stampVerifiedIdentity } from './stampOperatorAttribution';
+import {
+  operatorAttribution,
+  stampOperatorAttribution,
+  stampPresenceAttestations,
+  stampVerifiedIdentity,
+} from './stampOperatorAttribution';
 
 const VERIFIED = { userId: 'uuid-real', email: 'desk@example.com', displayName: 'Desk One' };
 
@@ -192,5 +197,64 @@ describe('settlement stamping at the verified identity boundary', () => {
     const payload: any = { ...payloadWith(undefined, 'addEvent'), serverStamped: true };
     stampVerifiedIdentity(payload, VERIFIED);
     expect(payload.serverStamped).toBeUndefined();
+  });
+});
+
+describe('presence attestation stamping', () => {
+  const NOW = '2026-11-12T12:00:00.000Z';
+
+  it.each(['toggleParticipantCheckInState', 'checkInParticipant', 'checkOutParticipant'])(
+    'fills occurredAt and attestationId on %s and marks the command canonical',
+    (method) => {
+      const payload: any = payloadWith(undefined, method);
+      stampPresenceAttestations(payload, NOW);
+      expect(payload.methods[0].params.occurredAt).toBe(NOW);
+      expect(payload.methods[0].params.attestationId).toMatch(/^[0-9a-f-]{36}$/);
+      expect(payload.serverStamped).toBe(true);
+    },
+  );
+
+  it('keeps an occurredAt and attestationId the client sent (an offline desk records when it happened)', () => {
+    const payload: any = payloadWith(undefined);
+    Object.assign(payload.methods[0].params, { occurredAt: '2026-11-12T09:00:00.000Z', attestationId: 'client-id' });
+    stampPresenceAttestations(payload, NOW);
+    expect(payload.methods[0].params).toMatchObject({
+      occurredAt: '2026-11-12T09:00:00.000Z',
+      attestationId: 'client-id',
+    });
+    expect(payload.serverStamped).toBeUndefined();
+  });
+
+  it('gives the sign-in batch a shared occurredAt but no attestationId (one attestation per participant)', () => {
+    const payload: any = {
+      methods: [{ method: 'modifyParticipantsSignInStatus', params: { participantIds: ['a', 'b'] } }],
+    };
+    stampPresenceAttestations(payload, NOW);
+    expect(payload.methods[0].params.occurredAt).toBe(NOW);
+    expect(payload.methods[0].params.attestationId).toBeUndefined();
+    expect(payload.serverStamped).toBe(true);
+  });
+
+  it('gives each presence command in a batch its own attestationId', () => {
+    const payload: any = {
+      methods: [payloadWith().methods[0], payloadWith(undefined, 'checkInParticipant').methods[0]],
+    };
+    stampPresenceAttestations(payload, NOW);
+    const [first, second] = payload.methods.map((m: any) => m.params.attestationId);
+    expect(first).not.toBe(second);
+  });
+
+  it('leaves other methods alone', () => {
+    const payload: any = payloadWith(undefined, 'addEvent');
+    stampPresenceAttestations(payload, NOW);
+    expect(payload.methods[0].params.occurredAt).toBeUndefined();
+    expect(payload.serverStamped).toBeUndefined();
+  });
+
+  it('runs at the verified identity boundary', () => {
+    const payload: any = payloadWith(undefined);
+    stampVerifiedIdentity(payload, VERIFIED);
+    expect(payload.methods[0].params.occurredAt).toEqual(expect.any(String));
+    expect(payload.serverStamped).toBe(true);
   });
 });
