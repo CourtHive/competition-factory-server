@@ -1,4 +1,3 @@
-import { participantGovernor } from 'tods-competition-factory';
 import { PostgresProjectionOutboxStorage } from './postgres-projection-outbox.storage';
 import { executionQueue } from 'src/modules/factory/functions/private/executionQueue';
 import { PostgresParticipationStorage } from './postgres-participation.storage';
@@ -7,15 +6,15 @@ import { TournamentStorageService } from '../tournament-storage.service';
 import { commandFingerprint, CommandReceipts } from './commandReceipts';
 import { PostgresCalendarStorage } from './postgres-calendar.storage';
 import { PostgresProviderStorage } from './postgres-provider.storage';
+import { participantGovernor } from 'tods-competition-factory';
 import { getPostgresConfig } from './postgres.config';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { Pool } from 'pg';
 
-// C2 (statuses/2026-10-16-durable-outbox-recovery-review.md): a durable command's projection deltas are enqueued on the
-// command's own connection, so they commit with the record and its receipt. Before, they were written after COMMIT,
-// and a crash in between lost them until reconciliation. One-connection pool: the enqueue must not take a second one.
+// Exercise the actual command path: record, aliases, protected receipt and projection outbox must commit or
+// roll back together. A one-connection pool also proves outbox writes reuse the command's transaction.
 const supportsMerge =
   typeof (participantGovernor as Record<string, unknown>).mergeIndividualParticipants === 'function';
 

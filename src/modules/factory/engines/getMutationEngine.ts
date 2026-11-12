@@ -1,6 +1,5 @@
 import { auditConstants, governors, asyncEngine, globalState, topicConstants } from 'tods-competition-factory';
 import { afterCommandCommit } from 'src/storage/postgres/commandTransaction';
-import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
 import { drawIdsFromNotice } from '../helpers/executionQueueIntegrity';
 import { getRequestContext } from './requestContext';
 import asyncGlobalState from './asyncGlobalState';
@@ -31,6 +30,7 @@ import {
 } from '../projection/deltaBuffer';
 
 // constants and types
+import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
 import type { FactoryEngineTyped } from 'tods-competition-factory';
 import type { FactoryRequestContext } from './requestContext';
 
