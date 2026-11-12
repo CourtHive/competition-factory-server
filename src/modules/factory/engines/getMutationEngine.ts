@@ -1,5 +1,6 @@
 import { auditConstants, governors, asyncEngine, globalState, topicConstants } from 'tods-competition-factory';
 import { afterCommandCommit } from 'src/storage/postgres/commandTransaction';
+import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
 import { drawIdsFromNotice } from '../helpers/executionQueueIntegrity';
 import { getRequestContext } from './requestContext';
 import asyncGlobalState from './asyncGlobalState';
@@ -30,7 +31,6 @@ import {
 } from '../projection/deltaBuffer';
 
 // constants and types
-import { CANONICAL_PERSON } from 'src/common/constants/canonicalPerson';
 import type { FactoryEngineTyped } from 'tods-competition-factory';
 import type { FactoryRequestContext } from './requestContext';
 
@@ -167,7 +167,23 @@ const clearCache = (tournamentId) => {
  * per-request values from the request context — drive them inside
  * `runWithRequestContext({ deltaBuffer, publicNotices })`.
  */
+const INDIVIDUAL_MERGE_TOPIC =
+  (topicConstants as Record<string, string>).MERGE_INDIVIDUAL_PARTICIPANTS ?? 'mergeIndividualParticipants';
+
 export const subscriptionHandlers = {
+  [INDIVIDUAL_MERGE_TOPIC]: (params) => {
+    // A consolidation changes competitive identities without changing draw positions or scores.
+    // Ordinary MODIFY_MATCHUP projects slim result columns only; rebuild the affected competitor rows explicitly.
+    for (const item of params ?? []) {
+      recordPositionAssignments(
+        requestDeltaBuffer(),
+        (item.drawIds ?? []).map((drawId: string) => ({
+          tournamentId: item.tournamentId,
+          drawId,
+        })),
+      );
+    }
+  },
   [topicConstants.MODIFY_MATCHUP]: (params) => {
     for (const item of params) {
       clearCache(item.tournamentId);

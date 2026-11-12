@@ -1,35 +1,35 @@
-import { commandFingerprint, saveFingerprint } from 'src/storage/postgres/commandReceipts';
-import { GetScheduledMatchUpsDto } from './dto/getCompetitionScheduleMatchUps.dto';
-import { FetchTournamentUpdatedAtDto } from './dto/fetchTournamentUpdatedAt.dto';
-import { RemoveTournamentRecordsDto } from './dto/removeTournamentRecords.dto';
-import { FetchTournamentRecordsDto } from './dto/fetchTournamentRecords.dto';
-import { QueryTournamentRecordsDto } from './dto/queryTournamentRecords.dto';
-import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
-import { GetScheduleProjectionDto } from './dto/getScheduleProjection.dto';
-import { GetTournamentInfoDto } from './dto/getTournamentInfo.dto';
-import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
-import { GetStructureDataDto } from './dto/getStructureData.dto';
-import { GetParticipantsDto } from './dto/getParticipants.dto';
-import { ExecutionQueueDto } from './dto/executionQueue.dto';
-import { GetEventDataDto } from './dto/getEventData.dto';
-import { GetDrawDataDto } from './dto/getDrawData.dto';
-import { GetMatchUpsDto } from './dto/getMatchUps.dto';
-
 import { ADMIN, CLIENT, GENERATE, PROVIDER_ADMIN, SCORE, SUPER_ADMIN } from 'src/common/constants/roles';
 import { TournamentBroadcastService } from '../messaging/broadcast/tournament-broadcast.service';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
+import { commandFingerprint, saveFingerprint } from 'src/storage/postgres/commandReceipts';
 import { stampVerifiedIdentity } from 'src/modules/messaging/tmx/stampOperatorAttribution';
+import { individualMergeCapabilities } from './helpers/individualMergeCapabilities';
+import { GetScheduledMatchUpsDto } from './dto/getCompetitionScheduleMatchUps.dto';
 import { Audience } from 'src/modules/account/auth/decorators/audience.decorator';
+import { FetchTournamentUpdatedAtDto } from './dto/fetchTournamentUpdatedAt.dto';
 import { MutationAuthorizationService } from './mutation-authorization.service';
+import { RemoveTournamentRecordsDto } from './dto/removeTournamentRecords.dto';
 import { Public } from 'src/modules/account/auth/decorators/public.decorator';
+import { FetchTournamentRecordsDto } from './dto/fetchTournamentRecords.dto';
+import { QueryTournamentRecordsDto } from './dto/queryTournamentRecords.dto';
 import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
+import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
+import { GetScheduleProjectionDto } from './dto/getScheduleProjection.dto';
 import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
 import { BackfillPrivacyPinsDto } from './dto/backfillPrivacyPins.dto';
 import { ApplyPrivacyPolicyDto } from './dto/applyPrivacyPolicy.dto';
 import { PayloadProfileEnum, tools } from 'tods-competition-factory';
+import { GetTournamentInfoDto } from './dto/getTournamentInfo.dto';
+import { SetMatchUpStatusDto } from './dto/setMatchUpStatus.dto';
+import { GetStructureDataDto } from './dto/getStructureData.dto';
 import { User } from '../account/auth/decorators/user.decorator';
 import { ROSTER_SAFE_TOPICS } from './engines/getMutationEngine';
+import { GetParticipantsDto } from './dto/getParticipants.dto';
+import { ExecutionQueueDto } from './dto/executionQueue.dto';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
+import { GetEventDataDto } from './dto/getEventData.dto';
+import { GetDrawDataDto } from './dto/getDrawData.dto';
+import { GetMatchUpsDto } from './dto/getMatchUps.dto';
 import { FactoryService } from './factory.service';
 import { GrantsService } from './grants.service';
 import {
@@ -235,6 +235,12 @@ export class FactoryController {
   @Public()
   default() {
     return { message: 'Factory services' };
+  }
+
+  @Public()
+  @Get('capabilities')
+  getCapabilities() {
+    return individualMergeCapabilities();
   }
 
   @Public()
