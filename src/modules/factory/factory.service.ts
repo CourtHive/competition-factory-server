@@ -112,10 +112,13 @@ export class FactoryService {
     // Fire-and-forget: mirror successful mutations to upstream
     if (result?.success && !result.deduplicated && this.mutationMirror) {
       const tournamentIds = params?.tournamentIds || (params?.tournamentId && [params.tournamentId]) || [];
-      const methods = params?.methods ?? params?.executionQueue ?? [];
-      this.mutationMirror
-        .enqueue({ tournamentIds, methods })
-        .catch((err) => Logger.error(`Mutation mirror enqueue failed: ${err.message}`, 'FactoryService'));
+      // The canonical methods, as the broadcast carries them: an intention that wrote nothing is not mirrored.
+      const methods = result.appliedMethods ?? params?.methods ?? params?.executionQueue ?? [];
+      if (methods.length) {
+        this.mutationMirror
+          .enqueue({ tournamentIds, methods })
+          .catch((err) => Logger.error(`Mutation mirror enqueue failed: ${err.message}`, 'FactoryService'));
+      }
     }
 
     return result;

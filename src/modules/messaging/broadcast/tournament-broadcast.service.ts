@@ -64,8 +64,11 @@ export class TournamentBroadcastService {
     },
   ): Promise<void> {
     const tournamentIds: string[] = payload?.tournamentIds || (payload?.tournamentId ? [payload.tournamentId] : []);
-    const methods = payload?.methods;
-    if (!methods?.length || !tournamentIds.length) {
+    const methods = payload?.methods ?? [];
+    // A command whose every intention was already satisfied leaves no methods, but its save still moved
+    // `serverUpdatedAt`. The methods-free frame carries the new sync point, so a desk that was current stays current
+    // instead of reading the next probe as a missed write.
+    if ((!methods.length && !options?.serverUpdatedAt) || !tournamentIds.length) {
       this.logger.warn(`[broadcast] skipped — methods: ${methods?.length}, tournamentIds: ${tournamentIds.length}`);
       return;
     }

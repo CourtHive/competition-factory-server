@@ -427,6 +427,29 @@ describe('FactoryController', () => {
       expect(result.serverUpdatedAt).toEqual(serverUpdatedAt); // the sender's own sync point
     });
 
+    // An intention that wrote nothing on the server must not be replayed by another desk (check-in slice 2).
+    it('broadcasts the canonical appliedMethods rather than the methods the sender sent', async () => {
+      const sent = { method: 'setParticipantCheckInState', params: { checkedIn: true } };
+      const mockService = {
+        executionQueue: vi.fn().mockResolvedValue({ success: true, publicNotices: [], appliedMethods: [] }),
+      } as unknown as FactoryService;
+      mockController = new FactoryController(
+        mockService,
+        mockBroadcast,
+        permissiveMutationAuth(),
+        stubGrants(),
+        mockCache,
+      );
+
+      const eqd = { tournamentIds: ['t1'], methods: [sent] };
+      await mockController.executionQueue(eqd as any, { headers: {}, auditSource: undefined });
+
+      expect(mockBroadcast.broadcastMutation).toHaveBeenCalledWith(
+        expect.objectContaining({ methods: [] }),
+        expect.anything(),
+      );
+    });
+
     it('does not broadcast after failed executionQueue', async () => {
       const mockService = {
         executionQueue: vi.fn().mockResolvedValue({ error: 'something failed' }),
