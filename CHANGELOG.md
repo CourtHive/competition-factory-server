@@ -1,5 +1,20 @@
 # Changelog
 
+## [4.15.0](https://github.com/CourtHive/competition-factory-server/compare/v4.14.0...v4.15.0) (2026-11-13)
+
+
+### Features
+
+* only provider administrators may merge individual participants ([#1231](https://github.com/CourtHive/competition-factory-server/issues/1231)) ([db413f0](https://github.com/CourtHive/competition-factory-server/commit/db413f06f125d5ce3c567da274f5d8a9936fe6e0))
+
+
+### Bug Fixes
+
+* **deps:** update @courthive/provider-config to 1.2.0 ([#1230](https://github.com/CourtHive/competition-factory-server/issues/1230)) ([63e02f0](https://github.com/CourtHive/competition-factory-server/commit/63e02f0898c277521566d693e50cb773d2edd40d))
+* **deps:** update tods-competition-factory to 7.38.0 ([#1233](https://github.com/CourtHive/competition-factory-server/issues/1233)) ([b7097f5](https://github.com/CourtHive/competition-factory-server/commit/b7097f56b7f53a0ab8c678ba08b492912a8bc6f3))
+* keep merge recovery data out of the ack and run the merge specs ([#1227](https://github.com/CourtHive/competition-factory-server/issues/1227)) ([99ee141](https://github.com/CourtHive/competition-factory-server/commit/99ee141c7e4bf55c5550184e9dcf045e1268e9f7))
+* refuse participant merge to API keys ([#1232](https://github.com/CourtHive/competition-factory-server/issues/1232)) ([87942cc](https://github.com/CourtHive/competition-factory-server/commit/87942cc77acc8e2face6ad63961c2f53f8e9955f))
+
 ## [4.14.0](https://github.com/CourtHive/competition-factory-server/compare/v4.13.1...v4.14.0) (2026-11-13)
 
 
