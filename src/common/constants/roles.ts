@@ -7,7 +7,9 @@ export const GENERATE = 'generate';
 export const CLIENT = 'client';
 export const SCORE = 'score';
 export const PROVISIONER = 'provisioner'; // user represents a provisioner (Phase 2A)
-export const ADMIN = 'admin'; // deprecated — treated as PROVIDER_ADMIN for back-compat; will be removed
+// "Platform admin": platform-wide operator access, granted only by a super-admin (CA, 2026-11-12). It is NOT
+// PROVIDER_ADMIN at any provider — that promotion shim was retired 2026-10-07 — and it is not deprecated.
+export const ADMIN = 'admin';
 
 // ── Provider-scoped roles (stored in user_providers.provider_role, NOT in JWT) ──
 // These answer "what can this user do within a specific provider's scope?"

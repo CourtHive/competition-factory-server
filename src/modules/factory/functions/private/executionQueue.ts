@@ -9,6 +9,7 @@ import { afterCommandCommit } from 'src/storage/postgres/commandTransaction';
 import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
 import { runDurableCommand } from 'src/storage/postgres/commandReceipts';
 import { refusedTestDataMethods } from '../../helpers/testDataMethods';
+import { withoutReportedNoOps } from './presenceNoOps';
 import { getMutationEngine } from '../../engines/getMutationEngine';
 import { withTournamentLock } from 'src/services/tournamentMutex';
 import { createDeltaBuffer } from '../../projection/deltaBuffer';
@@ -291,11 +292,14 @@ export async function executionQueue(
               }
             });
 
+            // What every other copy applies: the stamped methods, without the intentions that wrote nothing here.
+            // Set whenever it differs from what the sender sent, so the sender, the broadcast and the mirror agree.
+            const applied = innerResult.success ? withoutReportedNoOps(methods, innerResult.results) : undefined;
             const canonicalResult =
-              payload?.serverStamped && innerResult.success
+              applied && (payload?.serverStamped || applied.dropped)
                 ? {
                     ...innerResult,
-                    appliedMethods: structuredClone(methods),
+                    appliedMethods: structuredClone(applied.methods),
                   }
                 : innerResult;
             return serverUpdatedAt ? { ...canonicalResult, serverUpdatedAt, previousServerUpdatedAt } : canonicalResult;

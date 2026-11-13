@@ -1,4 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 
 /**
  * Replace a client-asserted OPERATOR identity with the one the server authenticated.
@@ -130,5 +131,46 @@ export function stampVerifiedIdentity(payload: any, verifiedUser?: VerifiedUser)
   delete payload.serverStamped;
   if (verifiedUser?.email) payload.userEmail = verifiedUser.email;
   payload.userId = verifiedUser?.userId ?? verifiedUser?.sub ?? null;
-  return stampOperatorAttribution(payload, verifiedUser);
+  const rewritten = stampOperatorAttribution(payload, verifiedUser);
+  stampPresenceAttestations(payload);
+  return rewritten;
+}
+
+// One attestation each: a server-minted `attestationId` is safe. The sign-in batch builds one per participant, so it
+// gets the shared `occurredAt` only and the factory mints its ids.
+const SINGLE_ATTESTATION_METHODS = new Set([
+  'toggleParticipantCheckInState',
+  'setParticipantCheckInState',
+  'checkInParticipant',
+  'checkOutParticipant',
+]);
+const BATCH_ATTESTATION_METHODS = new Set(['modifyParticipantsSignInStatus']);
+
+/**
+ * Fill a presence write's `occurredAt` (and, for a single attestation, its `attestationId`) with the server's values
+ * when the client sent none, so every copy of the record holds the same attestation.
+ *
+ * Left empty, each engine that applies the command mints its own: CFS on write, the sending desk when it applies the
+ * acknowledgement, every other desk when it applies the broadcast. Presence folds by latest `occurredAt`, so a desk
+ * whose clock runs behind CFS read an older state than the server for the same history (Guidon check-in journey,
+ * 2026-11-12: desk B's check-out sorted before the server-stamped check-in it had just refreshed). The stamped
+ * methods reach the sender as `appliedMethods` (`serverStamped`) and every other desk on the broadcast.
+ *
+ * A value the client did send is kept: an offline desk records when the attestation actually happened.
+ */
+export function stampPresenceAttestations(payload: any, now = new Date().toISOString()): void {
+  const methods = payload?.methods;
+  if (!Array.isArray(methods)) return;
+  for (const directive of methods) {
+    const single = SINGLE_ATTESTATION_METHODS.has(directive?.method);
+    if (!directive?.params || (!single && !BATCH_ATTESTATION_METHODS.has(directive.method))) continue;
+    if (!directive.params.occurredAt) {
+      directive.params.occurredAt = now;
+      payload.serverStamped = true;
+    }
+    if (single && !directive.params.attestationId) {
+      directive.params.attestationId = randomUUID();
+      payload.serverStamped = true;
+    }
+  }
 }
