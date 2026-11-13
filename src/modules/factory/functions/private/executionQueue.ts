@@ -8,6 +8,7 @@ import { buildProjectionDeltas } from '../../projection/buildProjectionDeltas';
 import { afterCommandCommit } from 'src/storage/postgres/commandTransaction';
 import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
 import { runDurableCommand } from 'src/storage/postgres/commandReceipts';
+import { withoutRecoveryData } from '../../helpers/withoutRecoveryData';
 import { refusedTestDataMethods } from '../../helpers/testDataMethods';
 import { getMutationEngine } from '../../engines/getMutationEngine';
 import { withTournamentLock } from 'src/services/tournamentMutex';
@@ -325,7 +326,7 @@ export async function executionQueue(
     scheduleShardShadow(shadowBatch);
 
     return {
-      ...mutationResult,
+      ...withoutRecoveryData(mutationResult),
       publicNotices,
       evictedEventKeys: [...evictedEventKeys],
       unnarrowablePrefixes: [...unnarrowablePrefixes],

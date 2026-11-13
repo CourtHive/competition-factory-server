@@ -15,10 +15,7 @@ import { Pool } from 'pg';
 
 // Exercise the actual command path: record, aliases, protected receipt and projection outbox must commit or
 // roll back together. A one-connection pool also proves outbox writes reuse the command's transaction.
-const supportsMerge =
-  typeof (participantGovernor as Record<string, unknown>).mergeIndividualParticipants === 'function';
-
-describe.skipIf(!supportsMerge)('individual merge durable persistence', () => {
+describe('individual merge durable persistence', () => {
   const schema = `individual_merge_${randomUUID().replace(/-/g, '')}`;
   const migrations = [
     '001-initial-schema.sql',
@@ -133,6 +130,9 @@ describe.skipIf(!supportsMerge)('individual merge durable persistence', () => {
     const sent = await command();
     let result: any = await run(sent);
     expect(result.success).toBe(true);
+    // The before-state is recovery evidence for the receipt only; the acknowledgement never carries it.
+    expect(result.results[0].changedPaths).toBeDefined();
+    expect(result.results[0]).not.toHaveProperty('mergeReceipt');
     const record = await storedRecord();
     expect(record.participants.map((p: any) => p.participantId)).toEqual(['target']);
     expect(record.extensions.find((e: any) => e.name === 'individualParticipantMerges').value.aliases.source).toBe(
@@ -143,6 +143,7 @@ describe.skipIf(!supportsMerge)('individual merge durable persistence', () => {
     expect(await queued()).toBeGreaterThan(0);
     result = await run(sent);
     expect(result.deduplicated).toBe(true);
+    expect(result.results[0]).not.toHaveProperty('mergeReceipt');
     expect(await receiptCount()).toBe(1);
     expect((await storedRecord()).participants).toHaveLength(1);
   });
