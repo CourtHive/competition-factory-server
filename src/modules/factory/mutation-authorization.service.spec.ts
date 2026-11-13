@@ -268,6 +268,17 @@ describe('MutationAuthorizationService.gate — provider administrators only (CA
     expect(await service.gate({ userContext: superAdmin, tournamentIds: [TID], requestedMethods: MERGE })).toBeNull();
   });
 
+  it('refuses an API key: the PROVIDER_ADMIN a provisioner or provider key carries is synthetic', async () => {
+    const { service } = buildOptedIn();
+    for (const apiKey of ['provisioner', 'provider'] as const) {
+      const key = { ...providerAdmin, apiKey };
+      expect(await service.gate({ userContext: key, tournamentIds: [TID], requestedMethods: MERGE })).toBe(
+        'Action not permitted: mergeIndividualParticipants requires a provider administrator',
+      );
+      expect(await service.gate({ userContext: key, tournamentIds: [TID], requestedMethods: ['addEvent'] })).toBeNull();
+    }
+  });
+
   it('still needs the provider to opt in: a PROVIDER_ADMIN of an unconfigured provider is refused', async () => {
     const { service } = build();
     expect(await service.gate({ userContext: providerAdmin, tournamentIds: [TID], requestedMethods: MERGE })).toBe(

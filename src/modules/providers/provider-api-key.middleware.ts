@@ -98,6 +98,7 @@ export class ProviderApiKeyMiddleware implements NestMiddleware {
       providerRoles: { [key.providerId]: 'PROVIDER_ADMIN' },
       providerIds: [key.providerId],
       provisionerProviderIds: [],
+      apiKey: 'provider',
     } satisfies UserContext;
 
     next();
