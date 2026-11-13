@@ -22,6 +22,7 @@
  * would create a circular module dependency. Its own DI deps come from the
  * @Global StorageModule.
  */
+import { isProviderAdministrator, providerAdminMethod } from './helpers/providerAdminMethods';
 import { computeEffectiveConfig, isMutationAllowed } from '@courthive/provider-config';
 import { enrichTargetFromRecord, targetFromParams } from './helpers/resolveMutationTarget';
 import {
@@ -127,6 +128,12 @@ export class MutationAuthorizationService {
       if (!canMutateTournament(tournament, userContext, assignedRoles, requestedMethods)) {
         this.logger.warn(`[executionQueue] mutation denied for ${actor}: ${methodSummary} on ${tid}`);
         return 'Not authorized to modify this tournament';
+      }
+
+      const adminOnly = providerAdminMethod(requestedMethods);
+      if (adminOnly && !isProviderAdministrator(userContext, tournament?.parentOrganisation?.organisationId)) {
+        this.logger.warn(`[executionQueue] provider administrators only for ${actor}: ${adminOnly} on ${tid}`);
+        return `Action not permitted: ${adminOnly} requires a provider administrator`;
       }
 
       const outOfScope = await this.checkGrantScope(tournament, userContext, methods ?? [], loadRecord);
