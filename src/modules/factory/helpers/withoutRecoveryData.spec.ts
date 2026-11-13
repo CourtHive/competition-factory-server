@@ -7,7 +7,12 @@ describe('withoutRecoveryData', () => {
       success: true,
       commandId: 'c1',
       results: [
-        { methodName: 'mergeIndividualParticipants', success: true, changedPaths: ['/x'], mergeReceipt: { before: {} } },
+        {
+          methodName: 'mergeIndividualParticipants',
+          success: true,
+          changedPaths: ['/x'],
+          mergeReceipt: { before: {} },
+        },
         { methodName: 'addParticipants', success: true },
         null,
       ],
