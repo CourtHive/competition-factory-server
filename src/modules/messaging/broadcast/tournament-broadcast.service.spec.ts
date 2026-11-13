@@ -69,6 +69,19 @@ describe('TournamentBroadcastService', () => {
       expect(realtime.published).toHaveLength(0);
     });
 
+    // Every intention in the command was already satisfied, but the save still moved the server's sync point.
+    it('sends a methods-free frame carrying the sync point when there is one', async () => {
+      const serverUpdatedAt = { 'tournament-123': '2026-11-12T22:00:00.500Z' };
+      const previousServerUpdatedAt = { 'tournament-123': '2026-11-12T22:00:00.000Z' };
+      await service.broadcastMutation({ ...payload, methods: [] }, { serverUpdatedAt, previousServerUpdatedAt });
+
+      const sent = realtime.to('tournament:tournament-123', 'tournamentMutation');
+      expect(sent).toHaveLength(1);
+      expect(sent[0].payload).toEqual(
+        expect.objectContaining({ methods: [], serverUpdatedAt, previousServerUpdatedAt }),
+      );
+    });
+
     it('skips broadcast when tournamentIds are empty', async () => {
       await service.broadcastMutation({ ...payload, tournamentIds: [] });
 
