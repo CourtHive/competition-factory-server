@@ -44,6 +44,12 @@ export interface UserContext {
    * the verified token; see `actingProviderAllows`.
    */
   actingProviderId?: string;
+  /**
+   * Set when the request authenticated with an API key rather than as a person. The key middlewares mint a synthetic
+   * `providerRoles[P] = PROVIDER_ADMIN` so tournament endpoints work unchanged; checks reserved for a person who
+   * administers the provider (`isProviderAdministrator`) read this to refuse that synthetic role.
+   */
+  apiKey?: 'provisioner' | 'provider';
   /** The token is a session that has not chosen a provider yet: it may touch no provider's tournaments. */
   providerSelectionPending?: boolean;
   /**
