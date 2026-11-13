@@ -216,6 +216,84 @@ describe("MutationAuthorizationService.gate — the session's provider (CA, 2026
   });
 });
 
+describe('MutationAuthorizationService.gate — provider administrators only (CA, 2026-11-13)', () => {
+  const MERGE = ['mergeIndividualParticipants'];
+  const optedIn = { permissions: { canMergeParticipants: true } };
+  const providerAdmin = { ...director, providerRoles: { [PROVIDER]: 'PROVIDER_ADMIN' } };
+  function buildOptedIn(args: { assignmentRole?: string } = {}) {
+    const built = build(args);
+    built.providerStorage.getProvider.mockResolvedValue({
+      providerConfigCaps: optedIn,
+      providerConfigSettings: optedIn,
+    });
+    return built;
+  }
+
+  it('lets a PROVIDER_ADMIN of the owning provider merge once the provider has opted in', async () => {
+    const { service } = buildOptedIn();
+    expect(
+      await service.gate({ userContext: providerAdmin, tournamentIds: [TID], requestedMethods: MERGE }),
+    ).toBeNull();
+  });
+
+  it('refuses a DIRECTOR, even an assigned one on an opted-in provider', async () => {
+    const { service } = buildOptedIn({ assignmentRole: 'DIRECTOR' });
+    expect(await service.gate({ userContext: director, tournamentIds: [TID], requestedMethods: MERGE })).toBe(
+      'Action not permitted: mergeIndividualParticipants requires a provider administrator',
+    );
+  });
+
+  it("refuses the tournament's creator who is not a provider administrator", async () => {
+    const { service, tournamentStorageService } = buildOptedIn();
+    tournamentStorageService.setRecord(makeTournament(director.userId));
+    expect(await service.gate({ userContext: director, tournamentIds: [TID], requestedMethods: MERGE })).toBe(
+      'Action not permitted: mergeIndividualParticipants requires a provider administrator',
+    );
+  });
+
+  it('refuses a PROVIDER_ADMIN of another provider', async () => {
+    const { service } = buildOptedIn({ assignmentRole: 'DIRECTOR' });
+    const elsewhere = { ...director, providerRoles: { [PROVIDER]: 'DIRECTOR', 'prov-2': 'PROVIDER_ADMIN' } };
+    expect(await service.gate({ userContext: elsewhere, tournamentIds: [TID], requestedMethods: MERGE })).toBe(
+      'Action not permitted: mergeIndividualParticipants requires a provider administrator',
+    );
+  });
+
+  it('accepts a provisioner that administers the provider, and a super-admin', async () => {
+    const { service } = buildOptedIn();
+    const provisioner = { ...director, providerRoles: {}, providerIds: [], provisionerProviderIds: [PROVIDER] };
+    expect(
+      await service.gate({ userContext: provisioner as any, tournamentIds: [TID], requestedMethods: MERGE }),
+    ).toBeNull();
+    expect(await service.gate({ userContext: superAdmin, tournamentIds: [TID], requestedMethods: MERGE })).toBeNull();
+  });
+
+  it('refuses an API key: the PROVIDER_ADMIN a provisioner or provider key carries is synthetic', async () => {
+    const { service } = buildOptedIn();
+    for (const apiKey of ['provisioner', 'provider'] as const) {
+      const key = { ...providerAdmin, apiKey };
+      expect(await service.gate({ userContext: key, tournamentIds: [TID], requestedMethods: MERGE })).toBe(
+        'Action not permitted: mergeIndividualParticipants requires a provider administrator',
+      );
+      expect(await service.gate({ userContext: key, tournamentIds: [TID], requestedMethods: ['addEvent'] })).toBeNull();
+    }
+  });
+
+  it('still needs the provider to opt in: a PROVIDER_ADMIN of an unconfigured provider is refused', async () => {
+    const { service } = build();
+    expect(await service.gate({ userContext: providerAdmin, tournamentIds: [TID], requestedMethods: MERGE })).toBe(
+      'Action not permitted: mergeIndividualParticipants',
+    );
+  });
+
+  it('leaves every other method to the existing gates', async () => {
+    const { service } = build({ assignmentRole: 'DIRECTOR' });
+    expect(
+      await service.gate({ userContext: director, tournamentIds: [TID], requestedMethods: ['addEvent'] }),
+    ).toBeNull();
+  });
+});
+
 describe('MutationAuthorizationService.gate — scoped grants', () => {
   const score = (matchUpId: string) => [{ method: 'setMatchUpStatus', params: { matchUpId, drawId: 'd1' } }];
 

@@ -126,6 +126,8 @@ describe('ProvisionerMiddleware', () => {
     expect(req.userContext.providerIds).toEqual(['provider-abc']);
     // the request names its provider: that is the provider it acts for
     expect(req.userContext.actingProviderId).toBe('provider-abc');
+    // a key, not a person: checks reserved for a provider administrator refuse it
+    expect(req.userContext.apiKey).toBe('provisioner');
   });
 
   it('sets synthetic user context with X-Provider-Id for subsidiary', async () => {

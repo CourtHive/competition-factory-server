@@ -138,6 +138,7 @@ export class ProvisionerMiddleware implements NestMiddleware {
           providerRoles: { [providerId]: 'PROVIDER_ADMIN' },
           providerIds: [providerId],
           provisionerProviderIds: [],
+          apiKey: 'provisioner',
           // the request names its provider (X-Provider-Id), verified above: that is the provider it acts for
           actingProviderId: providerId,
         } satisfies UserContext;

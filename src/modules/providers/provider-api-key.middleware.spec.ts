@@ -82,6 +82,7 @@ describe('ProviderApiKeyMiddleware', () => {
     expect(req.userContext.providerIds).toEqual(['kronos']);
     expect(req.userContext.providerRoles.kronos).toBe('PROVIDER_ADMIN');
     expect(req.userContext.isSuperAdmin).toBe(false);
+    expect(req.userContext.apiKey).toBe('provider');
     expect(apiKeyStorage.updateLastUsed).toHaveBeenCalledWith('k-1');
     expect(next).toHaveBeenCalled();
   });

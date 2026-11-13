@@ -1,4 +1,4 @@
-import { mocksEngine, participantGovernor, readModel } from 'tods-competition-factory';
+import { mocksEngine, readModel } from 'tods-competition-factory';
 import { runWithRequestContext } from '../engines/requestContext';
 import { getMutationEngine } from '../engines/getMutationEngine';
 import { buildProjectionDeltas } from './buildProjectionDeltas';
@@ -6,12 +6,8 @@ import asyncGlobalState from '../engines/asyncGlobalState';
 import { createDeltaBuffer } from './deltaBuffer';
 import { describe, expect, it } from 'vitest';
 
-// Runs when the factory release containing consolidation is installed; the isolated qualification config uses its built artifact.
-const supportsMerge =
-  typeof (participantGovernor as Record<string, unknown>).mergeIndividualParticipants === 'function';
-
 describe('individual merge projections', () => {
-  it.skipIf(!supportsMerge)('moves competitor references and entries through real async engine notices', async () => {
+  it('moves competitor references and entries through real async engine notices', async () => {
     const { tournamentRecord } = await asyncGlobalState.runWithInstanceState(async () =>
       mocksEngine.generateTournamentRecord({
         drawProfiles: [{ drawSize: 4 }],
