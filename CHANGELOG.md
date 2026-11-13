@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.14.0](https://github.com/CourtHive/competition-factory-server/compare/v4.13.1...v4.14.0) (2026-11-13)
+
+
+### Features
+
+* **presence:** keep satisfied check-in intentions out of the ack, broadcast and mirror ([#1224](https://github.com/CourtHive/competition-factory-server/issues/1224)) ([db709e0](https://github.com/CourtHive/competition-factory-server/commit/db709e08e8196a82e516184f9f1182321b495bab))
+* support participant consolidation capabilities and projections ([#1221](https://github.com/CourtHive/competition-factory-server/issues/1221)) ([af2e57d](https://github.com/CourtHive/competition-factory-server/commit/af2e57d91ebd1e3a0d3b802326fc97413a8405ac))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.37.0 ([#1222](https://github.com/CourtHive/competition-factory-server/issues/1222)) ([e24b44b](https://github.com/CourtHive/competition-factory-server/commit/e24b44b87961087f9220d0754f611cae0d88fd51))
+* **presence:** server-stamp occurredAt and attestationId on presence writes ([#1218](https://github.com/CourtHive/competition-factory-server/issues/1218)) ([7227e02](https://github.com/CourtHive/competition-factory-server/commit/7227e02494fce5315c395c9963ba58e9636b9246))
+
 ## [4.13.1](https://github.com/CourtHive/competition-factory-server/compare/v4.13.0...v4.13.1) (2026-11-12)
 
 
