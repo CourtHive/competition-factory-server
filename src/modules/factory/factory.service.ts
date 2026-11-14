@@ -2,6 +2,7 @@ import { attachedParticipantPolicy, resolvePublicParticipantPolicy } from './fun
 import { SnapshotProjectionService, snapshotMode } from './projection/snapshot-projection.service';
 import { BadRequestException, ConflictException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
 import { askEngine, factoryConstants, queryGovernor, readModel } from 'tods-competition-factory';
+import { checkEngineError, rejectedRequestSummary } from '../../common/errors/engineError';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { attachProviderPrivacyOnCreate } from './helpers/attachProviderPrivacyOnCreate';
 import { generateTournamentRecord as gen } from './helpers/generateTournamentRecord';
@@ -19,7 +20,6 @@ import type { TournamentInfoResult } from './functions/public/getTournamentInfo'
 import type { EventDataResult } from './functions/public/getEventData';
 import type { DrawDataResult } from './functions/public/getDrawData';
 import { computeEffectiveConfig } from '@courthive/provider-config';
-import { checkEngineError } from '../../common/errors/engineError';
 import { withTournamentLock } from 'src/services/tournamentMutex';
 import { validateL2 } from './helpers/validateTournamentRecord';
 import { gateDrawIntegrity } from './helpers/drawIntegrity';
@@ -107,7 +107,7 @@ export class FactoryService {
       // uncertain transport/server failure; durable clients must not retry it indefinitely.
       throw new BadRequestException({ message: result.error?.message ?? result.error, code: result.error?.code });
     }
-    checkEngineError(result);
+    checkEngineError(result, result?.success ? undefined : rejectedRequestSummary(params));
 
     // Fire-and-forget: mirror successful mutations to upstream
     if (result?.success && !result.deduplicated && this.mutationMirror) {
