@@ -23,6 +23,7 @@
  * Requires STORAGE_PROVIDER=postgres + Redis (same as provisioner.e2e).
  */
 import { AppModule } from 'src/modules/app/app.module';
+import { mocksEngine } from 'tods-competition-factory';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -44,6 +45,7 @@ d('Provisioner / mismatched X-Provider-Id', () => {
   let ionId: string;
   let ionAbbr: string;
   const createdTournamentIds: string[] = [];
+  let savedTournamentId = '';
 
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
@@ -332,5 +334,45 @@ d('Provisioner / mismatched X-Provider-Id', () => {
     const tags = Object.values(seen);
     expect(tags.filter((t) => t === 'ION').length).toBe(2);
     expect(tags.filter((t) => t === 'BOBOCA').length).toBe(1);
+  });
+
+  // ── E. /factory/save is a provisioner create path too ──
+  //
+  // IONSport creates every tournament with POST /factory/save, not /factory/generate, and that path wrote no
+  // tournament_provisioner row: the only rows its tournaments had in prod came from backfills (2026-11-15).
+
+  it('E1. a provisioner /factory/save that CREATES a tournament writes the ownership row', async () => {
+    const { tournamentRecord } = mocksEngine.generateTournamentRecord({ drawProfiles: [{ drawSize: 4 }] });
+    tournamentRecord.parentOrganisation = { organisationId: bobocaId };
+    const tid = tournamentRecord.tournamentId;
+    savedTournamentId = tid;
+    createdTournamentIds.push(tid);
+
+    await request(app.getHttpServer())
+      .post('/factory/save')
+      .set('Authorization', `Bearer ${apiKey}`)
+      .set('X-Provider-Id', bobocaId)
+      .send({ tournamentRecord })
+      .expect(200);
+
+    const { TOURNAMENT_PROVISIONER_STORAGE } = await import('src/storage/interfaces');
+    const row = await app.get<any>(TOURNAMENT_PROVISIONER_STORAGE).getByTournament(tid);
+    expect(row).toMatchObject({ tournamentId: tid, provisionerId, providerId: bobocaId });
+  });
+
+  it('E2. public branding resolves for a tournament with NO ownership row (P36)', async () => {
+    const { TOURNAMENT_PROVISIONER_STORAGE } = await import('src/storage/interfaces');
+    const { PG_POOL } = await import('src/storage/postgres/postgres.config');
+    const pool: any = app.get(PG_POOL);
+    await pool.query('DELETE FROM tournament_provisioner WHERE tournament_id = $1', [savedTournamentId]);
+    expect(await app.get<any>(TOURNAMENT_PROVISIONER_STORAGE).getByTournament(savedTournamentId)).toBeNull();
+
+    const { PROVIDER_STORAGE } = await import('src/storage/interfaces');
+    await app.get<any>(PROVIDER_STORAGE).updateProviderCaps(bobocaId, { branding: { appName: 'E2E Boca' } });
+
+    const res = await request(app.getHttpServer())
+      .get(`/provider/by-tournament/${savedTournamentId}/branding`)
+      .expect(200);
+    expect(res.body?.branding?.appName).toBe('E2E Boca');
   });
 });
