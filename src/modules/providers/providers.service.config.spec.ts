@@ -16,8 +16,8 @@ interface MockProviderStorage {
   updateProviderSettings: Mock;
 }
 
-interface MockTournamentProvisionerStorage {
-  getByTournament: Mock;
+interface MockTournamentStorageService {
+  fetchTournamentUpdatedAt: Mock;
 }
 
 function makeProviderStorage(provider: any | null = null): MockProviderStorage {
@@ -27,24 +27,25 @@ function makeProviderStorage(provider: any | null = null): MockProviderStorage {
   };
 }
 
-function makeTournamentProvisionerStorage(row: any | null = null): MockTournamentProvisionerStorage {
+/** `providerId` is the provider the stored tournament names; `null` means the tournament does not exist. */
+function makeTournamentStorage(providerId: string | null | undefined = null): MockTournamentStorageService {
   return {
-    getByTournament: vi.fn().mockResolvedValue(row),
+    fetchTournamentUpdatedAt: vi
+      .fn()
+      .mockResolvedValue(
+        providerId === null
+          ? { error: 'MISSING_TOURNAMENT_RECORD' }
+          : { success: true, tournamentId: 't-1', providerId },
+      ),
   };
 }
 
 function makeService(
   providerStorage: MockProviderStorage,
-  tournamentProvisionerStorage: MockTournamentProvisionerStorage = makeTournamentProvisionerStorage(),
+  tournamentStorage: MockTournamentStorageService = makeTournamentStorage(),
 ): ProvidersService {
   // Other deps aren't used by the methods under test — pass minimal mocks.
-  return new ProvidersService(
-    providerStorage as any,
-    {} as any,
-    {} as any,
-    tournamentProvisionerStorage as any,
-    {} as any,
-  );
+  return new ProvidersService(providerStorage as any, {} as any, {} as any, tournamentStorage as any);
 }
 
 describe('ProvidersService — provider config two-tier methods', () => {
@@ -133,17 +134,37 @@ describe('ProvidersService — provider config two-tier methods', () => {
   });
 
   describe('getPublicBrandingByTournament', () => {
-    it('returns undefined branding when tournament has no provider mapping', async () => {
-      const svc = makeService(makeProviderStorage(null), makeTournamentProvisionerStorage(null));
+    it('returns undefined branding when the tournament does not exist', async () => {
+      const svc = makeService(makeProviderStorage(null), makeTournamentStorage(null));
       const result: any = await svc.getPublicBrandingByTournament('t-orphan');
       expect(result.success).toBe(true);
       expect(result.branding).toBeUndefined();
     });
 
+    it('returns undefined branding when the tournament names no provider', async () => {
+      const providerStorage = makeProviderStorage({ providerConfigCaps: { branding: { appName: 'Acme' } } });
+      const svc = makeService(providerStorage, makeTournamentStorage(undefined));
+      const result: any = await svc.getPublicBrandingByTournament('t-1');
+      expect(result.branding).toBeUndefined();
+      expect(providerStorage.getProvider).not.toHaveBeenCalled();
+    });
+
+    // P36: the provider comes from the tournament record, so a tournament with no tournament_provisioner row
+    // (every tournament not created by a provisioner, and some that were) is still themed by its provider.
+    it("resolves the provider from the tournament's own record", async () => {
+      const providerStorage = makeProviderStorage({ providerConfigCaps: { branding: { appName: 'Acme' } } });
+      const tournamentStorage = makeTournamentStorage('p-1');
+      const svc = makeService(providerStorage, tournamentStorage);
+      const result: any = await svc.getPublicBrandingByTournament('t-1');
+      expect(result.branding?.appName).toBe('Acme');
+      expect(tournamentStorage.fetchTournamentUpdatedAt).toHaveBeenCalledWith({ tournamentId: 't-1' });
+      expect(providerStorage.getProvider).toHaveBeenCalledWith('p-1');
+    });
+
     it('returns undefined branding when the mapped provider was deleted', async () => {
       const svc = makeService(
         makeProviderStorage(null), // provider lookup misses
-        makeTournamentProvisionerStorage({ tournamentId: 't-1', providerId: 'p-gone' }),
+        makeTournamentStorage('p-gone'),
       );
       const result: any = await svc.getPublicBrandingByTournament('t-1');
       expect(result.success).toBe(true);
@@ -166,7 +187,7 @@ describe('ProvidersService — provider config two-tier methods', () => {
             participantPrivacy: { cityState: true }, // must NOT leak
           },
         }),
-        makeTournamentProvisionerStorage({ tournamentId: 't-1', providerId: 'p-1' }),
+        makeTournamentStorage('p-1'),
       );
       const result: any = await svc.getPublicBrandingByTournament('t-1');
       expect(result.success).toBe(true);
@@ -185,7 +206,7 @@ describe('ProvidersService — provider config two-tier methods', () => {
         makeProviderStorage({
           providerConfigCaps: { permissions: { canCreateEvents: true } },
         }),
-        makeTournamentProvisionerStorage({ tournamentId: 't-1', providerId: 'p-1' }),
+        makeTournamentStorage('p-1'),
       );
       const result: any = await svc.getPublicBrandingByTournament('t-1');
       expect(result.success).toBe(true);
@@ -194,18 +215,27 @@ describe('ProvidersService — provider config two-tier methods', () => {
   });
 
   describe('getPublicScoringLaunchByTournament', () => {
-    it('defaults to EPIXODIC when tournament has no provider mapping', async () => {
-      const svc = makeService(makeProviderStorage(null), makeTournamentProvisionerStorage(null));
+    it('defaults to EPIXODIC when the tournament does not exist', async () => {
+      const svc = makeService(makeProviderStorage(null), makeTournamentStorage(null));
       const result: any = await svc.getPublicScoringLaunchByTournament('t-orphan');
       expect(result.success).toBe(true);
       expect(result.scoringLaunch).toEqual({ app: 'EPIXODIC' });
     });
 
+    it("resolves the provider from the tournament's own record", async () => {
+      const providerStorage = makeProviderStorage({
+        providerConfigCaps: {
+          integrations: { scoringLaunch: { app: 'EXTERNAL', urlTemplate: 'https://x/${matchUpId}' } },
+        },
+      });
+      const svc = makeService(providerStorage, makeTournamentStorage('p-1'));
+      const result: any = await svc.getPublicScoringLaunchByTournament('t-1');
+      expect(result.scoringLaunch).toEqual({ app: 'EXTERNAL', urlTemplate: 'https://x/${matchUpId}' });
+      expect(providerStorage.getProvider).toHaveBeenCalledWith('p-1');
+    });
+
     it('defaults to EPIXODIC when the mapped provider was deleted', async () => {
-      const svc = makeService(
-        makeProviderStorage(null),
-        makeTournamentProvisionerStorage({ tournamentId: 't-1', providerId: 'p-gone' }),
-      );
+      const svc = makeService(makeProviderStorage(null), makeTournamentStorage('p-gone'));
       const result: any = await svc.getPublicScoringLaunchByTournament('t-1');
       expect(result.scoringLaunch).toEqual({ app: 'EPIXODIC' });
     });
@@ -213,7 +243,7 @@ describe('ProvidersService — provider config two-tier methods', () => {
     it('defaults to EPIXODIC when the provider declared no scoringLaunch', async () => {
       const svc = makeService(
         makeProviderStorage({ providerConfigCaps: { permissions: { canCreateEvents: true } } }),
-        makeTournamentProvisionerStorage({ tournamentId: 't-1', providerId: 'p-1' }),
+        makeTournamentStorage('p-1'),
       );
       const result: any = await svc.getPublicScoringLaunchByTournament('t-1');
       expect(result.scoringLaunch).toEqual({ app: 'EPIXODIC' });
@@ -228,7 +258,7 @@ describe('ProvidersService — provider config two-tier methods', () => {
           },
           providerConfigSettings: { participantPrivacy: { cityState: true } }, // must NOT leak
         }),
-        makeTournamentProvisionerStorage({ tournamentId: 't-1', providerId: 'p-1' }),
+        makeTournamentStorage('p-1'),
       );
       const result: any = await svc.getPublicScoringLaunchByTournament('t-1');
       expect(result.success).toBe(true);

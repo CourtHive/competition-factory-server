@@ -15,7 +15,7 @@ import { PROVIDER_ADMIN } from 'src/common/constants/roles';
 describe.skipIf(process.env.STORAGE_PROVIDER !== 'postgres')('provider partial writes in Postgres', () => {
   const pool = new Pool(getPostgresConfig());
   const storage = new PostgresProviderStorage(pool);
-  const providers = new ProvidersService(storage, {} as any, {} as any, {} as any, {} as any);
+  const providers = new ProvidersService(storage, {} as any, {} as any, {} as any);
   const noop = {} as any;
   const provisioner = new ProvisionerService(noop, noop, noop, storage, noop, noop, noop, noop, noop, noop, noop);
   const teamDisplay = new TeamDisplayController(pool);

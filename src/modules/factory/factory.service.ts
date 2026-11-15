@@ -536,7 +536,7 @@ export class FactoryService {
     return await this.tournamentStorageService.removeTournamentRecords(params, user, this.auditService, userContext);
   }
 
-  async saveTournamentRecords(params, user, userContext?: UserContext) {
+  async saveTournamentRecords(params, user, userContext?: UserContext, provisionerContext?: { provisionerId: string }) {
     const validUser = checkUser({ user, userContext });
     if (!validUser) return { error: 'Invalid user' };
     const tournamentRecords = getTournamentRecords(params);
@@ -544,9 +544,11 @@ export class FactoryService {
     if (!allowUser) return { error: 'User not allowed' };
 
     // Per-tournament mutation gate
+    let createdIds: string[] = [];
     if (userContext) {
-      const gateError = await this.gateWholesaleSave(tournamentRecords, userContext);
-      if (gateError) return gateError;
+      const gate = await this.gateWholesaleSave(tournamentRecords, userContext);
+      if ('error' in gate) return gate;
+      createdIds = gate.createdIds;
     }
 
     // PRIVACY ATTACH (creation only): on the first save of a provider-owned
@@ -635,6 +637,9 @@ export class FactoryService {
     );
 
     if (result?.conflict) throw new ConflictException(result);
+    if (result?.success && provisionerContext?.provisionerId && createdIds.length) {
+      await this.stampProvisionerOwnership(tournamentRecords, createdIds, provisionerContext.provisionerId);
+    }
     return result;
   }
 
@@ -676,15 +681,20 @@ export class FactoryService {
    *   so a director could neither own it nor be assigned to it. The server stamps the caller as creator.
    * - An existing tournament is gated on its stored provider and creator, and keeps its stored creator.
    *
-   * Mutates each record's `createdByUserId` extension in place. Returns an error, or undefined to proceed.
+   * Mutates each record's `createdByUserId` extension in place. Returns an error, or the ids this save creates.
    */
-  private async gateWholesaleSave(tournamentRecords: Record<string, any>, userContext: UserContext) {
+  private async gateWholesaleSave(
+    tournamentRecords: Record<string, any>,
+    userContext: UserContext,
+  ): Promise<{ error: string } | { createdIds: string[] }> {
     const assignedRoles = await this.assignmentsService.getAssignedRoles(userContext.userId);
+    const createdIds: string[] = [];
     for (const tid of Object.keys(tournamentRecords)) {
       const stored: any = await this.tournamentStorageService.fetchTournamentUpdatedAt({ tournamentId: tid });
 
       if (stored?.error === MISSING_TOURNAMENT_RECORD) {
         setCreatedByUserId(tournamentRecords[tid], userContext.userId);
+        createdIds.push(tid);
         continue;
       }
       // existence could not be established: refuse rather than treat it as a creation
@@ -700,7 +710,30 @@ export class FactoryService {
       }
       setCreatedByUserId(tournamentRecords[tid], getCreatedByUserId(storedRecord));
     }
-    return undefined;
+    return { createdIds };
+  }
+
+  /**
+   * Write the `tournament_provisioner` ownership row for each tournament a provisioner request just created.
+   * Every create path must do this: `/factory/save` did not, and from 2026-05 the only rows IONSport's
+   * save-created tournaments ever had were the ones backfills wrote. Fail-soft — the tournament exists either way —
+   * but awaited, so the response never reaches a caller before the row does. The row's provider is the record's
+   * own, so it always agrees with `tournaments.provider_id`. The insert ignores a row that already exists.
+   */
+  private async stampProvisionerOwnership(
+    tournamentRecords: Record<string, any>,
+    tournamentIds: string[],
+    provisionerId: string,
+  ) {
+    for (const tournamentId of tournamentIds) {
+      const providerId = tournamentRecords[tournamentId]?.parentOrganisation?.organisationId;
+      if (!providerId) continue;
+      try {
+        await this.tournamentProvisionerStorage.create({ tournamentId, provisionerId, providerId });
+      } catch (err: any) {
+        Logger.error(`Provisioner stamp failed for ${tournamentId}: ${err.message}`, 'FactoryService');
+      }
+    }
   }
 
   async getAssistantContext({ tournamentId }: { tournamentId: string }): Promise<AssistantContextResult> {
