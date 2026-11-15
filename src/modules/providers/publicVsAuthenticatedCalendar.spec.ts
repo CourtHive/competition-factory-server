@@ -47,7 +47,7 @@ function serviceWithCalendar(tournaments: any[]) {
     tournaments.map((entry) => ({ ...entry, providerId: PROVIDER.organisationId })),
   );
   const providerStorage = { getProviders: async () => [{ key: PROVIDER.organisationId, value: PROVIDER }] };
-  return new ProvidersService(providerStorage as any, calendarStorage as any, null as any, null as any, null as any);
+  return new ProvidersService(providerStorage as any, calendarStorage as any, null as any, null as any);
 }
 
 describe('public vs authenticated provider calendar', () => {

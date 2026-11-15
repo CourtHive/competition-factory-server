@@ -17,8 +17,6 @@ import {
   ASSIGNMENT_STORAGE,
   type IAssignmentStorage,
   type ICalendarStorage,
-  TOURNAMENT_PROVISIONER_STORAGE,
-  type ITournamentProvisionerStorage,
 } from 'src/storage/interfaces';
 
 /**
@@ -39,8 +37,6 @@ export class ProvidersService {
     @Inject(PROVIDER_STORAGE) private readonly providerStorage: IProviderStorage,
     @Inject(CALENDAR_STORAGE) private readonly calendarStorage: ICalendarStorage,
     @Inject(ASSIGNMENT_STORAGE) private readonly assignmentStorage: IAssignmentStorage,
-    @Inject(TOURNAMENT_PROVISIONER_STORAGE)
-    private readonly tournamentProvisionerStorage: ITournamentProvisionerStorage,
     private readonly tournamentStorageService: TournamentStorageService,
   ) {}
 
@@ -322,20 +318,32 @@ export class ProvidersService {
   }
 
   /**
+   * The provider that owns a tournament, read from the tournament record itself
+   * (`parentOrganisation.organisationId`, the authority for `tournaments.provider_id`).
+   * The public lookups below used to ask `tournament_provisioner` instead — a table only
+   * provisioner-created tournaments have rows in, and not all of those — so every other
+   * tournament fell back to defaults whatever its provider configured (P36).
+   */
+  private async findTournamentProviderId(tournamentId: string): Promise<string | undefined> {
+    const stored: any = await this.tournamentStorageService.fetchTournamentUpdatedAt({ tournamentId });
+    return stored?.success ? stored.providerId || undefined : undefined;
+  }
+
+  /**
    * Public-safe branding lookup keyed by tournamentId — used by
    * unauthenticated viewers (courthive-public) so the page can theme
    * itself to the owning provider. Returns ONLY the branding slice
    * (logos, themeTokens, stylesheetUrl, accentColor, appName); all
    * other config (permissions, policies, integrations) stays private.
    *
-   * Returns `{ branding: undefined }` when the tournament has no
-   * provider mapping or the provider was deleted — the viewer
+   * Returns `{ branding: undefined }` when the tournament does not
+   * exist, has no provider, or the provider was deleted — the viewer
    * gracefully falls back to bundled defaults.
    */
   async getPublicBrandingByTournament(tournamentId: string) {
-    const tp = await this.tournamentProvisionerStorage.getByTournament(tournamentId);
-    if (!tp?.providerId) return { ...SUCCESS, branding: undefined };
-    const provider = await this.providerStorage.getProvider(tp.providerId);
+    const providerId = await this.findTournamentProviderId(tournamentId);
+    if (!providerId) return { ...SUCCESS, branding: undefined };
+    const provider = await this.providerStorage.getProvider(providerId);
     if (!provider) return { ...SUCCESS, branding: undefined };
     const effective = computeEffectiveConfig(provider.providerConfigCaps, provider.providerConfigSettings);
     return { ...SUCCESS, branding: effective.branding };
@@ -349,13 +357,13 @@ export class ProvidersService {
    * private (mirrors `getPublicBrandingByTournament`).
    *
    * Falls back to `DEFAULT_SCORING_LAUNCH` (EPIXODIC) when the tournament
-   * has no provider mapping, the provider was deleted, or the provider
+   * does not exist, has no provider, the provider was deleted, or the provider
    * declared no scoringLaunch — so the viewer always has a launch target.
    */
   async getPublicScoringLaunchByTournament(tournamentId: string) {
-    const tp = await this.tournamentProvisionerStorage.getByTournament(tournamentId);
-    if (!tp?.providerId) return { ...SUCCESS, scoringLaunch: DEFAULT_SCORING_LAUNCH };
-    const provider = await this.providerStorage.getProvider(tp.providerId);
+    const providerId = await this.findTournamentProviderId(tournamentId);
+    if (!providerId) return { ...SUCCESS, scoringLaunch: DEFAULT_SCORING_LAUNCH };
+    const provider = await this.providerStorage.getProvider(providerId);
     if (!provider) return { ...SUCCESS, scoringLaunch: DEFAULT_SCORING_LAUNCH };
     const effective = computeEffectiveConfig(provider.providerConfigCaps, provider.providerConfigSettings);
     return { ...SUCCESS, scoringLaunch: effective.integrations?.scoringLaunch ?? DEFAULT_SCORING_LAUNCH };
