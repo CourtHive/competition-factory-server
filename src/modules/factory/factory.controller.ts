@@ -643,13 +643,16 @@ export class FactoryController {
     @Body() std: SaveTournamentRecordsDto,
     @User() user?: any,
     @UserCtx() userContext?: UserContext,
+    @Req() req?: any,
   ) {
     // A durable save (C3): the actor and the intent are the server's to decide, never the client's.
     const payload: any =
       std?.commandId === undefined
         ? std
         : { ...std, commandActor: user?.userId ?? user?.sub ?? user?.email, commandFingerprint: saveFingerprint(std) };
-    return this.factoryService.saveTournamentRecords(payload, user, userContext);
+    // A provisioner's create path: the service stamps the tournament_provisioner ownership row on creation.
+    const provisionerContext = req?.provisioner ? { provisionerId: req.provisioner.provisionerId } : undefined;
+    return this.factoryService.saveTournamentRecords(payload, user, userContext, provisionerContext);
   }
 
   // Apply the provider's selected participant-privacy policy to its existing

@@ -60,7 +60,6 @@ function buildService(calendars: Record<string, { provider: any; tournaments: an
     calendarStorage as any,
     { findByUserId: vi.fn(async () => []) } as any,
     {} as any,
-    {} as any,
   );
 
   return { service, querySpy, getProviders };

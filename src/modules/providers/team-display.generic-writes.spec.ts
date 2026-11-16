@@ -20,7 +20,7 @@ function makeService() {
     setProvider: vi.fn(),
     patchProvider: vi.fn().mockResolvedValue({ success: true }),
   };
-  const service = new ProvidersService(storage as any, {} as any, {} as any, {} as any, {} as any);
+  const service = new ProvidersService(storage as any, {} as any, {} as any, {} as any);
   return { service, storage };
 }
 
