@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.15.1](https://github.com/CourtHive/competition-factory-server/compare/v4.15.0...v4.15.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* **factory:** name the refused request in the engine-rejection log ([#1237](https://github.com/CourtHive/competition-factory-server/issues/1237)) ([d8c3a35](https://github.com/CourtHive/competition-factory-server/commit/d8c3a355e9a47419c61995827d60fff6a79a247d))
+* **factory:** stamp provisioner ownership on /factory/save; branding reads the tournament provider ([#1239](https://github.com/CourtHive/competition-factory-server/issues/1239)) ([812d6ce](https://github.com/CourtHive/competition-factory-server/commit/812d6cebc4b95192dffccf2286ffff91ce95cb6c))
+
 ## [4.15.0](https://github.com/CourtHive/competition-factory-server/compare/v4.14.0...v4.15.0) (2026-11-13)
 
 
