@@ -373,7 +373,14 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     ]);
     expect(castSnapshot('tournaments')[0].published).toBe(true); // OoP + participants published above
     expect(castSnapshot('order_of_play')).toEqual([
-      { tournament_id: tournamentId, published: true, scheduled_dates: ['2025-01-05'], event_ids: null, embargo: null },
+      {
+        tournament_id: tournamentId,
+        published: true,
+        scheduled_dates: ['2025-01-05'],
+        event_ids: null,
+        embargo: null,
+        date_embargoes: null, // a release time per scheduled date (factory 7.40.0)
+      },
     ]);
     expect(castSnapshot('scheduling_profile').length).toBeGreaterThan(0);
     expect(castSnapshot('match_ups').length).toBeGreaterThan(0);
