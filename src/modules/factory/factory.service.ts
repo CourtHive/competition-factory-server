@@ -1,7 +1,7 @@
 import { attachedParticipantPolicy, resolvePublicParticipantPolicy } from './functions/public/participantPrivacyPolicy';
+import { readStoredDrawIds, scheduleDrawIntegrityScan, snapshotSavedDraws } from './helpers/executionQueueIntegrity';
 import { BadRequestException, ConflictException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
 import { SnapshotProjectionService, snapshotMode } from './projection/snapshot-projection.service';
-import { scheduleDrawIntegrityScan, snapshotSavedDraws } from './helpers/executionQueueIntegrity';
 import { askEngine, factoryConstants, queryGovernor, readModel } from 'tods-competition-factory';
 import { checkEngineError, rejectedRequestSummary } from '../../common/errors/engineError';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
@@ -617,6 +617,14 @@ export class FactoryService {
         const conflict = await this.unexpectedServerUpdatedAt(params?.expectedServerUpdatedAt, savedIds);
         if (conflict) return conflict;
 
+        // Before the write, inside the lock: which draws the stored records already hold, so the integrity scan knows
+        // a draw this save ADDS to an existing tournament is new (P65). Ids only; fail-soft.
+        const storedDrawIds = await readStoredDrawIds({
+          fetchStoredDrawIds: (p) => this.tournamentStorageService.fetchStoredDrawIds(p),
+          savedIds,
+          createdIds,
+        });
+
         const saveResult = await this.tournamentStorageService.saveTournamentRecords({
           tournamentRecords,
           projectionMode: 'snapshot',
@@ -627,7 +635,7 @@ export class FactoryService {
         // Only once the save has committed: a rolled-back durable save records nothing, and a replayed one (answered
         // from its receipt) never runs this again. Fail-soft, as executionQueue's audit hook is.
         await afterCommandCommit(async () => {
-          integrityBatch = snapshotSavedDraws({ tournamentRecords, createdIds });
+          integrityBatch = snapshotSavedDraws({ tournamentRecords, storedDrawIds, createdIds });
           const source = userId?.startsWith('provisioner:') || provisionerContext ? 'provisioner' : 'tmx';
           for (const tournamentId of savedIds) {
             // A synchronous throw is caught too: an audit failure never fails the save it records.

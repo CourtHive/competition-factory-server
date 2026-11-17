@@ -1,9 +1,9 @@
 import { factoryConstants, mocksEngine } from 'tods-competition-factory';
 import { Logger } from '@nestjs/common';
 
+import { resetDrawIntegrityMemory, snapshotSavedDraws } from './helpers/executionQueueIntegrity';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { SnapshotProjectionService } from './projection/snapshot-projection.service';
-import { resetDrawIntegrityMemory } from './helpers/executionQueueIntegrity';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
 import { FactoryService } from './factory.service';
 
@@ -60,14 +60,30 @@ function fakeSink(stored: Record<string, DrawOpenFindings> = {}) {
   };
 }
 
-/** `exists` makes storage hold the tournament already, so the save is an overwrite rather than a creation. */
+/**
+ * `exists` makes storage hold the tournament already, so the save is an overwrite rather than a creation.
+ * `storedDrawIds` is what `fetchStoredDrawIds` answers (an Error rejects); without it the storage has no such read.
+ */
 function makeFactoryService({
   exists = false,
   saved = { success: true },
   auditService = { recordSave: vi.fn().mockResolvedValue(undefined) } as any,
   sink = fakeSink(),
-}: { exists?: boolean; saved?: any; auditService?: any; sink?: ReturnType<typeof fakeSink> } = {}) {
+  storedDrawIds,
+}: {
+  exists?: boolean;
+  saved?: any;
+  auditService?: any;
+  sink?: ReturnType<typeof fakeSink>;
+  storedDrawIds?: Record<string, string[]> | Error;
+} = {}) {
   const tournamentStorageService: any = {
+    ...(storedDrawIds && {
+      fetchStoredDrawIds: vi.fn(async () => {
+        if (storedDrawIds instanceof Error) throw storedDrawIds;
+        return storedDrawIds;
+      }),
+    }),
     saveTournamentRecords: vi.fn().mockResolvedValue(saved),
     fetchTournamentUpdatedAt: vi
       .fn()
@@ -184,6 +200,91 @@ describe('FactoryService.saveTournamentRecords: draw-integrity findings rows', (
     await save(svc, brokenRecord());
     await flush();
     expect(sink.record).not.toHaveBeenCalled();
+  });
+});
+
+// P65: a draw a save ADDS to a tournament that already exists. The table has never recorded it, so unless the save
+// knows the draw is new, its findings read as `baseline` and the alert cannot fire on the save that broke it.
+describe('FactoryService.saveTournamentRecords: a draw added to an existing tournament', () => {
+  const previousMode = process.env.DRAW_INTEGRITY_MODE;
+  let warn: any;
+
+  beforeEach(() => {
+    delete process.env.DRAW_INTEGRITY_MODE;
+    resetDrawIntegrityMemory();
+    warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+  });
+  afterEach(() => warn.mockRestore());
+  afterAll(() => {
+    if (previousMode === undefined) delete process.env.DRAW_INTEGRITY_MODE;
+    else process.env.DRAW_INTEGRITY_MODE = previousMode;
+  });
+
+  it('is INTRODUCED when the stored record did not hold it', async () => {
+    const record = brokenRecord();
+    const drawId = record.events[0].drawDefinitions[0].drawId;
+    const { svc, sink, tournamentStorageService } = makeFactoryService({
+      storedDrawIds: { [record.tournamentId]: ['a-draw-already-stored'] },
+      exists: true,
+    });
+
+    expect((await save(svc, record)).success).toBe(true);
+    await flush();
+
+    expect(tournamentStorageService.fetchStoredDrawIds).toHaveBeenCalledWith({ tournamentIds: [record.tournamentId] });
+    // read BEFORE the write: the stored ids are the record as it stood, not as this save left it
+    expect(tournamentStorageService.fetchStoredDrawIds.mock.invocationCallOrder[0]).toBeLessThan(
+      tournamentStorageService.saveTournamentRecords.mock.invocationCallOrder[0],
+    );
+    expect(sink.rows.length).toBeGreaterThan(0);
+    for (const row of sink.rows) expect(row).toMatchObject({ drawId, event: 'introduced' });
+    expect(sink.rows.map((row) => row.code)).toContain('LINK_MISSING_SOURCE_ROUND');
+    expect(sink.loadOpen).not.toHaveBeenCalled();
+  });
+
+  it('is diffed against the findings table when the stored record held it', async () => {
+    const record = brokenRecord();
+    const drawId = record.events[0].drawDefinitions[0].drawId;
+    const { svc, sink } = makeFactoryService({ exists: true, storedDrawIds: { [record.tournamentId]: [drawId] } });
+
+    await save(svc, record);
+    await flush();
+
+    expect(sink.loadOpen).toHaveBeenCalledWith(record.tournamentId, drawId);
+    expect(sink.rows.every((row) => row.event === 'baseline')).toBe(true);
+  });
+
+  it('a tournament with no stored row has every draw added, even when no gate named it created', () => {
+    const record = brokenRecord();
+    const batch = snapshotSavedDraws({ tournamentRecords: { [record.tournamentId]: record }, storedDrawIds: {} });
+    expect(batch?.draws.map((draw) => draw.added)).toEqual([true]);
+  });
+
+  it('falls back to baseline, and still saves, when the stored drawIds cannot be read', async () => {
+    const record = brokenRecord();
+    const { svc, sink } = makeFactoryService({ exists: true, storedDrawIds: new Error('connection reset') });
+
+    expect((await save(svc, record)).success).toBe(true);
+    await flush();
+
+    expect(sink.rows.every((row) => row.event === 'baseline')).toBe(true);
+    const failed = warn.mock.calls.map(([line]: any[]) => line).filter((line: any) => /scan-failed/.test(line));
+    expect(failed.some((line: string) => line.includes('stored drawIds read failed: connection reset'))).toBe(true);
+  });
+
+  it('reads no stored drawIds with DRAW_INTEGRITY_MODE=off', async () => {
+    process.env.DRAW_INTEGRITY_MODE = 'off';
+    const { svc, tournamentStorageService } = makeFactoryService({ exists: true, storedDrawIds: {} });
+    await save(svc, brokenRecord());
+    await flush();
+    expect(tournamentStorageService.fetchStoredDrawIds).not.toHaveBeenCalled();
+  });
+
+  it('reads nothing for a tournament the save creates', async () => {
+    const { svc, tournamentStorageService } = makeFactoryService({ storedDrawIds: {} });
+    await save(svc, brokenRecord());
+    await flush();
+    expect(tournamentStorageService.fetchStoredDrawIds).not.toHaveBeenCalled();
   });
 });
 
