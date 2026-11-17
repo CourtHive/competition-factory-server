@@ -1,22 +1,24 @@
 import { attachedParticipantPolicy, resolvePublicParticipantPolicy } from './functions/public/participantPrivacyPolicy';
-import { SnapshotProjectionService, snapshotMode } from './projection/snapshot-projection.service';
 import { BadRequestException, ConflictException, Inject, Injectable, Optional, Logger } from '@nestjs/common';
+import { SnapshotProjectionService, snapshotMode } from './projection/snapshot-projection.service';
+import { scheduleDrawIntegrityScan, snapshotSavedDraws } from './helpers/executionQueueIntegrity';
 import { askEngine, factoryConstants, queryGovernor, readModel } from 'tods-competition-factory';
 import { checkEngineError, rejectedRequestSummary } from '../../common/errors/engineError';
 import { MutationServicesService } from '../mutation-services/mutation-services.service';
 import { attachProviderPrivacyOnCreate } from './helpers/attachProviderPrivacyOnCreate';
 import { generateTournamentRecord as gen } from './helpers/generateTournamentRecord';
+import type { AssistantContextResult } from './functions/public/getAssistantContext';
 import { queryTournamentRecords } from './functions/private/queryTournamentRecords';
 import { MutationMirrorService } from '../tournament-sync/mutation-mirror.service';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { allTournamentMatchUps } from './functions/private/allTournamentMatchUps';
+import type { TournamentInfoResult } from './functions/public/getTournamentInfo';
 import { selectPrivacyApplyTargets } from './helpers/selectPrivacyApplyTargets';
+import { afterCommandCommit } from 'src/storage/postgres/commandTransaction';
 import { executionQueue as eq } from './functions/private/executionQueue';
 import { runDurableCommand } from 'src/storage/postgres/commandReceipts';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { setMatchUpStatus } from './functions/private/setMatchUpStatus';
-import type { AssistantContextResult } from './functions/public/getAssistantContext';
-import type { TournamentInfoResult } from './functions/public/getTournamentInfo';
 import type { EventDataResult } from './functions/public/getEventData';
 import type { DrawDataResult } from './functions/public/getDrawData';
 import { computeEffectiveConfig } from '@courthive/provider-config';
@@ -40,6 +42,7 @@ const EXISTING_POLICY_TYPE = factoryConstants.errorConditionConstants.EXISTING_P
 const MISSING_TOURNAMENT_RECORD = factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD;
 
 // types and interfaces
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import {
   TOURNAMENT_STORAGE,
   type ITournamentStorage,
@@ -48,7 +51,6 @@ import {
   PROVIDER_STORAGE,
   type IProviderStorage,
 } from 'src/storage/interfaces';
-import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
 /**
  * Reduce a ScheduleCell to court occupancy only — no participant labels, round, event or matchUp
@@ -607,7 +609,9 @@ export class FactoryService {
     // DURABLE (C3, opt-in): with a `commandId` the save runs inside a command receipt transaction, so a resend after
     // a lost answer returns the original answer instead of replacing the record again. `expectedServerUpdatedAt`
     // makes it conditional: a record written since the caller last read it is refused (409), never overwritten.
-    const commandReceipts = params?.commandId === undefined ? undefined : this.mutationServices.build().commandReceipts;
+    const services = this.mutationServices.build();
+    const commandReceipts = params?.commandId === undefined ? undefined : services.commandReceipts;
+    let integrityBatch: ReturnType<typeof snapshotSavedDraws>;
     const result = await withTournamentLock(savedIds, () =>
       runDurableCommand(params, commandReceipts, async () => {
         const conflict = await this.unexpectedServerUpdatedAt(params?.expectedServerUpdatedAt, savedIds);
@@ -619,6 +623,26 @@ export class FactoryService {
           userId,
         });
         if (!saveResult?.success) return saveResult;
+
+        // Only once the save has committed: a rolled-back durable save records nothing, and a replayed one (answered
+        // from its receipt) never runs this again. Fail-soft, as executionQueue's audit hook is.
+        await afterCommandCommit(async () => {
+          integrityBatch = snapshotSavedDraws({ tournamentRecords, createdIds });
+          const source = userId?.startsWith('provisioner:') || provisionerContext ? 'provisioner' : 'tmx';
+          for (const tournamentId of savedIds) {
+            // A synchronous throw is caught too: an audit failure never fails the save it records.
+            Promise.resolve()
+              .then(() =>
+                this.auditService.recordSave({
+                  tournamentId,
+                  userId,
+                  userEmail: userContext?.email ?? user?.email,
+                  source,
+                }),
+              )
+              .catch((err) => Logger.error(`Audit hook failed: ${err?.message}`, 'saveTournamentRecords'));
+          }
+        });
 
         // Still inside the lock — the same seam executionQueue uses for its delta flush. A wholesale replace raises
         // no factory notices, so the read model only learns about it through this snapshot span. Inside a durable
@@ -635,6 +659,10 @@ export class FactoryService {
         return saveResult;
       }),
     );
+
+    // After the lock is released, as executionQueue does: the scans run on later turns of the event loop and can
+    // neither delay nor fail this save. REPORT ONLY; `enforce` stays with gateDrawIntegrity above.
+    scheduleDrawIntegrityScan(integrityBatch, services.drawIntegrityFindings);
 
     if (result?.conflict) throw new ConflictException(result);
     if (result?.success && provisionerContext?.provisionerId && createdIds.length) {
