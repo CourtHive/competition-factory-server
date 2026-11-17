@@ -88,6 +88,11 @@ export interface DrawIntegrityBatch {
   draws: DrawScanTarget[];
   /** Draws this mutation deleted: their memory is dropped, so a re-created drawId gets a fresh baseline. */
   deleted: { tournamentId?: string; drawId: string }[];
+  /**
+   * Diff and persist, but log nothing: a wholesale save's human trail is gateDrawIntegrity's one line per record,
+   * which a second line per draw would double.
+   */
+  quiet?: boolean;
 }
 
 // ── touched draws ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -181,6 +186,96 @@ export function snapshotTouchedDraws({
     return { methods: methodNames(methods), draws, deleted };
   } catch (err: any) {
     recordScanFailure(`snapshot failed: ${err?.message ?? String(err)}`);
+    return undefined;
+  }
+}
+
+/** The `methods` a wholesale save's finding rows carry: the save is one method, whatever the record holds. */
+export const WHOLESALE_SAVE_METHOD = 'saveTournamentRecords';
+
+/**
+ * The drawIds the stored records hold, for `snapshotSavedDraws`: read inside the lock, BEFORE a wholesale save writes,
+ * so a draw the save adds to an existing tournament is known to be new. Ids only, never the record. Tournaments the save
+ * creates are skipped (they hold nothing). Returns undefined when the mode is `off`, nothing needs reading, or the read
+ * fails; the save then falls back to `createdIds` alone. Never throws: integrity is report-only on this path.
+ */
+export async function readStoredDrawIds({
+  savedIds,
+  createdIds,
+  fetchStoredDrawIds,
+}: {
+  savedIds: string[];
+  createdIds?: string[];
+  fetchStoredDrawIds: (params: { tournamentIds: string[] }) => Promise<Record<string, string[]>>;
+}): Promise<Record<string, string[]> | undefined> {
+  if (drawIntegrityMode() === 'off') return undefined;
+  const created = new Set(createdIds ?? []);
+  const tournamentIds = savedIds.filter((tournamentId) => !created.has(tournamentId));
+  if (!tournamentIds.length) return undefined;
+  try {
+    return await fetchStoredDrawIds({ tournamentIds });
+  } catch (err: any) {
+    recordScanFailure(`stored drawIds read failed: ${err?.message ?? String(err)}`);
+    return undefined;
+  }
+}
+
+/**
+ * Take the scan targets of a WHOLESALE save (factory.service `saveTournamentRecords`), inside the lock, once the save
+ * has committed.
+ *
+ * A wholesale save replaces the whole record and raises no factory notices, so `snapshotTouchedDraws` never sees it,
+ * and until 2026-11-17 its draws reached `draw_integrity_findings` only when a later executionQueue mutation touched
+ * them, as `baseline`: a draw broken by a save was never `introduced`, so the alert could not fire on it. This scans
+ * EVERY draw the saved records carry, through the same per-draw scan, diff and sink as executionQueue, so the
+ * fingerprints and the table are shared and the next mutation diffs against what the save left.
+ *
+ * A draw the stored record did not hold is `added`: diffed against nothing, every finding introduced. That is every
+ * draw of a tournament this save CREATES (`createdIds`, decided against storage by gateWholesaleSave), and every draw
+ * whose id is missing from its tournament's `storedDrawIds` (read inside the lock, before the write, as ids only, never
+ * the record). A tournament absent from `storedDrawIds` had no row, so its draws are added too. Any other draw is
+ * diffed against its last recorded set (memory, else the findings table), as executionQueue does after a restart.
+ * Without `storedDrawIds` (the read failed, or the caller has none) only `createdIds` decides, and a draw added to an
+ * existing tournament that the table has never recorded is a `baseline` (P65). Draws a save drops are not forgotten
+ * here; a drawId is never reused.
+ *
+ * The batch is `quiet`: rows and memory only, no log lines (see DrawIntegrityBatch.quiet).
+ *
+ * Returns undefined when the mode is `off` or the records hold no draw. Never throws.
+ */
+export function snapshotSavedDraws({
+  tournamentRecords,
+  storedDrawIds,
+  createdIds,
+}: {
+  tournamentRecords?: Record<string, any>;
+  storedDrawIds?: Record<string, string[]>;
+  createdIds?: string[];
+}): DrawIntegrityBatch | undefined {
+  try {
+    if (drawIntegrityMode() === 'off') return undefined;
+
+    const created = new Set(createdIds ?? []);
+    const stored = storedDrawIds && new Map(Object.entries(storedDrawIds).map(([id, ids]) => [id, new Set(ids)]));
+    const isAdded = (tournamentId: string, drawId: string) =>
+      created.has(tournamentId) || (!!stored && !stored.get(tournamentId)?.has(drawId));
+    const draws: DrawScanTarget[] = [];
+    const found = new Set<string>();
+    for (const [tournamentId, record] of Object.entries(tournamentRecords ?? {})) {
+      for (const event of record?.events ?? []) {
+        for (const drawDefinition of event?.drawDefinitions ?? []) {
+          const drawId = drawDefinition?.drawId;
+          if (typeof drawId !== 'string' || !drawId || found.has(drawId)) continue;
+          found.add(drawId);
+          draws.push({ tournamentId, drawId, drawDefinition, added: isAdded(tournamentId, drawId) });
+        }
+      }
+    }
+
+    if (!draws.length) return undefined;
+    return { methods: [WHOLESALE_SAVE_METHOD], draws, deleted: [], quiet: true };
+  } catch (err: any) {
+    recordScanFailure(`save snapshot failed: ${err?.message ?? String(err)}`);
     return undefined;
   }
 }
@@ -475,7 +570,12 @@ function persist(findings: DrawIntegrityFindingsSink | undefined, rows: DrawInte
  * (all severities — the seed must hold warnings too, or a restart would report them as introduced), each new one as
  * `introduced`, each one gone as `resolved`.
  */
-export function scanDraw(target: DrawScanTarget, methods: string[], findings?: DrawIntegrityFindingsSink) {
+export function scanDraw(
+  target: DrawScanTarget,
+  methods: string[],
+  findings?: DrawIntegrityFindingsSink,
+  quiet = false,
+) {
   try {
     const startedAt = performance.now();
     let result: any;
@@ -515,7 +615,7 @@ export function scanDraw(target: DrawScanTarget, methods: string[], findings?: D
       const errors = issues.filter((issue) => issue.severity === 'error');
       if (errors.length) {
         stats.baseline += 1;
-        logFinding({ finding: 'baseline', target, methods, issues: errors, scanMs });
+        if (!quiet) logFinding({ finding: 'baseline', target, methods, issues: errors, scanMs });
       }
       persist(findings, changeRows({ target, methods, baseline: [...current.values()], introduced: [], resolved: [] }));
       // preExistingLogged stays false: the next mutation of a still-broken draw says so once, at LOG — the count of
@@ -531,18 +631,19 @@ export function scanDraw(target: DrawScanTarget, methods: string[], findings?: D
 
     if (introduced.length) {
       stats.introduced += 1;
-      logFinding({
-        finding: 'introduced',
-        target,
-        methods,
-        issues: introduced,
-        scanMs,
-        extra: { preExistingCount: preExisting.length, resolvedCount },
-      });
+      if (!quiet)
+        logFinding({
+          finding: 'introduced',
+          target,
+          methods,
+          issues: introduced,
+          scanMs,
+          extra: { preExistingCount: preExisting.length, resolvedCount },
+        });
     }
 
     let preExistingLogged = previous.preExistingLogged;
-    if (preExisting.length && !preExistingLogged) {
+    if (preExisting.length && !preExistingLogged && !quiet) {
       stats.preExisting += 1;
       logFinding({ finding: 'pre-existing', target, methods, issues: preExisting, scanMs });
       preExistingLogged = true;
@@ -591,9 +692,9 @@ async function seedDraw(key: string, target: DrawScanTarget, findings: DrawInteg
   stats.seeded += 1;
 }
 
-function finishScan(target: DrawScanTarget, methods: string[], findings?: DrawIntegrityFindingsSink) {
+function finishScan(target: DrawScanTarget, methods: string[], findings?: DrawIntegrityFindingsSink, quiet = false) {
   pendingScans -= 1;
-  scanDraw(target, methods, findings);
+  scanDraw(target, methods, findings, quiet);
 }
 
 /** Make `work` the tail of the draw's chain, and drop the chain once nothing newer has joined it. */
@@ -612,24 +713,24 @@ function chainDraw(key: string, work: Promise<void>) {
  * is not in memory, and this mutation did not create it), or a read for it is already in flight — then the scan
  * chains behind that read. `seedDraw` and `scanDraw` never reject or throw, so neither can a chain.
  */
-function runScan(target: DrawScanTarget, methods: string[], findings?: DrawIntegrityFindingsSink) {
+function runScan(target: DrawScanTarget, methods: string[], findings?: DrawIntegrityFindingsSink, quiet = false) {
   const key = memoryKey(target.tournamentId, target.drawId);
   const inFlight = seeding.get(key);
   if (inFlight) {
     chainDraw(
       key,
-      inFlight.then(() => finishScan(target, methods, findings)),
+      inFlight.then(() => finishScan(target, methods, findings, quiet)),
     );
     return;
   }
   if (findings && !target.added && !memory.has(key)) {
     chainDraw(
       key,
-      seedDraw(key, target, findings).then(() => finishScan(target, methods, findings)),
+      seedDraw(key, target, findings).then(() => finishScan(target, methods, findings, quiet)),
     );
     return;
   }
-  finishScan(target, methods, findings);
+  finishScan(target, methods, findings, quiet);
 }
 
 /**
@@ -656,7 +757,7 @@ export function scheduleDrawIntegrityScan(batch: DrawIntegrityBatch | undefined,
         continue;
       }
       pendingScans += 1;
-      setImmediate(() => runScan(target, batch.methods, findings));
+      setImmediate(() => runScan(target, batch.methods, findings, batch.quiet));
     }
   } catch (err: any) {
     recordScanFailure(`scheduling failed: ${err?.message ?? String(err)}`);

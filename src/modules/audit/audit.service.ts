@@ -648,10 +648,17 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Record a tournament save event (REST save, not executionQueue).
+   * Record a tournament save event (REST save, not executionQueue). Called from factory.service
+   * `saveTournamentRecords` once per saved tournament, after the save commits. Defined, and never called, until
+   * 2026-11-17: no wholesale save had ever reached `audit_log`.
    */
-  async recordSave(params: { tournamentId: string; userId?: string; userEmail?: string }): Promise<void> {
-    const { tournamentId, userId, userEmail } = params;
+  async recordSave(params: {
+    tournamentId: string;
+    userId?: string;
+    userEmail?: string;
+    source?: string;
+  }): Promise<void> {
+    const { tournamentId, userId, userEmail, source } = params;
 
     const row: AuditRow = {
       auditId: tools.UUID(),
@@ -659,7 +666,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       userId,
       userEmail,
       actor: toActor(userId),
-      source: 'tmx',
+      source: source ?? 'tmx',
       occurredAt: new Date().toISOString(),
       actionType: 'SAVE',
       methods: [{ method: 'saveTournamentRecords' }],

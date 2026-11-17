@@ -280,6 +280,25 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     return layouts;
   }
 
+  async fetchStoredDrawIds({ tournamentIds }: { tournamentIds: string[] }): Promise<Record<string, string[]>> {
+    const drawIds: Record<string, string[]> = {};
+    if (!tournamentIds?.length) return drawIds;
+    // `lax` path mode: an `events` or `drawDefinitions` that is not an array yields nothing rather than an error
+    const result = await (commandClient(this.pool) ?? this.pool).query(
+      `SELECT t.tournament_id,
+              COALESCE(array_agg(d.draw_id) FILTER (WHERE d.draw_id IS NOT NULL), '{}') AS draw_ids
+         FROM tournaments t
+         LEFT JOIN LATERAL (
+           SELECT jsonb_path_query(tournament_document(t.tournament_id, t.data), 'lax $.events[*].drawDefinitions[*].drawId') #>> '{}' AS draw_id
+         ) d ON TRUE
+        WHERE t.tournament_id = ANY($1)
+        GROUP BY t.tournament_id`,
+      [tournamentIds],
+    );
+    for (const row of result.rows) drawIds[row.tournament_id] = row.draw_ids;
+    return drawIds;
+  }
+
   async fetchMatchUpDraws({
     tournamentId,
     matchUpIds,
