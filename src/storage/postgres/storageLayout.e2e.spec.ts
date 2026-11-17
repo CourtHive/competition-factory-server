@@ -122,4 +122,20 @@ d('storage-layout seam (real Postgres)', () => {
       pool.query("INSERT INTO tournament_storage_layout (tournament_id, layout) VALUES ('t-3', 'columnar')"),
     ).rejects.toThrow(/check constraint/);
   });
+
+  it('fetchStoredDrawIds projects each stored tournament to its drawIds, and omits one with no row', async () => {
+    const two: any = record('t-1');
+    two.events.push({ eventId: 'e-2', drawDefinitions: [{ drawId: 'd-2' }, { drawId: 'd-3' }] });
+    const none: any = { ...record('t-2'), events: [{ eventId: 'e-1' }] };
+    const malformed: any = { ...record('t-3'), events: { eventId: 'not-an-array' } };
+    for (const tournamentRecord of [two, none, malformed]) await storage.saveTournamentRecord({ tournamentRecord });
+
+    const result = await storage.fetchStoredDrawIds({ tournamentIds: ['t-1', 't-2', 't-3', 't-missing'] });
+
+    expect(Object.keys(result).sort()).toEqual(['t-1', 't-2', 't-3']);
+    expect(result['t-1'].sort()).toEqual(['d-1', 'd-2', 'd-3']);
+    expect(result['t-2']).toEqual([]);
+    expect(result['t-3']).toEqual([]);
+    expect(await storage.fetchStoredDrawIds({ tournamentIds: [] })).toEqual({});
+  });
 });

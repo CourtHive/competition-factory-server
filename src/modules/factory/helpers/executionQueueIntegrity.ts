@@ -194,6 +194,33 @@ export function snapshotTouchedDraws({
 export const WHOLESALE_SAVE_METHOD = 'saveTournamentRecords';
 
 /**
+ * The drawIds the stored records hold, for `snapshotSavedDraws`: read inside the lock, BEFORE a wholesale save writes,
+ * so a draw the save adds to an existing tournament is known to be new. Ids only, never the record. Tournaments the save
+ * creates are skipped (they hold nothing). Returns undefined when the mode is `off`, nothing needs reading, or the read
+ * fails; the save then falls back to `createdIds` alone. Never throws: integrity is report-only on this path.
+ */
+export async function readStoredDrawIds({
+  savedIds,
+  createdIds,
+  fetchStoredDrawIds,
+}: {
+  savedIds: string[];
+  createdIds?: string[];
+  fetchStoredDrawIds: (params: { tournamentIds: string[] }) => Promise<Record<string, string[]>>;
+}): Promise<Record<string, string[]> | undefined> {
+  if (drawIntegrityMode() === 'off') return undefined;
+  const created = new Set(createdIds ?? []);
+  const tournamentIds = savedIds.filter((tournamentId) => !created.has(tournamentId));
+  if (!tournamentIds.length) return undefined;
+  try {
+    return await fetchStoredDrawIds({ tournamentIds });
+  } catch (err: any) {
+    recordScanFailure(`stored drawIds read failed: ${err?.message ?? String(err)}`);
+    return undefined;
+  }
+}
+
+/**
  * Take the scan targets of a WHOLESALE save (factory.service `saveTournamentRecords`), inside the lock, once the save
  * has committed.
  *
@@ -203,12 +230,14 @@ export const WHOLESALE_SAVE_METHOD = 'saveTournamentRecords';
  * EVERY draw the saved records carry, through the same per-draw scan, diff and sink as executionQueue, so the
  * fingerprints and the table are shared and the next mutation diffs against what the save left.
  *
- * A tournament this save CREATES (`createdIds`, decided against storage by gateWholesaleSave) held nothing before,
- * so its draws are `added`: diffed against nothing, every finding introduced. Any other draw is diffed against its
- * last recorded set (memory, else the findings table), as executionQueue does after a restart. The prior record is
- * deliberately NOT read to find draws a save adds to an existing tournament: that is a second full read inside the
- * lock on every save. Such a draw, if the table has never recorded it, is a `baseline`, the same known gap a clean
- * draw has after a restart. Draws a save drops are not forgotten here; a drawId is never reused.
+ * A draw the stored record did not hold is `added`: diffed against nothing, every finding introduced. That is every
+ * draw of a tournament this save CREATES (`createdIds`, decided against storage by gateWholesaleSave), and every draw
+ * whose id is missing from its tournament's `storedDrawIds` (read inside the lock, before the write, as ids only, never
+ * the record). A tournament absent from `storedDrawIds` had no row, so its draws are added too. Any other draw is
+ * diffed against its last recorded set (memory, else the findings table), as executionQueue does after a restart.
+ * Without `storedDrawIds` (the read failed, or the caller has none) only `createdIds` decides, and a draw added to an
+ * existing tournament that the table has never recorded is a `baseline` (P65). Draws a save drops are not forgotten
+ * here; a drawId is never reused.
  *
  * The batch is `quiet`: rows and memory only, no log lines (see DrawIntegrityBatch.quiet).
  *
@@ -216,15 +245,20 @@ export const WHOLESALE_SAVE_METHOD = 'saveTournamentRecords';
  */
 export function snapshotSavedDraws({
   tournamentRecords,
+  storedDrawIds,
   createdIds,
 }: {
   tournamentRecords?: Record<string, any>;
+  storedDrawIds?: Record<string, string[]>;
   createdIds?: string[];
 }): DrawIntegrityBatch | undefined {
   try {
     if (drawIntegrityMode() === 'off') return undefined;
 
     const created = new Set(createdIds ?? []);
+    const stored = storedDrawIds && new Map(Object.entries(storedDrawIds).map(([id, ids]) => [id, new Set(ids)]));
+    const isAdded = (tournamentId: string, drawId: string) =>
+      created.has(tournamentId) || (!!stored && !stored.get(tournamentId)?.has(drawId));
     const draws: DrawScanTarget[] = [];
     const found = new Set<string>();
     for (const [tournamentId, record] of Object.entries(tournamentRecords ?? {})) {
@@ -233,7 +267,7 @@ export function snapshotSavedDraws({
           const drawId = drawDefinition?.drawId;
           if (typeof drawId !== 'string' || !drawId || found.has(drawId)) continue;
           found.add(drawId);
-          draws.push({ tournamentId, drawId, drawDefinition, added: created.has(tournamentId) });
+          draws.push({ tournamentId, drawId, drawDefinition, added: isAdded(tournamentId, drawId) });
         }
       }
     }

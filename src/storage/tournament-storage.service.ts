@@ -1,15 +1,15 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import {
-  PROJECTION_OUTBOX_STORAGE,
-  type IProjectionOutboxStorage,
-} from './interfaces/projection-outbox-storage.interface';
 import { PARTICIPATION_STORAGE, type IParticipationStorage } from './interfaces/participation-storage.interface';
 import { CREATED_BY_USER_ID, canDeleteTournament } from 'src/modules/factory/helpers/checkTournamentAccess';
 import { TOURNAMENT_STORAGE, type ITournamentStorage } from './interfaces/tournament-storage.interface';
 import { PROVIDER_STORAGE, type IProviderStorage } from './interfaces/provider-storage.interface';
 import { CALENDAR_STORAGE, type ICalendarStorage } from './interfaces/calendar-storage.interface';
 import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
+import {
+  PROJECTION_OUTBOX_STORAGE,
+  type IProjectionOutboxStorage,
+} from './interfaces/projection-outbox-storage.interface';
 
 import { toRow } from 'src/storage/postgres/calendarTournamentRow';
 import { getCalendarEntry } from 'src/helpers/getCalendarEntry';
@@ -55,6 +55,10 @@ export class TournamentStorageService {
 
   async fetchTournamentUpdatedAt(params: { tournamentId?: string }) {
     return this.tournamentStorage.fetchTournamentUpdatedAt(params);
+  }
+
+  async fetchStoredDrawIds(params: { tournamentIds: string[] }) {
+    return this.tournamentStorage.fetchStoredDrawIds(params);
   }
 
   async listTournamentIds() {
