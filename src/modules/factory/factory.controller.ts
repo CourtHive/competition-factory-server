@@ -16,6 +16,7 @@ import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
 import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
 import { GetScheduleProjectionDto } from './dto/getScheduleProjection.dto';
 import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
+import { scoreCommand } from './functions/private/setMatchUpStatus';
 import { BackfillPrivacyPinsDto } from './dto/backfillPrivacyPins.dto';
 import { ApplyPrivacyPolicyDto } from './dto/applyPrivacyPolicy.dto';
 import { PayloadProfileEnum, tools } from 'tods-competition-factory';
@@ -449,12 +450,27 @@ export class FactoryController {
   @Roles([SCORE, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
   async scoreMatchUp(@Body() sms: SetMatchUpStatusDto, @Req() req: any) {
+    // The same durable-command boundary as executionQueue() below: a commandId makes a resend after a lost answer
+    // return the original result instead of scoring twice. Actor and fingerprint are always the server's — set even
+    // when undefined, so a client-asserted value never survives the spread.
+    if (sms?.commandId !== undefined && sms.commandUser !== req.user?.email)
+      throw new ForbiddenException('Durable command belongs to another user');
+    const commandActor =
+      sms?.commandId === undefined ? undefined : (req.user?.userId ?? req.user?.sub ?? req.user?.email);
+    const fingerprint = sms?.commandId === undefined ? undefined : commandFingerprint(scoreCommand(sms));
+
     // Stamp the authenticated identity + source onto the payload so this score
     // submission is audited and broadcast exactly like the socket and /factory
     // paths. Mirrors the executionQueue() controller below — without this the
     // audit hook records a null actor (and previously never fired at all).
     const verifiedUser = req.user;
-    const enriched: any = { ...sms, auditSource: req.auditSource, source: 'api' };
+    const enriched: any = {
+      ...sms,
+      auditSource: req.auditSource,
+      source: 'api',
+      commandActor,
+      commandFingerprint: fingerprint,
+    };
     if (verifiedUser?.email) enriched.userEmail = verifiedUser.email;
     if (verifiedUser?.userId || verifiedUser?.sub) enriched.userId = verifiedUser.userId ?? verifiedUser.sub;
 
