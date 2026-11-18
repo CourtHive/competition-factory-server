@@ -420,7 +420,12 @@ export class FactoryController {
 
   @Post('matchups')
   @Roles([SCORE, SUPER_ADMIN])
-  async getMatchUps(@Body() gmr: GetMatchUpsDto) {
+  async getMatchUps(@Body() gmr: GetMatchUpsDto, @User() user?: any, @UserCtx() userContext?: UserContext) {
+    // The SCORE role says what a caller is, not which tournaments it may read: every provisioner and provider key
+    // holds it. The same read gates as /factory/fetch, checked before the cache so a cached answer is never served
+    // to a caller who could not have fetched it.
+    if (!(await this.factoryService.canReadUnpublishedTournament(gmr?.tournamentId, user, userContext)))
+      throw new ForbiddenException('Not authorized to read this tournament');
     const key = `gmr|${gmr.tournamentId}`;
     return await this.cacheFx(key, (params) => this.factoryService.getMatchUps(params), gmr);
   }
@@ -449,12 +454,26 @@ export class FactoryController {
   @Audience(['admin', 'score'])
   @Roles([SCORE, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  async scoreMatchUp(@Body() sms: SetMatchUpStatusDto, @Req() req: any) {
+  async scoreMatchUp(@Body() sms: SetMatchUpStatusDto, @Req() req: any, @UserCtx() userContext?: UserContext) {
     // The same durable-command boundary as executionQueue() below: a commandId makes a resend after a lost answer
     // return the original result instead of scoring twice. Actor and fingerprint are always the server's — set even
     // when undefined, so a client-asserted value never survives the spread.
     if (sms?.commandId !== undefined && sms.commandUser !== req.user?.email)
       throw new ForbiddenException('Durable command belongs to another user');
+
+    // The same per-tournament gate as executionQueue(): the SCORE role alone admitted any provisioner key, provider
+    // key or global-score user to any provider's tournament, and skipped assignment roles and scoped grants. The
+    // relay's service token carries aud 'score', so it has no userContext and passes; it authorizes each tracker
+    // against its tournament before forwarding.
+    const command = scoreCommand(sms);
+    const denial = await this.mutationAuthorization.gate({
+      userContext,
+      tournamentIds: command.tournamentId ? [command.tournamentId] : [],
+      requestedMethods: ['setMatchUpStatus'],
+      methods: command.methods,
+      actor: req.user?.email ?? req.user?.userId,
+    });
+    if (denial) throw new ForbiddenException(denial);
     const commandActor =
       sms?.commandId === undefined ? undefined : (req.user?.userId ?? req.user?.sub ?? req.user?.email);
     const fingerprint = sms?.commandId === undefined ? undefined : commandFingerprint(scoreCommand(sms));
