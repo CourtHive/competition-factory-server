@@ -128,6 +128,37 @@ curl -X POST https://courthive.net/factory \
       }'
 ```
 
+### Retrying safely: `commandId`
+
+A request can succeed on the server while its answer is lost: a timeout, a dropped connection. Resending it then
+applies it a second time, and for a score that means a second result. To make a resend safe, send a **`commandId`**
+with the mutation. Both `POST /factory` and `POST /factory/score` accept it:
+
+```bash
+curl -X POST https://courthive.net/factory/score \
+  -H "Authorization: Bearer prov_sk_live_<your-key>" \
+  -H "X-Provider-Id: 24bf9f25-96ca-401e-9660-f5571ebc50ba" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "commandId": "score-7c1e2a90-match-1",
+        "commandUser": "provisioner@<your-provisioner-name>",
+        "params": {
+          "tournamentId": "a1f2…", "drawId": "…", "matchUpId": "…",
+          "outcome": { "score": { "sets": [ … ] }, "matchUpStatus": "COMPLETED", "winningSide": 1 }
+        }
+      }'
+```
+
+- **`commandId`**: 8–128 characters of `[A-Za-z0-9_-]`, generated once per intended mutation and reused, unchanged,
+  for every resend of it. The first request that commits records a receipt; a resend gets the original answer back
+  (with `deduplicated: true`) and nothing is applied or broadcast again.
+- **`commandUser`**: the email your key authenticates as, `provisioner@<your-provisioner-name>`. A command whose
+  `commandUser` is not the caller is refused, so a queued command cannot be sent under a different account.
+- A `commandId` is bound to what it asked for. Reusing one with a different score or method list is refused with
+  `409`, never applied. Transport fields (`ackId` and the like) are not part of that intent.
+- If the server cannot tell whether a durable command committed, it answers `503`. Resend with the **same**
+  `commandId`.
+
 ---
 
 ## Provisioner-native management endpoints
@@ -182,6 +213,9 @@ See **Provisioner/Provider Management**, **Provisioner/User Management**, and
     <tr><td><code>401</code> / <code>403</code></td><td>A provider-scoped (<code>/factory/&#42;</code>) call with no <code>X-Provider-Id</code>, or an <code>X-Provider-Id</code> you have no relationship to — no provider context is injected, so authorization fails.</td></tr>
     <tr><td><code>403</code></td><td>An owner-only <code>/provisioner/&#42;</code> operation attempted with a <code>subsidiary</code> relationship.</td></tr>
     <tr><td><code>403</code></td><td>A <code>user_providers</code> association mutation called with an API key — the synthetic <code>PROVIDER_ADMIN</code> does not grant user administration. Use <code>POST /provisioner/users</code> instead.</td></tr>
+    <tr><td><code>403</code></td><td>A <code>commandId</code> sent with a <code>commandUser</code> that is not the authenticated caller.</td></tr>
+    <tr><td><code>409</code></td><td>A <code>commandId</code> reused for a different mutation than the one it first carried.</td></tr>
+    <tr><td><code>503</code></td><td>A durable command whose outcome is uncertain. Resend with the same <code>commandId</code>.</td></tr>
   </tbody>
 </table>
 
