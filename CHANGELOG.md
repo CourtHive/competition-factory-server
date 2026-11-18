@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.16.0](https://github.com/CourtHive/competition-factory-server/compare/v4.15.2...v4.16.0) (2026-11-17)
+
+
+### Features
+
+* **factory:** record wholesale saves in draw_integrity_findings and audit_log ([#1251](https://github.com/CourtHive/competition-factory-server/issues/1251)) ([3788535](https://github.com/CourtHive/competition-factory-server/commit/3788535b6511658c91f20e89ec1ab4099cd2e4c4))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.40.0 ([#1252](https://github.com/CourtHive/competition-factory-server/issues/1252)) ([bd94446](https://github.com/CourtHive/competition-factory-server/commit/bd944467de157302779b358ff583b2d74e152c2a))
+* **factory:** a draw a wholesale save adds to an existing tournament is introduced, not baseline ([#1253](https://github.com/CourtHive/competition-factory-server/issues/1253)) ([1e02d3a](https://github.com/CourtHive/competition-factory-server/commit/1e02d3ad408ade7fea6037effa1059d2c16683e9))
+
 ## [4.15.2](https://github.com/CourtHive/competition-factory-server/compare/v4.15.1...v4.15.2) (2026-11-16)
 
 
