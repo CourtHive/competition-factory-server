@@ -26,7 +26,7 @@ tournament id — that is what makes per-tournament invalidation possible.
 | `gsd\|<tid>\|<sid>`    | `POST /factory/structuredata`                              | **one structure**                |
 | `gtm\|<tid>`           | `POST /factory/scheduledmatchups`                          | tournament                       |
 | `gtp\|<tid>`           | `POST /factory/participants`                               | tournament                       |
-| `gmr\|<tid>`           | `POST /factory/matchups`                                   | tournament                       |
+| `gmr\|<tid>[\|<f>]`    | `POST /factory/matchups`                                   | tournament, per filter set       |
 | `gac\|<tid>`           | `GET /factory/assistant-context/:tid`                      | tournament                       |
 
 `cacheFx(key, fx, params)` is the single wrapper: on a hit it returns the stored value stamped
@@ -44,7 +44,8 @@ _tracking_ set is not iterate-evicted on the next mutation; it ages out via the 
 Factory notices fire during the mutation. Handlers evict what they can attribute:
 
 - `clearCache(tournamentId)` evicts the **tournament-scoped** shapes — `gti|`, `gtm|`, `gac|`, `gtp|`,
-  `gmr|`. These aggregate across events, so any write can change them.
+  `gmr|`. These aggregate across events, so any write can change them. It deletes only the bare
+  `<prefix>|<tid>` key; variants (`gti|<tid>|<flags>`, `gmr|<tid>|e:…|d:…|s:…`) go in layer 2's sweep.
 - `evictEventData` / `evictDrawData` / `evictStructureData` evict **one** entity key each and record
   that a targeted eviction happened. `evictDrawData` evicts **both** `structuresProfile` variants —
   they are separate documents, and sparing the thin one would serve a stale structure list.
