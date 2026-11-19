@@ -669,7 +669,25 @@ export class FactoryController {
   @Post('query')
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  queryTournamentRecords(@Body() qtd: QueryTournamentRecordsDto) {
+  async queryTournamentRecords(
+    @Body() qtd: QueryTournamentRecordsDto,
+    @User() user?: any,
+    @UserCtx() userContext?: UserContext,
+  ) {
+    // Any engine query runs here — getTournament included, which returns the whole record — so the CLIENT role is
+    // not enough: every tournament named must pass the same read gates as /factory/fetch. Behind the score route's
+    // grace switch: with ENFORCE_SCORE_ROUTE_AUTHORIZATION=false a refusal is logged, not returned.
+    const tournamentIds: string[] = qtd?.tournamentIds?.length
+      ? qtd.tournamentIds
+      : [qtd?.tournamentId].filter((id): id is string => !!id);
+    for (const tournamentId of tournamentIds) {
+      if (await this.factoryService.canReadUnpublishedTournament(tournamentId, user, userContext)) continue;
+      if (isScoreRouteAuthorizationEnforced()) throw new ForbiddenException('Not authorized to read this tournament');
+      Logger.warn(
+        `query-route authorization NOT ENFORCED: would refuse ${user?.email ?? user?.userId} on ${tournamentId}`,
+        'FactoryController',
+      );
+    }
     return this.factoryService.queryTournamentRecords(qtd);
   }
 
