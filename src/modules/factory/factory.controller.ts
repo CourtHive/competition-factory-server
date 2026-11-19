@@ -93,7 +93,7 @@ export class FactoryController {
 
   // Side-table of issued cache keys per tournamentId. cache-manager has
   // no prefix-delete primitive, so we record every key shape we hand to
-  // it (gmr|<tid>, gac|<tid>, gti|<tid>, gti|<tid>|<flags>,
+  // it (gmr|<tid>[|<filters>], gac|<tid>, gti|<tid>, gti|<tid>|<flags>,
   // ged|<tid>|<eid>, gtm|<tid>, gtp|<tid>) and iterate-delete on write.
   // All current keys are shaped `<prefix>|<tid>[|<...>]`, so segment [1]
   // is the tournament id — see trackTournamentKey.
@@ -426,7 +426,11 @@ export class FactoryController {
     // to a caller who could not have fetched it.
     if (!(await this.factoryService.canReadUnpublishedTournament(gmr?.tournamentId, user, userContext)))
       throw new ForbiddenException('Not authorized to read this tournament');
-    const key = `gmr|${gmr.tournamentId}`;
+    // Every filter that shapes the answer is in the key; keyed on the tournament alone, one caller's filtered
+    // answer was served to the next. Statuses are sorted so the same set in another order shares one entry.
+    const statuses = Array.isArray(gmr.matchUpStatuses) ? [...gmr.matchUpStatuses].sort().join(',') : '';
+    const filters = [gmr.eventId && `e:${gmr.eventId}`, gmr.drawId && `d:${gmr.drawId}`, statuses && `s:${statuses}`];
+    const key = [`gmr|${gmr.tournamentId}`, ...filters.filter(Boolean)].join('|');
     return await this.cacheFx(key, (params) => this.factoryService.getMatchUps(params), gmr);
   }
 
