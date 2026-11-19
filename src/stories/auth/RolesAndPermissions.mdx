@@ -85,6 +85,8 @@ Users are associated with one or more providers (organisations) via `user_provid
 
 View/mutate scoping is gated by the `ENABLE_TOURNAMENT_ACCESS_SCOPING` flag (`isTournamentAccessScopingEnabled`); delete authorization is always provider-bound regardless of the flag.
 
+`POST /factory/score` runs the same per-tournament gate as `POST /factory`. `ENFORCE_SCORE_ROUTE_AUTHORIZATION=false` (`isScoreRouteAuthorizationEnforced`) is a grace period for an integrator still scoring with the wrong credential: a refusal is logged (`score-route authorization NOT ENFORCED: would refuse …`) instead of returned. Unset or any other value enforces. Remove the line and restart to enforce.
+
 ## Audience-Aware Authentication
 
 JWTs also carry an `aud` (audience) claim. `AuthGuard` (HTTP) and `SocketGuard` (WebSocket) admit a token only when its `aud` overlaps the route/gateway's required audiences, declared via the `@Audience([...])` decorator.

@@ -3,6 +3,7 @@ import { TournamentBroadcastService } from '../messaging/broadcast/tournament-br
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { commandFingerprint, saveFingerprint } from 'src/storage/postgres/commandReceipts';
 import { stampVerifiedIdentity } from 'src/modules/messaging/tmx/stampOperatorAttribution';
+import { isScoreRouteAuthorizationEnforced } from 'src/common/constants/feature-flags';
 import { individualMergeCapabilities } from './helpers/individualMergeCapabilities';
 import { GetScheduledMatchUpsDto } from './dto/getCompetitionScheduleMatchUps.dto';
 import { Audience } from 'src/modules/account/auth/decorators/audience.decorator';
@@ -470,14 +471,22 @@ export class FactoryController {
     // relay's service token carries aud 'score', so it has no userContext and passes; it authorizes each tracker
     // against its tournament before forwarding.
     const command = scoreCommand(sms);
+    const actor = req.user?.email ?? req.user?.userId;
     const denial = await this.mutationAuthorization.gate({
       userContext,
       tournamentIds: command.tournamentId ? [command.tournamentId] : [],
       requestedMethods: ['setMatchUpStatus'],
       methods: command.methods,
-      actor: req.user?.email ?? req.user?.userId,
+      actor,
     });
-    if (denial) throw new ForbiddenException(denial);
+    // ENFORCE_SCORE_ROUTE_AUTHORIZATION=false is a grace period for an integrator still scoring with the wrong
+    // credential: the refusal is logged, not thrown, so the log names everyone still relying on it.
+    if (denial && isScoreRouteAuthorizationEnforced()) throw new ForbiddenException(denial);
+    if (denial)
+      Logger.warn(
+        `score-route authorization NOT ENFORCED: would refuse ${actor} on ${command.tournamentId}: ${denial}`,
+        'FactoryController',
+      );
     const commandActor =
       sms?.commandId === undefined ? undefined : (req.user?.userId ?? req.user?.sub ?? req.user?.email);
     const fingerprint = sms?.commandId === undefined ? undefined : commandFingerprint(scoreCommand(sms));
