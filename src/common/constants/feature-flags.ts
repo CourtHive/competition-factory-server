@@ -13,6 +13,7 @@ import { Logger } from '@nestjs/common';
 
 const logger = new Logger('FeatureFlags');
 let warnedAccessScopingUnset = false;
+let warnedScoreRouteNotEnforced = false;
 
 /**
  * When ON, tournament read/write paths enforce per-user visibility via checkTournamentAccess.
@@ -48,7 +49,30 @@ export function isTournamentAccessScopingEnabled(): boolean {
   return raw !== 'false';
 }
 
-/** Test-only: reset the one-shot unset warning so each spec can assert it. */
+/**
+ * When ON, `POST /factory/score` refuses a caller the per-tournament mutation gate refuses (CFS #1261).
+ *
+ * A grace switch, not a feature: it exists so an integrator still scoring with the wrong credential keeps working
+ * until it moves to its provisioner key. Fail-closed like the flag above — unset, empty or a typo all mean
+ * ENFORCED; only `ENFORCE_SCORE_ROUTE_AUTHORIZATION=false` turns it off. While off, the gate still runs and every
+ * request it would have refused is logged (see FactoryController.scoreMatchUp), so the grace period shows who is
+ * still relying on it. Delete the line from the host's .env and restart to enforce; no release needed.
+ */
+export function isScoreRouteAuthorizationEnforced(): boolean {
+  const raw = process.env.ENFORCE_SCORE_ROUTE_AUTHORIZATION;
+  const enforced = raw !== 'false';
+  if (!enforced && !warnedScoreRouteNotEnforced) {
+    warnedScoreRouteNotEnforced = true;
+    logger.warn(
+      'ENFORCE_SCORE_ROUTE_AUTHORIZATION=false — POST /factory/score is NOT refusing callers outside their ' +
+        'tournaments; would-be refusals are logged instead. Remove the variable to enforce.',
+    );
+  }
+  return enforced;
+}
+
+/** Test-only: reset the one-shot warnings so each spec can assert them. */
 export function __resetFeatureFlagWarnings(): void {
   warnedAccessScopingUnset = false;
+  warnedScoreRouteNotEnforced = false;
 }

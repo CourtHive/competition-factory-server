@@ -1,10 +1,14 @@
 import { MutationAuthorizationService } from './mutation-authorization.service';
 import { CREATED_BY_USER_ID } from './helpers/checkTournamentAccess';
 import { FactoryController } from './factory.controller';
+import { Logger } from '@nestjs/common';
 
 // Scoping is ON in prod (ENABLE_TOURNAMENT_ACCESS_SCOPING=true); the per-tournament gate has nothing to say without it.
+// Score-route enforcement is the real default (on); the grace-period tests below turn it off.
+const flags = vi.hoisted(() => ({ scoreRouteEnforced: true }));
 vi.mock('src/common/constants/feature-flags', () => ({
   isTournamentAccessScopingEnabled: () => true,
+  isScoreRouteAuthorizationEnforced: () => flags.scoreRouteEnforced,
 }));
 
 // POST /factory/score and POST /factory/matchups were guarded by @Roles([SCORE, SUPER_ADMIN]) alone. Every provisioner
@@ -143,6 +147,37 @@ describe('POST /factory/score — per-tournament authorization', () => {
     const { controller, service } = build();
     await controller.scoreMatchUp(scoreBody() as any, { user: { email: 'relay-service@courthive.net' } }, undefined);
     expect(service.score).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('POST /factory/score — ENFORCE_SCORE_ROUTE_AUTHORIZATION=false grace period', () => {
+  // An integrator still scoring with the wrong credential keeps working, and each would-be refusal is logged.
+  afterEach(() => {
+    flags.scoreRouteEnforced = true;
+    vi.restoreAllMocks();
+  });
+
+  it('scores a caller the gate refuses, and logs who and where', async () => {
+    flags.scoreRouteEnforced = false;
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+    const { controller, service } = build();
+    const ctx = provisionerKey(OTHER);
+    await controller.scoreMatchUp(scoreBody() as any, req(ctx), ctx as any);
+    expect(service.score).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('NOT ENFORCED');
+    expect(warn.mock.calls[0][0]).toContain('provisioner@Integrator');
+    expect(warn.mock.calls[0][0]).toContain(TID);
+  });
+
+  it('logs nothing for a caller the gate allows', async () => {
+    flags.scoreRouteEnforced = false;
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+    const { controller, service } = build();
+    const ctx = provisionerKey(OWNER);
+    await controller.scoreMatchUp(scoreBody() as any, req(ctx), ctx as any);
+    expect(service.score).toHaveBeenCalledTimes(1);
+    expect(warn).not.toHaveBeenCalled();
   });
 });
 
