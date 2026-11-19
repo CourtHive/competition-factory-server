@@ -63,6 +63,7 @@ function build({ grants = [] }: { grants?: any[] } = {}) {
   const service: any = {
     score: vi.fn(async () => ({ success: true, publicNotices: [] })),
     getMatchUps: vi.fn(async () => ({ matchUps: [] })),
+    queryTournamentRecords: vi.fn(async () => ({ success: true })),
     canReadUnpublishedTournament: vi.fn(async () => true),
   };
   const broadcast: any = { broadcastMutation: vi.fn(), broadcastPublicNotices: vi.fn() };
@@ -199,5 +200,48 @@ describe('POST /factory/matchups — read authorization', () => {
     const ctx = provisionerKey(OWNER);
     await controller.getMatchUps({ tournamentId: TID } as any, { email: ctx.email }, ctx as any);
     expect(service.getMatchUps).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('POST /factory/query — read authorization', () => {
+  // Any engine query runs on this route (getTournament returns the whole record), and the CLIENT role alone admitted
+  // a caller to any tournament it named.
+  afterEach(() => {
+    flags.scoreRouteEnforced = true;
+    vi.restoreAllMocks();
+  });
+
+  it('refuses a caller who could not fetch a named tournament, before any query runs', async () => {
+    const { controller, service } = build();
+    service.canReadUnpublishedTournament.mockImplementation(async (tournamentId) => tournamentId !== 'other');
+    const ctx = provisionerKey(OWNER);
+    await expect(
+      controller.queryTournamentRecords(
+        { tournamentIds: [TID, 'other'], params: {}, method: 'getTournament' } as any,
+        { email: ctx.email },
+        ctx as any,
+      ),
+    ).rejects.toThrow('Not authorized to read this tournament');
+    expect(service.queryTournamentRecords).not.toHaveBeenCalled();
+  });
+
+  it('checks a single tournamentId and answers a caller who may read it', async () => {
+    const { controller, service } = build();
+    const ctx = provisionerKey(OWNER);
+    await controller.queryTournamentRecords({ tournamentId: TID, params: {} } as any, { email: ctx.email }, ctx as any);
+    expect(service.canReadUnpublishedTournament).toHaveBeenCalledWith(TID, { email: ctx.email }, ctx);
+    expect(service.queryTournamentRecords).toHaveBeenCalledTimes(1);
+  });
+
+  it('with ENFORCE_SCORE_ROUTE_AUTHORIZATION=false, logs the would-be refusal and answers', async () => {
+    flags.scoreRouteEnforced = false;
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+    const { controller, service } = build();
+    service.canReadUnpublishedTournament.mockResolvedValue(false);
+    const ctx = provisionerKey(OTHER);
+    await controller.queryTournamentRecords({ tournamentId: TID, params: {} } as any, { email: ctx.email }, ctx as any);
+    expect(service.queryTournamentRecords).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('query-route authorization NOT ENFORCED');
+    expect(warn.mock.calls[0][0]).toContain(TID);
   });
 });
