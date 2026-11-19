@@ -16,7 +16,11 @@ const scoreFirstMatchUp = () => {
   const {
     tournamentRecord,
     drawIds: [drawId],
-  } = mocksEngine.generateTournamentRecord({ drawProfiles: [{ drawSize: 8 }, { drawSize: 4 }] });
+  } = mocksEngine.generateTournamentRecord({
+    // more participants than the scored draw holds, so "the draw's participants" and "every participant" differ
+    participantsProfile: { participantsCount: 16 },
+    drawProfiles: [{ drawSize: 8 }, { drawSize: 4 }],
+  });
   tournamentEngine.setState(tournamentRecord);
   const matchUp: any = tournamentEngine
     .allTournamentMatchUps({ inContext: true })
@@ -86,9 +90,23 @@ describe('shard shadow', () => {
           tournamentRecords: { [tournamentId]: tournamentRecord },
           outcomePipeline,
         });
-        // v1 resolves a TEAM line's sides against every participant; v2 decides from the draw alone
-        const participants = plan?.partialRecord.participants ?? [];
-        expect(participants.length).toBe(outcomePipeline === 'v2' ? 0 : tournamentRecord.participants.length);
+        // The partial record carries exactly the participants the footprint declares: v1 resolves a TEAM line's sides
+        // against every participant (`participants`); v2 against those the draw references (`drawParticipants`, since
+        // factory 7.42.0; none before). Asserting the declared shard, not a count, keeps this true across that change.
+        const shards: string[] = plan?.footprint?.shards ?? [];
+        const drawParticipantIds = tournamentRecord.events
+          .flatMap((e: any) => e.drawDefinitions ?? [])
+          .find((d: any) => d.drawId === drawId)
+          .entries.map((entry: any) => entry.participantId);
+        let expected: string[] = [];
+        if (shards.includes('participants')) expected = tournamentRecord.participants.map((p: any) => p.participantId);
+        else if (shards.includes('drawParticipants')) expected = drawParticipantIds;
+        expect(outcomePipeline === 'v1' ? shards.includes('participants') : !shards.includes('participants')).toBe(
+          true,
+        );
+        const loaded = (plan?.partialRecord.participants ?? []).map((p: any) => p.participantId);
+        expect([...loaded].sort()).toEqual([...expected].sort());
+        expect(loaded.length).toBeLessThan(outcomePipeline === 'v1' ? Infinity : tournamentRecord.participants.length);
         expect(plan?.partialRecord.events.flatMap((e: any) => e.drawDefinitions).map((d: any) => d.drawId)).toEqual([
           drawId,
         ]);
