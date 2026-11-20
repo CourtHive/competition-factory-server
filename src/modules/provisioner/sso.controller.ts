@@ -23,6 +23,9 @@ import {
 import { resolveActingProviderId } from 'src/common/auth/actingProvider';
 import { buildUserContext } from '../account/auth/helpers/buildUserContext';
 
+const HANDOFF_REFUSED =
+  'SSO identity not found for a provider this provisioner manages — create the user first via POST /provisioner/users';
+
 @Controller('auth/sso')
 export class SsoController {
   constructor(
@@ -48,16 +51,28 @@ export class SsoController {
   @UseGuards(ProvisionerGuard)
   @HttpCode(HttpStatus.OK)
   async generate(@Req() req: any, @Body() body: { externalId: string; ssoProvider: string; providerId: string }) {
-    const { externalId, ssoProvider, providerId } = body;
+    const { externalId, ssoProvider, providerId } = body ?? ({} as any);
     if (!externalId || !ssoProvider || !providerId) {
       return { error: 'externalId, ssoProvider, and providerId are required' };
     }
 
-    // Verify the user exists in sso_identities
-    const identity = await this.ssoIdentityStorage.findByExternalId(ssoProvider, externalId);
-    if (!identity) {
-      return { error: 'SSO identity not found — create the user first via POST /provisioner/users' };
+    // A request that names its provider in X-Provider-Id must hand off for that same provider.
+    const headerProviderId = req.headers?.['x-provider-id'];
+    if (headerProviderId && headerProviderId !== providerId) {
+      return { error: 'providerId does not match X-Provider-Id', code: 'SSO_PROVIDER_MISMATCH' };
     }
+
+    // ISSUER SCOPE (PROVISIONER-SSO-101). A valid provisioner credential is not authority over every SSO identity:
+    // the provisioner must manage the provider it hands off for, and the identity's user must belong to that
+    // provider. Not-found and not-authorized refuse identically, so an unrelated provisioner cannot probe which
+    // (ssoProvider, externalId) pairs exist.
+    const identity = await this.findAuthorizedIdentity(
+      req.provisioner.provisionerId,
+      providerId,
+      ssoProvider,
+      externalId,
+    );
+    if (!identity) return { error: HANDOFF_REFUSED, code: 'SSO_IDENTITY_NOT_FOUND' };
 
     const result = await this.ssoTokenService.generate({
       externalId,
@@ -92,6 +107,12 @@ export class SsoController {
     const identity = await this.ssoIdentityStorage.findByExternalId(payload.ssoProvider, payload.externalId);
     if (!identity) {
       return { error: 'User not found for SSO identity' };
+    }
+
+    // Re-check issuer scope at consume: a relationship revoked (or a user removed from the provider) in the token's
+    // lifetime must not still be redeemable, and a token minted before this check existed must not bypass it.
+    if (!(await this.isWithinIssuerScope(payload.provisionerId, payload.providerId, identity.userId))) {
+      return { error: 'SSO handoff is no longer authorized', code: 'SSO_HANDOFF_UNAUTHORIZED' };
     }
 
     // Fetch the full user record
@@ -175,6 +196,46 @@ export class SsoController {
         providerRoles: userContext.providerRoles,
       },
     };
+  }
+
+  /**
+   * The SSO identity, when it exists and is within the provisioner's issuer scope for `providerId`; otherwise null.
+   * The relationship is checked first, so an unrelated provisioner triggers no identity lookup at all.
+   */
+  private async findAuthorizedIdentity(
+    provisionerId: string | undefined,
+    providerId: string | undefined,
+    ssoProvider: string,
+    externalId: string,
+  ) {
+    if (!(await this.managesProvider(provisionerId, providerId))) return null;
+    const identity = await this.ssoIdentityStorage.findByExternalId(ssoProvider, externalId);
+    if (!identity) return null;
+    return (await this.isWithinIssuerScope(provisionerId, providerId, identity.userId)) ? identity : null;
+  }
+
+  /**
+   * True when `provisionerId` manages `providerId` (owner or subsidiary) and `userId` is associated with
+   * `providerId`. Storage errors refuse (fail closed).
+   */
+  private async isWithinIssuerScope(provisionerId: string | undefined, providerId: string | undefined, userId: string) {
+    if (!(await this.managesProvider(provisionerId, providerId))) return false;
+    try {
+      return !!(await this.userProviderStorage.findOne(userId, providerId as string));
+    } catch (err: any) {
+      Logger.warn(`SSO issuer-scope membership check failed closed: ${err?.message ?? err}`, SsoController.name);
+      return false;
+    }
+  }
+
+  private async managesProvider(provisionerId: string | undefined, providerId: string | undefined) {
+    if (!provisionerId || !providerId) return false;
+    try {
+      return !!(await this.provisionerProviderStorage.getRelationship(provisionerId, providerId));
+    } catch (err: any) {
+      Logger.warn(`SSO issuer-scope relationship check failed closed: ${err?.message ?? err}`, SsoController.name);
+      return false;
+    }
   }
 
   /** Find user by userId (not email). The user storage interface uses email as primary lookup. */

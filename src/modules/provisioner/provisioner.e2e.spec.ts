@@ -359,4 +359,68 @@ d('Provisioner E2E', () => {
 
     expect(replayRes.body.error).toContain('expired or not found');
   });
+
+  // PROVISIONER-SSO-101: a valid provisioner credential is not authority over another provisioner's users.
+  it('refuses an unrelated provisioner a handoff for a known foreign identity', async () => {
+    const usersRes = await request(app.getHttpServer())
+      .get(`/provisioner/users?providerId=${providerId}`)
+      .set('Authorization', `Bearer ${apiKey}`)
+      .expect(200);
+    const ssoUser = usersRes.body.users.find((u) => u.userId === ssoUserId);
+
+    const otherRes = await request(app.getHttpServer())
+      .post('/admin/provisioners')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: `E2E-Provisioner-Unrelated-${Date.now()}`, config: { test: true } })
+      .expect(201);
+    const otherProvisionerId = otherRes.body.provisioner.provisionerId;
+    let otherProviderId: string | undefined;
+
+    try {
+      const keyRes = await request(app.getHttpServer())
+        .post(`/admin/provisioners/${otherProvisionerId}/keys`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ label: 'e2e-unrelated' })
+        .expect(201);
+      const otherKey = keyRes.body.apiKey;
+
+      const provRes = await request(app.getHttpServer())
+        .post('/provisioner/providers')
+        .set('Authorization', `Bearer ${otherKey}`)
+        .send({ organisationAbbreviation: `E2EX${Date.now()}`, organisationName: 'E2E Unrelated Provider' })
+        .expect(201);
+      otherProviderId = provRes.body.providerId;
+
+      // the unrelated provisioner names its own provider, and then the victim's provider
+      for (const namedProviderId of [otherProviderId, providerId]) {
+        const genRes = await request(app.getHttpServer())
+          .post('/auth/sso/generate')
+          .set('Authorization', `Bearer ${otherKey}`)
+          .send({ externalId: ssoUser.externalId, ssoProvider: 'ioncourt', providerId: namedProviderId })
+          .expect(200);
+        expect(genRes.body.token).toBeUndefined();
+        expect(genRes.body.code).toBe('SSO_IDENTITY_NOT_FOUND');
+      }
+
+      // the owning provisioner's own handoff still succeeds
+      const ownRes = await request(app.getHttpServer())
+        .post('/auth/sso/generate')
+        .set('Authorization', `Bearer ${apiKey}`)
+        .send({ externalId: ssoUser.externalId, ssoProvider: 'ioncourt', providerId })
+        .expect(200);
+      expect(ownRes.body.token).toBeDefined();
+    } finally {
+      await request(app.getHttpServer())
+        .put(`/admin/provisioners/${otherProvisionerId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ isActive: false });
+      await request(app.getHttpServer())
+        .delete(`/admin/provisioners/${otherProvisionerId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      if (otherProviderId) {
+        const { PROVIDER_STORAGE } = await import('src/storage/interfaces');
+        await app.get(PROVIDER_STORAGE).removeProvider(otherProviderId);
+      }
+    }
+  });
 });
