@@ -28,7 +28,9 @@ export async function drainSnapshotRequests(
   { limit = 25, maxAttempts = 5 }: { limit?: number; maxAttempts?: number } = {},
 ): Promise<DrainResult> {
   const result: DrainResult = { examined: 0, enqueued: 0, changed: 0, missing: 0, failed: 0 };
-  const requests = (await outbox.pendingSnapshotRequests(limit, maxAttempts)).filter((request) => request.attempts < maxAttempts);
+  const requests = (await outbox.pendingSnapshotRequests(limit, maxAttempts)).filter(
+    (request) => request.attempts < maxAttempts,
+  );
 
   for (const request of requests) {
     result.examined += 1;
