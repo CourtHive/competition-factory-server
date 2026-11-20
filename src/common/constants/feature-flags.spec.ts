@@ -1,4 +1,8 @@
-import { isTournamentAccessScopingEnabled, __resetFeatureFlagWarnings } from './feature-flags';
+import {
+  isScoreRouteAuthorizationEnforced,
+  isTournamentAccessScopingEnabled,
+  __resetFeatureFlagWarnings,
+} from './feature-flags';
 import { Logger } from '@nestjs/common';
 
 describe('isTournamentAccessScopingEnabled — fail-closed (A3)', () => {
@@ -53,6 +57,40 @@ describe('isTournamentAccessScopingEnabled — fail-closed (A3)', () => {
     process.env.ENABLE_TOURNAMENT_ACCESS_SCOPING = 'false';
     const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     isTournamentAccessScopingEnabled();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
+describe('isScoreRouteAuthorizationEnforced — fail-closed grace switch', () => {
+  const original = process.env.ENFORCE_SCORE_ROUTE_AUTHORIZATION;
+
+  beforeEach(() => __resetFeatureFlagWarnings());
+  afterAll(() => {
+    if (original === undefined) delete process.env.ENFORCE_SCORE_ROUTE_AUTHORIZATION;
+    else process.env.ENFORCE_SCORE_ROUTE_AUTHORIZATION = original;
+  });
+
+  it.each([undefined, '', 'true', 'flase', 'FALSE'])('enforces for %j', (raw) => {
+    if (raw === undefined) delete process.env.ENFORCE_SCORE_ROUTE_AUTHORIZATION;
+    else process.env.ENFORCE_SCORE_ROUTE_AUTHORIZATION = raw;
+    expect(isScoreRouteAuthorizationEnforced()).toBe(true);
+  });
+
+  it('is off only for the explicit string "false", and says so once', () => {
+    process.env.ENFORCE_SCORE_ROUTE_AUTHORIZATION = 'false';
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    expect(isScoreRouteAuthorizationEnforced()).toBe(false);
+    expect(isScoreRouteAuthorizationEnforced()).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain('ENFORCE_SCORE_ROUTE_AUTHORIZATION=false');
+    warn.mockRestore();
+  });
+
+  it('does not warn while enforcing', () => {
+    delete process.env.ENFORCE_SCORE_ROUTE_AUTHORIZATION;
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    isScoreRouteAuthorizationEnforced();
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });

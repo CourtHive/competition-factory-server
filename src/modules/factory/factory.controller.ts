@@ -3,6 +3,7 @@ import { TournamentBroadcastService } from '../messaging/broadcast/tournament-br
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { commandFingerprint, saveFingerprint } from 'src/storage/postgres/commandReceipts';
 import { stampVerifiedIdentity } from 'src/modules/messaging/tmx/stampOperatorAttribution';
+import { isScoreRouteAuthorizationEnforced } from 'src/common/constants/feature-flags';
 import { individualMergeCapabilities } from './helpers/individualMergeCapabilities';
 import { GetScheduledMatchUpsDto } from './dto/getCompetitionScheduleMatchUps.dto';
 import { Audience } from 'src/modules/account/auth/decorators/audience.decorator';
@@ -16,6 +17,7 @@ import { Roles } from 'src/modules/account/auth/decorators/roles.decorator';
 import { SaveTournamentRecordsDto } from './dto/saveTournamentRecords.dto';
 import { GetScheduleProjectionDto } from './dto/getScheduleProjection.dto';
 import { RolesGuard } from 'src/modules/account/auth/guards/role.guard';
+import { scoreCommand } from './functions/private/setMatchUpStatus';
 import { BackfillPrivacyPinsDto } from './dto/backfillPrivacyPins.dto';
 import { ApplyPrivacyPolicyDto } from './dto/applyPrivacyPolicy.dto';
 import { PayloadProfileEnum, tools } from 'tods-competition-factory';
@@ -92,7 +94,7 @@ export class FactoryController {
 
   // Side-table of issued cache keys per tournamentId. cache-manager has
   // no prefix-delete primitive, so we record every key shape we hand to
-  // it (gmr|<tid>, gac|<tid>, gti|<tid>, gti|<tid>|<flags>,
+  // it (gmr|<tid>[|<filters>], gac|<tid>, gti|<tid>, gti|<tid>|<flags>,
   // ged|<tid>|<eid>, gtm|<tid>, gtp|<tid>) and iterate-delete on write.
   // All current keys are shaped `<prefix>|<tid>[|<...>]`, so segment [1]
   // is the tournament id — see trackTournamentKey.
@@ -419,8 +421,17 @@ export class FactoryController {
 
   @Post('matchups')
   @Roles([SCORE, SUPER_ADMIN])
-  async getMatchUps(@Body() gmr: GetMatchUpsDto) {
-    const key = `gmr|${gmr.tournamentId}`;
+  async getMatchUps(@Body() gmr: GetMatchUpsDto, @User() user?: any, @UserCtx() userContext?: UserContext) {
+    // The SCORE role says what a caller is, not which tournaments it may read: every provisioner and provider key
+    // holds it. The same read gates as /factory/fetch, checked before the cache so a cached answer is never served
+    // to a caller who could not have fetched it.
+    if (!(await this.factoryService.canReadUnpublishedTournament(gmr?.tournamentId, user, userContext)))
+      throw new ForbiddenException('Not authorized to read this tournament');
+    // Every filter that shapes the answer is in the key; keyed on the tournament alone, one caller's filtered
+    // answer was served to the next. Statuses are sorted so the same set in another order shares one entry.
+    const statuses = Array.isArray(gmr.matchUpStatuses) ? [...gmr.matchUpStatuses].sort().join(',') : '';
+    const filters = [gmr.eventId && `e:${gmr.eventId}`, gmr.drawId && `d:${gmr.drawId}`, statuses && `s:${statuses}`];
+    const key = [`gmr|${gmr.tournamentId}`, ...filters.filter(Boolean)].join('|');
     return await this.cacheFx(key, (params) => this.factoryService.getMatchUps(params), gmr);
   }
 
@@ -448,13 +459,50 @@ export class FactoryController {
   @Audience(['admin', 'score'])
   @Roles([SCORE, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  async scoreMatchUp(@Body() sms: SetMatchUpStatusDto, @Req() req: any) {
+  async scoreMatchUp(@Body() sms: SetMatchUpStatusDto, @Req() req: any, @UserCtx() userContext?: UserContext) {
+    // The same durable-command boundary as executionQueue() below: a commandId makes a resend after a lost answer
+    // return the original result instead of scoring twice. Actor and fingerprint are always the server's — set even
+    // when undefined, so a client-asserted value never survives the spread.
+    if (sms?.commandId !== undefined && sms.commandUser !== req.user?.email)
+      throw new ForbiddenException('Durable command belongs to another user');
+
+    // The same per-tournament gate as executionQueue(): the SCORE role alone admitted any provisioner key, provider
+    // key or global-score user to any provider's tournament, and skipped assignment roles and scoped grants. The
+    // relay's service token carries aud 'score', so it has no userContext and passes; it authorizes each tracker
+    // against its tournament before forwarding.
+    const command = scoreCommand(sms);
+    const actor = req.user?.email ?? req.user?.userId;
+    const denial = await this.mutationAuthorization.gate({
+      userContext,
+      tournamentIds: command.tournamentId ? [command.tournamentId] : [],
+      requestedMethods: ['setMatchUpStatus'],
+      methods: command.methods,
+      actor,
+    });
+    // ENFORCE_SCORE_ROUTE_AUTHORIZATION=false is a grace period for an integrator still scoring with the wrong
+    // credential: the refusal is logged, not thrown, so the log names everyone still relying on it.
+    if (denial && isScoreRouteAuthorizationEnforced()) throw new ForbiddenException(denial);
+    if (denial)
+      Logger.warn(
+        `score-route authorization NOT ENFORCED: would refuse ${actor} on ${command.tournamentId}: ${denial}`,
+        'FactoryController',
+      );
+    const commandActor =
+      sms?.commandId === undefined ? undefined : (req.user?.userId ?? req.user?.sub ?? req.user?.email);
+    const fingerprint = sms?.commandId === undefined ? undefined : commandFingerprint(scoreCommand(sms));
+
     // Stamp the authenticated identity + source onto the payload so this score
     // submission is audited and broadcast exactly like the socket and /factory
     // paths. Mirrors the executionQueue() controller below — without this the
     // audit hook records a null actor (and previously never fired at all).
     const verifiedUser = req.user;
-    const enriched: any = { ...sms, auditSource: req.auditSource, source: 'api' };
+    const enriched: any = {
+      ...sms,
+      auditSource: req.auditSource,
+      source: 'api',
+      commandActor,
+      commandFingerprint: fingerprint,
+    };
     if (verifiedUser?.email) enriched.userEmail = verifiedUser.email;
     if (verifiedUser?.userId || verifiedUser?.sub) enriched.userId = verifiedUser.userId ?? verifiedUser.sub;
 
@@ -621,7 +669,25 @@ export class FactoryController {
   @Post('query')
   @Roles([CLIENT, SUPER_ADMIN])
   @HttpCode(HttpStatus.OK)
-  queryTournamentRecords(@Body() qtd: QueryTournamentRecordsDto) {
+  async queryTournamentRecords(
+    @Body() qtd: QueryTournamentRecordsDto,
+    @User() user?: any,
+    @UserCtx() userContext?: UserContext,
+  ) {
+    // Any engine query runs here — getTournament included, which returns the whole record — so the CLIENT role is
+    // not enough: every tournament named must pass the same read gates as /factory/fetch. Behind the score route's
+    // grace switch: with ENFORCE_SCORE_ROUTE_AUTHORIZATION=false a refusal is logged, not returned.
+    const tournamentIds: string[] = qtd?.tournamentIds?.length
+      ? qtd.tournamentIds
+      : [qtd?.tournamentId].filter((id): id is string => !!id);
+    for (const tournamentId of tournamentIds) {
+      if (await this.factoryService.canReadUnpublishedTournament(tournamentId, user, userContext)) continue;
+      if (isScoreRouteAuthorizationEnforced()) throw new ForbiddenException('Not authorized to read this tournament');
+      Logger.warn(
+        `query-route authorization NOT ENFORCED: would refuse ${user?.email ?? user?.userId} on ${tournamentId}`,
+        'FactoryController',
+      );
+    }
     return this.factoryService.queryTournamentRecords(qtd);
   }
 

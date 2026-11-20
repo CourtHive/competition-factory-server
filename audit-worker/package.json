@@ -1,6 +1,6 @@
 {
   "name": "audit-worker",
-  "packageManager": "pnpm@12.18.0",
+  "packageManager": "pnpm@12.21.0",
   "version": "1.1.5",
   "private": true,
   "type": "module",
@@ -15,7 +15,7 @@
     "dotenv": "^18.0.0",
     "express": "^5.1.0",
     "pg": "^8.16.0",
-    "tods-competition-factory": "7.39.0"
+    "tods-competition-factory": "7.43.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

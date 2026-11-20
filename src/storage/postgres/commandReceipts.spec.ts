@@ -1,5 +1,7 @@
+import { scoreCommand, setMatchUpStatus } from 'src/modules/factory/functions/private/setMatchUpStatus';
 import { executionQueue } from 'src/modules/factory/functions/private/executionQueue';
 import { PostgresTournamentStorage } from './postgres-tournament.storage';
+import { mocksEngine, tournamentEngine } from 'tods-competition-factory';
 import { commandFingerprint, CommandReceipts } from './commandReceipts';
 import { PostgresProviderStorage } from './postgres-provider.storage';
 import { afterCommandCommit } from './commandTransaction';
@@ -223,6 +225,83 @@ describe('durable command atomic commit and recovery', () => {
     } finally {
       save.mockRestore();
     }
+  });
+  // POST /factory/score used to drop commandId, so an integrator resending after a lost answer scored twice. Its body
+  // is the legacy `{ params }` wrapper IONSport sends, the command fields beside it; the fingerprint is computed as the
+  // controller computes it. The resend carries a different ackId: transport metadata must not change the intent.
+  describe('score submissions', () => {
+    const scoreBody = (tournamentId: string, drawId: string, matchUpId: string, side1Score: number) => ({
+      commandId: 'score-command-1',
+      commandUser: 'provisioner@test',
+      params: {
+        tournamentId,
+        drawId,
+        matchUpId,
+        outcome: {
+          score: { sets: [{ setNumber: 1, side1Score, side2Score: 2, winningSide: 1 }] },
+          matchUpFormat: 'SET1-S:6/TB7',
+          matchUpStatus: 'COMPLETED',
+          winningSide: 1,
+        },
+      },
+    });
+    const stamp = (body: any, ackId: string) => ({
+      ...body,
+      ackId,
+      source: 'api',
+      commandActor: 'provisioner:test',
+      commandFingerprint: commandFingerprint(scoreCommand(body)),
+    });
+    let ids: { tournamentId: string; drawId: string; matchUpId: string };
+
+    beforeEach(async () => {
+      const {
+        tournamentRecord,
+        drawIds: [drawId],
+      } = mocksEngine.generateTournamentRecord({ drawProfiles: [{ drawSize: 4, matchUpFormat: 'SET1-S:6/TB7' }] });
+      await storage.saveTournamentRecord({ tournamentRecord });
+      const { matchUps } = tournamentEngine.setState(tournamentRecord).allTournamentMatchUps({ inContext: true });
+      const ready = matchUps.find((m: any) => m.readyToScore);
+      ids = { tournamentId: tournamentRecord.tournamentId, drawId, matchUpId: ready.matchUpId };
+    });
+    const storedMatchUp = async () => {
+      const { tournamentRecord } = await storage.findTournamentRecord({ tournamentId: ids.tournamentId });
+      const { matchUps } = tournamentEngine.setState(tournamentRecord).allTournamentMatchUps({
+        matchUpFilters: { matchUpIds: [ids.matchUpId] },
+      });
+      return matchUps[0];
+    };
+
+    it('answers a resent score from its receipt instead of scoring it again', async () => {
+      const body = scoreBody(ids.tournamentId, ids.drawId, ids.matchUpId, 6);
+      const save = vi.spyOn(storage, 'saveTournamentRecords');
+      try {
+        const first = await setMatchUpStatus(stamp(body, 'ack-1'), { commandReceipts: receipts }, storage as any);
+        const resend = await setMatchUpStatus(stamp(body, 'ack-2'), { commandReceipts: receipts }, storage as any);
+        expect(first.success).toBe(true);
+        expect(first.durableReceipt).toBe(true);
+        expect(resend.deduplicated).toBe(true);
+        expect(save).toHaveBeenCalledTimes(1);
+        expect((await storedMatchUp()).winningSide).toBe(1);
+      } finally {
+        save.mockRestore();
+      }
+    });
+
+    it('refuses the same commandId carrying a different score', async () => {
+      await setMatchUpStatus(
+        stamp(scoreBody(ids.tournamentId, ids.drawId, ids.matchUpId, 6), 'ack-1'),
+        {
+          commandReceipts: receipts,
+        },
+        storage as any,
+      );
+      const changed = stamp(scoreBody(ids.tournamentId, ids.drawId, ids.matchUpId, 7), 'ack-2');
+      await expect(setMatchUpStatus(changed, { commandReceipts: receipts }, storage as any)).rejects.toThrow(
+        'Command ID reused for different intent',
+      );
+      expect((await storedMatchUp()).score.sets[0].side1Score).toBe(6);
+    });
   });
   it('rolls back all linked records when one save is fenced', async () => {
     await storage.saveTournamentRecord({ tournamentRecord: { tournamentId: 't2', count: 0 }, ownerEpoch: 10 });
