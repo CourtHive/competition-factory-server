@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Pool } from 'pg';
 
+import { drainParticipantDocumentRequests } from 'src/modules/factory/projection/participantDocumentProducer';
 import { MAX_DELTAS_PER_STATEMENT, PostgresProjectionOutboxStorage } from './postgres-projection-outbox.storage';
+import { drainSnapshotRequests } from 'src/modules/factory/projection/snapshotProducer';
 
 /**
  * The projection outbox's fence and chunking against a REAL Postgres (Mentat/planning/CFS_LARGE_SAVES.md §10, P2/P4).
@@ -261,6 +263,60 @@ d('projection outbox fence and chunking (real Postgres)', () => {
       expect(outcome).toBe('changed');
       expect(await pending()).toHaveLength(1);
       expect(await queued('t-1')).toEqual([]);
+    });
+  });
+  // RECOVERY-001 (2026-11-13 ecosystem review): exhausted requests are kept as terminal evidence, and a full batch of
+  // them used to fill the LIMIT before the producer's attempts filter ran, so fresh work behind them never drained.
+  describe.each([
+    {
+      queue: 'snapshot',
+      table: 'projection_snapshot_requests',
+      drain: drainSnapshotRequests,
+      pending: (limit: number, maxAttempts?: number) => outbox.pendingSnapshotRequests(limit, maxAttempts),
+    },
+    {
+      queue: 'participant documents',
+      table: 'projection_document_requests',
+      drain: drainParticipantDocumentRequests,
+      pending: (limit: number, maxAttempts?: number) => outbox.pendingParticipantDocumentRequests(limit, maxAttempts),
+    },
+  ])('$queue requests behind a full batch of exhausted ones', ({ table, drain, pending }) => {
+    const LIMIT = 25;
+    const MAX_ATTEMPTS = 5;
+
+    beforeEach(async () => {
+      // LIMIT exhausted requests, all older than the fresh one
+      await pool.query(
+        `INSERT INTO ${table} (tournament_id, requested_at, source, attempts, last_error)
+           SELECT 'exhausted-' || n, NOW() - INTERVAL '1 day' + n * INTERVAL '1 second', 'factory-save', $1, 'boom'
+             FROM generate_series(1, $2) AS n`,
+        [MAX_ATTEMPTS, LIMIT],
+      );
+      await pool.query(`INSERT INTO ${table} (tournament_id, source) VALUES ('fresh', 'factory-save')`);
+    });
+
+    it('selects the fresh request within the batch', async () => {
+      const requests = await pending(LIMIT, MAX_ATTEMPTS);
+      expect(requests.map((r) => r.tournamentId)).toEqual(['fresh']);
+    });
+
+    it('drains the fresh request and keeps the exhausted ones as evidence', async () => {
+      // 'fresh' has no tournament row, so the real producer serves it as 'missing' and deletes the request
+      const result = await drain(outbox, { limit: LIMIT, maxAttempts: MAX_ATTEMPTS });
+      expect(result).toMatchObject({ examined: 1, missing: 1, failed: 0 });
+
+      const rows = (await pool.query(`SELECT tournament_id, attempts, last_error FROM ${table} ORDER BY tournament_id`))
+        .rows;
+      expect(rows.some((row) => row.tournament_id === 'fresh')).toBe(false);
+      expect(rows).toHaveLength(LIMIT);
+      expect(rows.every((row) => row.attempts === MAX_ATTEMPTS && row.last_error === 'boom')).toBe(true);
+    });
+
+    it('a re-request brings one exhausted tournament back into selection', async () => {
+      await drain(outbox, { limit: LIMIT, maxAttempts: MAX_ATTEMPTS });
+      await pool.query(`UPDATE ${table} SET attempts = 0, last_error = NULL WHERE tournament_id = 'exhausted-3'`);
+      const requests = await pending(LIMIT, MAX_ATTEMPTS);
+      expect(requests.map((r) => r.tournamentId)).toEqual(['exhausted-3']);
     });
   });
   // Migration 057: the same mechanism over its own table, so a participant change and a wholesale save never consume
