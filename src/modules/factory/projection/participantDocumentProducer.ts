@@ -25,7 +25,7 @@ export async function drainParticipantDocumentRequests(
   { limit = 25, maxAttempts = 5 }: { limit?: number; maxAttempts?: number } = {},
 ): Promise<DrainResult> {
   const result: DrainResult = { examined: 0, enqueued: 0, changed: 0, missing: 0, failed: 0 };
-  const requests = (await outbox.pendingParticipantDocumentRequests(limit)).filter(
+  const requests = (await outbox.pendingParticipantDocumentRequests(limit, maxAttempts)).filter(
     (request) => request.attempts < maxAttempts,
   );
 
