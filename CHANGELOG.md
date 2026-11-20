@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.17.1](https://github.com/CourtHive/competition-factory-server/compare/v4.17.0...v4.17.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* **sso:** bind handoff issuance to the provisioner's provider and the user's membership ([#1272](https://github.com/CourtHive/competition-factory-server/issues/1272)) ([305f15a](https://github.com/CourtHive/competition-factory-server/commit/305f15a3c127fc218787f64a84d0ba72915381d6))
+
 ## [4.17.0](https://github.com/CourtHive/competition-factory-server/compare/v4.16.0...v4.17.0) (2026-11-20)
 
 
