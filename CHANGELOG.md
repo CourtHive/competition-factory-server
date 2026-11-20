@@ -1,5 +1,28 @@
 # Changelog
 
+## [4.17.0](https://github.com/CourtHive/competition-factory-server/compare/v4.16.0...v4.17.0) (2026-11-20)
+
+
+### Features
+
+* **factory:** a grace switch for the score-route authorization ([e307ed3](https://github.com/CourtHive/competition-factory-server/commit/e307ed3b674efb5dd4de1cd2c39380a507316447))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.41.0 ([#1259](https://github.com/CourtHive/competition-factory-server/issues/1259)) ([a994f72](https://github.com/CourtHive/competition-factory-server/commit/a994f7292bedd608ea9e6a816680fd0402c37c1f))
+* **deps:** update tods-competition-factory to 7.43.0 ([#1266](https://github.com/CourtHive/competition-factory-server/issues/1266)) ([f785c5e](https://github.com/CourtHive/competition-factory-server/commit/f785c5ec25794bf08587eb383a76efcf4c1bff21))
+* **factory:** apply /factory/matchups eventId and drawId, key its cache on every filter ([2daad0e](https://github.com/CourtHive/competition-factory-server/commit/2daad0efdb37739081fb2fe2a0a7fe8b78856161))
+* **factory:** authorize /factory/score and /factory/matchups per tournament ([67a176e](https://github.com/CourtHive/competition-factory-server/commit/67a176ee58022a1b72aeaf4d56b8ea90320a645e))
+* **factory:** make /factory/score submissions durable with commandId ([9d1faf0](https://github.com/CourtHive/competition-factory-server/commit/9d1faf092f494a313f0bd7b5f2f9c7447905280e))
+* **factory:** the /factory/query route runs the per-tournament read gate ([1d10eab](https://github.com/CourtHive/competition-factory-server/commit/1d10eabac16a68fd7450c0835f67e55cfddcef91))
+
+
+### Documentation
+
+* **provisioner:** document commandId retries for /factory and /factory/score ([c144987](https://github.com/CourtHive/competition-factory-server/commit/c144987a4a7178f55a2f5233575c6d66f17ade68))
+* **provisioner:** the 403 for a tournament outside X-Provider-Id's provider ([717ef9f](https://github.com/CourtHive/competition-factory-server/commit/717ef9f60fa6578f18634f8e9d1dde0d546c2123))
+
 ## [4.16.0](https://github.com/CourtHive/competition-factory-server/compare/v4.15.2...v4.16.0) (2026-11-17)
 
 
