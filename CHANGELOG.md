@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.17.2](https://github.com/CourtHive/competition-factory-server/compare/v4.17.1...v4.17.2) (2026-11-20)
+
+
+### Bug Fixes
+
+* **projection:** exclude exhausted requests before the batch limit ([#1273](https://github.com/CourtHive/competition-factory-server/issues/1273)) ([7eb23ee](https://github.com/CourtHive/competition-factory-server/commit/7eb23eefdd51f2e4ef84611223126b705ca1c7c5))
+
 ## [4.17.1](https://github.com/CourtHive/competition-factory-server/compare/v4.17.0...v4.17.1) (2026-11-20)
 
 
