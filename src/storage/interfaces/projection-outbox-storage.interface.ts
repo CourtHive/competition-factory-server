@@ -97,8 +97,12 @@ export interface IProjectionOutboxStorage {
    * pending request per tournament: a repeat save refreshes `requested_at` and resets the attempt count.
    */
   requestSnapshots(tournamentIds: string[], source: string, options?: { client?: any }): Promise<void>;
-  /** The oldest pending requests, at most `limit`. */
-  pendingSnapshotRequests(limit: number): Promise<SnapshotRequest[]>;
+  /**
+   * The oldest pending requests, at most `limit`. With `maxAttempts`, only requests still eligible for retry
+   * (`attempts < maxAttempts`): the predicate is applied BEFORE the limit, so exhausted requests, kept as terminal
+   * evidence, never fill the batch and starve fresh work (RECOVERY-001).
+   */
+  pendingSnapshotRequests(limit: number, maxAttempts?: number): Promise<SnapshotRequest[]>;
   /**
    * The producer's commit, in ONE transaction: the `enqueueIfUnchanged` fence, the span, and the deletion of the
    * request it served. The request is deleted only if it is still the one read: a save that re-requested the
@@ -117,8 +121,8 @@ export interface IProjectionOutboxStorage {
    * (migration 057). Same coalescing, savepoint and transaction rules as `requestSnapshots`.
    */
   requestParticipantDocuments(tournamentIds: string[], source: string, options?: { client?: any }): Promise<void>;
-  /** The oldest pending document requests, at most `limit`. */
-  pendingParticipantDocumentRequests(limit: number): Promise<SnapshotRequest[]>;
+  /** The oldest pending document requests, at most `limit`; `maxAttempts` as for `pendingSnapshotRequests`. */
+  pendingParticipantDocumentRequests(limit: number, maxAttempts?: number): Promise<SnapshotRequest[]>;
   /** The producer's commit for a documents span: the fence, the span, and the deletion of the request it served. */
   completeParticipantDocuments(params: {
     tournamentId: string;

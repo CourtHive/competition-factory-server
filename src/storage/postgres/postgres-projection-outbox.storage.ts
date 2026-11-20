@@ -82,8 +82,8 @@ export class PostgresProjectionOutboxStorage implements IProjectionOutboxStorage
     await this.request(REQUEST_TABLES.snapshot, tournamentIds, source, options);
   }
 
-  async pendingSnapshotRequests(limit: number): Promise<SnapshotRequest[]> {
-    return this.pending(REQUEST_TABLES.snapshot, limit);
+  async pendingSnapshotRequests(limit: number, maxAttempts?: number): Promise<SnapshotRequest[]> {
+    return this.pending(REQUEST_TABLES.snapshot, limit, maxAttempts);
   }
 
   async completeSnapshot(params: CompleteParams): Promise<FencedEnqueueResult> {
@@ -102,8 +102,8 @@ export class PostgresProjectionOutboxStorage implements IProjectionOutboxStorage
     await this.request(REQUEST_TABLES.documents, tournamentIds, source, options);
   }
 
-  async pendingParticipantDocumentRequests(limit: number): Promise<SnapshotRequest[]> {
-    return this.pending(REQUEST_TABLES.documents, limit);
+  async pendingParticipantDocumentRequests(limit: number, maxAttempts?: number): Promise<SnapshotRequest[]> {
+    return this.pending(REQUEST_TABLES.documents, limit, maxAttempts);
   }
 
   async completeParticipantDocuments(params: CompleteParams): Promise<FencedEnqueueResult> {
@@ -147,11 +147,14 @@ export class PostgresProjectionOutboxStorage implements IProjectionOutboxStorage
     await request(this.pool);
   }
 
-  private async pending(table: RequestTable, limit: number): Promise<SnapshotRequest[]> {
+  // Eligibility is filtered BEFORE the LIMIT: exhausted requests stay in the table as terminal evidence (attempts,
+  // last_error), and must not occupy the batch, or `limit` of them starve every fresh request behind them.
+  private async pending(table: RequestTable, limit: number, maxAttempts?: number): Promise<SnapshotRequest[]> {
+    const eligible = maxAttempts === undefined ? '' : 'WHERE attempts < $2';
     const result = await this.pool.query(
       `SELECT tournament_id, requested_at::text AS requested_at, source, attempts
-         FROM ${table} ORDER BY requested_at ASC LIMIT $1`,
-      [limit],
+         FROM ${table} ${eligible} ORDER BY requested_at ASC LIMIT $1`,
+      maxAttempts === undefined ? [limit] : [limit, maxAttempts],
     );
     return result.rows.map((row) => ({
       tournamentId: row.tournament_id,
