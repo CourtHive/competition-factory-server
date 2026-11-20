@@ -35,7 +35,12 @@ function makeMockUserProviderStorage() {
       .mockResolvedValue([{ email: 'test@test.com', userId: 'u1', providerId: 'p1', providerRole: 'DIRECTOR' }]),
     findByEmail: vi.fn().mockResolvedValue([]),
     findByProviderId: vi.fn().mockResolvedValue([]),
-    findOne: vi.fn(),
+    // membership of (userId, providerId): u1 belongs to p1 and p-resolved only
+    findOne: vi.fn(async (userId: string, providerId: string) =>
+      userId === 'u1' && ['p1', 'p-resolved'].includes(providerId)
+        ? { userId, providerId, providerRole: 'DIRECTOR' }
+        : null,
+    ),
     upsert: vi.fn(),
     remove: vi.fn(),
   };
@@ -59,6 +64,7 @@ describe('SsoController', () => {
   let userProviderStorage: ReturnType<typeof makeMockUserProviderStorage>;
   let providerStorage: ReturnType<typeof makeMockProviderStorage>;
   let jwtService: ReturnType<typeof makeMockJwtService>;
+  let provisionerProviderStorage: any;
 
   beforeEach(() => {
     ssoTokenService = makeMockSsoTokenService();
@@ -69,7 +75,18 @@ describe('SsoController', () => {
     providerStorage = makeMockProviderStorage();
 
     const userProvisionerStorage: any = { findProvisionerIdsByUser: vi.fn().mockResolvedValue([]) };
-    const provisionerProviderStorage: any = { findByProvisioner: vi.fn().mockResolvedValue([]) };
+    // prov-1 manages p1 (owner) and p-resolved (subsidiary); prov-other manages only p-other
+    const relationships: Record<string, 'owner' | 'subsidiary'> = {
+      'prov-1|p1': 'owner',
+      'prov-1|p-resolved': 'subsidiary',
+      'prov-other|p-other': 'owner',
+    };
+    provisionerProviderStorage = {
+      findByProvisioner: vi.fn().mockResolvedValue([]),
+      getRelationship: vi.fn(
+        async (provisionerId: string, providerId: string) => relationships[`${provisionerId}|${providerId}`] ?? null,
+      ),
+    };
     const refreshTokenService: any = { issue: vi.fn().mockResolvedValue('rtok_sso') };
 
     // HIVEID_BASE_URL unset → SplitTokenSigner signs locally via the mock
@@ -121,6 +138,94 @@ describe('SsoController', () => {
       );
 
       expect(result.error).toContain('SSO identity not found');
+    });
+
+    it('refuses an unrelated provisioner for a known foreign identity, without issuing', async () => {
+      ssoIdentityStorage.findByExternalId.mockResolvedValue({
+        userId: 'u1',
+        ssoProvider: 'ioncourt',
+        externalId: 'ext-1',
+      });
+
+      // prov-other names its own provider: u1 is not a member of it
+      let result: any = await controller.generate(
+        { provisioner: { provisionerId: 'prov-other' } },
+        { externalId: 'ext-1', ssoProvider: 'ioncourt', providerId: 'p-other' },
+      );
+      expect(result.code).toBe('SSO_IDENTITY_NOT_FOUND');
+
+      // prov-other names the victim's provider: it does not manage it
+      result = await controller.generate(
+        { provisioner: { provisionerId: 'prov-other' } },
+        { externalId: 'ext-1', ssoProvider: 'ioncourt', providerId: 'p1' },
+      );
+      expect(result.code).toBe('SSO_IDENTITY_NOT_FOUND');
+      expect(ssoTokenService.generate).not.toHaveBeenCalled();
+    });
+
+    it('refuses unrelated and missing identities identically (no existence oracle)', async () => {
+      ssoIdentityStorage.findByExternalId.mockResolvedValueOnce(null);
+      let missing: any = await controller.generate(
+        { provisioner: { provisionerId: 'prov-1' } },
+        { externalId: 'missing', ssoProvider: 'ioncourt', providerId: 'p1' },
+      );
+      ssoIdentityStorage.findByExternalId.mockResolvedValueOnce({
+        userId: 'u1',
+        ssoProvider: 'ioncourt',
+        externalId: 'ext-1',
+      });
+      let foreign: any = await controller.generate(
+        { provisioner: { provisionerId: 'prov-other' } },
+        { externalId: 'ext-1', ssoProvider: 'ioncourt', providerId: 'p-other' },
+      );
+      expect(foreign).toEqual(missing);
+    });
+
+    it('refuses a managed provider when the identity user is not its member', async () => {
+      ssoIdentityStorage.findByExternalId.mockResolvedValueOnce({
+        userId: 'u-elsewhere',
+        ssoProvider: 'ioncourt',
+        externalId: 'ext-9',
+      });
+      let result: any = await controller.generate(
+        { provisioner: { provisionerId: 'prov-1' } },
+        { externalId: 'ext-9', ssoProvider: 'ioncourt', providerId: 'p1' },
+      );
+      expect(result.code).toBe('SSO_IDENTITY_NOT_FOUND');
+      expect(ssoTokenService.generate).not.toHaveBeenCalled();
+    });
+
+    it('allows a subsidiary provisioner for its member user', async () => {
+      ssoIdentityStorage.findByExternalId.mockResolvedValueOnce({
+        userId: 'u1',
+        ssoProvider: 'ioncourt',
+        externalId: 'ext-1',
+      });
+      ssoTokenService.generate.mockResolvedValueOnce({ token: 'tok-sub', expiresIn: 60 });
+      let result: any = await controller.generate(
+        { provisioner: { provisionerId: 'prov-1' } },
+        { externalId: 'ext-1', ssoProvider: 'ioncourt', providerId: 'p-resolved' },
+      );
+      expect(result.token).toBe('tok-sub');
+    });
+
+    it('refuses a body providerId that differs from X-Provider-Id', async () => {
+      let result: any = await controller.generate(
+        { provisioner: { provisionerId: 'prov-1' }, headers: { 'x-provider-id': 'p-resolved' } },
+        { externalId: 'ext-1', ssoProvider: 'ioncourt', providerId: 'p1' },
+      );
+      expect(result.code).toBe('SSO_PROVIDER_MISMATCH');
+      expect(ssoTokenService.generate).not.toHaveBeenCalled();
+    });
+
+    it('fails closed when the relationship lookup errors', async () => {
+      provisionerProviderStorage.getRelationship.mockRejectedValueOnce(new Error('db down'));
+      let result: any = await controller.generate(
+        { provisioner: { provisionerId: 'prov-1' } },
+        { externalId: 'ext-1', ssoProvider: 'ioncourt', providerId: 'p1' },
+      );
+      expect(result.code).toBe('SSO_IDENTITY_NOT_FOUND');
+      expect(ssoTokenService.generate).not.toHaveBeenCalled();
     });
 
     it('returns error when required fields missing', async () => {
@@ -205,6 +310,43 @@ describe('SsoController', () => {
 
       let result: any = await controller.loginWithToken({ token: 'tok-uuid' });
       expect(result.error).toContain('User not found for SSO identity');
+    });
+
+    it('refuses a token whose provisioner relationship was revoked before consume', async () => {
+      ssoTokenService.consume.mockResolvedValueOnce({
+        externalId: 'ext-1',
+        ssoProvider: 'ioncourt',
+        providerId: 'p1',
+        provisionerId: 'prov-revoked',
+      });
+      ssoIdentityStorage.findByExternalId.mockResolvedValue({
+        userId: 'u1',
+        ssoProvider: 'ioncourt',
+        externalId: 'ext-1',
+      });
+
+      let result: any = await controller.loginWithToken({ token: 'tok-uuid' });
+      expect(result.code).toBe('SSO_HANDOFF_UNAUTHORIZED');
+      expect(result.accessToken).toBeUndefined();
+      expect(jwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('refuses a token whose user left the provider before consume', async () => {
+      ssoTokenService.consume.mockResolvedValueOnce({
+        externalId: 'ext-2',
+        ssoProvider: 'ioncourt',
+        providerId: 'p1',
+        provisionerId: 'prov-1',
+      });
+      ssoIdentityStorage.findByExternalId.mockResolvedValue({
+        userId: 'u-left',
+        ssoProvider: 'ioncourt',
+        externalId: 'ext-2',
+      });
+
+      let result: any = await controller.loginWithToken({ token: 'tok-uuid' });
+      expect(result.code).toBe('SSO_HANDOFF_UNAUTHORIZED');
+      expect(result.accessToken).toBeUndefined();
     });
 
     it('returns error when token is missing', async () => {
