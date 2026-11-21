@@ -1,3 +1,5 @@
+import { loadFetchedRecords } from './loadFetchedRecords';
+import { shadowDifferences } from './shadowDifference';
 import { asyncEngine, tools } from 'tods-competition-factory';
 import asyncGlobalState from '../engines/asyncGlobalState';
 import { Logger } from '@nestjs/common';
@@ -139,7 +141,13 @@ export async function runShardShadow(batch: ShadowBatch): Promise<Outcome> {
   try {
     return await asyncGlobalState.runWithInstanceState(async () => {
       const engine: any = asyncEngine();
-      engine.setState(partialRecord);
+      // DECISION (P66): use the live mutation loader on the footprint's private clone. The factory's
+      // default copy drops JSON nulls; passing false would change the process-wide copy setting.
+      const loaded = loadFetchedRecords({ [tournamentId]: partialRecord });
+      if (loaded.error) {
+        Logger.error(`error ${tournamentId} [${names}]: invalid partial record`, CONTEXT);
+        return 'error';
+      }
       if (typeof engine.loadedFootprint === 'function') engine.loadedFootprint(footprint);
       const result: any = await engine.executionQueue(methods);
       if (!result?.success) {
@@ -149,14 +157,20 @@ export async function runShardShadow(batch: ShadowBatch): Promise<Outcome> {
       }
       // read from this run's own instance state: the queue may have replaced the object it was given
       const shadowRecord: any = asyncGlobalState.getTournamentRecords()?.[tournamentId];
-      const differing = Object.keys(savedDraws).filter((drawId) => {
-        const shadowDraw = shadowRecord?.events
-          ?.flatMap(({ drawDefinitions }: any) => drawDefinitions ?? [])
-          .find((drawDefinition: any) => drawDefinition.drawId === drawId);
-        return canonical(shadowDraw) !== canonical(savedDraws[drawId]);
-      });
-      if (differing.length) {
-        Logger.error(`mismatch ${tournamentId} [${names}]: draw(s) ${differing.join(', ')}`, CONTEXT);
+      let mismatch = false;
+      const paths: string[] = [];
+      const draws = shadowRecord?.events?.flatMap(({ drawDefinitions }: any) => drawDefinitions ?? []) ?? [];
+      for (const [index, [drawId, draw]] of Object.entries(savedDraws).entries()) {
+        if (paths.length >= 4) break;
+        const saved = canonical(draw);
+        const shadow = canonical(draws.find((candidate: any) => candidate.drawId === drawId));
+        if (saved !== shadow) {
+          mismatch = true;
+          paths.push(...shadowDifferences(saved, shadow, `draw[${index}]`, 4 - paths.length));
+        }
+      }
+      if (mismatch) {
+        Logger.error(`mismatch ${tournamentId} [${names}]: ${paths.join('; ')}`, CONTEXT);
         return 'mismatch';
       }
       Logger.debug(`match ${tournamentId} [${names}]`, CONTEXT);
