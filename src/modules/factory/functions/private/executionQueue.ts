@@ -1,3 +1,4 @@
+import { operatorScorePrecondition } from '../../../operator/scoreRequest';
 import { scheduleDrawIntegrityScan, snapshotTouchedDraws } from '../../helpers/executionQueueIntegrity';
 import { captureShardShadow, planShardShadow, scheduleShardShadow } from '../../helpers/executionQueueShadow';
 import { documentRequestTournamentIds } from '../../projection/participantDocumentRequests';
@@ -136,9 +137,13 @@ export async function executionQueue(
             // is loaded), then from the lock-acquired record for whatever is left.
             await resolveMatchUpReferencesFromIndex(methods, tournamentIds, storage);
 
-            const result: any = await storage.fetchTournamentRecords({ tournamentIds });
+            const assertion = payload[operatorScorePrecondition];
+            const result: any = await storage.fetchTournamentRecords(
+              assertion ? { tournamentIds, captureRevision: true } : { tournamentIds },
+            );
             if (result.error) return result;
 
+            await assertion?.(result.tournamentRecords);
             await resolveMatchUpReferences(methods, result.tournamentRecords);
 
             // After getMutationEngine(): constructing the engine resets this request's instance state.

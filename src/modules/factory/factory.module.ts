@@ -1,3 +1,5 @@
+import { OperatorMatchService } from '../operator/operator-match.service';
+import { OperatorController, OperatorMatchEnabled } from '../operator/operator.controller';
 import { SnapshotProjectionService } from './projection/snapshot-projection.service';
 import { ProjectionRebuildService } from './projection/projection-rebuild.service';
 import { AdminTournamentMoveController } from './admin-tournament-move.controller';
@@ -9,6 +11,7 @@ import { GrantsController } from './grants.controller';
 import { MutationAuthorizationService } from './mutation-authorization.service';
 import { AssignmentsService } from './assignments.service';
 import { GrantsService } from './grants.service';
+import { FactoryHttpDelivery } from './factory-http-delivery.service';
 import { FactoryController } from './factory.controller';
 import { AuditModule } from '../audit/audit.module';
 import { ConfigsModule } from 'src/config/config.module';
@@ -18,7 +21,10 @@ import { Module } from '@nestjs/common';
 
 @Module({
   providers: [
+    OperatorMatchService,
+    OperatorMatchEnabled,
     FactoryService,
+    FactoryHttpDelivery,
     AssignmentsService,
     MutationAuthorizationService,
     GrantsService,
@@ -28,6 +34,7 @@ import { Module } from '@nestjs/common';
     AdminTournamentMoveService,
   ],
   controllers: [
+    OperatorController,
     FactoryController,
     AssignmentsController,
     GrantsController,
