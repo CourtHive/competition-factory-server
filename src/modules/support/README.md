@@ -7,7 +7,8 @@ super-admin context independently of the CLI. API keys cannot submit or read rep
 
 ## Activation and routing
 
-Disabled unless `SUPPORT_REPORTS_ENABLED=true`. Before enabling, configure `AMS_BASE_URL`,
+Submission and outbound work are disabled unless `SUPPORT_REPORTS_ENABLED=true`. Expiry cleanup
+continues while reporting is disabled. Before enabling, configure `AMS_BASE_URL`,
 `AMS_SERVICE_TOKEN`, `SUPPORT_NOTIFY_MODULE` (absolute path to the deployed courthive-notify
 `lib/ntfy.mjs`) and `SUPPORT_NTFY_TOPIC`. The existing notifier loads its protected token/URL/Host
 configuration; grant that publisher write access to the selected topic and subscribe the inbox owner.

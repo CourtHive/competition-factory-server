@@ -9,6 +9,8 @@ export class SupportWorker implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(SupportWorker.name);
   private timer?: ReturnType<typeof setInterval>;
   private active?: Promise<void>;
+  // Process-local DB-availability telemetry resets on restart; an unavailable DB cannot store it.
+  // Durable case/send/alert counters live in Postgres; ERROR logs reach the existing PM2 watcher.
   private failures = 0;
   constructor(
     private readonly store: SupportStore,
@@ -17,15 +19,16 @@ export class SupportWorker implements OnApplicationBootstrap, OnModuleDestroy {
   ) {}
 
   async onApplicationBootstrap() {
-    if (process.env.SUPPORT_REPORTS_ENABLED !== 'true') return;
-    if (
-      !process.env.AMS_BASE_URL ||
-      !process.env.AMS_SERVICE_TOKEN ||
-      !process.env.SUPPORT_NOTIFY_MODULE ||
-      !process.env.SUPPORT_NTFY_TOPIC
-    )
-      throw new Error('Support reporting requires AMS and courthive-notify configuration');
-    await this.transport.ready();
+    if (process.env.SUPPORT_REPORTS_ENABLED === 'true') {
+      if (
+        !process.env.AMS_BASE_URL ||
+        !process.env.AMS_SERVICE_TOKEN ||
+        !process.env.SUPPORT_NOTIFY_MODULE ||
+        !process.env.SUPPORT_NTFY_TOPIC
+      )
+        throw new Error('Support reporting requires AMS and courthive-notify configuration');
+      await this.transport.ready();
+    }
     // One bounded sweep/minute, no tournament polling. Work and retry counters live in Postgres, not this timer.
     this.timer = setInterval(() => {
       void this.tick();
@@ -52,7 +55,9 @@ export class SupportWorker implements OnApplicationBootstrap, OnModuleDestroy {
   }
   private async sweep() {
     await this.store.purge();
-    for (let i = 0; i < 10; i++) if (!(await this.processOne())) break;
+    if (process.env.SUPPORT_REPORTS_ENABLED === 'true') {
+      for (let i = 0; i < 10; i++) if (!(await this.processOne())) break;
+    }
     if (this.failures) {
       this.logger.warn(`support-worker-recovered failures=${this.failures}`);
       this.failures = 0;

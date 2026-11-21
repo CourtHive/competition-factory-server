@@ -63,6 +63,24 @@ describe('description-only evidence boundary', () => {
     vi.unstubAllEnvs();
   });
 
+  it('keeps expiry cleanup running while report submission and outbound work are disabled', async () => {
+    vi.stubEnv('SUPPORT_REPORTS_ENABLED', 'false');
+    vi.useFakeTimers();
+    const store = { purge: vi.fn().mockResolvedValue(undefined), pool: { connect: vi.fn() } };
+    const transport = { ready: vi.fn(), send: vi.fn(), notify: vi.fn() };
+    const worker = new SupportWorker(store as any, transport as any, {} as any);
+    await worker.onApplicationBootstrap();
+    await worker.tick();
+    await vi.advanceTimersByTimeAsync(60_000);
+    await worker.onModuleDestroy();
+    expect(store.purge.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(store.pool.connect).not.toHaveBeenCalled();
+    expect(transport.ready).not.toHaveBeenCalled();
+    expect(transport.send).not.toHaveBeenCalled();
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+  });
+
   it('authorizes the source against metadata and rejects another provider even for an otherwise valid user', async () => {
     vi.stubEnv('SUPPORT_REPORTS_ENABLED', 'true');
     const store = { submit: vi.fn() };
