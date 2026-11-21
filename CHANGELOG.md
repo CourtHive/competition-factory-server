@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.17.3](https://github.com/CourtHive/competition-factory-server/compare/v4.17.2...v4.17.3) (2026-11-21)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.44.0 ([#1280](https://github.com/CourtHive/competition-factory-server/issues/1280)) ([79b9c7d](https://github.com/CourtHive/competition-factory-server/commit/79b9c7d1db23982ac9931bfd8823e5637b2e6731))
+
 ## [4.17.2](https://github.com/CourtHive/competition-factory-server/compare/v4.17.1...v4.17.2) (2026-11-20)
 
 
