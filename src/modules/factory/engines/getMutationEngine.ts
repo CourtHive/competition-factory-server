@@ -40,6 +40,8 @@ const depth = 1;
 
 globalState.setStateMethods(governors, traverse, depth, global); // globally imports methods from governors
 globalState.setStateProvider(asyncGlobalState);
+// Draw-only writes stamp their draw definitions. Tournament-wide changes still stamp the shell.
+globalState.setStampScope('modified');
 globalState.setGlobalSubscriptions({
   subscriptions: {
     // any subscriptions that don't need access to cacheManager can go here
