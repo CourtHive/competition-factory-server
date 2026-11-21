@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 
 import { AdminLoadProfileController } from './admin-load-profile.controller';
 import { CspReportController } from './csp-report.controller';
+import { LoadWindowService } from './load-window.service';
 import { LoadProfileService } from './load-profile.service';
 
 /**
@@ -22,7 +23,7 @@ import { LoadProfileService } from './load-profile.service';
 @Global()
 @Module({
   controllers: [AdminLoadProfileController, CspReportController],
-  providers: [LoadProfileService],
+  providers: [LoadProfileService, LoadWindowService],
   exports: [LoadProfileService],
 })
 export class TelemetryModule {}
