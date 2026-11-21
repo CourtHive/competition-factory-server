@@ -1,3 +1,4 @@
+import { drainSnapshotRequests } from 'src/modules/factory/projection/snapshotProducer';
 import { PostgresProjectionOutboxStorage } from './postgres-projection-outbox.storage';
 import { executionQueue } from 'src/modules/factory/functions/private/executionQueue';
 import { PostgresParticipationStorage } from './postgres-participation.storage';
@@ -9,6 +10,7 @@ import { PostgresProviderStorage } from './postgres-provider.storage';
 import { getPostgresConfig } from './postgres.config';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { Logger } from '@nestjs/common';
 import { join } from 'node:path';
 import { Pool } from 'pg';
 
@@ -44,6 +46,8 @@ describe('durable command transactional outbox', () => {
     executionQueue(structuredClone(sent), { commandReceipts: receipts, projectionOutbox: outbox }, facade);
   const queued = async () =>
     Number((await admin.query(`SELECT count(*) FROM ${schema}.projection_queue`)).rows[0].count);
+  const repairRequests = async () =>
+    (await admin.query(`SELECT tournament_id, source FROM ${schema}.projection_snapshot_requests`)).rows;
   const receiptCount = async () =>
     Number((await admin.query(`SELECT count(*) FROM ${schema}.command_receipts`)).rows[0].count);
   const storedName = async () =>
@@ -83,7 +87,7 @@ describe('durable command transactional outbox', () => {
     receipts = new CommandReceipts(pool);
   });
   beforeEach(async () => {
-    await pool.query('TRUNCATE tournaments, command_receipts, projection_queue');
+    await pool.query('TRUNCATE tournaments, command_receipts, projection_queue, projection_snapshot_requests');
     const saved: any = await facade.saveTournamentRecord({
       tournamentRecord: {
         tournamentId: 'to-1',
@@ -157,5 +161,65 @@ describe('durable command transactional outbox', () => {
     expect(await storedName()).toBe('After');
     expect(await receiptCount()).toBe(1);
     expect(await queued()).toBe(0);
+  });
+
+  // RECOVERY-004: the failed span is not left to a manual rebuild. A snapshot request commits with the record, and
+  // the producer repairs the read model from the stored record.
+  it('records a repair request when the span fails, and the producer repairs the read model', async () => {
+    await admin.query(`ALTER TABLE ${schema}.projection_queue ADD CONSTRAINT reject_span CHECK (false) NOT VALID`);
+    try {
+      const result = await run(command('After'));
+      expect(result.success).toBe(true);
+      expect(await queued()).toBe(0);
+      expect(await repairRequests()).toEqual([{ tournament_id: 'to-1', source: 'enqueue_failed' }]);
+    } finally {
+      await admin.query(`ALTER TABLE ${schema}.projection_queue DROP CONSTRAINT reject_span`);
+    }
+
+    const drained = await drainSnapshotRequests(outbox);
+    expect(drained).toMatchObject({ examined: 1, enqueued: 1, failed: 0 });
+    expect(await queued()).toBeGreaterThan(0);
+    expect(await repairRequests()).toEqual([]);
+  });
+
+  it('records no repair request when the span lands', async () => {
+    const result = await run(command('After'));
+    expect(result.success).toBe(true);
+    expect(await queued()).toBeGreaterThan(0);
+    expect(await repairRequests()).toEqual([]);
+  });
+
+  it('rolls the repair request back with a command that does not commit', async () => {
+    await admin.query(`ALTER TABLE ${schema}.projection_queue ADD CONSTRAINT reject_span CHECK (false) NOT VALID`);
+    await admin.query(`ALTER TABLE ${schema}.command_receipts ADD CONSTRAINT reject_receipt CHECK (false) NOT VALID`);
+    try {
+      await expect(run(command('After'))).rejects.toThrow();
+    } finally {
+      await admin.query(`ALTER TABLE ${schema}.command_receipts DROP CONSTRAINT reject_receipt`);
+      await admin.query(`ALTER TABLE ${schema}.projection_queue DROP CONSTRAINT reject_span`);
+    }
+    expect(await storedName()).toBe('Before');
+    expect(await repairRequests()).toEqual([]);
+  });
+
+  it('still commits the command when the repair request fails too, and names the tournament', async () => {
+    const errors = vi.spyOn(Logger, 'error').mockImplementation(() => undefined);
+    const logged: string[] = [];
+    await admin.query(`ALTER TABLE ${schema}.projection_queue ADD CONSTRAINT reject_span CHECK (false) NOT VALID`);
+    await admin.query(
+      `ALTER TABLE ${schema}.projection_snapshot_requests ADD CONSTRAINT reject_request CHECK (false) NOT VALID`,
+    );
+    try {
+      const result = await run(command('After'));
+      expect(result.success).toBe(true);
+    } finally {
+      await admin.query(`ALTER TABLE ${schema}.projection_snapshot_requests DROP CONSTRAINT reject_request`);
+      await admin.query(`ALTER TABLE ${schema}.projection_queue DROP CONSTRAINT reject_span`);
+      logged.push(...errors.mock.calls.map(([message]) => String(message)));
+      errors.mockRestore();
+    }
+    expect(await storedName()).toBe('After');
+    expect(await receiptCount()).toBe(1);
+    expect(logged.some((message) => /repair request failed.*to-1/.test(message))).toBe(true);
   });
 });
