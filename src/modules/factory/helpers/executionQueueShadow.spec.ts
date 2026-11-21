@@ -1,4 +1,5 @@
-import { mocksEngine, tournamentEngine } from 'tods-competition-factory';
+import asyncGlobalState from '../engines/asyncGlobalState';
+import { asyncEngine, mocksEngine, tournamentEngine } from 'tods-competition-factory';
 
 import {
   captureShardShadow,
@@ -125,6 +126,27 @@ describe('shard shadow', () => {
       }
     },
   );
+
+  it.each([false, true])('matches the JSONB score shape held by the mutation engine (stored null: %s)', async (withNull) => {
+    const { tournamentRecord, tournamentId, drawId, methods } = scoreFirstMatchUp();
+    const stored = JSON.parse(JSON.stringify(tournamentRecord));
+    const draw = stored.events.flatMap((event: any) => event.drawDefinitions).find((d: any) => d.drawId === drawId);
+    const other = draw.structures[0].matchUps.find((m: any) => m.matchUpId !== methods[0].params.matchUpId);
+    other.score = { server: withNull ? { player: null } : {} };
+    const records = JSON.parse(JSON.stringify({ [tournamentId]: stored }));
+    const plan = planShardShadow({ tournamentIds: [tournamentId], methods, tournamentRecords: records });
+    const batch = await asyncGlobalState.runWithInstanceState(async () => {
+      const engine = asyncEngine();
+      asyncGlobalState.setTournamentRecords(records);
+      const result: any = await engine.executionQueue(methods);
+      expect(result.success).toBe(true);
+      return captureShardShadow(plan, asyncGlobalState.getTournamentRecords());
+    });
+    const saved = batch!.savedDraws[drawId].structures[0].matchUps.find((m: any) => m.matchUpId === other.matchUpId);
+    expect(Object.hasOwn(saved.score.server, 'player')).toBe(withNull);
+    if (withNull) expect(saved.score.server.player).toBeNull();
+    expect(await runShardShadow(batch!)).toBe('match');
+  });
 
   it('reports a mismatch when the partial run does not reproduce the saved draw', async () => {
     const { tournamentRecord, tournamentId, drawId, methods } = scoreFirstMatchUp();
