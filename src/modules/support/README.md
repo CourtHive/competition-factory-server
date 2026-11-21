@@ -63,7 +63,8 @@ implementation does not erase historical dumps. Before a restored database is ex
 enabled, purge `support_cases WHERE expires_at <= now()` and retain expiry filters. A restore does not
 restart the 30-day clock. Include this check in the operator's restore procedure.
 
-Assign a named inbox owner, verify topic ACL/subscription and mail configuration, check migration 064
+The super-admin role owns the inbox. Verify its ntfy subscription and mail configuration using
+`charles@courthive.com` as the delivery contact. Check migration 064
 against a disposable database, and qualify rate/size limits before activation. The worker logs only
 opaque references/failure classes; ntfy never receives descriptions, contacts or tournament IDs.
 Support submissions acquire only short support-rate locks, never tournament mutation locks; source
