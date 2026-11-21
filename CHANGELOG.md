@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.17.4](https://github.com/CourtHive/competition-factory-server/compare/v4.17.3...v4.17.4) (2026-11-21)
+
+
+### Bug Fixes
+
+* **projection:** repair a missed read-model enqueue with a snapshot request ([#1286](https://github.com/CourtHive/competition-factory-server/issues/1286)) ([a41048f](https://github.com/CourtHive/competition-factory-server/commit/a41048fb74964c8199818186d1334cf1e0d1b1b0))
+
 ## [4.17.3](https://github.com/CourtHive/competition-factory-server/compare/v4.17.2...v4.17.3) (2026-11-21)
 
 
