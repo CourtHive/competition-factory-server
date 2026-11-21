@@ -20,7 +20,10 @@ import {
 const suffix = randomUUID().slice(0, 8);
 const providers = [`support-e2e-a-${suffix}`, `support-e2e-b-${suffix}`];
 const emails = ['reporter', 'peer', 'outsider', 'admin'].map((name) => `support-${name}-${suffix}@courthive.test`);
+let reporterId: string;
 const input = () => ({
+  expectedReporter: reporterId,
+  expectedProvider: providers[0],
   submissionKey: randomUUID(),
   description: 'A refused create',
   evidence: {
@@ -73,6 +76,7 @@ describe.skipIf(process.env.STORAGE_PROVIDER !== 'postgres')(
         for (const id of providers)
           await associations.upsert({ userId: user.userId, providerId: id, providerRole: 'PROVIDER_ADMIN' });
       }
+      reporterId = (await users.findOne(emails[0])).userId;
       reporter = await signSessionToken(app, { email: emails[0], providerId: providers[0] });
       peer = await signSessionToken(app, { email: emails[1], providerId: providers[0] });
       outsider = await signSessionToken(app, { email: emails[2], providerId: providers[0] });
@@ -129,6 +133,12 @@ describe.skipIf(process.env.STORAGE_PROVIDER !== 'postgres')(
         .auth(reporter, { type: 'bearer' })
         .send({ ...input(), tournamentId: tournamentIds[0] })
         .expect(201);
+      await request(http).post('/support/reports').auth(peer, { type: 'bearer' }).send(input()).expect(403);
+      await request(http)
+        .post('/support/reports')
+        .auth(reporter, { type: 'bearer' })
+        .send({ ...input(), expectedProvider: providers[1] })
+        .expect(403);
       const ref = created.body.reference;
       expect(created.body).toMatchObject({ accepted: true, snapshot: 'not_attached', contact: 'pending' });
       expect(created.body.description).toBeUndefined();

@@ -20,8 +20,14 @@ const evidence = () => ({
     codes: [],
   },
 });
-const report = () => ({ submissionKey: randomUUID(), description: 'Creation was refused', evidence: evidence() });
-const identity = (userId = randomUUID(), provider = 'support-provider'): any => ({
+const report = () => ({
+  expectedReporter: 'test-reporter',
+  expectedProvider: 'support-provider',
+  submissionKey: randomUUID(),
+  description: 'Creation was refused',
+  evidence: evidence(),
+});
+const identity = (userId: string = randomUUID(), provider = 'support-provider'): any => ({
   userId,
   providerIds: [provider],
   providerRoles: { [provider]: 'PROVIDER_ADMIN' },
@@ -86,7 +92,7 @@ describe('description-only evidence boundary', () => {
     const store = { submit: vi.fn() };
     const tournaments = { fetchTournamentUpdatedAt: vi.fn().mockResolvedValue({ success: true, providerId: 'other' }) };
     const service = new SupportService(store as any, tournaments as any, {} as any, {} as any);
-    await expect(service.submit({ ...report(), tournamentId: 'source' }, identity())).rejects.toThrow();
+    await expect(service.submit({ ...report(), tournamentId: 'source' }, identity('test-reporter'))).rejects.toThrow();
     expect(store.submit).not.toHaveBeenCalled();
     vi.unstubAllEnvs();
   });

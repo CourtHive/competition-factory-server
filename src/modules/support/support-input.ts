@@ -77,7 +77,23 @@ export function boundedText(value: unknown, max: number): string {
 }
 export function parseReport(value: unknown) {
   if (Buffer.byteLength(JSON.stringify(value) ?? '') > 150_000) throw new BadRequestException('Report too large');
-  const body = object(value, ['submissionKey', 'tournamentId', 'description', 'evidence']);
+  const body = object(value, [
+    'submissionKey',
+    'tournamentId',
+    'description',
+    'evidence',
+    'expectedReporter',
+    'expectedProvider',
+  ]);
+  if (
+    typeof body.expectedReporter !== 'string' ||
+    !body.expectedReporter.length ||
+    body.expectedReporter.length > 254 ||
+    typeof body.expectedProvider !== 'string' ||
+    !body.expectedProvider.length ||
+    body.expectedProvider.length > 200
+  )
+    throw new BadRequestException('Expected reporting session required');
   if (typeof body.submissionKey !== 'string' || !UUID.test(body.submissionKey))
     throw new BadRequestException('Invalid submission key');
   if (
@@ -147,6 +163,8 @@ export function parseReport(value: unknown) {
   };
   return {
     submissionKey: body.submissionKey as string,
+    expectedReporter: body.expectedReporter as string,
+    expectedProvider: body.expectedProvider as string,
     tournamentId: body.tournamentId as string | undefined,
     description: boundedText(body.description, 8192),
     evidence: { route, online, version: evidence.version as string, diagnostics, validation },

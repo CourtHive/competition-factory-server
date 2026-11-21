@@ -38,6 +38,12 @@ export class SupportService {
     const providers = [...ctx.providerIds, ...(ctx.provisionerProviderIds ?? [])];
     if (!providerId || (!ctx.isSuperAdmin && !providers.includes(providerId))) throw new ForbiddenException();
     const input = parseReport(body);
+    // These are comparison fences, never ownership claims. A refresh must not retarget an old form to a new session.
+    if (
+      input.expectedProvider !== providerId ||
+      (input.expectedReporter !== ctx.userId && input.expectedReporter.toLowerCase() !== ctx.email?.toLowerCase())
+    )
+      throw new ForbiddenException('Reporting session changed');
     if (input.tournamentId) {
       const view: any = await this.tournaments.fetchTournamentUpdatedAt({ tournamentId: input.tournamentId });
       if (!view?.success || view.providerId !== providerId) throw new ForbiddenException();
