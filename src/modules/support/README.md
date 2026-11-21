@@ -7,14 +7,16 @@ super-admin context independently of the CLI. API keys cannot submit or read rep
 
 ## Activation and routing
 
-Submission and outbound work are disabled unless `SUPPORT_REPORTS_ENABLED=true`. Expiry cleanup
-continues while reporting is disabled. Before enabling, configure `AMS_BASE_URL`,
+New submissions require `SUPPORT_REPORTS_ENABLED=true`. Reading receipts and using the super-admin
+inbox/resolution endpoints remain available when intake is disabled. Outbound alerts and resolution
+email require the independent `SUPPORT_DISPATCH_ENABLED=true`; a resolution entered while dispatch is
+disabled stays queued. Expiry cleanup always runs. Before enabling dispatch, configure `AMS_BASE_URL`,
 `AMS_SERVICE_TOKEN`, `SUPPORT_NOTIFY_MODULE` (absolute path to the deployed courthive-notify
 `lib/ntfy.mjs`) and `SUPPORT_NTFY_TOPIC`. The existing notifier loads its protected token/URL/Host
 configuration; grant that publisher write access to the selected topic and subscribe the inbox owner.
-Never put credentials in command arguments. Enabling without required configuration fails startup.
+Never put credentials in command arguments. Enabling dispatch without required configuration fails startup.
 
-Roll out the AMS `POST /notifications/support-resolution` contract before enabling CFS. Confirm the
+Roll out the AMS `POST /notifications/support-resolution` contract before enabling CFS dispatch. Confirm the
 edge routes `/support/reports` and `/admin/support/reports` to CFS; the module creates no static admin
 page. TMX uses its existing authenticated API client. Do not enable outbound mail on the reproduction
 simulation to operate this feature. No configuration, migration or external send is applied by reading
@@ -66,3 +68,10 @@ against a disposable database, and qualify rate/size limits before activation. T
 opaque references/failure classes; ntfy never receives descriptions, contacts or tournament IDs.
 Support submissions acquire only short support-rate locks, never tournament mutation locks; source
 authorization reads the existing tournament metadata projection. No full tournament record is loaded.
+
+## Submission limits
+
+Each account may submit three reports per ten minutes; a provider may submit 200 per hour. This
+provider budget allows many staff to report the same outage without the old 20-report ceiling.
+Identical retries return the existing receipt before counting quota. Different reports still consume
+quota, even when their diagnostic category matches; category-only grouping could hide distinct faults.

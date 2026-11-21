@@ -19,7 +19,7 @@ export class SupportWorker implements OnApplicationBootstrap, OnModuleDestroy {
   ) {}
 
   async onApplicationBootstrap() {
-    if (process.env.SUPPORT_REPORTS_ENABLED === 'true') {
+    if (process.env.SUPPORT_DISPATCH_ENABLED === 'true') {
       if (
         !process.env.AMS_BASE_URL ||
         !process.env.AMS_SERVICE_TOKEN ||
@@ -55,7 +55,7 @@ export class SupportWorker implements OnApplicationBootstrap, OnModuleDestroy {
   }
   private async sweep() {
     await this.store.purge();
-    if (process.env.SUPPORT_REPORTS_ENABLED === 'true') {
+    if (process.env.SUPPORT_DISPATCH_ENABLED === 'true') {
       for (let i = 0; i < 10; i++) if (!(await this.processOne())) break;
     }
     if (this.failures) {

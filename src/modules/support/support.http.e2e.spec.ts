@@ -140,6 +140,9 @@ describe.skipIf(process.env.STORAGE_PROVIDER !== 'postgres')(
         .send({ ...input(), expectedProvider: providers[1] })
         .expect(403);
       const ref = created.body.reference;
+      vi.stubEnv('SUPPORT_REPORTS_ENABLED', 'false');
+      await request(http).post('/support/reports').auth(reporter, { type: 'bearer' }).send(input()).expect(503);
+      await request(http).get(`/support/reports/${ref}`).auth(reporter, { type: 'bearer' }).expect(200);
       expect(created.body).toMatchObject({ accepted: true, snapshot: 'not_attached', contact: 'pending' });
       expect(created.body.description).toBeUndefined();
       await request(http).get(`/support/reports/${ref}`).auth(peer, { type: 'bearer' }).expect(404);

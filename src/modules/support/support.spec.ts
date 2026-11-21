@@ -60,6 +60,7 @@ describe('description-only evidence boundary', () => {
 
   it('fails closed for missing context, API keys and ordinary inbox access', async () => {
     vi.stubEnv('SUPPORT_REPORTS_ENABLED', 'true');
+    vi.stubEnv('SUPPORT_DISPATCH_ENABLED', 'true');
     const service = new SupportService({} as any, {} as any, {} as any, {} as any);
     expect(() => service.identity()).toThrow();
     expect(() => service.identity({ ...identity(), apiKey: 'provider' })).toThrow();
@@ -69,8 +70,35 @@ describe('description-only evidence boundary', () => {
     vi.unstubAllEnvs();
   });
 
+  it('disables only new submissions while existing reports remain available to their authorized readers', async () => {
+    vi.stubEnv('SUPPORT_REPORTS_ENABLED', 'false');
+    const reference = randomUUID();
+    const ctx = identity();
+    const row = { reference, reporter_id: ctx.userId, send_state: 'pending' };
+    const store = {
+      get: vi.fn().mockResolvedValue(row),
+      list: vi.fn().mockResolvedValue([row]),
+      resolve: vi.fn(),
+      submit: vi.fn(),
+    };
+    const users = { findByUserId: vi.fn().mockResolvedValue({}) };
+    const service = new SupportService(store as any, {} as any, {} as any, users as any);
+    await expect(service.submit(report(), ctx)).rejects.toMatchObject({ status: 503 });
+    expect(store.submit).not.toHaveBeenCalled();
+    await expect(service.receipt(reference, ctx)).resolves.toMatchObject({ accepted: true });
+    const admin = { ...ctx, isSuperAdmin: true };
+    await expect(service.list(0, admin)).resolves.toEqual([row]);
+    await expect(service.show(reference, admin)).resolves.toEqual(row);
+    service.resolve(reference, { resolution: 'Fixed' }, admin);
+    expect(store.resolve).toHaveBeenCalledWith(reference, 'Fixed', admin.userId);
+    expect(() => service.list(0, ctx)).toThrow();
+    await expect(service.receipt(reference, identity())).rejects.toMatchObject({ status: 404 });
+    vi.unstubAllEnvs();
+  });
+
   it('keeps expiry cleanup running while report submission and outbound work are disabled', async () => {
     vi.stubEnv('SUPPORT_REPORTS_ENABLED', 'false');
+    vi.stubEnv('SUPPORT_DISPATCH_ENABLED', 'false');
     vi.useFakeTimers();
     const store = { purge: vi.fn().mockResolvedValue(undefined), pool: { connect: vi.fn() } };
     const transport = { ready: vi.fn(), send: vi.fn(), notify: vi.fn() };
@@ -89,6 +117,7 @@ describe('description-only evidence boundary', () => {
 
   it('authorizes the source against metadata and rejects another provider even for an otherwise valid user', async () => {
     vi.stubEnv('SUPPORT_REPORTS_ENABLED', 'true');
+    vi.stubEnv('SUPPORT_DISPATCH_ENABLED', 'true');
     const store = { submit: vi.fn() };
     const tournaments = { fetchTournamentUpdatedAt: vi.fn().mockResolvedValue({ success: true, providerId: 'other' }) };
     const service = new SupportService(store as any, tournaments as any, {} as any, {} as any);
@@ -107,6 +136,7 @@ describe.skipIf(process.env.STORAGE_PROVIDER !== 'postgres')('support persistenc
   });
   beforeEach(async () => {
     vi.stubEnv('SUPPORT_REPORTS_ENABLED', 'true');
+    vi.stubEnv('SUPPORT_DISPATCH_ENABLED', 'true');
     await pool.query('TRUNCATE support_cases');
   });
   afterEach(() => vi.unstubAllEnvs());
@@ -130,7 +160,7 @@ describe.skipIf(process.env.STORAGE_PROVIDER !== 'postgres')('support persistenc
     await expect(store.submit(parseReport(report()), ctx.userId, ctx.actingProviderId)).rejects.toMatchObject({
       status: 429,
     });
-    for (let i = 0; i < 17; i++) await store.submit(parseReport(report()), randomUUID(), ctx.actingProviderId);
+    for (let i = 0; i < 197; i++) await store.submit(parseReport(report()), randomUUID(), ctx.actingProviderId);
     await expect(store.submit(parseReport(report()), randomUUID(), ctx.actingProviderId)).rejects.toMatchObject({
       status: 429,
     });
@@ -153,6 +183,20 @@ describe.skipIf(process.env.STORAGE_PROVIDER !== 'postgres')('support persistenc
     const admin = { ...ctx, isSuperAdmin: true };
     await service.resolve(row.reference, { resolution: 'fixed' }, admin);
     await expect(service.resolve(row.reference, { resolution: 'changed' }, admin)).rejects.toThrow();
+  });
+
+  it('dispatches an existing resolution while new submissions are disabled', async () => {
+    const ctx = identity();
+    const row = await store.submit(parseReport(report()), ctx.userId, ctx.actingProviderId);
+    await store.resolve(row.reference, 'Resolved', 'admin-test');
+    vi.stubEnv('SUPPORT_REPORTS_ENABLED', 'false');
+    const users = {
+      findByUserId: vi.fn().mockResolvedValue({ contactEmail: 'operator@example.test', emailVerifiedAt: 'verified' }),
+    };
+    const transport = { notify: vi.fn().mockResolvedValue(undefined), send: vi.fn().mockResolvedValue('accepted-id') };
+    await new SupportWorker(store, transport as any, users as any).tick();
+    expect(transport.send).toHaveBeenCalledTimes(1);
+    expect((await store.get(row.reference)).send_state).toBe('accepted');
   });
 
   it('waits for verified contact, persists the send lease before transport, retries the same key, then reports delivery unknown', async () => {

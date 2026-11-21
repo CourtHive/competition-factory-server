@@ -1,8 +1,8 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ASSIGNMENT_STORAGE, type IAssignmentStorage, USER_STORAGE, type IUserStorage } from 'src/storage/interfaces';
+import { canViewTournamentMetadata, getCreatedByUserId } from '../factory/helpers/checkTournamentAccess';
 import type { UserContext } from '../account/auth/decorators/user-context.decorator';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
-import { canViewTournament } from '../factory/helpers/checkTournamentAccess';
 import { sessionProviderId } from '../factory/helpers/actingProviderScope';
 import { parseReport, UUID, boundedText } from './support-input';
 import { SupportStore } from './support.store';
@@ -17,8 +17,6 @@ export class SupportService {
   ) {}
 
   identity(ctx?: UserContext) {
-    if (process.env.SUPPORT_REPORTS_ENABLED !== 'true')
-      throw new ServiceUnavailableException('Support reporting is not configured');
     if (!ctx?.userId || ctx.apiKey) throw new ForbiddenException();
     return ctx;
   }
@@ -34,6 +32,8 @@ export class SupportService {
 
   async submit(body: unknown, context?: UserContext) {
     const ctx = this.identity(context);
+    if (process.env.SUPPORT_REPORTS_ENABLED !== 'true')
+      throw new ServiceUnavailableException('New support reports are disabled');
     const providerId = sessionProviderId(ctx);
     const providers = [...ctx.providerIds, ...(ctx.provisionerProviderIds ?? [])];
     if (!providerId || (!ctx.isSuperAdmin && !providers.includes(providerId))) throw new ForbiddenException();
@@ -48,12 +48,12 @@ export class SupportService {
       const view: any = await this.tournaments.fetchTournamentUpdatedAt({ tournamentId: input.tournamentId });
       if (!view?.success || view.providerId !== providerId) throw new ForbiddenException();
       const assignments = await this.assignments.findByUserId(ctx.userId, providerId);
-      const record = {
+      const metadata = {
         tournamentId: input.tournamentId,
-        parentOrganisation: { organisationId: providerId },
-        extensions: view.extensions,
+        providerId: view.providerId,
+        createdByUserId: getCreatedByUserId(view),
       };
-      if (!canViewTournament(record, ctx, new Set(assignments.map((a) => a.tournamentId))))
+      if (!canViewTournamentMetadata(metadata, ctx, new Set(assignments.map((a) => a.tournamentId))))
         throw new ForbiddenException();
     }
     const row = await this.store.submit(input, ctx.userId, providerId);

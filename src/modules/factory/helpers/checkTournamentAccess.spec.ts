@@ -3,14 +3,15 @@ vi.mock('src/common/constants/feature-flags', () => ({
   isTournamentAccessScopingEnabled: () => true,
 }));
 
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 import {
+  canViewTournamentMetadata,
   canViewTournament,
   canMutateTournament,
   canDeleteTournament,
   scopeCalendarForUser,
   CREATED_BY_USER_ID,
 } from './checkTournamentAccess';
-import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
 // ── Fixtures ──
 
@@ -306,4 +307,28 @@ describe('checkTournamentAccess (flag ON via vi.mock)', () => {
       expect(result).toEqual([]);
     });
   });
+});
+
+describe('metadata visibility contract', () => {
+  it.each([
+    ['own', 'prov-1', 'user-uuid-1', false, true],
+    ['assigned', 'prov-1', 'another', true, true],
+    ['unassigned', 'prov-1', 'another', false, false],
+    ['foreign provider', 'prov-2', 'user-uuid-1', true, false],
+    ['provisioner created', 'prov-1', 'provisioner:test', false, true],
+    ['legacy', 'prov-1', undefined, false, false],
+  ])(
+    '%s has the same decision from metadata and a complete record',
+    (_label, providerId, createdByUserId, assigned, expected) => {
+      const tournament = makeTournament(providerId as string, createdByUserId as string | undefined);
+      const assignments = new Set<string>(assigned ? [tournament.tournamentId] : []);
+      const metadata = {
+        tournamentId: tournament.tournamentId,
+        providerId: providerId as string,
+        createdByUserId: createdByUserId as string | undefined,
+      };
+      expect(canViewTournamentMetadata(metadata, director, assignments)).toBe(expected);
+      expect(canViewTournament(tournament, director, assignments)).toBe(expected);
+    },
+  );
 });

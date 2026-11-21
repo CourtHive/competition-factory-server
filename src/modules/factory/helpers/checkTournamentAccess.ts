@@ -18,10 +18,10 @@
  *   No user_providers row for the tournament's provider → no access.
  *   Legacy tournaments (createdByUserId absent) → visible to SUPER_ADMIN and PROVIDER_ADMIN only.
  */
+import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
+import type { CalendarScope } from 'src/storage/interfaces/calendar-storage.interface';
 import { isTournamentAccessScopingEnabled } from 'src/common/constants/feature-flags';
 import { PROVIDER_ADMIN } from 'src/common/constants/roles';
-import type { CalendarScope } from 'src/storage/interfaces/calendar-storage.interface';
-import type { UserContext } from 'src/modules/account/auth/decorators/user-context.decorator';
 
 /** Extension name used on tournament records to store the creating user's UUID. */
 export const CREATED_BY_USER_ID = 'createdByUserId';
@@ -91,11 +91,28 @@ export function canViewTournament(
   userContext: UserContext | undefined,
   assignedTournamentIds: Set<string> = new Set(),
 ): boolean {
+  return canViewTournamentMetadata(
+    {
+      tournamentId: tournament?.tournamentId,
+      providerId: getTournamentProviderId(tournament),
+      createdByUserId: getCreatedByUserId(tournament),
+    },
+    userContext,
+    assignedTournamentIds,
+  );
+}
+
+/** The complete metadata contract for tournament visibility; record callers delegate here. */
+export function canViewTournamentMetadata(
+  metadata: { tournamentId?: string; providerId?: string; createdByUserId?: string },
+  userContext: UserContext | undefined,
+  assignedTournamentIds: Set<string> = new Set(),
+): boolean {
   if (!isTournamentAccessScopingEnabled()) return true;
   if (!userContext) return false;
   if (userContext.isSuperAdmin) return true;
 
-  const providerId = getTournamentProviderId(tournament);
+  const providerId = metadata.providerId;
   if (!providerId) return true; // No provider → unscoped tournament (demo/sandbox), always visible.
 
   // Provisioner-inherited access — a user administering a provisioner that
@@ -109,8 +126,8 @@ export function canViewTournament(
   if (roleAtProvider === PROVIDER_ADMIN) return true;
 
   // DIRECTOR: must own or be assigned.
-  const tournamentId = tournament?.tournamentId;
-  const createdBy = getCreatedByUserId(tournament);
+  const tournamentId = metadata.tournamentId;
+  const createdBy = metadata.createdByUserId;
 
   if (createdBy && createdBy === userContext.userId) return true;
   if (tournamentId && assignedTournamentIds.has(tournamentId)) return true;

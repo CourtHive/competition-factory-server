@@ -34,7 +34,7 @@ export class SupportStore {
         FROM support_cases WHERE submitted_at > now()-interval '1 hour' AND (reporter_id=$1 OR provider_id=$2)`,
         [userId, providerId],
       );
-      if (Number(rate.rows[0].user_count) >= 3 || Number(rate.rows[0].provider_count) >= 20)
+      if (Number(rate.rows[0].user_count) >= 3 || Number(rate.rows[0].provider_count) >= 200)
         throw new HttpException('Report limit reached', 429);
       const result = await client.query(
         `INSERT INTO support_cases
