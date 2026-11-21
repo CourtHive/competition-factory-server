@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.18.0](https://github.com/CourtHive/competition-factory-server/compare/v4.17.4...v4.18.0) (2026-11-21)
+
+
+### Features
+
+* **support:** accept provider-scoped bug reports and queue resolutions ([#1290](https://github.com/CourtHive/competition-factory-server/issues/1290)) ([347cd91](https://github.com/CourtHive/competition-factory-server/commit/347cd91938cf772fa210ad47d880dee7cb247ae9))
+* **support:** checkpoint provider-scoped reports and resolution dispatch ([4284ba9](https://github.com/CourtHive/competition-factory-server/commit/4284ba92f9f6c16da7e2a264d24a6a3bc743e87b))
+
 ## [4.17.4](https://github.com/CourtHive/competition-factory-server/compare/v4.17.3...v4.17.4) (2026-11-21)
 
 
