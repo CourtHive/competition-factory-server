@@ -20,6 +20,7 @@ import { warmEventDataCache } from './warmEventDataCache';
 import type { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import type { ShadowBatch, ShadowPlan } from '../../helpers/executionQueueShadow';
 import type { DrawIntegrityBatch } from '../../helpers/executionQueueIntegrity';
+import type { IProjectionOutboxStorage } from 'src/storage/interfaces';
 import type { AuditService } from 'src/modules/audit/audit.service';
 
 export async function executionQueue(
@@ -226,8 +227,10 @@ export async function executionQueue(
             // outbox, C2): the deltas commit or roll back with the record and its receipt, so
             // a crash after COMMIT cannot lose them and a rolled-back command leaves none.
             // Failed mutations skip this (innerResult.success false) so the read model can
-            // never get ahead of the record. Fail-soft: an outbox error is logged but never
-            // blocks the ack — reconciliation/rebuild backstops.
+            // never get ahead of the record. Fail-soft: an outbox error never blocks the ack, and
+            // it is no longer left to a manual rebuild: a failed span records a snapshot request
+            // in the same transaction, which Projection-Producer serves from the stored record
+            // (RECOVERY-004, Mentat/planning/RECOVERY_004_MISSED_ENQUEUE_REPAIR.md).
             if (deltaBuffer && projectionOutbox && innerResult.success) {
               try {
                 const deltas = await buildProjectionDeltas({
@@ -256,6 +259,7 @@ export async function executionQueue(
                 await projectionOutbox.enqueue(deltas);
               } catch (err: any) {
                 Logger.error(`Projection outbox flush failed: ${err?.message}`, 'executionQueue');
+                await requestRepair(projectionOutbox, tournamentIds, 'enqueue_failed');
               }
 
               // PUBLIC PARTICIPANT DOCUMENTS (W3): one row per stale tournament, inside the lock and the command's
@@ -266,6 +270,8 @@ export async function executionQueue(
                 if (stale.length) await projectionOutbox.requestParticipantDocuments(stale, 'mutation');
               } catch (err: any) {
                 Logger.error(`Participant document request failed: ${err?.message}`, 'executionQueue');
+                // a snapshot span rebuilds every read-model row of the tournament, documents' sources included
+                await requestRepair(projectionOutbox, tournamentIds, 'document_request_failed');
               }
             }
 
@@ -541,5 +547,26 @@ async function resolveMatchUpReferences(
       params.drawId = found.matchUp.drawId;
       if (found.matchUp.eventId) params.eventId = found.matchUp.eventId;
     }
+  }
+}
+
+/**
+ * A saved mutation whose read-model update failed asks for a full snapshot of its tournaments, so the read model is
+ * repaired from the stored record instead of staying stale until someone notices (RECOVERY-004). The request is
+ * recorded in the save's transaction, in its own savepoint, so it commits with the record. If it fails too, the
+ * tournaments are named in the error so an operator can rebuild them; it never blocks the ack.
+ */
+async function requestRepair(
+  outbox: Pick<IProjectionOutboxStorage, 'requestSnapshots'>,
+  tournamentIds: string[],
+  source: string,
+) {
+  try {
+    await outbox.requestSnapshots(tournamentIds, source);
+  } catch (err: any) {
+    Logger.error(
+      `Projection repair request failed (${source}); rebuild ${tournamentIds.join(', ')} by hand: ${err?.message}`,
+      'executionQueue',
+    );
   }
 }
