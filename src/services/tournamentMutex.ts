@@ -23,7 +23,7 @@ interface LockEntry {
 
 const locks = new Map<string, LockEntry>();
 
-function acquire(id: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<void> {
+function acquireLock(id: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<void> {
   let entry = locks.get(id);
   if (!entry) {
     entry = { queue: [], active: false };
@@ -52,6 +52,22 @@ function acquire(id: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<void> {
 
     entry.queue.push(resolver);
   });
+}
+
+// With no measurement window installed the hot path calls the original acquire function directly.
+let acquire = acquireLock;
+export function measureLockAcquisitions(record: (elapsedNs: bigint) => void): () => void {
+  acquire = async (id, timeoutMs) => {
+    const start = process.hrtime.bigint();
+    try {
+      await acquireLock(id, timeoutMs);
+    } finally {
+      record(process.hrtime.bigint() - start);
+    }
+  };
+  return () => {
+    acquire = acquireLock;
+  };
 }
 
 function release(id: string): void {
