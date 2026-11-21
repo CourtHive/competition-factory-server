@@ -60,6 +60,17 @@ All configuration is via environment variables in the `.env` file. The server us
   </tbody>
 </table>
 
+## CMX operator reads and scores
+
+Set `OPERATOR_MATCH_ENABLED=true` on a CFS instance serving the CMX candidate. The default is off.
+The named `POST /operator/match` route needs the matching server-side factory DTO candidate. CMX sends
+four identifiers and an admin-audience user session. CFS checks a live scoped scoring grant, reads the
+committed record and returns the minimized match and its opaque revision.
+`POST /operator/score` takes the target, result intent, score dialog outcome and stable command ID.
+Corrections require the reviewed revision. A lost acknowledgement is retried with the same command and ID.
+Scoring shares HTTP mutation delivery, including durable receipts, notices and cache invalidation.
+SQL projection delivery continues to use its existing outbox configuration.
+
 ## Redis (caching)
 
 <table>
