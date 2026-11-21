@@ -1,9 +1,33 @@
+import { MutationServicesModule } from '../mutation-services/mutation-services.module';
 import { InstanceStateMiddleware } from '../factory/engines/instanceState.middleware';
-import { TournamentSyncModule } from '../tournament-sync/tournament-sync.module';
-import { RankingsProxyModule } from '../rankings-proxy/rankings-proxy.module';
 import { RankingsWebhookModule } from '../rankings-webhook/rankings-webhook.module';
+import { ConfigReadinessModule } from '../config-readiness/config-readiness.module';
+import { TournamentAdminModule } from '../tournament-admin/tournament-admin.module';
 import { HttpThrottlerGuard } from '../../common/throttling/http-throttler.guard';
+import { TournamentSyncModule } from '../tournament-sync/tournament-sync.module';
+import { TournamentAuthModule } from '../tournament-auth/tournament-auth.module';
+import { RankingsProxyModule } from '../rankings-proxy/rankings-proxy.module';
+import { ParticipationModule } from '../participation/participation.module';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ProvisionerModule } from '../provisioner/provisioner.module';
+import { RuntimeConfigController } from './runtime-config.controller';
+import { TelemetryModule } from '../telemetry/telemetry.module';
+import { MessagingModule } from '../messaging/messaging.module';
+import { ProvidersModule } from '../providers/providers.module';
+import { isModuleEnabled } from '../../config/server-profile';
+import { StorageModule } from '../../storage/storage.module';
+import { ConfigsModule } from '../../config/config.module';
+import { FactoryModule } from '../factory/factory.module';
+import { SupportModule } from '../support/support.module';
+import { AuditModule } from '../audit/audit.module';
+import { CacheModule } from '../cache/cache.module';
+import { UsersModule } from '../users/users.module';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { I18nModule } from '../i18n/i18n.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { APP_GUARD } from '@nestjs/core';
+
 // OfficiatingModule + SanctioningModule retired 2026-05-27 (un-registered) and
 // their module dirs + orphaned storage layer removed 2026-06-26: superseded by AMS
 // (AMS-WS-07, AMS-WS-08); no consumer in TMX/admin-client/AMS-console calls the
@@ -13,28 +37,6 @@ import { ProvisionerModule } from '../provisioner/provisioner.module';
 // and sanctioning state is now AMS-owned outright; CFS reaches sanctioning through
 // SanctioningClient over the service token. See
 // Mentat/planning/AMS_DEPLOY_AND_RETIREMENT.md §CFS retirement windows #1 + #2.
-import { MutationServicesModule } from '../mutation-services/mutation-services.module';
-import { TelemetryModule } from '../telemetry/telemetry.module';
-import { AuditModule } from '../audit/audit.module';
-import { ConfigReadinessModule } from '../config-readiness/config-readiness.module';
-import { isModuleEnabled } from '../../config/server-profile';
-import { MessagingModule } from '../messaging/messaging.module';
-import { ProvidersModule } from '../providers/providers.module';
-import { StorageModule } from '../../storage/storage.module';
-import { ConfigsModule } from '../../config/config.module';
-import { FactoryModule } from '../factory/factory.module';
-import { I18nModule } from '../i18n/i18n.module';
-import { RuntimeConfigController } from './runtime-config.controller';
-import { AppController } from './app.controller';
-import { CacheModule } from '../cache/cache.module';
-import { UsersModule } from '../users/users.module';
-import { TournamentAuthModule } from '../tournament-auth/tournament-auth.module';
-import { TournamentAdminModule } from '../tournament-admin/tournament-admin.module';
-import { ThrottlerModule } from '@nestjs/throttler';
-import { AppService } from './app.service';
-import { APP_GUARD } from '@nestjs/core';
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { ParticipationModule } from '../participation/participation.module';
 
 // Core modules — always loaded regardless of profile.
 //
@@ -78,6 +80,7 @@ const coreModules = [
 const tournamentModules = isModuleEnabled('tournament')
   ? [
       FactoryModule,
+      SupportModule,
       MessagingModule,
       ProvidersModule,
       ParticipationModule,
