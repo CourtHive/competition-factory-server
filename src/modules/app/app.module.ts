@@ -23,6 +23,7 @@ import { ProvidersModule } from '../providers/providers.module';
 import { StorageModule } from '../../storage/storage.module';
 import { ConfigsModule } from '../../config/config.module';
 import { FactoryModule } from '../factory/factory.module';
+import { SupportModule } from '../support/support.module';
 import { I18nModule } from '../i18n/i18n.module';
 import { RuntimeConfigController } from './runtime-config.controller';
 import { AppController } from './app.controller';
@@ -78,6 +79,7 @@ const coreModules = [
 const tournamentModules = isModuleEnabled('tournament')
   ? [
       FactoryModule,
+      SupportModule,
       MessagingModule,
       ProvidersModule,
       ParticipationModule,
