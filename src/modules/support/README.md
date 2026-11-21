@@ -56,16 +56,15 @@ rows at a time. Open status and retries never extend retention. No report-conten
 retained. Later work belongs in a reviewed technical ticket, without raw descriptions or contact data
 by default. Account contact information follows its existing policy.
 
-Database backups can contain historical rows until the backup itself expires. The inspected canonical
-Mentat `scripts/nest-backup-postgres.sh` sets ten-day backup retention and explicitly warns that its
-host copy can drift. Verify actual retention and any additional backup copies before rollout; this
-implementation does not erase historical dumps. Before a restored database is exposed or workers are
-enabled, purge `support_cases WHERE expires_at <= now()` and retain expiry filters. A restore does not
-restart the 30-day clock. Include this check in the operator's restore procedure.
+The 30-day expiry applies to the live case. On 21 November 2026 the installed nest script retained
+12 nightly core dumps. Its age threshold was configured as ten days. Disk snapshots can preserve a
+dump beyond its lifetime on the host. After restoring, purge expired support rows before exposing
+the database or enabling workers. [Measured retention and restore procedure](https://github.com/CourtHive/Mentat/blob/main/statuses/2026-11-21-support-release-qualification.md#backup-and-recovery)
 
-The super-admin role owns the inbox. Verify its ntfy subscription and mail configuration using
-`charles@courthive.com` as the delivery contact. Check migration 064
-against a disposable database, and qualify rate/size limits before activation. The worker logs only
+The super-admin role owns the support inbox. Operational approvals and evidence live in the
+[activation checklist](https://github.com/CourtHive/Mentat/blob/main/planning/TMX_BUG_REPORTING_IMPLEMENTATION.md#before-activation).
+
+The worker logs only
 opaque references/failure classes; ntfy never receives descriptions, contacts or tournament IDs.
 Support submissions acquire only short support-rate locks, never tournament mutation locks; source
 authorization reads the existing tournament metadata projection. No full tournament record is loaded.
