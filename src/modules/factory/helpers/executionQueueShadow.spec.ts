@@ -1,4 +1,7 @@
-import { mocksEngine, tournamentEngine } from 'tods-competition-factory';
+import { loadFetchedRecords } from './loadFetchedRecords';
+import { Logger } from '@nestjs/common';
+import asyncGlobalState from '../engines/asyncGlobalState';
+import { asyncEngine, mocksEngine, tournamentEngine } from 'tods-competition-factory';
 
 import {
   captureShardShadow,
@@ -122,6 +125,50 @@ describe('shard shadow', () => {
         expect(await runShardShadow(batch!)).toBe('match');
       } finally {
         tournamentEngine.outcomePipeline('v1');
+      }
+    },
+  );
+
+  it.each([false, true])(
+    'matches the JSONB score shape held by the mutation engine (stored null: %s)',
+    async (withNull) => {
+      const { tournamentRecord, tournamentId, drawId, methods } = scoreFirstMatchUp();
+      const stored: any = structuredClone(tournamentRecord);
+      const draw = stored.events.flatMap((event: any) => event.drawDefinitions).find((d: any) => d.drawId === drawId);
+      const other = draw.structures[0].matchUps.find((m: any) => m.matchUpId !== methods[0].params.matchUpId);
+      other.score = { server: withNull ? { player: null } : {} };
+      // Reproduce the JSON wire/storage boundary, including a literal null on a different match.
+      const serialized = JSON.stringify({ [tournamentId]: stored });
+      const records = JSON.parse(serialized);
+      const plan = planShardShadow({ tournamentIds: [tournamentId], methods, tournamentRecords: records });
+      const batch = await asyncGlobalState.runWithInstanceState(async () => {
+        const engine = asyncEngine();
+        if (!('executionQueue' in engine)) throw Error('ENGINE_INITIALIZATION_FAILED');
+        expect(loadFetchedRecords(records)).toEqual({ success: true });
+        const result: any = await engine.executionQueue(methods);
+        expect(result.success).toBe(true);
+        return captureShardShadow(plan, asyncGlobalState.getTournamentRecords());
+      });
+      const saved = batch!.savedDraws[drawId].structures[0].matchUps.find((m: any) => m.matchUpId === other.matchUpId);
+      expect(Object.prototype.hasOwnProperty.call(saved.score.server, 'player')).toBe(withNull);
+      if (withNull) expect(saved.score.server.player).toBeNull();
+      expect(await runShardShadow(structuredClone(batch!))).toBe('match');
+      if (withNull) {
+        // Falsify the detector: only the private partial record loses this one stored key.
+        const partial = batch!.partialRecord.events
+          .flatMap((e: any) => e.drawDefinitions)
+          .find((d: any) => d.drawId === drawId);
+        delete partial.structures[0].matchUps.find((m: any) => m.matchUpId === other.matchUpId).score.server.player;
+        const logged = vi.spyOn(Logger, 'error');
+        try {
+          expect(await runShardShadow(batch!)).toBe('mismatch');
+          expect(logged).toHaveBeenCalledWith(
+            expect.stringMatching(/score\.server\.player saved=null shadow=missing/),
+            'ShardShadow',
+          );
+        } finally {
+          logged.mockRestore();
+        }
       }
     },
   );
