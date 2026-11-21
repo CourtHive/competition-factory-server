@@ -14,7 +14,11 @@ export interface ITournamentStorage {
    * Every call returns objects that no other caller holds: never a cached or shared instance.
    * `executionQueue` mutates them in place, without a copy, on that guarantee.
    */
-  fetchTournamentRecords(params: { tournamentIds?: string[]; tournamentId?: string }): Promise<{
+  fetchTournamentRecords(params: {
+    tournamentIds?: string[];
+    tournamentId?: string;
+    captureRevision?: boolean;
+  }): Promise<{
     success?: boolean;
     tournamentRecords?: Record<string, any>;
     /** Per tournament, when its row was last written (`tournaments.updated_at`). See P49. */

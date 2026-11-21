@@ -45,7 +45,7 @@ export class TournamentStorageService {
     return this.tournamentStorage.findTournamentRecord(params);
   }
 
-  async fetchTournamentRecords(params: { tournamentIds?: string[]; tournamentId?: string }) {
+  async fetchTournamentRecords(params: { tournamentIds?: string[]; tournamentId?: string; captureRevision?: boolean }) {
     return this.tournamentStorage.fetchTournamentRecords(params);
   }
 
