@@ -26,4 +26,16 @@ describe('super-admin support CLI', () => {
     ).rejects.toThrow('HTTPS');
     expect(request).toHaveBeenCalledTimes(1);
   });
+
+  it('filters the inbox by scope and kind, and refuses unknown or misplaced filters before any request', async () => {
+    const request = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ reports: [] }) });
+    const env = { SUPPORT_CFS_URL: 'https://cfs.example.test', SUPPORT_ADMIN_TOKEN: 'test-session' };
+    await run(['list', '50', '--kind=suggestion', '--scope=platform'], { env, request, output: vi.fn() });
+    const url = new URL(String(request.mock.calls[0][0]));
+    expect(url.pathname).toBe('/admin/support/reports');
+    expect(Object.fromEntries(url.searchParams)).toEqual({ offset: '50', kind: 'suggestion', scope: 'platform' });
+    await expect(run(['list', '--kind=praise'], { env, request })).rejects.toThrow('Unknown kind');
+    await expect(run(['show', reference, '--scope=platform'], { env, request })).rejects.toThrow('list only');
+    expect(request).toHaveBeenCalledTimes(1);
+  });
 });
