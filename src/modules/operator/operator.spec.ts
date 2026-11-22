@@ -73,6 +73,18 @@ describe('operator boundary', () => {
     expect(() => command({ intent: 'correct-result' })).toThrow(BadRequestException);
     expect(() => command({ outcome: { ...outcome, winningSide: 9 } })).toThrow(BadRequestException);
   });
+  it('uses the official mutation gate and admits only a live tournament-wide grant for catalogue reads', async () => {
+    const { service, grants, gate, dto } = fixture();
+    expect(await service.catalogueAccess(['t'], user)).toEqual({ tournamentIds: ['t'] });
+    expect(gate).toHaveBeenCalledWith(
+      expect.objectContaining({ officialScoringProvider: 'p', requestedMethods: ['setMatchUpStatus'] }),
+    );
+    gate.mockResolvedValueOnce('denied');
+    expect(await service.catalogueAccess(['t'], user)).toEqual({ tournamentIds: [] });
+    grants.mockResolvedValue([{ ...grant, scope: { courtIds: ['7'] } }]);
+    expect(await service.catalogueAccess(['t'], user)).toEqual({ tournamentIds: [] });
+    expect(dto).not.toHaveBeenCalled();
+  });
   it('denies a revoked grant before the factory runs', async () => {
     const { service, grants, dto } = fixture();
     grants.mockResolvedValue([]);

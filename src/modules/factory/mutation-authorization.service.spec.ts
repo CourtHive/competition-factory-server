@@ -1,3 +1,4 @@
+import { isTournamentAccessScopingEnabled } from 'src/common/constants/feature-flags';
 import {
   GRANT_CAPABILITY_ALL,
   MutationAuthorizationService,
@@ -7,7 +8,7 @@ import { CREATED_BY_USER_ID } from './helpers/checkTournamentAccess';
 
 // Scoping must be ON for the per-tournament gate to have anything to say.
 vi.mock('src/common/constants/feature-flags', () => ({
-  isTournamentAccessScopingEnabled: () => true,
+  isTournamentAccessScopingEnabled: vi.fn(() => true),
 }));
 
 const TID = 't-1';
@@ -91,6 +92,21 @@ const director = {
 const superAdmin = { userId: 'admin-1', isSuperAdmin: true, providerRoles: {}, providerIds: [] };
 
 describe('MutationAuthorizationService.gate', () => {
+  it('official scoring keeps the tournament gate when legacy access scoping is switched off', async () => {
+    vi.mocked(isTournamentAccessScopingEnabled).mockReturnValue(false);
+    try {
+      const request = { userContext: director, tournamentIds: [TID], requestedMethods: ['setMatchUpStatus'] };
+      const { service } = build();
+      expect(await service.gate(request)).toBeNull();
+      expect(await service.gate({ ...request, officialScoringProvider: PROVIDER })).toBeTruthy();
+      const scorer = build({ assignmentRole: 'SCORER' }).service;
+      expect(await scorer.gate({ ...request, officialScoringProvider: PROVIDER })).toBeNull();
+      expect(await scorer.gate({ ...request, officialScoringProvider: 'other' })).toBeTruthy();
+    } finally {
+      vi.mocked(isTournamentAccessScopingEnabled).mockReturnValue(true);
+    }
+  });
+
   it('allows a DIRECTOR-assigned user to run any method', async () => {
     const { service } = build({ assignmentRole: 'DIRECTOR' });
     const denial = await service.gate({

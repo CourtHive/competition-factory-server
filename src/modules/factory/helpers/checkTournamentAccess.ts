@@ -90,6 +90,7 @@ export function canViewTournament(
   tournament: any,
   userContext: UserContext | undefined,
   assignedTournamentIds: Set<string> = new Set(),
+  scoped = isTournamentAccessScopingEnabled(),
 ): boolean {
   return canViewTournamentMetadata(
     {
@@ -99,6 +100,7 @@ export function canViewTournament(
     },
     userContext,
     assignedTournamentIds,
+    scoped,
   );
 }
 
@@ -107,8 +109,9 @@ export function canViewTournamentMetadata(
   metadata: { tournamentId?: string; providerId?: string; createdByUserId?: string },
   userContext: UserContext | undefined,
   assignedTournamentIds: Set<string> = new Set(),
+  scoped = isTournamentAccessScopingEnabled(),
 ): boolean {
-  if (!isTournamentAccessScopingEnabled()) return true;
+  if (!scoped) return true;
   if (!userContext) return false;
   if (userContext.isSuperAdmin) return true;
 
@@ -195,9 +198,10 @@ export function canMutateTournament(
   userContext: UserContext | undefined,
   assignedRoles: Map<string, string> = new Map(),
   requestedMethods: string[] = [],
+  scoped = isTournamentAccessScopingEnabled(),
 ): boolean {
-  if (!canViewTournament(tournament, userContext, new Set(assignedRoles.keys()))) return false;
-  if (!isTournamentAccessScopingEnabled()) return true;
+  if (!canViewTournament(tournament, userContext, new Set(assignedRoles.keys()), scoped)) return false;
+  if (!scoped) return true;
   if (!userContext || userContext.isSuperAdmin) return true;
 
   const providerId = getTournamentProviderId(tournament);

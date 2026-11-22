@@ -42,6 +42,8 @@ import { AssignmentsService } from './assignments.service';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 export type MutationGateParams = {
+  /** Named official scoring always requires scoped access at this verified provider. */
+  officialScoringProvider?: string;
   userContext: any;
   tournamentIds: string[];
   /** Factory mutation method names, in payload order. */
@@ -97,6 +99,7 @@ export class MutationAuthorizationService {
     requestedMethods,
     methods,
     actor,
+    officialScoringProvider,
   }: MutationGateParams): Promise<string | null> {
     if (!userContext || !tournamentIds.length) return null;
 
@@ -105,6 +108,8 @@ export class MutationAuthorizationService {
 
     for (const tid of tournamentIds) {
       const tournament = await this.authorizationView(tid);
+      if (officialScoringProvider && tournament?.parentOrganisation?.organisationId !== officialScoringProvider)
+        return 'Not authorized to modify this tournament';
       if (!tournament) continue;
       let fullRecord: any;
       const loadRecord = async () => {
@@ -125,7 +130,15 @@ export class MutationAuthorizationService {
         }
       }
 
-      if (!canMutateTournament(tournament, userContext, assignedRoles, requestedMethods)) {
+      if (
+        !canMutateTournament(
+          tournament,
+          userContext,
+          assignedRoles,
+          requestedMethods,
+          officialScoringProvider ? true : undefined,
+        )
+      ) {
         this.logger.warn(`[executionQueue] mutation denied for ${actor}: ${methodSummary} on ${tid}`);
         return 'Not authorized to modify this tournament';
       }

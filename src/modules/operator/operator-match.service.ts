@@ -12,6 +12,7 @@ import {
 import {
   grantCoversMethod,
   isWithinWindow,
+  isTournamentWide,
   isTargetInScope,
   isEvaluableScope,
   requiredTargetFields,
@@ -37,6 +38,18 @@ export class OperatorMatchService {
     private readonly authorization: MutationAuthorizationService,
     @Inject(GRANT_STORAGE) private readonly grants: IGrantStorage,
   ) {}
+
+  /** Evaluate only supplied IDs. A catalogue offer requires a live tournament-wide grant. */
+  async catalogueAccess(tournamentIds: string[], user?: UserContext) {
+    const provider = sessionProviderId(user);
+    if (!user?.userId || !provider || user.apiKey || !user.providerIds.includes(provider))
+      throw new ForbiddenException();
+    const allowed: string[] = [];
+    for (const tournamentId of tournamentIds) {
+      if (await this.scoringAccess(user, provider, tournamentId)) allowed.push(tournamentId);
+    }
+    return { tournamentIds: allowed };
+  }
 
   async read(ids: MatchIds, user?: UserContext) {
     if (!user?.userId || user.apiKey || !sessionProviderId(user)) throw new ForbiddenException();
@@ -64,29 +77,44 @@ export class OperatorMatchService {
     const event = record.events?.find((e) => e.eventId === ids.eventId);
     const draw = event?.drawDefinitions?.find((d) => d.drawId === ids.drawId);
     const targetRecord = { events: [{ eventId: ids.eventId, drawDefinitions: draw ? [draw] : [] }] };
-    const rows = await this.grants.findForSubject(user.userId, ids.tournamentId);
-    const allowed = rows.some(
+    if (!(await this.scoringAccess(user, provider, ids.tournamentId, { ids, targetRecord })))
+      throw new ForbiddenException();
+    if (!draw) throw new NotFoundException();
+    return isProviderAdministrator(user, provider) ? 'director' : 'recorder';
+  }
+
+  private async scoringAccess(
+    user: UserContext,
+    provider: string,
+    tournamentId: string,
+    match?: { ids: MatchIds; targetRecord: { events: any[] } },
+  ) {
+    const rows = await this.grants.findForSubject(user.userId, tournamentId);
+    const covered = rows.some(
       (grant) =>
-        grant.providerId === provider &&
         grant.userId === user.userId &&
-        grant.tournamentId === ids.tournamentId &&
+        grant.providerId === provider &&
+        grant.tournamentId === tournamentId &&
         isWithinWindow(grant) &&
         grantCoversMethod(grant.capability, 'setMatchUpStatus') &&
         isEvaluableScope(grant.scope) &&
-        isTargetInScope(grant.scope, enrichTargetFromRecord(ids, targetRecord, requiredTargetFields(grant.scope))),
+        (match
+          ? isTargetInScope(
+              grant.scope,
+              enrichTargetFromRecord(match.ids, match.targetRecord, requiredTargetFields(grant.scope)),
+            )
+          : isTournamentWide(grant.scope)),
     );
-    if (!allowed) throw new ForbiddenException();
-    if (!draw) throw new NotFoundException();
+    if (!covered) return false;
     const denial = await this.authorization.gate({
+      officialScoringProvider: provider,
       userContext: user,
-      tournamentIds: [ids.tournamentId],
+      tournamentIds: [tournamentId],
       requestedMethods: ['setMatchUpStatus'],
-      methods: [{ method: 'setMatchUpStatus', params: ids }],
+      methods: match && [{ method: 'setMatchUpStatus', params: match.ids }],
       actor: user.userId,
     });
-    if (denial) throw new ForbiddenException();
-
-    return isProviderAdministrator(user, provider) ? 'director' : 'recorder';
+    return denial === null;
   }
 
   async score(command: ReturnType<typeof scoreRequest>, user?: UserContext) {

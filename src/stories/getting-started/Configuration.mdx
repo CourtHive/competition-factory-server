@@ -71,6 +71,12 @@ Corrections require the reviewed revision. A lost acknowledgement is retried wit
 Scoring shares HTTP mutation delivery, including durable receipts, notices and cache invalidation.
 SQL projection delivery continues to use its existing outbox configuration.
 
+Under the same flag, `POST /operator/catalogue-access` evaluates up to 101 candidate tournament IDs for the
+verified caller and returns the permitted IDs. Query calls this route for catalogue pages and individual day lists.
+Official scoring always checks current tournament access, assignment role and provider policy through the CFS
+mutation gate, even on deployments using legacy unscoped reads. The catalogue additionally requires a live
+tournament-wide scoring grant. CFS repeats authorization on match reads and submissions.
+
 ## Redis (caching)
 
 <table>
