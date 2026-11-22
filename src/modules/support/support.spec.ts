@@ -79,14 +79,20 @@ describe('description-only evidence boundary', () => {
     expect(() => service.identity()).toThrow(expect.objectContaining(code(SUPPORT_REFUSAL.IDENTITY_REQUIRED)));
     expect(() => service.list(0, identity())).toThrow(expect.objectContaining(code(SUPPORT_REFUSAL.ADMIN_REQUIRED)));
     // Production, 2026-11-22: a super-admin impersonating in the client, with no acting provider in the session.
-    const platform = { ...identity(), providerIds: [], providerRoles: {}, actingProviderId: undefined, isSuperAdmin: true };
+    const platform = {
+      ...identity(),
+      providerIds: [],
+      providerRoles: {},
+      actingProviderId: undefined,
+      isSuperAdmin: true,
+    };
     await expect(service.submit(report(), platform)).rejects.toMatchObject({
       status: 403,
       ...code(SUPPORT_REFUSAL.NO_SESSION_PROVIDER),
     });
-    await expect(service.submit(report(), { ...identity(), actingProviderId: 'another-provider' })).rejects.toMatchObject(
-      code(SUPPORT_REFUSAL.PROVIDER_NOT_PERMITTED),
-    );
+    await expect(
+      service.submit(report(), { ...identity(), actingProviderId: 'another-provider' }),
+    ).rejects.toMatchObject(code(SUPPORT_REFUSAL.PROVIDER_NOT_PERMITTED));
     await expect(service.submit({ ...report(), expectedProvider: 'elsewhere' }, identity())).rejects.toMatchObject(
       code(SUPPORT_REFUSAL.SESSION_CHANGED),
     );

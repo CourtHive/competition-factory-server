@@ -1,4 +1,11 @@
-import { ForbiddenException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ASSIGNMENT_STORAGE, type IAssignmentStorage, USER_STORAGE, type IUserStorage } from 'src/storage/interfaces';
 import { canViewTournamentMetadata, getCreatedByUserId } from '../factory/helpers/checkTournamentAccess';
 import type { UserContext } from '../account/auth/decorators/user-context.decorator';
@@ -74,7 +81,8 @@ export class SupportService {
     const providerId = sessionProviderId(ctx);
     const providers = [...ctx.providerIds, ...(ctx.provisionerProviderIds ?? [])];
     if (!providerId) refuse(SUPPORT_REFUSAL.NO_SESSION_PROVIDER, 'support submit', ctx);
-    if (!ctx.isSuperAdmin && !providers.includes(providerId)) refuse(SUPPORT_REFUSAL.PROVIDER_NOT_PERMITTED, 'support submit', ctx);
+    if (!ctx.isSuperAdmin && !providers.includes(providerId))
+      refuse(SUPPORT_REFUSAL.PROVIDER_NOT_PERMITTED, 'support submit', ctx);
     const input = parseReport(body);
     // These are comparison fences, never ownership claims. A refresh must not retarget an old form to a new session.
     if (
