@@ -13,6 +13,9 @@ export interface IGrantStorage {
   /** Grants held by a subject on a tournament. The authorization hot path. */
   findForSubject(userId: string, tournamentId: string): Promise<TournamentGrantRow[]>;
 
+  /** A single subject's grants at the selected provider, limited to the requested catalogue batch. */
+  findForCatalogue(userId: string, providerId: string, tournamentIds: string[]): Promise<TournamentGrantRow[]>;
+
   /** All grants on a tournament — the manage-access UI. */
   findByTournamentId(tournamentId: string): Promise<TournamentGrantRow[]>;
 

@@ -76,6 +76,11 @@ verified caller and returns the permitted IDs. Query calls this route for catalo
 Official scoring always checks current tournament access, assignment role and provider policy through the CFS
 mutation gate, even on deployments using legacy unscoped reads. The catalogue additionally requires a live
 tournament-wide scoring grant. CFS repeats authorization on match reads and submissions.
+For each nonempty batch CFS loads the subject’s assignments once and reads the subject’s grants for the selected
+provider and candidate IDs in one query. It then checks ownership and mutation policy for each covered tournament.
+An authorized administrator or assigned scorer can still use ordinary CFS scoring without a grant, or score within
+a court-level grant, while this catalogue omits the tournament. Named operator match and score calls require a
+live grant covering the particular match.
 
 ## Redis (caching)
 
