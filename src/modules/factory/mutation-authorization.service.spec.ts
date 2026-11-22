@@ -137,6 +137,47 @@ describe('MutationAuthorizationService.gate', () => {
     await expect(service.scoringCatalogue(PROVIDER, user, ids)).rejects.toThrow('unavailable');
   });
 
+  it.each(['SCORER', 'PROVIDER_ADMIN'])(
+    'keeps ordinary scoring available to %s when catalogue admission is empty',
+    async (role) => {
+      const user = {
+        ...director,
+        email: 'test@example.test',
+        globalRoles: [],
+        providerRoles: { [PROVIDER]: role === 'SCORER' ? 'DIRECTOR' : role },
+      };
+      const { service, grantStorage, assignmentsService } = build({
+        assignmentRole: role === 'SCORER' ? role : undefined,
+      });
+      assignmentsService.readAssignedRoles.mockResolvedValue(role === 'SCORER' ? new Map([[TID, role]]) : new Map());
+      const score = (matchUpId: string) =>
+        service.gate({
+          userContext: user,
+          tournamentIds: [TID],
+          requestedMethods: ['setMatchUpStatus'],
+          methods: [{ method: 'setMatchUpStatus', params: { matchUpId } }],
+        });
+      grantStorage.findForCatalogue.mockResolvedValue([]);
+      expect(await service.scoringCatalogue(PROVIDER, user, [TID])).toEqual([]);
+      expect(await score('centre-match')).toBeNull();
+
+      const scoped = [
+        {
+          userId: user.userId,
+          providerId: PROVIDER,
+          tournamentId: TID,
+          capability: 'canEnterScores',
+          scope: { courtIds: ['court-7'] },
+        },
+      ];
+      grantStorage.findForCatalogue.mockResolvedValue(scoped);
+      grantStorage.findForSubject.mockResolvedValue(scoped);
+      expect(await service.scoringCatalogue(PROVIDER, user, [TID])).toEqual([]);
+      expect(await score('court7-match')).toBeNull();
+      expect(await score('centre-match')).toBe('Not authorized for this court');
+    },
+  );
+
   it('official scoring keeps the tournament gate when legacy access scoping is switched off', async () => {
     vi.mocked(isTournamentAccessScopingEnabled).mockReturnValue(false);
     try {
