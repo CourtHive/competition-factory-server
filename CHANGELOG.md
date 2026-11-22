@@ -1,5 +1,27 @@
 # Changelog
 
+## [4.19.0](https://github.com/CourtHive/competition-factory-server/compare/v4.18.0...v4.19.0) (2026-11-22)
+
+
+### Features
+
+* measure event loop and acquisition waits in load windows ([dde0355](https://github.com/CourtHive/competition-factory-server/commit/dde0355d6136d7a7f16ba7b76b1f0fd4716e07ec))
+* measure event loop and acquisition waits in load windows ([1a9f06b](https://github.com/CourtHive/competition-factory-server/commit/1a9f06b871f63d673815d2687457d64de24f2a7c))
+* serve guarded operator matches and durable score commands ([#1295](https://github.com/CourtHive/competition-factory-server/issues/1295)) ([16bb06a](https://github.com/CourtHive/competition-factory-server/commit/16bb06a1953043d5dca05684cade3d89e683507e))
+* stamp modified draws in the server mutation engine ([#1296](https://github.com/CourtHive/competition-factory-server/issues/1296)) ([1c62012](https://github.com/CourtHive/competition-factory-server/commit/1c62012ae3e668f5549f1c1e154a9a29e985b30b))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.45.0 ([#1300](https://github.com/CourtHive/competition-factory-server/issues/1300)) ([4c13220](https://github.com/CourtHive/competition-factory-server/commit/4c132207b204565d92999e09a4adb83b63ccd627))
+* preserve stored nulls in ShardShadow replay ([#1299](https://github.com/CourtHive/competition-factory-server/issues/1299)) ([155bb5e](https://github.com/CourtHive/competition-factory-server/commit/155bb5e5871741b6660257dfd12c22ea69ae45d1))
+
+
+### Documentation
+
+* **support:** record actual backup retention and link activation owner ([#1298](https://github.com/CourtHive/competition-factory-server/issues/1298)) ([c16ed8e](https://github.com/CourtHive/competition-factory-server/commit/c16ed8eb9915cf12171caddf8ebba81cf275070c))
+* **support:** record the super-admin inbox owner ([#1294](https://github.com/CourtHive/competition-factory-server/issues/1294)) ([feeed5f](https://github.com/CourtHive/competition-factory-server/commit/feeed5f19844f72dc52f6e14712baaae78fbcb6b))
+
 ## [4.18.0](https://github.com/CourtHive/competition-factory-server/compare/v4.17.4...v4.18.0) (2026-11-21)
 
 
