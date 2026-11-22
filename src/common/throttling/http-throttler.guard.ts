@@ -1,5 +1,5 @@
 import { ExecutionContext, Injectable } from '@nestjs/common';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerGuard, type ThrottlerRequest } from '@nestjs/throttler';
 
 // @nestjs/throttler stays at 6.5.0 — its latest — while the rest of the Nest stack is on 12.
 // Its peerDependencies still cap @nestjs/common and @nestjs/core at ^11.0.0, so an install
@@ -29,6 +29,23 @@ import { ThrottlerGuard } from '@nestjs/throttler';
  */
 @Injectable()
 export class HttpThrottlerGuard extends ThrottlerGuard {
+  // A finite allowance for a configured, authenticated identity on the simulation's two load routes.
+  // Key its requests separately so this allowance cannot consume another user's per-IP bucket.
+  protected handleRequest(props: ThrottlerRequest): Promise<boolean> {
+    const userId = process.env.SIMULATION_FACTORY_USER_ID;
+    if (
+      userId &&
+      props.context.getClass().name === 'FactoryController' &&
+      ['queryTournamentRecords', 'executionQueue'].includes(props.context.getHandler().name) &&
+      props.context.switchToHttp().getRequest().userContext?.userId === userId
+    ) {
+      const limit = Number(process.env.SIMULATION_FACTORY_LIMIT_PER_MINUTE);
+      if (Number.isSafeInteger(limit) && limit > props.limit && limit <= 60_000 && props.ttl === 60_000)
+        return super.handleRequest({ ...props, limit, getTracker: () => 'simulation-user:' + userId });
+    }
+    return super.handleRequest(props);
+  }
+
   protected shouldSkip(context: ExecutionContext): Promise<boolean> {
     if (process.env.DISABLE_HTTP_THROTTLE === 'true') return Promise.resolve(true);
     if (context.getType() !== 'http') return Promise.resolve(true);

@@ -1,3 +1,4 @@
+import { markRecordRevision } from './recordRevision';
 import { ITournamentStorage, StorageLayout } from '../interfaces/tournament-storage.interface';
 import { FENCED_BY_NEWER_OWNER, SUCCESS } from 'src/common/constants/app';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
@@ -51,7 +52,7 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     return { tournamentRecord: result.rows[0].data };
   }
 
-  async fetchTournamentRecords(params: { tournamentIds?: string[]; tournamentId?: string }) {
+  async fetchTournamentRecords(params: { tournamentIds?: string[]; tournamentId?: string; captureRevision?: boolean }) {
     if (!params) return { error: { message: 'No params provided' } };
 
     const tournamentIds =
@@ -61,14 +62,20 @@ export class PostgresTournamentStorage implements ITournamentStorage {
       return { error: factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD };
     }
 
+    const versionColumn =
+      params.captureRevision === true
+        ? ", xmin::text || '/' || extract(epoch FROM updated_at)::text AS record_revision"
+        : '';
     const result = await (commandClient(this.pool) ?? this.pool).query(
-      'SELECT tournament_id, tournament_document(tournament_id, data) AS data, updated_at FROM tournaments WHERE tournament_id = ANY($1)',
+      `SELECT tournament_id, tournament_document(tournament_id, data) AS data, updated_at${versionColumn}
+       FROM tournaments WHERE tournament_id = ANY($1)`,
       [tournamentIds],
     );
 
     const tournamentRecords: Record<string, any> = {};
     const serverUpdatedAt: Record<string, string> = {};
     for (const row of result.rows) {
+      markRecordRevision(row.data, row.tournament_id, row.record_revision);
       tournamentRecords[row.tournament_id] = row.data;
       serverUpdatedAt[row.tournament_id] = toIso(row.updated_at);
     }

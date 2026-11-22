@@ -1,5 +1,6 @@
 import { asyncEngine, globalState, governors, mocksEngine } from 'tods-competition-factory';
 
+import { getMutationEngine } from './getMutationEngine';
 import asyncGlobalState from './asyncGlobalState';
 
 // The factory stamps only the records a call modified (competition-factory, building-a-tournament.md § 1.1): this
@@ -71,9 +72,9 @@ describe('the CFS state provider records the tournaments a call modified', () =>
         nonRandom: 1,
       });
       delete tournamentRecord.factory;
-      const engine: any = asyncEngine();
+      const engine: any = getMutationEngine();
+      expect(globalState.getStampScope()).toBe('modified');
       engine.importMethods(governors, true, 1);
-      engine.stampScope('modified');
       await engine.setState(tournamentRecord);
       const { matchUps } = await engine.allTournamentMatchUps({ matchUpFilters: { drawIds: ['D1'] } });
       const matchUpId = matchUps.find((matchUp: any) => matchUp.roundNumber === 1).matchUpId;
@@ -91,8 +92,6 @@ describe('the CFS state provider records the tournaments a call modified', () =>
       const result: any = await engine.executionQueue([
         { method: 'setMatchUpStatus', params: { drawId: 'D1', matchUpId, outcome } },
       ]);
-      // the scope is the factory's, not the request's: put it back before anything else stamps
-      engine.stampScope('tournament');
       expect(result.success).toEqual(true);
       const record = (await engine.getTournament()).tournamentRecord;
       const draws = Object.fromEntries(record.events[0].drawDefinitions.map((draw: any) => [draw.drawId, draw]));

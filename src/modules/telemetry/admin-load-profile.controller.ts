@@ -1,8 +1,9 @@
-import { Controller, Get, Inject, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { Pool } from 'pg';
 
 import { RolesGuard } from '../account/auth/guards/role.guard';
 import { Roles } from '../account/auth/decorators/roles.decorator';
+import { LoadWindowService } from './load-window.service';
 import { LoadProfileService } from './load-profile.service';
 import { PG_POOL } from 'src/storage/postgres/postgres.config';
 import { SUPER_ADMIN } from 'src/common/constants/roles';
@@ -10,7 +11,7 @@ import { SUPER_ADMIN } from 'src/common/constants/roles';
 /**
  * Super-admin read surface over `tournament_load_profile` (migration 043).
  *
- * Read-only by design — this is the measurement half of Stage 0 in
+ * The persisted load profile is read-only — this is the measurement half of Stage 0 in
  * planning/CFS_TOURNAMENT_AFFINITY_SHARDING.md. It exists to answer three
  * questions with data instead of inference, before anything is built on top of
  * them:
@@ -29,7 +30,28 @@ export class AdminLoadProfileController {
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     private readonly loadProfile: LoadProfileService,
+    private readonly windows: LoadWindowService,
   ) {}
+
+  @Post('window')
+  startWindow() {
+    return this.windows.start();
+  }
+
+  @Get('window/:id')
+  readWindow(@Param('id') id: string) {
+    return this.windows.read(id, false);
+  }
+
+  @Post('window/:id/reset')
+  resetWindow(@Param('id') id: string) {
+    return this.windows.reset(id);
+  }
+
+  @Post('window/:id/stop')
+  stopWindow(@Param('id') id: string) {
+    return this.windows.read(id, true);
+  }
 
   /** Buffer + flush health. Inspectable without a restart, per A4. */
   @Get('status')
