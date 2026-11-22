@@ -50,6 +50,8 @@ export const SAFE_FINDINGS = [
   'MATCHUP_FORMAT_MALFORMED',
   'MATCHUP_FORMAT_REFUSED_FOR_NEW_USE',
 ];
+export const SUPPORT_KINDS = ['bug', 'suggestion'];
+export type SupportKind = 'bug' | 'suggestion';
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function object(value: unknown, keys: string[]): Record<string, any> {
@@ -84,16 +86,22 @@ export function parseReport(value: unknown) {
     'evidence',
     'expectedReporter',
     'expectedProvider',
+    'kind',
   ]);
+  // expectedProvider is absent for platform feedback (no provider selected). When present it is a comparison fence,
+  // or, for a super-admin, the provider being impersonated: never an ownership claim.
   if (
     typeof body.expectedReporter !== 'string' ||
     !body.expectedReporter.length ||
     body.expectedReporter.length > 254 ||
-    typeof body.expectedProvider !== 'string' ||
-    !body.expectedProvider.length ||
-    body.expectedProvider.length > 200
+    (body.expectedProvider !== undefined &&
+      (typeof body.expectedProvider !== 'string' ||
+        !body.expectedProvider.length ||
+        body.expectedProvider.length > 200))
   )
     throw new BadRequestException('Expected reporting session required');
+  const kind = body.kind ?? 'bug';
+  if (!SUPPORT_KINDS.includes(kind)) throw new BadRequestException('Unknown feedback kind');
   if (typeof body.submissionKey !== 'string' || !UUID.test(body.submissionKey))
     throw new BadRequestException('Invalid submission key');
   if (
@@ -101,7 +109,13 @@ export function parseReport(value: unknown) {
     (typeof body.tournamentId !== 'string' || !body.tournamentId.length || body.tournamentId.length > 200)
   )
     throw new BadRequestException('Invalid source tournament');
-  const evidence = object(body.evidence, ['route', 'online', 'version', 'diagnostics', 'validation']);
+  // A suggestion carries no error diagnostics or validation findings: its form does not collect them.
+  const evidence = object(
+    body.evidence,
+    kind === 'suggestion'
+      ? ['route', 'online', 'version']
+      : ['route', 'online', 'version', 'diagnostics', 'validation'],
+  );
   const route = member(evidence.route, SAFE_ROUTES);
   const online = boolean(evidence.online);
   if (
@@ -110,6 +124,15 @@ export function parseReport(value: unknown) {
     evidence.version.length > 60
   )
     throw new BadRequestException('Invalid app version');
+  const common = {
+    kind: kind as SupportKind,
+    submissionKey: body.submissionKey as string,
+    expectedReporter: body.expectedReporter as string,
+    expectedProvider: body.expectedProvider as string | undefined,
+    tournamentId: body.tournamentId as string | undefined,
+    description: boundedText(body.description, 8192),
+  };
+  if (kind === 'suggestion') return { ...common, evidence: { route, online, version: evidence.version as string } };
   if (
     !Array.isArray(evidence.diagnostics) ||
     evidence.diagnostics.length > 50 ||
@@ -161,13 +184,6 @@ export function parseReport(value: unknown) {
     truncated: boolean(v.truncated),
     codes: v.codes.map((code: unknown) => member(code, SAFE_FINDINGS)),
   };
-  return {
-    submissionKey: body.submissionKey as string,
-    expectedReporter: body.expectedReporter as string,
-    expectedProvider: body.expectedProvider as string,
-    tournamentId: body.tournamentId as string | undefined,
-    description: boundedText(body.description, 8192),
-    evidence: { route, online, version: evidence.version as string, diagnostics, validation },
-  };
+  return { ...common, evidence: { route, online, version: evidence.version as string, diagnostics, validation } };
 }
 export type SupportReport = ReturnType<typeof parseReport>;
