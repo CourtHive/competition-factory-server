@@ -27,6 +27,8 @@ import { ThrottlerGuard, type ThrottlerRequest } from '@nestjs/throttler';
  * fires far more auth requests per minute than the per-IP login limit allows
  * (e2e seeds + per-test logins). NEVER set in production.
  */
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
 @Injectable()
 export class HttpThrottlerGuard extends ThrottlerGuard {
   // A finite allowance for a configured, authenticated identity on the simulation's two load routes.
@@ -44,6 +46,24 @@ export class HttpThrottlerGuard extends ThrottlerGuard {
         return super.handleRequest({ ...props, limit, getTracker: () => 'simulation-user:' + userId });
     }
     return super.handleRequest(props);
+  }
+
+  /**
+   * Who a request counts against. Production reaches CFS through Cloudflare and then nginx on the same host, and
+   * Express trusts no proxy header here, so `req.ip` was nginx's loopback address for every client: all of production
+   * shared one bucket per route, the login limit included (found by Hecaton v1, 2026-11-22; no 429 yet in 279,693
+   * logged requests, because load is light). A signed-in request now counts against its user. An anonymous one counts
+   * against Cloudflare's `CF-Connecting-IP`, trusted only on a loopback connection (nginx; nest's origin accepts only
+   * Cloudflare). Anything else keeps `req.ip`.
+   */
+  protected getTracker(req: Record<string, any>): Promise<string> {
+    const userId = req?.userContext?.userId;
+    if (typeof userId === 'string' && userId) return Promise.resolve('user:' + userId);
+    const remote = req?.socket?.remoteAddress ?? req?.ip;
+    const forwarded = req?.headers?.['cf-connecting-ip'];
+    if (typeof forwarded === 'string' && forwarded.trim() && LOOPBACK.has(remote))
+      return Promise.resolve('ip:' + forwarded.trim());
+    return Promise.resolve('ip:' + (req?.ip ?? remote ?? 'unknown'));
   }
 
   protected shouldSkip(context: ExecutionContext): Promise<boolean> {

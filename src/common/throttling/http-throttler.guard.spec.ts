@@ -36,3 +36,22 @@ it('applies a finite separate allowance only to the configured identity and fact
   await guard.handleRequest(ordinary);
   expect(enforce).toHaveBeenLastCalledWith(ordinary);
 });
+
+it('counts a signed-in request against its user, not the address nginx connects from', async () => {
+  const guard = Object.create(HttpThrottlerGuard.prototype);
+  const viaNginx = { ip: '127.0.0.1', socket: { remoteAddress: '127.0.0.1' } };
+  expect(await guard.getTracker({ ...viaNginx, userContext: { userId: 'u-1' } })).toBe('user:u-1');
+  expect(await guard.getTracker({ ...viaNginx, userContext: { userId: 'u-2' } })).toBe('user:u-2');
+});
+
+it("counts an anonymous request against Cloudflare's client address only when it arrives through nginx", async () => {
+  const guard = Object.create(HttpThrottlerGuard.prototype);
+  const headers = { 'cf-connecting-ip': ' 203.0.113.7 ' };
+  for (const remoteAddress of ['127.0.0.1', '::1', '::ffff:127.0.0.1'])
+    expect(await guard.getTracker({ ip: remoteAddress, socket: { remoteAddress }, headers })).toBe('ip:203.0.113.7');
+  // A direct connection cannot choose its own bucket by sending the header.
+  expect(await guard.getTracker({ ip: '198.51.100.9', socket: { remoteAddress: '198.51.100.9' }, headers })).toBe(
+    'ip:198.51.100.9',
+  );
+  expect(await guard.getTracker({ ip: '127.0.0.1', socket: { remoteAddress: '127.0.0.1' } })).toBe('ip:127.0.0.1');
+});
