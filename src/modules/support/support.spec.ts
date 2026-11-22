@@ -1,8 +1,9 @@
-import { SupportService } from './support.service';
+import { SUPPORT_REFUSAL, SupportService } from './support.service';
 import { SupportWorker } from './support.worker';
 import { SupportStore } from './support.store';
 import { parseReport } from './support-input';
 import { randomUUID } from 'node:crypto';
+import { Logger } from '@nestjs/common';
 import { Pool } from 'pg';
 
 const evidence = () => ({
@@ -67,6 +68,37 @@ describe('description-only evidence boundary', () => {
     expect(() => service.list(0, identity())).toThrow();
     await expect(service.submit(report(), { ...identity(), providerSelectionPending: true })).rejects.toThrow();
     await expect(service.submit(report(), { ...identity(), actingProviderId: 'another-provider' })).rejects.toThrow();
+    vi.unstubAllEnvs();
+  });
+
+  it('names the reason for every refusal and logs it without report content', async () => {
+    vi.stubEnv('SUPPORT_REPORTS_ENABLED', 'true');
+    const warn = vi.spyOn(Logger, 'warn').mockImplementation(() => undefined);
+    const service = new SupportService({} as any, {} as any, {} as any, {} as any);
+    const code = (value: string) => ({ response: expect.objectContaining({ code: value }) });
+    expect(() => service.identity()).toThrow(expect.objectContaining(code(SUPPORT_REFUSAL.IDENTITY_REQUIRED)));
+    expect(() => service.list(0, identity())).toThrow(expect.objectContaining(code(SUPPORT_REFUSAL.ADMIN_REQUIRED)));
+    // Production, 2026-11-22: a super-admin impersonating in the client, with no acting provider in the session.
+    const platform = { ...identity(), providerIds: [], providerRoles: {}, actingProviderId: undefined, isSuperAdmin: true };
+    await expect(service.submit(report(), platform)).rejects.toMatchObject({
+      status: 403,
+      ...code(SUPPORT_REFUSAL.NO_SESSION_PROVIDER),
+    });
+    await expect(service.submit(report(), { ...identity(), actingProviderId: 'another-provider' })).rejects.toMatchObject(
+      code(SUPPORT_REFUSAL.PROVIDER_NOT_PERMITTED),
+    );
+    await expect(service.submit({ ...report(), expectedProvider: 'elsewhere' }, identity())).rejects.toMatchObject(
+      code(SUPPORT_REFUSAL.SESSION_CHANGED),
+    );
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(SUPPORT_REFUSAL.NO_SESSION_PROVIDER), 'Support');
+    const logged = warn.mock.calls.map(([line]) => String(line)).join('\n');
+    expect(logged).not.toContain('Creation was refused'); // the report description never reaches the log
+    vi.stubEnv('SUPPORT_REPORTS_ENABLED', 'false');
+    await expect(service.submit(report(), identity())).rejects.toMatchObject({
+      status: 503,
+      ...code(SUPPORT_REFUSAL.INTAKE_DISABLED),
+    });
+    warn.mockRestore();
     vi.unstubAllEnvs();
   });
 
