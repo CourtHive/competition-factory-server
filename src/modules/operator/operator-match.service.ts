@@ -22,6 +22,7 @@ import { isProviderAdministrator } from '../factory/helpers/providerAdminMethods
 import { sessionProviderId } from '../factory/helpers/actingProviderScope';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { GRANT_STORAGE, type IGrantStorage } from 'src/storage/interfaces';
+import { loadFetchedRecords } from '../factory/helpers/loadFetchedRecords';
 import asyncGlobalState from '../factory/engines/asyncGlobalState';
 import { queryEngine } from '../factory/engines/queryEngine';
 import { recordRevision } from 'src/storage/postgres/recordRevision';
@@ -128,7 +129,8 @@ export class OperatorMatchService {
     const revision = recordRevision(record);
     if (!revision) throw new ServiceUnavailableException('Revision unavailable');
     return asyncGlobalState.runWithInstanceState(() => {
-      queryEngine.setState({ [ids.tournamentId]: record });
+      // Without a copy (P67), like the mutation path: the record was parsed from its own row for this request.
+      if (loadFetchedRecords({ [ids.tournamentId]: record }).error) throw new ServiceUnavailableException();
       const reply = queryEngine.matchUpActions({ ...ids, operatorAudience: audience });
       if (reply.error) throw new NotFoundException();
       if (!reply.operatorMatch) throw new ServiceUnavailableException('Operator query unavailable');
