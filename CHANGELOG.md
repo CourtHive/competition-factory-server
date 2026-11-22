@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.19.1](https://github.com/CourtHive/competition-factory-server/compare/v4.19.0...v4.19.1) (2026-11-22)
+
+
+### Bug Fixes
+
+* **support:** name and log the reason for every refusal ([#1304](https://github.com/CourtHive/competition-factory-server/issues/1304)) ([8c96b67](https://github.com/CourtHive/competition-factory-server/commit/8c96b673d964e301f601844d8072223db79b4382))
+
 ## [4.19.0](https://github.com/CourtHive/competition-factory-server/compare/v4.18.0...v4.19.0) (2026-11-22)
 
 
