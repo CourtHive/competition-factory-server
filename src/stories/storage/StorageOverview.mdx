@@ -106,6 +106,29 @@ footprint to the request. Unsupported inputs, missing parts and ambiguous draw b
 reader. The dedicated CMX operator endpoint still fetches the complete tournament with revision capture.
 It retains the existing grant, provider-policy and correction checks.
 
+### Retaining shard bodies between reads
+
+Set `CFS_SHARD_CACHE_BYTES` to a byte budget per CFS worker at startup. For example,
+`8388608` gives one worker 8 MiB for retained entries across its selected tournaments.
+The default of zero keeps the uncached physical reader. Budget across all workers separately:
+four workers configured for 8 MiB can retain up to 32 MiB of accounted entries in total.
+Allow additional process memory for request-local parsed objects, in-flight reads and the engine.
+
+The retained parts follow the PostgreSQL layout: one shell, one body per draw definition and one
+body per participant. Every request checks the current layout, footprint membership and revisions
+on the primary. It builds private request state from the confirmed parts. A change to one draw
+can therefore reuse the unchanged shell, sibling draws and participant rows.
+
+Migration 067 assigns revisions to existing parts and stamps new or changed rows, including
+writes made by another worker. If stamping is disabled for database maintenance, stop warm reads
+on all workers first. After restoring the triggers, restamp or rebuild the affected rows, verify
+the layout against the tournament document, and restart the workers before resuming warm reads.
+
+To verify a trial, read the `shardCache` field of the existing super-admin load-profile window on
+the same CFS worker. Compare `reused` and `transferred` for shell, draw and participant bodies on
+the first and subsequent requests. Stop the window after collecting the comparison. Setting the
+budget back to zero and restarting that worker removes retention while preserving physical reads.
+
 ### Measuring worker locality
 
 Set `FOOTPRINT_LOCALITY_ENABLED=true` to start a finite observation on a worker. The default window is

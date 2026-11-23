@@ -1,5 +1,6 @@
 import { ConflictException, Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { createHistogram, monitorEventLoopDelay } from 'node:perf_hooks';
+import { measureShardCache } from '../../storage/postgres/shardCacheObservation';
 import { measureLockAcquisitions } from '../../services/tournamentMutex';
 import { PG_POOL } from '../../storage/postgres/postgres.config';
 import { randomUUID } from 'node:crypto';
@@ -45,6 +46,7 @@ function openWindow(pool: Pool) {
   const pg = createHistogram();
   const restoreLock = measureLockAcquisitions((ns) => lock.record(ns || BigInt(1)));
   const restorePool = measurePool(pool, pg);
+  const shardCache = measureShardCache(pool);
   const startedAt = new Date().toISOString();
   loop.enable();
   return {
@@ -53,7 +55,9 @@ function openWindow(pool: Pool) {
     loop,
     lock,
     pg,
+    shardCache,
     close() {
+      shardCache.close();
       loop.disable();
       restorePool();
       restoreLock();
@@ -89,6 +93,7 @@ export class LoadWindowService implements OnModuleDestroy {
       eventLoop: summarize(w.loop),
       tournamentLock: summarize(w.lock),
       postgresPool: summarize(w.pg),
+      shardCache: w.shardCache.snapshot(),
     };
   }
 
