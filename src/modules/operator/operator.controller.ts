@@ -1,6 +1,7 @@
 import { scoreRequest } from './scoreRequest';
 import {
   Body,
+  BadRequestException,
   CanActivate,
   Controller,
   Header,
@@ -12,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { UserCtx, type UserContext } from '../account/auth/decorators/user-context.decorator';
 import { OperatorMatchService } from './operator-match.service';
-import { matchRequest } from './matchRequest';
+import { checkedObject, matchRequest, validOperatorId } from './matchRequest';
 
 @Injectable()
 export class OperatorMatchEnabled implements CanActivate {
@@ -25,6 +26,16 @@ export class OperatorMatchEnabled implements CanActivate {
 @UseGuards(OperatorMatchEnabled)
 export class OperatorController {
   constructor(private readonly matches: OperatorMatchService) {}
+  @Post('catalogue-access')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  catalogue(@Body() body: unknown, @UserCtx() user?: UserContext) {
+    const { tournamentIds } = checkedObject(body, ['tournamentIds']);
+    if (!Array.isArray(tournamentIds) || tournamentIds.length > 101 || !tournamentIds.every(validOperatorId))
+      throw new BadRequestException('Invalid tournament identifiers');
+    return this.matches.catalogueAccess([...new Set<string>(tournamentIds)], user);
+  }
+
   @Post('match')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')

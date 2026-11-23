@@ -31,6 +31,7 @@ const outcome = {
 const rev = 'a'.repeat(43);
 function fixture() {
   const grants = vi.fn().mockResolvedValue([grant]);
+  const scoringCatalogue = vi.fn();
   const gate = vi.fn().mockResolvedValue(null);
   const queue = vi.fn(async (payload) => {
     await payload[operatorScorePrecondition]({ t: record });
@@ -39,7 +40,7 @@ function fixture() {
   const service = new OperatorMatchService(
     { commit: queue } as never,
     { fetchTournamentRecords: async () => ({ tournamentRecords: { t: record } }) } as never,
-    { gate } as never,
+    { gate, scoringCatalogue } as never,
     { findForSubject: grants } as never,
   );
   const match = { resultIntent: 'record-initial-result', disabledMatchUpStatuses: [] as string[], clearable: false };
@@ -50,7 +51,7 @@ function fixture() {
     .mockImplementation((...args) => ({ match, revision: rev, audience: args[2] }));
   const command = (extras: Record<string, unknown> = {}) =>
     scoreRequest({ target: ids, intent: 'record-initial-result', commandId: 'test-score-01', outcome, ...extras });
-  return { service, grants, gate, dto, match, queue, command };
+  return { service, grants, gate, scoringCatalogue, dto, match, queue, command };
 }
 describe('operator boundary', () => {
   it('requires explicit operator enablement', () => {
@@ -72,6 +73,17 @@ describe('operator boundary', () => {
     const { command } = fixture();
     expect(() => command({ intent: 'correct-result' })).toThrow(BadRequestException);
     expect(() => command({ outcome: { ...outcome, winningSide: 9 } })).toThrow(BadRequestException);
+  });
+  it('passes only the verified member and candidate IDs to catalogue authorization', async () => {
+    const { service, scoringCatalogue, dto } = fixture();
+    scoringCatalogue.mockResolvedValue(['t']);
+    expect(await service.catalogueAccess(['t', 'other'], user)).toEqual({ tournamentIds: ['t'] });
+    expect(scoringCatalogue).toHaveBeenCalledExactlyOnceWith('p', user, ['t', 'other']);
+    expect(dto).not.toHaveBeenCalled();
+    await expect(service.catalogueAccess(['t'], { ...user, providerIds: [] })).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(scoringCatalogue).toHaveBeenCalledTimes(1);
   });
   it('denies a revoked grant before the factory runs', async () => {
     const { service, grants, dto } = fixture();
