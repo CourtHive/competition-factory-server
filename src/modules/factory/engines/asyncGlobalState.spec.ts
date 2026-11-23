@@ -97,6 +97,28 @@ describe('asyncGlobalState per-context isolation', () => {
     expect([...delivered].sort((x, y) => x.localeCompare(y))).toEqual(['A', 'B']);
   });
 
+  it('reads the notification flag of the current request without creating a scope', async () => {
+    const before = asyncGlobalState.implicitContextCreations();
+    expect(asyncGlobalState.notificationsDisabled()).toBe(false);
+    expect(asyncGlobalState.implicitContextCreations()).toBe(before);
+
+    const request = (disable: boolean) =>
+      asyncGlobalState.runWithInstanceState(async () => {
+        if (disable) asyncGlobalState.disableNotifications();
+        await Promise.resolve();
+        expect(asyncGlobalState.notificationsDisabled()).toBe(disable);
+
+        asyncGlobalState.runWithInstanceState(() => {
+          expect(asyncGlobalState.notificationsDisabled()).toBe(false);
+        });
+        expect(asyncGlobalState.notificationsDisabled()).toBe(disable);
+        asyncGlobalState.enableNotifications();
+        expect(asyncGlobalState.notificationsDisabled()).toBe(false);
+      });
+
+    await Promise.all([request(true), request(false)]);
+  });
+
   it('notices do not leak between concurrent contexts', async () => {
     const request = (tag: string) =>
       asyncGlobalState.runWithInstanceState(async () => {
