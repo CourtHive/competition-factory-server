@@ -1,3 +1,4 @@
+import { footprintLocality } from 'src/modules/telemetry/footprintLocality';
 import { queryGovernor, Tournament } from 'tods-competition-factory';
 
 import { findEventForDraw, resolvePublicParticipantPolicy } from './participantPrivacyPolicy';
@@ -29,6 +30,12 @@ export async function getDrawData(
 
   const findResult = await storage.findTournamentRecord({ tournamentId: params.tournamentId });
   if (findResult.error) return findResult;
+  footprintLocality?.observeAccess({
+    kind: 'read',
+    route: 'publicDraw',
+    tournamentId: params.tournamentId,
+    drawIds: [params.drawId],
+  });
   const tournamentRecord = findResult.tournamentRecord as Tournament;
 
   const { drawDefinition } = queryGovernor.findDrawDefinition({

@@ -61,7 +61,7 @@ export async function warmEventDataCache({
     // nothing, and one seeding path is what keeps a seeded entry byte-identical to a read entry.
     if (profile) continue;
 
-    const result: any = await publicQueries.getEventData({ tournamentId, eventId }, storage);
+    const result: any = await publicQueries.getEventData({ tournamentId, eventId }, storage, undefined, 'warmEvent');
     // A failed rebuild must not be cached — that would pin an error response for the whole TTL.
     // Surfaced rather than swallowed (A2): the caller asked for this work, so a failure is theirs
     // to see, and it is rare enough that per-occurrence logging cannot become spam.

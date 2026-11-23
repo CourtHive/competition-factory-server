@@ -1,3 +1,4 @@
+import { footprintLocality } from 'src/modules/telemetry/footprintLocality';
 import { participantConstants, participantRoles, queryGovernor } from 'tods-competition-factory';
 
 import type { ITournamentStorage, IProviderStorage } from 'src/storage/interfaces';
@@ -33,6 +34,7 @@ export async function getParticipants(
 
   const findResult: any = await tournamentStorage.findTournamentRecord({ tournamentId });
   if (findResult.error) return findResult;
+  footprintLocality?.observeAccess({ kind: 'read', route: 'publicParticipants', tournamentId });
 
   const tournamentRecord = findResult.tournamentRecord;
 

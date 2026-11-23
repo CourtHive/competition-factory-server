@@ -1,3 +1,4 @@
+import { footprintLocality } from 'src/modules/telemetry/footprintLocality';
 import { publishingGovernor, queryGovernor, Tournament } from 'tods-competition-factory';
 
 import type { ITournamentStorage } from 'src/storage/interfaces';
@@ -35,6 +36,7 @@ export async function getTournamentInfo(
   if (!tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
   const findResult = await storage.findTournamentRecord({ tournamentId });
   if (findResult.error) return findResult;
+  footprintLocality?.observeAccess({ kind: 'read', route: 'publicInfo', tournamentId });
   const infoResult = queryGovernor.getTournamentInfo({
     tournamentRecord: findResult.tournamentRecord as Tournament,
     withStructureDetails,

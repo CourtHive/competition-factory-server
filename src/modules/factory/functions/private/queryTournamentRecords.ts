@@ -1,3 +1,5 @@
+import { footprintLocality } from 'src/modules/telemetry/footprintLocality';
+import { observeQueryRead } from 'src/modules/telemetry/footprintLocalityHooks';
 import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
 import { loadFetchedRecords } from 'src/modules/factory/helpers/loadFetchedRecords';
 import { fetchQueryRecords } from 'src/modules/factory/helpers/fetchQueryRecords';
@@ -17,6 +19,7 @@ export async function queryTournamentRecords(payload, storage: ITournamentStorag
   const { method, params } = payload;
   const result = await fetchQueryRecords(storage, { tournamentIds }, method, params);
   if (result.error) return result;
+  if (footprintLocality) observeQueryRead(footprintLocality, tournamentIds, method, params, result);
 
   // DECISION: the read path gets its OWN engine state context.
   // WHY: queryEngine.setState writes the shared factory instance state. Reads take no
