@@ -178,6 +178,127 @@ describe.skipIf(process.env.STORAGE_LAYOUT_DB_TESTS !== 'true')(
       }
     }
 
+    it.each([
+      { scope: 'draw', request: draw('a'), includesSiblings: false, includesRoster: false },
+      {
+        scope: 'drawParticipants',
+        request: {
+          footprint: tools.getMutationFootprint({
+            methods: [{ method: 'setMatchUpStatus', params: { drawId: 'b' } }],
+            outcomePipeline: 'v2',
+          }),
+        },
+        includesSiblings: false,
+        includesRoster: true,
+      },
+      { scope: 'eventDraws', request: all, includesSiblings: true, includesRoster: true },
+    ])(
+      'round-trips empty-hint $scope bodies and their physical order against the uncached reader',
+      async ({ scope, request, includesSiblings, includesRoster }) => {
+        const id = 'framing-' + scope,
+          record = fixture(id);
+        // Use physical order distinct from ID order. The first requested draw in eventDraws is the second row.
+        const draws = record.events[0].drawDefinitions.reverse();
+        const roster = record.participants.reverse();
+        // U+001E is also the wire separator. The literal six characters backslash-u001e represent different content.
+        const value = 'left\u001eright | literal \\u001e | "quoted"\n雪 e\u0301 é 🧑🏿‍🚀';
+        for (const body of [record, ...draws, ...roster]) {
+          Object.assign(body, { extensions: [{ name: 'unicode', value }] });
+        }
+        const { read } = await setup(id, 1_000_000, record);
+        const plain = adapter(pool, id, 0).readerForTournament(id)!;
+        const selectedDraws = includesSiblings ? draws : draws.filter((d) => d.drawId === request.footprint.drawIds[0]);
+        const selectedRoster = includesRoster ? roster : [];
+        const names = [
+          record.tournamentName,
+          ...selectedDraws.map((d) => d.drawName),
+          ...selectedRoster.map((p) => p.participantName),
+        ];
+        const counts = measureShardCache(pool);
+        const none = { shell: 0, draw: 0, participant: 0 };
+        const selected = { shell: 1, draw: selectedDraws.length, participant: selectedRoster.length };
+        try {
+          const missing = { footprint: { ...request.footprint, drawIds: ['missing'] } };
+          const denied = await plain(missing);
+          expect(denied).toEqual({ kind: 'fallback', reason: 'missing-shards-or-layout' });
+          expect(await read(missing)).toEqual(denied);
+          const authority = await traceRead(pool, plain, request);
+          expect(authority.result).toMatchObject({
+            kind: 'partial',
+            tournamentRecord: {
+              events: [{ eventId: 'event', drawDefinitions: selectedDraws }],
+              participants: selectedRoster,
+            },
+          });
+          expectTransferred(authority.wire, record, names);
+          expect(counts.snapshot()).toEqual({ reads: 0, transferred: none, reused: none });
+
+          const cold = await traceRead(pool, read, request);
+          expect(cold.result).toEqual(authority.result);
+          expectTransferred(cold.wire, record, names);
+          const [row] = JSON.parse(cold.wire);
+          for (const metadata of [...row.draws, ...(row.roster ?? [])]) {
+            for (const field of ['body', 'draw', 'participant']) expect(metadata).not.toHaveProperty(field);
+          }
+          expectTransferred(JSON.stringify([row.draws, row.roster]), record, []);
+          expect(JSON.parse(row.shell_body).extensions).toEqual([{ name: 'unicode', value }]);
+          const parseBodies = (text: string) => text.split('\u001e').map((json) => JSON.parse(json));
+          expect(parseBodies(row.draw_bodies)).toEqual(selectedDraws);
+          expect(row.draws.map((d) => [d.ord, d.draw_id])).toEqual(
+            selectedDraws.map((d) => [draws.indexOf(d), d.drawId]),
+          );
+          if (includesRoster) {
+            expect(parseBodies(row.participant_bodies)).toEqual(selectedRoster);
+            expect(row.roster.map((p) => [p.ord, p.participant_id])).toEqual(
+              selectedRoster.map((p, ord) => [ord, p.participantId]),
+            );
+          } else {
+            expect(row.participant_bodies).toBeNull();
+            expect(row.roster).toBeNull();
+          }
+          expect(counts.snapshot()).toEqual({ reads: 1, transferred: selected, reused: none });
+
+          const hot = await traceRead(pool, read, request);
+          expect(hot.result).toEqual(authority.result);
+          expectTransferred(hot.wire, record, []);
+          expect(counts.snapshot()).toEqual({ reads: 2, transferred: selected, reused: selected });
+        } finally {
+          counts.close();
+        }
+      },
+    );
+
+    it('keeps empty-hint roster validation and handles a valid empty roster without a body frame', async () => {
+      const id = 'framing-empty',
+        record = fixture(id);
+      record.participants = [];
+      const { read } = await setup(id, 1_000_000, record);
+      const plain = adapter(pool, id, 0).readerForTournament(id)!;
+      const counts = measureShardCache(pool);
+      try {
+        // Draw a still names participant p. No partial record or admission can survive this refusal.
+        const invalid = await plain(all);
+        expect(invalid).toEqual({ kind: 'fallback', reason: 'invalid-shards' });
+        expect(await read(all)).toEqual(invalid);
+        expect(counts.snapshot().reads).toBe(0);
+        record.events[0].drawDefinitions[0].entries = [];
+        await update(record);
+        const valid = await plain(all);
+        expect(valid).toMatchObject({ kind: 'partial', tournamentRecord: record });
+        const cold = await traceRead(pool, read);
+        expect(cold.result).toEqual(valid);
+        expect(JSON.parse(cold.wire)[0].participant_bodies).toBeNull();
+        expectTransferred(cold.wire, record, bodyNames(record));
+        const hot = await traceRead(pool, read);
+        expect(hot.result).toEqual(valid);
+        expectTransferred(hot.wire, record, []);
+        const parts = { shell: 1, draw: 2, participant: 0 };
+        expect(counts.snapshot()).toEqual({ reads: 2, transferred: parts, reused: parts });
+      } finally {
+        counts.close();
+      }
+    });
+
     it('reports the bodies transferred on a cold read and reused on a hot read through the production observer', async () => {
       const id = 'observed-counts',
         record = fixture(id);

@@ -119,23 +119,51 @@ const revisionGate = `/* conditional physical footprint */ WITH revision_gate AS
   SELECT ${ACTIVE_SHARD_CACHE_REVISIONS_SQL} AND pg_current_xact_id_if_assigned() IS NULL AS active
 ) `;
 
-function selectParts(scope: Scope, conditional = false) {
+const coldRosterJoin = ` CROSS JOIN LATERAL (
+              SELECT json_agg(json_build_object('ord', p.ord, 'participant_id', p.participant_id,
+                         'token', CASE WHEN revisions.active THEN p.cache_revision END) ORDER BY p.ord) AS roster,
+                     string_agg(p.participant::text, chr(30) ORDER BY p.ord) AS participant_bodies
+                FROM tournament_participants p WHERE p.tournament_id = t.tournament_id
+            ) people`;
+
+// Empty hints make every row a miss. Transfer body text separately from its metadata so PostgreSQL
+// does not quote each body as a nested JSON string. Both aggregates use the same physical key order.
+const coldDraws = `SELECT json_agg(json_build_object('event_id', event_id, 'event_ord', event_ord, 'draw_id', draw_id,
+                        'ord', ord, 'token', token, 'ambiguous', ambiguous) ORDER BY event_ord, ord) AS draws,
+                     string_agg(draw::text, chr(30) ORDER BY event_ord, ord) AS draw_bodies`;
+
+type ReadMode = 'plain' | 'hinted' | 'cold';
+
+function selectParts(scope: Scope, mode: ReadMode = 'plain') {
   const event = scope === 'eventDraws';
-  const selectedRoster = conditional ? conditionalRoster : roster;
-  return `${conditional ? revisionGate : ''}SELECT ${conditional ? conditionalShell : 's.shell'}, t.updated_at,
+  const cold = mode === 'cold';
+  const conditional = mode !== 'plain';
+  const shell = cold
+    ? 'CASE WHEN revisions.active THEN s.cache_revision::text END AS shell_token, s.shell::text AS shell_body'
+    : conditional
+      ? conditionalShell
+      : 's.shell';
+  const selectedRoster = scope === 'draw' ? 'NULL' : conditional ? conditionalRoster : roster;
+  const collections = cold
+    ? `parts.draws, parts.draw_bodies, ${scope === 'draw' ? 'NULL AS roster, NULL::text AS participant_bodies' : 'people.roster, people.participant_bodies'}`
+    : `parts.draws, ${selectedRoster} AS roster`;
+  const drawColumns = cold
+    ? `draw, CASE WHEN revisions.active THEN selected.cache_revision END AS token, ${event ? siblingAmbiguity : 'false AS ambiguous'}`
+    : `${conditional ? conditionalDraw : 'draw'} ${event ? ', ' + siblingAmbiguity : ''}`;
+  return `${conditional ? revisionGate : ''}SELECT ${shell}, t.updated_at,
                  t.xmin::text || '/' || extract(epoch FROM t.updated_at)::text AS parent_revision,
-                 parts.draws, ${scope === 'draw' ? 'NULL' : selectedRoster} AS roster
+                 ${collections}
             FROM tournaments t
             JOIN tournament_storage_layout l ON l.tournament_id = t.tournament_id AND l.layout = 'sharded'
             JOIN tournament_shells s ON s.tournament_id = t.tournament_id${conditional ? ' CROSS JOIN revision_gate revisions' : ''}
             CROSS JOIN LATERAL (
-              SELECT json_agg(d ORDER BY d.event_ord, d.ord) AS draws FROM (
-                SELECT event_id, event_ord, draw_id, ord, ${conditional ? conditionalDraw : 'draw'} ${event ? ', ' + siblingAmbiguity : ''}
+              ${cold ? coldDraws : 'SELECT json_agg(d ORDER BY d.event_ord, d.ord) AS draws'} FROM (
+                SELECT event_id, event_ord, draw_id, ord, ${drawColumns}
                   FROM draw_definitions selected
                  WHERE tournament_id = t.tournament_id
-                   AND ${event ? 'event_ord = ' + eventOrdinal(conditional ? '$7' : '$3') : 'draw_id = ANY($2::text[])'}
+                   AND ${event ? 'event_ord = ' + eventOrdinal(mode === 'hinted' ? '$7' : '$3') : 'draw_id = ANY($2::text[])'}
               ) d HAVING count(*) > 0
-            ) parts
+            ) parts${cold && scope !== 'draw' ? coldRosterJoin : ''}
            WHERE t.tournament_id = $1
              AND ${ACTIVE_SHARD_SYNC_SQL}${conditional ? ' AND NOT pg_catalog.pg_is_in_recovery()' : ''}`;
 }
@@ -262,6 +290,41 @@ function hintArgs(request: PhysicalFootprintRequest, scope: Scope, snapshot: Sha
   return args;
 }
 
+// JSONB text escapes U+001E in strings and its emitted whitespace cannot contain U+001E.
+// The separator therefore identifies boundaries even when original user data contains that character.
+function attachColdBodies(rows: (WireBody | number)[] | null, text: string | null) {
+  const bodies = text === null ? [] : text.split('\u001e');
+  if (bodies.length !== (rows?.length ?? 0)) throw new Error('Mismatched physical body count');
+  rows?.forEach((row, index) => {
+    if (typeof row === 'number') throw new Error('Unexpected physical hit on cold read');
+    row.body = bodies[index];
+  });
+}
+
+async function selectConditionalRow(
+  pool: Pool,
+  request: PhysicalFootprintRequest,
+  scope: Scope,
+  snapshot: ShardBodySnapshot,
+): Promise<ConditionalRow | undefined> {
+  if (snapshot.shell || snapshot.draws.size || snapshot.participants.size) {
+    const result = await pool.query<ConditionalRow>(selectParts(scope, 'hinted'), hintArgs(request, scope, snapshot));
+    return result.rows[0];
+  }
+  const args = [request.tournamentId, request.footprint.drawIds];
+  if (scope === 'eventDraws') args.push(request.footprint.eventIds[0]);
+  const result = await pool.query<ConditionalRow & { draw_bodies: string; participant_bodies: string | null }>(
+    selectParts(scope, 'cold'),
+    args,
+  );
+  const row = result.rows[0];
+  if (row) {
+    attachColdBodies(row.draws, row.draw_bodies);
+    attachColdBodies(row.roster, row.participant_bodies);
+  }
+  return row;
+}
+
 async function conditionalRead(
   pool: Pool,
   request: PhysicalFootprintRequest,
@@ -292,9 +355,7 @@ async function conditionalRead(
 
   let result: PhysicalFootprintRead;
   try {
-    const {
-      rows: [row],
-    } = await pool.query<ConditionalRow>(selectParts(scope, true), hintArgs(request, scope, snapshot));
+    const row = await selectConditionalRow(pool, request, scope, snapshot);
     if (!row) return { kind: 'fallback', reason: 'missing-shards-or-layout' };
     const shell = decode<Tournament>(row.shell_body, row.shell_token, { kind: 'shell' }, snapshot.shell);
     const draws = row.draws.map((d) => {
