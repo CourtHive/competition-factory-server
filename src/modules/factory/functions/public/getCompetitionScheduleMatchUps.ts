@@ -1,3 +1,4 @@
+import { footprintLocality } from 'src/modules/telemetry/footprintLocality';
 import { queryGovernor } from 'tods-competition-factory';
 
 import { resolvePublicParticipantPolicy } from './participantPrivacyPolicy';
@@ -24,6 +25,12 @@ export async function getCompetitionScheduleMatchUps(
   if (findResult.error) return findResult;
 
   const tournamentRecords = findResult.tournamentRecords;
+  const observer = footprintLocality;
+  if (observer) {
+    for (const id of Object.keys(tournamentRecords ?? {})) {
+      observer.observeAccess({ kind: 'read', route: 'publicSchedule', tournamentId: id });
+    }
+  }
 
   const matchUpsResult = queryGovernor.competitionScheduleMatchUps({
     policyDefinitions: await resolvePublicParticipantPolicy({

@@ -1,3 +1,5 @@
+import { footprintLocality } from 'src/modules/telemetry/footprintLocality';
+import { observeQueueRead } from 'src/modules/telemetry/footprintLocalityQueue';
 import { loadFetchedRecords } from '../../helpers/loadFetchedRecords';
 import { operatorScorePrecondition } from '../../../operator/scoreRequest';
 import { scheduleDrawIntegrityScan, snapshotTouchedDraws } from '../../helpers/executionQueueIntegrity';
@@ -151,6 +153,8 @@ export async function executionQueue(
               assertion || shadowTransaction ? { tournamentIds, captureRevision: true } : { tournamentIds },
             );
             if (result.error) return result;
+            if (footprintLocality)
+              observeQueueRead(footprintLocality, tournamentIds, methods, result.tournamentRecords);
 
             await assertion?.(result.tournamentRecords);
             await resolveMatchUpReferences(methods, result.tournamentRecords);

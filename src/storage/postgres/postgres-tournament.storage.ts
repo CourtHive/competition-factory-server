@@ -1,3 +1,4 @@
+import { footprintLocality } from 'src/modules/telemetry/footprintLocality';
 import { readPhysicalFootprint } from './physicalFootprintReader';
 import { fetchPhysicalShellMetadata } from './physicalShellMetadata';
 import { markRecordRevision } from './recordRevision';
@@ -11,7 +12,7 @@ import { FENCED_BY_NEWER_OWNER, SUCCESS } from 'src/common/constants/app';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { factoryConstants } from 'tods-competition-factory';
-import { commandClient } from './commandTransaction';
+import { afterCommandCommit, commandClient } from './commandTransaction';
 import { PG_POOL } from './postgres.config';
 import { Pool } from 'pg';
 
@@ -197,6 +198,13 @@ export class PostgresTournamentStorage implements ITournamentStorage {
 
     if (!result.rowCount) return this.recordFenceRejection(key, ownerEpoch);
 
+    if (footprintLocality) {
+      // The existing serialization's UTF-16 length is available without scanning the document again.
+      const codeUnits = serialized.length;
+      const committed = async () => footprintLocality?.observeCommit(key, 'save', codeUnits);
+      if (commandClient(this.pool)) await afterCommandCommit(committed);
+      else await committed();
+    }
     this.recordFenceRecovery(key);
     const writtenAt = result.rows?.[0]?.updated_at;
     return { ...SUCCESS, bytes: serialized.length, ...(writtenAt && { serverUpdatedAt: toIso(writtenAt) }) };
@@ -257,10 +265,17 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     const tournamentIds = params?.tournamentIds ?? [params?.tournamentId].filter(Boolean);
 
     const result = await (commandClient(this.pool) ?? this.pool).query(
-      'DELETE FROM tournaments WHERE tournament_id = ANY($1)',
+      `DELETE FROM tournaments WHERE tournament_id = ANY($1)${footprintLocality ? ' RETURNING tournament_id' : ''}`,
       [tournamentIds],
     );
 
+    if (footprintLocality && result.rowCount) {
+      const committed = async () => {
+        for (const row of result.rows) footprintLocality?.observeCommit(row.tournament_id, 'delete');
+      };
+      if (commandClient(this.pool)) await afterCommandCommit(committed);
+      else await committed();
+    }
     return { ...SUCCESS, removed: result.rowCount ?? 0 };
   }
 

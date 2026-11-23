@@ -1,3 +1,4 @@
+import { footprintLocality } from 'src/modules/telemetry/footprintLocality';
 import { queryGovernor, Tournament } from 'tods-competition-factory';
 
 import { resolvePublicParticipantPolicy } from './participantPrivacyPolicy';
@@ -14,10 +15,12 @@ export async function getEventData(
   params: any,
   storage: ITournamentStorage,
   providerStorage?: IProviderStorage,
+  route: 'publicEvent' | 'warmEvent' = 'publicEvent',
 ): Promise<EventDataResult> {
   if (!params.tournamentId) return { error: 'MISSING_TOURNAMENT_ID' };
   const findResult = await storage.findTournamentRecord({ tournamentId: params.tournamentId });
   if (findResult.error) return findResult;
+  footprintLocality?.observeAccess({ kind: 'read', route, tournamentId: params.tournamentId });
   const tournamentRecord = findResult.tournamentRecord as Tournament;
   const policyDefinitions = await resolvePublicParticipantPolicy({ tournamentRecord, providerStorage });
   const infoResult = queryGovernor.getEventData({

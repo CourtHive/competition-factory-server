@@ -106,6 +106,20 @@ footprint to the request. Unsupported inputs, missing parts and ambiguous draw b
 reader. The dedicated CMX operator endpoint still fetches the complete tournament with revision capture.
 It retains the existing grant, provider-policy and correction checks.
 
+### Measuring worker locality
+
+Set `FOOTPRINT_LOCALITY_ENABLED=true` to start a finite observation on a worker. The default window is
+one hour. `FOOTPRINT_LOCALITY_WINDOW_MS` accepts a positive duration in milliseconds up to 24 hours.
+The collector logs interval summaries under `FootprintLocality` and releases its history at the end
+of the window. Remove the setting after collection so a later restart does not start a second window.
+Collection is independent of physical reads and can run on the document layout.
+
+Read the reported request counts alongside reuse-distance, age, commit and version buckets.
+A repeated identifier without an authoritative observed revision is an access-frequency observation.
+A matching parent revision confirms reuse at tournament granularity. It does not measure a per-draw
+cache hit after another draw changes. Document-level writes invalidate the tracked tournament conservatively.
+The output contains aggregate counts, with no tournament IDs, draw IDs, actor details or record contents.
+
 ## Key Files
 
 <table>
