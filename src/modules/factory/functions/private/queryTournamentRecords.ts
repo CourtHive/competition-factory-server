@@ -1,4 +1,5 @@
 import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
+import { loadFetchedRecords } from 'src/modules/factory/helpers/loadFetchedRecords';
 import { queryEngine } from 'src/modules/factory/engines/queryEngine';
 import { Logger } from '@nestjs/common';
 
@@ -21,7 +22,10 @@ export async function queryTournamentRecords(payload, storage: ITournamentStorag
   // `await mutationEngine.executionQueue(...)` window replaced the records that mutation was
   // working on. One mutation plus one ordinary read was enough. See competition-factory#4564.
   return asyncGlobalState.runWithInstanceState(() => {
-    queryEngine.setState(result.tournamentRecords);
+    // Without a copy (P67): the factory's default setState deep-copies every record, +101 ms and ~17.5 MB per 2 MB
+    // load (Hecaton v1), to protect objects nothing else holds. Same loader as the mutation path.
+    const loaded = loadFetchedRecords(result.tournamentRecords);
+    if (loaded.error) return loaded;
 
     const { method, params } = payload;
     if (typeof queryEngine[method] !== 'function') {

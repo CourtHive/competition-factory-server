@@ -33,6 +33,15 @@ export class PostgresGrantStorage implements IGrantStorage {
     return result.rows.map(toRow);
   }
 
+  async findForCatalogue(userId: string, providerId: string, tournamentIds: string[]): Promise<TournamentGrantRow[]> {
+    const result = await (commandClient(this.pool) ?? this.pool).query(
+      `SELECT ${COLUMNS} FROM tournament_grants
+       WHERE user_id = $1 AND provider_id = $2 AND tournament_id = ANY($3::text[])`,
+      [userId, providerId, tournamentIds],
+    );
+    return result.rows.map(toRow);
+  }
+
   async findByTournamentId(tournamentId: string): Promise<TournamentGrantRow[]> {
     const result = await (commandClient(this.pool) ?? this.pool).query(
       `SELECT ${COLUMNS} FROM tournament_grants WHERE tournament_id = $1 ORDER BY granted_at`,

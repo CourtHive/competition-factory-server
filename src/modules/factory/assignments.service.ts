@@ -151,12 +151,17 @@ export class AssignmentsService {
    */
   async getAssignedRoles(userId: string, providerId?: string): Promise<Map<string, string>> {
     try {
-      const rows = await this.assignmentStorage.findByUserId(userId, providerId);
-      return new Map(rows.map((r) => [r.tournamentId, r.assignmentRole]));
+      return await this.readAssignedRoles(userId, providerId);
     } catch {
       // LevelDB stub throws — graceful fallback to an empty map so
       // callers in the gateway don't crash on non-Postgres deployments
       return new Map();
     }
+  }
+
+  /** An unavailable assignment store must not look like an unassigned operator during catalogue admission. */
+  async readAssignedRoles(userId: string, providerId?: string): Promise<Map<string, string>> {
+    const rows = await this.assignmentStorage.findByUserId(userId, providerId);
+    return new Map(rows.map((row) => [row.tournamentId, row.assignmentRole]));
   }
 }

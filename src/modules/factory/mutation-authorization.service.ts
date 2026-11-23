@@ -30,8 +30,12 @@ import {
   grantCoversMethod,
   isTargetInScope,
   isWithinWindow,
+  isTournamentWide,
   requiredTargetFields,
 } from './helpers/grantScope';
+import { isLiveScoringGrant } from './helpers/liveScoringGrant';
+import type { UserContext } from '../account/auth/decorators/user-context.decorator';
+import type { TournamentGrantRow } from 'src/storage/interfaces';
 import { windowDenialReason } from './helpers/grantWindowDenial';
 import { canMutateTournament } from './helpers/checkTournamentAccess';
 import { actingProviderAllows } from './helpers/actingProviderScope';
@@ -42,6 +46,8 @@ import { AssignmentsService } from './assignments.service';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 export type MutationGateParams = {
+  /** Named official scoring always requires scoped access at this verified provider. */
+  officialScoringProvider?: string;
   userContext: any;
   tournamentIds: string[];
   /** Factory mutation method names, in payload order. */
@@ -91,20 +97,64 @@ export class MutationAuthorizationService {
    * clear. Super-admins bypass the provider-permission gate (but not the
    * per-tournament gate, which returns early for them anyway).
    */
-  async gate({
-    userContext,
-    tournamentIds,
-    requestedMethods,
-    methods,
-    actor,
-  }: MutationGateParams): Promise<string | null> {
-    if (!userContext || !tournamentIds.length) return null;
+  async gate(params: MutationGateParams): Promise<string | null> {
+    if (!params.userContext || !params.tournamentIds.length) return null;
+    const assignedRoles = await this.assignmentsService.getAssignedRoles(params.userContext.userId);
+    return this.evaluate(params, assignedRoles);
+  }
 
-    const assignedRoles = await this.assignmentsService.getAssignedRoles(userContext.userId);
+  /** All prefetched state lives only for this catalogue request. A match read or write always checks again. */
+  async scoringCatalogue(provider: string, user: UserContext, tournamentIds: string[]): Promise<string[]> {
+    if (!tournamentIds.length) return [];
+    const [assignedRoles, grants] = await Promise.all([
+      this.assignmentsService.readAssignedRoles(user.userId),
+      this.grantStorage.findForCatalogue(user.userId, provider, tournamentIds),
+    ]);
+    const byTournament = new Map<string, TournamentGrantRow[]>();
+    for (const grant of grants) {
+      const rows = byTournament.get(grant.tournamentId);
+      if (rows) rows.push(grant);
+      else byTournament.set(grant.tournamentId, [grant]);
+    }
+    const allowed: string[] = [];
+    for (const tournamentId of tournamentIds) {
+      const denial = await this.evaluate(
+        {
+          officialScoringProvider: provider,
+          userContext: user,
+          tournamentIds: [tournamentId],
+          requestedMethods: ['setMatchUpStatus'],
+          actor: user.userId,
+        },
+        assignedRoles,
+        byTournament.get(tournamentId) ?? [],
+      );
+      if (denial === null) allowed.push(tournamentId);
+    }
+    return allowed;
+  }
+
+  private async evaluate(
+    { userContext, tournamentIds, requestedMethods, methods, actor, officialScoringProvider }: MutationGateParams,
+    assignedRoles: Map<string, string>,
+    catalogueGrants?: TournamentGrantRow[],
+  ): Promise<string | null> {
     const methodSummary = requestedMethods.join('|');
 
     for (const tid of tournamentIds) {
+      if (
+        catalogueGrants &&
+        (!officialScoringProvider ||
+          !catalogueGrants.some(
+            (grant) =>
+              isLiveScoringGrant(grant, userContext.userId, officialScoringProvider, tid) &&
+              isTournamentWide(grant.scope),
+          ))
+      )
+        return 'No tournament-wide scoring grant';
       const tournament = await this.authorizationView(tid);
+      if (officialScoringProvider && tournament?.parentOrganisation?.organisationId !== officialScoringProvider)
+        return 'Not authorized to modify this tournament';
       if (!tournament) continue;
       let fullRecord: any;
       const loadRecord = async () => {
@@ -125,7 +175,15 @@ export class MutationAuthorizationService {
         }
       }
 
-      if (!canMutateTournament(tournament, userContext, assignedRoles, requestedMethods)) {
+      if (
+        !canMutateTournament(
+          tournament,
+          userContext,
+          assignedRoles,
+          requestedMethods,
+          officialScoringProvider ? true : undefined,
+        )
+      ) {
         this.logger.warn(`[executionQueue] mutation denied for ${actor}: ${methodSummary} on ${tid}`);
         return 'Not authorized to modify this tournament';
       }

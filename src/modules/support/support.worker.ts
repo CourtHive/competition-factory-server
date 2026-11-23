@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } f
 import { USER_STORAGE, type IUserStorage } from 'src/storage/interfaces';
 import { SupportTransport } from './support.transport';
 import { SupportStore } from './support.store';
+import { SUPER_ADMIN } from 'src/common/constants/roles';
 import type { PoolClient } from 'pg';
 
 @Injectable()
@@ -28,6 +29,7 @@ export class SupportWorker implements OnApplicationBootstrap, OnModuleDestroy {
       )
         throw new Error('Support reporting requires AMS and courthive-notify configuration');
       await this.transport.ready();
+      if (!process.env.SUPPORT_INBOX_OWNER_ID) this.logger.error('support-inbox-mail-owner-unconfigured');
     }
     // One bounded sweep/minute, no tournament polling. Work and retry counters live in Postgres, not this timer.
     this.timer = setInterval(() => {
@@ -67,10 +69,13 @@ export class SupportWorker implements OnApplicationBootstrap, OnModuleDestroy {
     const client = await this.store.pool.connect();
     try {
       await client.query('BEGIN');
-      const { rows } =
-        await client.query(`SELECT * FROM support_cases WHERE expires_at > now() + interval '20 seconds' AND
-        ((alert_state='pending' AND alert_after <= now()) OR (send_state IN ('pending','awaiting_contact') AND send_after <= now()))
-        ORDER BY submitted_at FOR UPDATE SKIP LOCKED LIMIT 1`);
+      const { rows } = await client.query(
+        `SELECT * FROM support_cases WHERE expires_at > now() + interval '20 seconds' AND
+        ((alert_state='pending' AND alert_after <= now()) OR (send_state IN ('pending','awaiting_contact') AND send_after <= now())
+        OR (inbox_mail_state='pending' AND inbox_mail_after <= now() AND $1::boolean))
+        ORDER BY submitted_at FOR UPDATE SKIP LOCKED LIMIT 1`,
+        [!!process.env.SUPPORT_INBOX_OWNER_ID],
+      );
       const row = rows[0];
       if (!row) {
         await client.query('COMMIT');
@@ -94,6 +99,13 @@ export class SupportWorker implements OnApplicationBootstrap, OnModuleDestroy {
       let committed = false;
       if (['pending', 'awaiting_contact'].includes(row.send_state) && new Date(row.send_after).getTime() <= Date.now())
         committed = await this.send(client, row);
+      if (
+        !committed &&
+        row.inbox_mail_state === 'pending' &&
+        new Date(row.inbox_mail_after).getTime() <= Date.now() &&
+        process.env.SUPPORT_INBOX_OWNER_ID
+      )
+        committed = await this.notifyInbox(client, row, process.env.SUPPORT_INBOX_OWNER_ID);
       if (!committed) await client.query('COMMIT');
       return true;
     } catch (error) {
@@ -103,6 +115,43 @@ export class SupportWorker implements OnApplicationBootstrap, OnModuleDestroy {
       client.release();
     }
   }
+  private async notifyInbox(client: PoolClient, row: any, ownerId: string) {
+    const owner = await this.users.findByUserId(ownerId);
+    const to = owner?.roles?.includes(SUPER_ADMIN) && owner.emailVerifiedAt ? owner.contactEmail : undefined;
+    // Never reuse a provider idempotency key with another recipient or outside its retry window.
+    if (
+      row.inbox_mail_started_at &&
+      (to !== row.inbox_mail_to || Date.now() - new Date(row.inbox_mail_started_at).getTime() >= 3_600_000)
+    ) {
+      await client.query("UPDATE support_cases SET inbox_mail_state='failed' WHERE reference=$1", [row.reference]);
+      this.logger.error(`support-inbox-mail-needs-review ${row.reference}`);
+      return false;
+    }
+    if (!to) {
+      await client.query("UPDATE support_cases SET inbox_mail_after=now()+interval '10 minutes' WHERE reference=$1", [
+        row.reference,
+      ]);
+      this.logger.warn(`support-inbox-mail-awaiting-owner-contact ${row.reference}`);
+      return false;
+    }
+    const intent = await client.query(
+      `UPDATE support_cases SET inbox_mail_to=$2,
+      inbox_mail_started_at=COALESCE(inbox_mail_started_at,now()), inbox_mail_after=now()+interval '2 minutes'
+      WHERE reference=$1 AND expires_at > clock_timestamp()+interval '15 seconds' RETURNING reference`,
+      [row.reference, to],
+    );
+    if (!intent.rows.length) return false;
+    await client.query('COMMIT');
+    try {
+      await this.transport.notifyInbox(to, row.reference);
+    } catch {
+      this.logger.warn(`support-inbox-mail-retry ${row.reference}`);
+      return true;
+    }
+    await client.query("UPDATE support_cases SET inbox_mail_state='accepted' WHERE reference=$1", [row.reference]);
+    return true;
+  }
+
   private async send(client: PoolClient, row: any) {
     const user = await this.users.findByUserId(row.reporter_id);
     if (!user?.contactEmail || !user?.emailVerifiedAt) {

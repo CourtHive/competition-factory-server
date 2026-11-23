@@ -1,3 +1,4 @@
+import { isTournamentAccessScopingEnabled } from 'src/common/constants/feature-flags';
 import {
   GRANT_CAPABILITY_ALL,
   MutationAuthorizationService,
@@ -7,7 +8,7 @@ import { CREATED_BY_USER_ID } from './helpers/checkTournamentAccess';
 
 // Scoping must be ON for the per-tournament gate to have anything to say.
 vi.mock('src/common/constants/feature-flags', () => ({
-  isTournamentAccessScopingEnabled: () => true,
+  isTournamentAccessScopingEnabled: vi.fn(() => true),
 }));
 
 const TID = 't-1';
@@ -69,8 +70,9 @@ function build({
         : { error: 'MISSING_TOURNAMENT_RECORD' },
     ),
   };
-  const grantStorage: any = { findForSubject: vi.fn().mockResolvedValue(grants) };
+  const grantStorage: any = { findForSubject: vi.fn().mockResolvedValue(grants), findForCatalogue: vi.fn() };
   const assignmentsService: any = {
+    readAssignedRoles: vi.fn(),
     getAssignedRoles: vi.fn().mockResolvedValue(assignmentRole ? new Map([[TID, assignmentRole]]) : new Map()),
   };
   const service = new MutationAuthorizationService(
@@ -91,6 +93,106 @@ const director = {
 const superAdmin = { userId: 'admin-1', isSuperAdmin: true, providerRoles: {}, providerIds: [] };
 
 describe('MutationAuthorizationService.gate', () => {
+  it('reads assignments and grants once for 101 candidates and reloads both on the next request', async () => {
+    const { service, grantStorage, assignmentsService, tournamentStorageService } = build();
+    const ids = Array.from({ length: 101 }, (_, i) => 't-' + i);
+    const user = { ...director, email: 'test@example.test', globalRoles: [] };
+    const roles = new Map(ids.map((id) => [id, 'SCORER']));
+    roles.set(ids[0], 'OBSERVER');
+    roles.delete(ids[1]);
+    const grants = ids.slice(0, -1).map((tournamentId) => ({
+      userId: user.userId,
+      tournamentId,
+      providerId: PROVIDER,
+      scope: {},
+      capability: 'canEnterScores',
+    }));
+    Object.assign(grants[2], { scope: { courtIds: ['7'] } });
+    Object.assign(grants[3], { notAfter: '2000-01-01T00:00:00Z' });
+    assignmentsService.readAssignedRoles.mockResolvedValue(roles);
+    grantStorage.findForCatalogue.mockResolvedValue(grants);
+    tournamentStorageService.fetchTournamentUpdatedAt.mockImplementation(async ({ tournamentId }) =>
+      tournamentId === ids[4]
+        ? { error: 'missing' }
+        : {
+            success: true,
+            tournamentId,
+            providerId: tournamentId === ids[5] ? 'other' : PROVIDER,
+          },
+    );
+    expect(await service.scoringCatalogue(PROVIDER, user, ids)).toEqual(ids.slice(6, -1));
+    expect(assignmentsService.readAssignedRoles).toHaveBeenCalledExactlyOnceWith(user.userId);
+    expect(grantStorage.findForCatalogue).toHaveBeenCalledExactlyOnceWith(user.userId, PROVIDER, ids);
+    expect(assignmentsService.getAssignedRoles).not.toHaveBeenCalled();
+    expect(grantStorage.findForSubject).not.toHaveBeenCalled();
+    expect(tournamentStorageService.fetchTournamentRecords).not.toHaveBeenCalled();
+
+    assignmentsService.readAssignedRoles.mockResolvedValue(new Map());
+    expect(await service.scoringCatalogue(PROVIDER, user, ids)).toEqual([]);
+    expect(assignmentsService.readAssignedRoles).toHaveBeenCalledTimes(2);
+    expect(grantStorage.findForCatalogue).toHaveBeenCalledTimes(2);
+    assignmentsService.readAssignedRoles.mockRejectedValueOnce(new Error('assignments unavailable'));
+    await expect(service.scoringCatalogue(PROVIDER, user, ids)).rejects.toThrow('assignments unavailable');
+    grantStorage.findForCatalogue.mockRejectedValue(new Error('unavailable'));
+    await expect(service.scoringCatalogue(PROVIDER, user, ids)).rejects.toThrow('unavailable');
+  });
+
+  it.each(['SCORER', 'PROVIDER_ADMIN'])(
+    'keeps ordinary scoring available to %s when catalogue admission is empty',
+    async (role) => {
+      const user = {
+        ...director,
+        email: 'test@example.test',
+        globalRoles: [],
+        providerRoles: { [PROVIDER]: role === 'SCORER' ? 'DIRECTOR' : role },
+      };
+      const { service, grantStorage, assignmentsService } = build({
+        assignmentRole: role === 'SCORER' ? role : undefined,
+      });
+      assignmentsService.readAssignedRoles.mockResolvedValue(role === 'SCORER' ? new Map([[TID, role]]) : new Map());
+      const score = (matchUpId: string) =>
+        service.gate({
+          userContext: user,
+          tournamentIds: [TID],
+          requestedMethods: ['setMatchUpStatus'],
+          methods: [{ method: 'setMatchUpStatus', params: { matchUpId } }],
+        });
+      grantStorage.findForCatalogue.mockResolvedValue([]);
+      expect(await service.scoringCatalogue(PROVIDER, user, [TID])).toEqual([]);
+      expect(await score('centre-match')).toBeNull();
+
+      const scoped = [
+        {
+          userId: user.userId,
+          providerId: PROVIDER,
+          tournamentId: TID,
+          capability: 'canEnterScores',
+          scope: { courtIds: ['court-7'] },
+        },
+      ];
+      grantStorage.findForCatalogue.mockResolvedValue(scoped);
+      grantStorage.findForSubject.mockResolvedValue(scoped);
+      expect(await service.scoringCatalogue(PROVIDER, user, [TID])).toEqual([]);
+      expect(await score('court7-match')).toBeNull();
+      expect(await score('centre-match')).toBe('Not authorized for this court');
+    },
+  );
+
+  it('official scoring keeps the tournament gate when legacy access scoping is switched off', async () => {
+    vi.mocked(isTournamentAccessScopingEnabled).mockReturnValue(false);
+    try {
+      const request = { userContext: director, tournamentIds: [TID], requestedMethods: ['setMatchUpStatus'] };
+      const { service } = build();
+      expect(await service.gate(request)).toBeNull();
+      expect(await service.gate({ ...request, officialScoringProvider: PROVIDER })).toBeTruthy();
+      const scorer = build({ assignmentRole: 'SCORER' }).service;
+      expect(await scorer.gate({ ...request, officialScoringProvider: PROVIDER })).toBeNull();
+      expect(await scorer.gate({ ...request, officialScoringProvider: 'other' })).toBeTruthy();
+    } finally {
+      vi.mocked(isTournamentAccessScopingEnabled).mockReturnValue(true);
+    }
+  });
+
   it('allows a DIRECTOR-assigned user to run any method', async () => {
     const { service } = build({ assignmentRole: 'DIRECTOR' });
     const denial = await service.gate({

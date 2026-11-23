@@ -6,13 +6,20 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { ASSIGNMENT_STORAGE, type IAssignmentStorage, USER_STORAGE, type IUserStorage } from 'src/storage/interfaces';
+import {
+  ASSIGNMENT_STORAGE,
+  PROVIDER_STORAGE,
+  USER_STORAGE,
+  type IAssignmentStorage,
+  type IProviderStorage,
+  type IUserStorage,
+} from 'src/storage/interfaces';
 import { canViewTournamentMetadata, getCreatedByUserId } from '../factory/helpers/checkTournamentAccess';
 import type { UserContext } from '../account/auth/decorators/user-context.decorator';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { sessionProviderId } from '../factory/helpers/actingProviderScope';
-import { parseReport, UUID, boundedText } from './support-input';
-import { SupportStore } from './support.store';
+import { parseReport, UUID, boundedText, SUPPORT_KINDS, type SupportKind } from './support-input';
+import { SupportStore, type SupportTarget } from './support.store';
 
 /**
  * Why a support request was refused. Returned beside the status so a client can say why (TMX shows it in the report
@@ -21,12 +28,15 @@ import { SupportStore } from './support.store';
  *
  * Added 2026-11-22: production refused a super-admin's report with a bare 403 and logged nothing; nginx's access log
  * was the only trace (the session had no acting provider).
+ *
+ * Since the 2026-11-22 feedback decisions, no session provider is not a refusal: anyone signed in sends platform
+ * feedback, and a super-admin's impersonated provider scopes the report. NO_SESSION_PROVIDER is gone.
  */
 export const SUPPORT_REFUSAL = {
   IDENTITY_REQUIRED: 'SUPPORT_IDENTITY_REQUIRED',
   ADMIN_REQUIRED: 'SUPPORT_ADMIN_REQUIRED',
   INTAKE_DISABLED: 'SUPPORT_INTAKE_DISABLED',
-  NO_SESSION_PROVIDER: 'SUPPORT_NO_SESSION_PROVIDER',
+  PROVIDER_UNKNOWN: 'SUPPORT_PROVIDER_UNKNOWN',
   PROVIDER_NOT_PERMITTED: 'SUPPORT_PROVIDER_NOT_PERMITTED',
   SESSION_CHANGED: 'SUPPORT_SESSION_CHANGED',
   TOURNAMENT_NOT_VISIBLE: 'SUPPORT_TOURNAMENT_NOT_VISIBLE',
@@ -38,7 +48,7 @@ const REFUSAL_MESSAGES: Record<SupportRefusal, string> = {
   SUPPORT_IDENTITY_REQUIRED: 'Sign in with a user account to report a problem',
   SUPPORT_ADMIN_REQUIRED: 'Only a super-admin can use the support inbox',
   SUPPORT_INTAKE_DISABLED: 'New support reports are disabled',
-  SUPPORT_NO_SESSION_PROVIDER: 'Select a provider before reporting a problem',
+  SUPPORT_PROVIDER_UNKNOWN: 'The selected provider does not exist',
   SUPPORT_PROVIDER_NOT_PERMITTED: 'This account cannot report for the selected provider',
   SUPPORT_SESSION_CHANGED: 'Reporting session changed',
   SUPPORT_TOURNAMENT_NOT_VISIBLE: 'This account cannot report on that tournament',
@@ -59,7 +69,43 @@ export class SupportService {
     private readonly tournaments: TournamentStorageService,
     @Inject(ASSIGNMENT_STORAGE) private readonly assignments: IAssignmentStorage,
     @Inject(USER_STORAGE) private readonly users: IUserStorage,
+    @Inject(PROVIDER_STORAGE) private readonly providers: IProviderStorage,
   ) {}
+
+  /**
+   * Where this session's feedback goes, or why it cannot be sent. Submit and capability both use it, so TMX's entry
+   * and form match what CFS accepts. `requested` is the client's selected provider: for a super-admin it is the
+   * impersonated provider (TMX impersonation is client-side only); for anyone else the session decides and
+   * `requested` is a fence the caller compares.
+   */
+  private async target(ctx: UserContext, requested: string | undefined, operation: string): Promise<SupportTarget> {
+    const session = sessionProviderId(ctx);
+    if (ctx.isSuperAdmin) {
+      const providerId = requested ?? session;
+      if (!providerId) return { scope: 'platform' };
+      if (!(await this.providers.getProvider(providerId))) refuse(SUPPORT_REFUSAL.PROVIDER_UNKNOWN, operation, ctx);
+      return { scope: 'provider', providerId };
+    }
+    if (!session) return { scope: 'platform' };
+    const permitted = [...ctx.providerIds, ...(ctx.provisionerProviderIds ?? [])];
+    if (!permitted.includes(session)) refuse(SUPPORT_REFUSAL.PROVIDER_NOT_PERMITTED, operation, ctx);
+    return { scope: 'provider', providerId: session };
+  }
+
+  /** What TMX may offer: never throws for a signed-in session, so the entry can simply be hidden or shown. */
+  async capability(requested: string | undefined, context?: UserContext) {
+    const kinds = SUPPORT_KINDS as SupportKind[];
+    if (!context?.userId || context.apiKey)
+      return { available: false, reason: SUPPORT_REFUSAL.IDENTITY_REQUIRED, kinds };
+    if (process.env.SUPPORT_REPORTS_ENABLED !== 'true')
+      return { available: false, reason: SUPPORT_REFUSAL.INTAKE_DISABLED, kinds };
+    try {
+      const target = await this.target(context, requested || undefined, 'support capability');
+      return { available: true, scope: target.scope, providerId: target.providerId, kinds };
+    } catch (error: any) {
+      return { available: false, reason: error?.response?.code ?? 'SUPPORT_UNAVAILABLE', kinds };
+    }
+  }
 
   identity(ctx?: UserContext) {
     if (!ctx?.userId || ctx.apiKey) refuse(SUPPORT_REFUSAL.IDENTITY_REQUIRED, 'support access', ctx);
@@ -78,12 +124,9 @@ export class SupportService {
   async submit(body: unknown, context?: UserContext) {
     const ctx = this.identity(context);
     if (process.env.SUPPORT_REPORTS_ENABLED !== 'true') refuse(SUPPORT_REFUSAL.INTAKE_DISABLED, 'support submit', ctx);
-    const providerId = sessionProviderId(ctx);
-    const providers = [...ctx.providerIds, ...(ctx.provisionerProviderIds ?? [])];
-    if (!providerId) refuse(SUPPORT_REFUSAL.NO_SESSION_PROVIDER, 'support submit', ctx);
-    if (!ctx.isSuperAdmin && !providers.includes(providerId))
-      refuse(SUPPORT_REFUSAL.PROVIDER_NOT_PERMITTED, 'support submit', ctx);
     const input = parseReport(body);
+    const target = await this.target(ctx, input.expectedProvider, 'support submit');
+    const providerId = target.providerId;
     // These are comparison fences, never ownership claims. A refresh must not retarget an old form to a new session.
     if (
       input.expectedProvider !== providerId ||
@@ -91,6 +134,8 @@ export class SupportService {
     )
       refuse(SUPPORT_REFUSAL.SESSION_CHANGED, 'support submit', ctx);
     if (input.tournamentId) {
+      // A tournament belongs to a provider, so platform feedback cannot name one.
+      if (!providerId) refuse(SUPPORT_REFUSAL.TOURNAMENT_NOT_VISIBLE, 'support submit', ctx);
       const view: any = await this.tournaments.fetchTournamentUpdatedAt({ tournamentId: input.tournamentId });
       if (!view?.success || view.providerId !== providerId)
         refuse(SUPPORT_REFUSAL.TOURNAMENT_NOT_VISIBLE, 'support submit', ctx);
@@ -103,7 +148,7 @@ export class SupportService {
       if (!canViewTournamentMetadata(metadata, ctx, new Set(assignments.map((a) => a.tournamentId))))
         refuse(SUPPORT_REFUSAL.TOURNAMENT_NOT_VISIBLE, 'support submit', ctx);
     }
-    const row = await this.store.submit(input, ctx.userId, providerId);
+    const row = await this.store.submit(input, ctx.userId, target);
     return this.receipt(row.reference, ctx);
   }
 
@@ -115,6 +160,8 @@ export class SupportService {
     return {
       reference: row.reference,
       accepted: true,
+      kind: row.kind ?? 'bug',
+      scope: row.scope ?? 'provider',
       snapshot: 'not_attached',
       expiresAt: row.expires_at,
       contact: user?.contactEmail && user?.emailVerifiedAt ? 'verified' : 'pending',
@@ -123,9 +170,11 @@ export class SupportService {
     };
   }
 
-  list(offset: number, ctx?: UserContext) {
+  list(offset: number, ctx?: UserContext, filter: { scope?: string; kind?: string } = {}) {
     this.admin(ctx);
-    return this.store.list(offset);
+    const scope = filter.scope === 'provider' || filter.scope === 'platform' ? filter.scope : undefined;
+    const kind = SUPPORT_KINDS.includes(filter.kind ?? '') ? (filter.kind as SupportKind) : undefined;
+    return this.store.list(offset, { scope, kind });
   }
   show(reference: string, ctx?: UserContext) {
     this.admin(ctx);

@@ -12,12 +12,14 @@ export function checkedObject(value: unknown, allowed: readonly string[]) {
     throw new BadRequestException('Invalid operator request');
   return value as Record<string, unknown>;
 }
+export function validOperatorId(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(value);
+}
 export function matchRequest(body: unknown): MatchIds {
   const object = checkedObject(body, keys);
   for (const key of keys) {
     const value = object[key];
-    if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(value))
-      throw new BadRequestException('Invalid match identifier');
+    if (!validOperatorId(value)) throw new BadRequestException('Invalid match identifier');
   }
   return object as MatchIds;
 }

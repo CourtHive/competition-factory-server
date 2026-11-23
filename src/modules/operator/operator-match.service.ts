@@ -9,19 +9,15 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import {
-  grantCoversMethod,
-  isWithinWindow,
-  isTargetInScope,
-  isEvaluableScope,
-  requiredTargetFields,
-} from '../factory/helpers/grantScope';
+import { isTargetInScope, requiredTargetFields } from '../factory/helpers/grantScope';
+import { isLiveScoringGrant } from '../factory/helpers/liveScoringGrant';
 import { MutationAuthorizationService } from '../factory/mutation-authorization.service';
 import { enrichTargetFromRecord } from '../factory/helpers/resolveMutationTarget';
 import { isProviderAdministrator } from '../factory/helpers/providerAdminMethods';
 import { sessionProviderId } from '../factory/helpers/actingProviderScope';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { GRANT_STORAGE, type IGrantStorage } from 'src/storage/interfaces';
+import { loadFetchedRecords } from '../factory/helpers/loadFetchedRecords';
 import asyncGlobalState from '../factory/engines/asyncGlobalState';
 import { queryEngine } from '../factory/engines/queryEngine';
 import { recordRevision } from 'src/storage/postgres/recordRevision';
@@ -36,6 +32,14 @@ export class OperatorMatchService {
     private readonly authorization: MutationAuthorizationService,
     @Inject(GRANT_STORAGE) private readonly grants: IGrantStorage,
   ) {}
+
+  /** Evaluate only supplied IDs. A catalogue offer requires a live tournament-wide grant. */
+  async catalogueAccess(tournamentIds: string[], user?: UserContext) {
+    const provider = sessionProviderId(user);
+    if (!user?.userId || !provider || user.apiKey || !user.providerIds.includes(provider))
+      throw new ForbiddenException();
+    return { tournamentIds: await this.authorization.scoringCatalogue(provider, user, tournamentIds) };
+  }
 
   async read(ids: MatchIds, user?: UserContext) {
     if (!user?.userId || user.apiKey || !sessionProviderId(user)) throw new ForbiddenException();
@@ -64,27 +68,22 @@ export class OperatorMatchService {
     const draw = event?.drawDefinitions?.find((d) => d.drawId === ids.drawId);
     const targetRecord = { events: [{ eventId: ids.eventId, drawDefinitions: draw ? [draw] : [] }] };
     const rows = await this.grants.findForSubject(user.userId, ids.tournamentId);
-    const allowed = rows.some(
+    const covered = rows.some(
       (grant) =>
-        grant.providerId === provider &&
-        grant.userId === user.userId &&
-        grant.tournamentId === ids.tournamentId &&
-        isWithinWindow(grant) &&
-        grantCoversMethod(grant.capability, 'setMatchUpStatus') &&
-        isEvaluableScope(grant.scope) &&
+        isLiveScoringGrant(grant, user.userId, provider, ids.tournamentId) &&
         isTargetInScope(grant.scope, enrichTargetFromRecord(ids, targetRecord, requiredTargetFields(grant.scope))),
     );
-    if (!allowed) throw new ForbiddenException();
-    if (!draw) throw new NotFoundException();
+    if (!covered) throw new ForbiddenException();
     const denial = await this.authorization.gate({
+      officialScoringProvider: provider,
       userContext: user,
       tournamentIds: [ids.tournamentId],
       requestedMethods: ['setMatchUpStatus'],
       methods: [{ method: 'setMatchUpStatus', params: ids }],
       actor: user.userId,
     });
-    if (denial) throw new ForbiddenException();
-
+    if (denial !== null) throw new ForbiddenException();
+    if (!draw) throw new NotFoundException();
     return isProviderAdministrator(user, provider) ? 'director' : 'recorder';
   }
 
@@ -128,7 +127,8 @@ export class OperatorMatchService {
     const revision = recordRevision(record);
     if (!revision) throw new ServiceUnavailableException('Revision unavailable');
     return asyncGlobalState.runWithInstanceState(() => {
-      queryEngine.setState({ [ids.tournamentId]: record });
+      // Without a copy (P67), like the mutation path: the record was parsed from its own row for this request.
+      if (loadFetchedRecords({ [ids.tournamentId]: record }).error) throw new ServiceUnavailableException();
       const reply = queryEngine.matchUpActions({ ...ids, operatorAudience: audience });
       if (reply.error) throw new NotFoundException();
       if (!reply.operatorMatch) throw new ServiceUnavailableException('Operator query unavailable');

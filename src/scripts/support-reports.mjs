@@ -2,14 +2,29 @@
 // Credentials arrive through environment/stdin configuration, never command arguments or output.
 import { readFile } from 'node:fs/promises';
 
-export async function run(args, { env = process.env, request = fetch, read = readFile, output = console.log } = {}) {
+const FILTERS = { scope: ['provider', 'platform'], kind: ['bug', 'suggestion'] };
+
+export async function run(input, { env = process.env, request = fetch, read = readFile, output = console.log } = {}) {
+  // `list` filters: --scope=provider|platform, --kind=bug|suggestion. Anything else is a usage error.
+  const filters = {};
+  const args = input.filter((arg) => {
+    const match = /^--(scope|kind)=(.+)$/.exec(arg);
+    if (!match) return true;
+    if (!FILTERS[match[1]].includes(match[2])) throw new Error(`Unknown ${match[1]}: ${match[2]}`);
+    filters[match[1]] = match[2];
+    return false;
+  });
   const [command, reference, file] = args;
+  if (Object.keys(filters).length && command !== 'list') throw new Error('--scope and --kind apply to list only');
   if (
     !['list', 'show', 'resolve'].includes(command) ||
     (command !== 'list' && !/^[0-9a-f-]{36}$/.test(reference ?? '')) ||
     args.length > (command === 'resolve' ? 3 : 2)
   )
-    throw new Error('Usage: support-reports.mjs list [offset] | show <reference> | resolve <reference> <file or ->');
+    throw new Error(
+      'Usage: support-reports.mjs list [offset] [--scope=provider|platform] [--kind=bug|suggestion]' +
+        ' | show <reference> | resolve <reference> <file or ->',
+    );
   const base = new URL(env.SUPPORT_CFS_URL ?? 'http://127.0.0.1:8383');
   if (base.protocol !== 'https:' && !['127.0.0.1', 'localhost', '[::1]'].includes(base.hostname))
     throw new Error('HTTPS required outside loopback');
@@ -22,7 +37,8 @@ export async function run(args, { env = process.env, request = fetch, read = rea
     signal: AbortSignal.timeout(15_000),
     redirect: 'error',
   };
-  if (command === 'list') path += `?offset=${Number.parseInt(reference ?? '0', 10) || 0}`;
+  if (command === 'list')
+    path += `?${new URLSearchParams({ offset: String(Number.parseInt(reference ?? '0', 10) || 0), ...filters })}`;
   else path += `/${reference}`;
   if (command === 'resolve') {
     if (!file) throw new Error('Resolution file or - is required');

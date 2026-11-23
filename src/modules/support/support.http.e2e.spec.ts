@@ -53,6 +53,7 @@ describe.skipIf(process.env.STORAGE_PROVIDER !== 'postgres')(
     let peer: string;
     let outsider: string;
     let admin: string;
+    let unselected: string;
     let tournamentIds: string[];
     beforeAll(async () => {
       vi.stubEnv('SUPPORT_REPORTS_ENABLED', 'false'); // Do not activate network workers in the test application.
@@ -81,6 +82,7 @@ describe.skipIf(process.env.STORAGE_PROVIDER !== 'postgres')(
       peer = await signSessionToken(app, { email: emails[1], providerId: providers[0] });
       outsider = await signSessionToken(app, { email: emails[2], providerId: providers[0] });
       admin = await signSessionToken(app, { email: emails[3] });
+      unselected = await signSessionToken(app, { email: emails[2] }); // signed in, no provider selected
       tournamentIds = [];
       for (const id of providers) {
         const { tournamentRecord } = mocksEngine.generateTournamentRecord({
@@ -124,6 +126,56 @@ describe.skipIf(process.env.STORAGE_PROVIDER !== 'postgres')(
       expect(
         (await pool.query('SELECT count(*) FROM support_cases WHERE provider_id=ANY($1)', [providers])).rows[0].count,
       ).toBe('0');
+    });
+
+    // CA, 2026-11-22: anyone signed in sends feedback; platform scope without a provider; a super-admin's
+    // impersonated provider scopes the report. Capability answers with the same decision submit makes.
+    it('reports capability and accepts platform and impersonated feedback through real auth', async () => {
+      const http = app.getHttpServer();
+      await request(http).get('/support/capability').expect(401);
+      const member = await request(http).get('/support/capability').auth(reporter, { type: 'bearer' }).expect(200);
+      expect(member.body).toMatchObject({ available: true, scope: 'provider', providerId: providers[0] });
+      const platform = await request(http).get('/support/capability').auth(unselected, { type: 'bearer' }).expect(200);
+      expect(platform.body).toMatchObject({ available: true, scope: 'platform' });
+      expect(platform.body.providerId).toBeUndefined();
+      const impersonating = await request(http)
+        .get(`/support/capability?provider=${providers[1]}`)
+        .auth(admin, { type: 'bearer' })
+        .expect(200);
+      expect(impersonating.body).toMatchObject({ available: true, scope: 'provider', providerId: providers[1] });
+
+      const outsiderId = (await users.findOne(emails[2])).userId;
+      const platformInput: Record<string, unknown> = { ...input(), expectedReporter: outsiderId };
+      delete platformInput.expectedProvider; // platform feedback names no provider
+      const suggestion = await request(http)
+        .post('/support/reports')
+        .auth(unselected, { type: 'bearer' })
+        .send({ ...platformInput, kind: 'suggestion', evidence: { route: 'other', online: true, version: '8.1.0' } })
+        .expect(201);
+      expect(suggestion.body).toMatchObject({ accepted: true, kind: 'suggestion', scope: 'platform' });
+
+      const adminId = (await users.findOne(emails[3])).userId;
+      const impersonated = await request(http)
+        .post('/support/reports')
+        .auth(admin, { type: 'bearer' })
+        .send({ ...input(), expectedReporter: adminId, expectedProvider: providers[1] })
+        .expect(201);
+      expect(impersonated.body).toMatchObject({ scope: 'provider', kind: 'bug' });
+      const stored = await pool.query('SELECT scope, kind, provider_id FROM support_cases WHERE reference=ANY($1)', [
+        [suggestion.body.reference, impersonated.body.reference],
+      ]);
+      expect(stored.rows).toEqual(
+        expect.arrayContaining([
+          { scope: 'platform', kind: 'suggestion', provider_id: null },
+          { scope: 'provider', kind: 'bug', provider_id: providers[1] },
+        ]),
+      );
+      const filtered = await request(http)
+        .get('/admin/support/reports?scope=platform&kind=suggestion')
+        .auth(admin, { type: 'bearer' })
+        .expect(200);
+      expect(filtered.body.reports.map((r) => r.reference)).toContain(suggestion.body.reference);
+      expect(filtered.body.reports.every((r) => r.scope === 'platform' && r.kind === 'suggestion')).toBe(true);
     });
 
     it('returns only an own receipt and reserves descriptions/inbox/resolution for super-admins', async () => {
