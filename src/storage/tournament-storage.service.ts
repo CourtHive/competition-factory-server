@@ -53,6 +53,10 @@ export class TournamentStorageService {
     return this.tournamentStorage.fetchMatchUpDraws(params);
   }
 
+  async fetchTournamentMetadata(tournamentIds: string[]) {
+    return this.tournamentStorage.fetchTournamentMetadata(tournamentIds);
+  }
+
   async fetchTournamentUpdatedAt(params: { tournamentId?: string }) {
     return this.tournamentStorage.fetchTournamentUpdatedAt(params);
   }
