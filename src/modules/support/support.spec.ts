@@ -322,6 +322,49 @@ describe.skipIf(process.env.STORAGE_PROVIDER !== 'postgres')('support persistenc
     });
   });
 
+  it('queues one owner email per new bug; retries keep the reference and require a verified super-admin', async () => {
+    vi.stubEnv('SUPPORT_INBOX_OWNER_ID', 'inbox-owner');
+    const ctx = identity();
+    const body = parseReport(report());
+    const row = await store.submit(body, ctx.userId, providerTarget(ctx.actingProviderId));
+    await store.submit(body, ctx.userId, providerTarget(ctx.actingProviderId));
+    const suggestion = await store.submit(
+      { ...body, kind: 'suggestion', submissionKey: randomUUID() },
+      ctx.userId,
+      providerTarget(ctx.actingProviderId),
+    );
+    expect(suggestion.inbox_mail_state).toBe('none');
+    const owner = {
+      contactEmail: 'owner@example.test',
+      roles: ['client'],
+      emailVerifiedAt: undefined as Date | undefined,
+    };
+    const users = { findByUserId: vi.fn(async () => owner) };
+    const transport = {
+      notify: vi.fn(),
+      notifyInbox: vi.fn().mockRejectedValueOnce(new Error('unconfirmed')).mockResolvedValue('receipt'),
+    };
+    const worker = () => new SupportWorker(store, transport as any, users as any).tick();
+    const due = () => pool.query('UPDATE support_cases SET inbox_mail_after=now() WHERE reference=$1', [row.reference]);
+    await worker();
+    owner.roles = ['superadmin'];
+    await due();
+    await worker();
+    expect(transport.notifyInbox).not.toHaveBeenCalled();
+    owner.emailVerifiedAt = new Date();
+    await due();
+    await Promise.all([worker(), worker()]);
+    expect(transport.notifyInbox).toHaveBeenCalledTimes(1);
+    await due();
+    await worker();
+    expect(transport.notifyInbox.mock.calls).toEqual([
+      [owner.contactEmail, row.reference],
+      [owner.contactEmail, row.reference],
+    ]);
+    expect(users.findByUserId).toHaveBeenCalledWith('inbox-owner');
+    expect((await store.get(row.reference)).inbox_mail_state).toBe('accepted');
+  });
+
   it('projects only own receipt status and denies ordinary reads/resolution writes', async () => {
     const ctx = identity();
     const row = await store.submit(parseReport(report()), ctx.userId, providerTarget(ctx.actingProviderId));
