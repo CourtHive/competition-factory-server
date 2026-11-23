@@ -174,7 +174,7 @@ settings:
 overrides:
   typescript: 6.0.3
   serve-static@<2: '>=2.2.0'
-  tods-competition-factory: link:../factory
+  tods-competition-factory: link:../factory/packages/competition-factory
   '@courthive/provider-config': link:../provider-config
   '@courthive/i18n': link:../courthive-i18n
   brace-expansion@1: '>=1.1.16'
@@ -278,8 +278,8 @@ importers:
         specifier: 4.8.4
         version: 4.8.4(supports-color@8.1.1)
       tods-competition-factory:
-        specifier: link:../factory
-        version: link:../factory
+        specifier: link:../factory/packages/competition-factory
+        version: link:../factory/packages/competition-factory
       tslib:
         specifier: ^2.6.2
         version: 2.9.1
