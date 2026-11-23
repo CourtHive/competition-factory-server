@@ -1,5 +1,30 @@
 # Changelog
 
+## [4.21.0](https://github.com/CourtHive/competition-factory-server/compare/v4.20.0...v4.21.0) (2026-11-23)
+
+
+### Features
+
+* **storage:** read qualified tournament footprints from synchronized shards ([0c853f5](https://github.com/CourtHive/competition-factory-server/commit/0c853f5d8b97f98e1891ce3b27020783261687c6))
+* **storage:** retain verified shard bodies within a worker byte budget ([4efb58b](https://github.com/CourtHive/competition-factory-server/commit/4efb58b082cbabd071a913ef104f1ff9ae9ec573))
+* **storage:** retain verified shell, draw and participant shards per worker ([1c81f35](https://github.com/CourtHive/competition-factory-server/commit/1c81f35917100fffe4514cd962a6acdc74d4afa1))
+* **telemetry:** measure bounded worker-local tournament and draw reuse ([fc26c08](https://github.com/CourtHive/competition-factory-server/commit/fc26c0880cad2d3393632c5223124fcb61ff9b85))
+
+
+### Bug Fixes
+
+* bound official scoring catalogue authorization reads per batch ([#1314](https://github.com/CourtHive/competition-factory-server/issues/1314)) ([c589a6c](https://github.com/CourtHive/competition-factory-server/commit/c589a6c45688c6932c5fc82aaac3d2bf4dcfab6f))
+* **deps:** update tods-competition-factory to 7.47.0 ([#1322](https://github.com/CourtHive/competition-factory-server/issues/1322)) ([855f130](https://github.com/CourtHive/competition-factory-server/commit/855f13026a0ddc899a4d30880c9554b76904c0ca))
+* **deps:** update tods-competition-factory to 7.48.0 ([c2cf74d](https://github.com/CourtHive/competition-factory-server/commit/c2cf74d46f0ff80a7622cc0cabbfb8f9f368b2b0))
+* **deps:** update tods-competition-factory to 7.48.0 ([9f663c2](https://github.com/CourtHive/competition-factory-server/commit/9f663c2c8c8e1fb72ec3ea2742803b6b14217a20))
+* **forge:** expose the request notification flag to previews ([#1323](https://github.com/CourtHive/competition-factory-server/issues/1323)) ([29e32f8](https://github.com/CourtHive/competition-factory-server/commit/29e32f8c73688c579fe51500a7f81badf8ac9bc0))
+* **telemetry:** count shard reads within their measurement window ([5e21717](https://github.com/CourtHive/competition-factory-server/commit/5e2171710652f3fe24070480564b415752fa4f1b))
+
+
+### Performance
+
+* **storage:** transfer cold shard bodies without nested JSON encoding ([760b985](https://github.com/CourtHive/competition-factory-server/commit/760b985c65469f2f2654d526abb63715c194fa95))
+
 ## [4.20.0](https://github.com/CourtHive/competition-factory-server/compare/v4.19.1...v4.20.0) (2026-11-23)
 
 
