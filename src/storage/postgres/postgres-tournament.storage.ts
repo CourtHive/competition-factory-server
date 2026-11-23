@@ -1,10 +1,19 @@
+import { footprintLocality } from 'src/modules/telemetry/footprintLocality';
+import { configuredShardBodyCache } from './shardBodyCache';
+import { readPhysicalFootprint } from './physicalFootprintReader';
+import { fetchPhysicalShellMetadata } from './physicalShellMetadata';
 import { markRecordRevision } from './recordRevision';
-import { ITournamentStorage, StorageLayout } from '../interfaces/tournament-storage.interface';
+import {
+  ITournamentStorage,
+  PhysicalFootprintReader,
+  StorageLayout,
+  TournamentMetadata,
+} from '../interfaces/tournament-storage.interface';
 import { FENCED_BY_NEWER_OWNER, SUCCESS } from 'src/common/constants/app';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { factoryConstants } from 'tods-competition-factory';
-import { commandClient } from './commandTransaction';
+import { afterCommandCommit, commandClient } from './commandTransaction';
 import { PG_POOL } from './postgres.config';
 import { Pool } from 'pg';
 
@@ -41,7 +50,28 @@ export class PostgresTournamentStorage implements ITournamentStorage {
   // operation — entries are created only by a rejection and dropped on recovery.
   private readonly fenceRejections = new Map<string, number>();
 
-  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  private readonly physicalReaders = new Map<string, PhysicalFootprintReader>();
+
+  constructor(@Inject(PG_POOL) private readonly pool: Pool) {
+    if (process.env.CFS_PHYSICAL_FOOTPRINT_READS !== 'true') return;
+    const cache = configuredShardBodyCache();
+    for (const value of (process.env.CFS_PHYSICAL_FOOTPRINT_TOURNAMENT_IDS ?? '').split(',')) {
+      const tournamentId = value.trim();
+      if (!tournamentId) continue;
+      this.physicalReaders.set(tournamentId, async (request) => {
+        const bound = { ...request, tournamentId };
+        const read = cache
+          ? await readPhysicalFootprint(this.pool, bound, cache)
+          : await readPhysicalFootprint(this.pool, bound);
+        if (read.kind === 'partial') markRecordRevision(read.tournamentRecord, tournamentId, read.parentRevision);
+        return read;
+      });
+    }
+  }
+
+  readerForTournament(tournamentId: string) {
+    return this.physicalReaders.get(tournamentId);
+  }
 
   async findTournamentRecord({ tournamentId }: { tournamentId: string }) {
     const result = await (commandClient(this.pool) ?? this.pool).query(
@@ -93,6 +123,19 @@ export class PostgresTournamentStorage implements ITournamentStorage {
       return { error: factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD };
     }
 
+    const [metadata] = await this.fetchTournamentMetadata([tournamentId]);
+    if (!metadata) return { error: factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD };
+    return { ...SUCCESS, ...metadata };
+  }
+
+  async fetchTournamentMetadata(tournamentIds: string[]): Promise<TournamentMetadata[]> {
+    if (tournamentIds.length === 1 && this.readerForTournament(tournamentIds[0])) {
+      return fetchPhysicalShellMetadata(this.pool, tournamentIds, (ids) => this.fetchDocumentMetadata(ids));
+    }
+    return this.fetchDocumentMetadata(tournamentIds);
+  }
+
+  private async fetchDocumentMetadata(tournamentIds: string[]): Promise<TournamentMetadata[]> {
     // Project only the few fields needed — Postgres extracts them server-side so
     // the full `data` JSONB blob is never transferred.
     const result = await (commandClient(this.pool) ?? this.pool).query(
@@ -102,23 +145,17 @@ export class PostgresTournamentStorage implements ITournamentStorage {
               shell->'parentOrganisation'->>'organisationId' AS provider_id,
               shell->'extensions' AS extensions
          FROM tournaments, tournament_shell(tournament_id, data) AS shell
-        WHERE tournament_id = $1`,
-      [tournamentId],
+        WHERE tournament_id = ANY($1::text[])`,
+      [tournamentIds],
     );
 
-    if (!result.rows.length) {
-      return { error: factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD };
-    }
-
-    const row = result.rows[0];
-    return {
-      ...SUCCESS,
+    return result.rows.map((row) => ({
       tournamentId: row.tournament_id,
       updatedAt: row.updated_at,
       serverUpdatedAt: toIso(row.row_updated_at),
       providerId: row.provider_id,
       extensions: row.extensions ?? [],
-    };
+    }));
   }
 
   /**
@@ -166,6 +203,13 @@ export class PostgresTournamentStorage implements ITournamentStorage {
 
     if (!result.rowCount) return this.recordFenceRejection(key, ownerEpoch);
 
+    if (footprintLocality) {
+      // The existing serialization's UTF-16 length is available without scanning the document again.
+      const codeUnits = serialized.length;
+      const committed = async () => footprintLocality?.observeCommit(key, 'save', codeUnits);
+      if (commandClient(this.pool)) await afterCommandCommit(committed);
+      else await committed();
+    }
     this.recordFenceRecovery(key);
     const writtenAt = result.rows?.[0]?.updated_at;
     return { ...SUCCESS, bytes: serialized.length, ...(writtenAt && { serverUpdatedAt: toIso(writtenAt) }) };
@@ -226,10 +270,17 @@ export class PostgresTournamentStorage implements ITournamentStorage {
     const tournamentIds = params?.tournamentIds ?? [params?.tournamentId].filter(Boolean);
 
     const result = await (commandClient(this.pool) ?? this.pool).query(
-      'DELETE FROM tournaments WHERE tournament_id = ANY($1)',
+      `DELETE FROM tournaments WHERE tournament_id = ANY($1)${footprintLocality ? ' RETURNING tournament_id' : ''}`,
       [tournamentIds],
     );
 
+    if (footprintLocality && result.rowCount) {
+      const committed = async () => {
+        for (const row of result.rows) footprintLocality?.observeCommit(row.tournament_id, 'delete');
+      };
+      if (commandClient(this.pool)) await afterCommandCommit(committed);
+      else await committed();
+    }
     return { ...SUCCESS, removed: result.rowCount ?? 0 };
   }
 

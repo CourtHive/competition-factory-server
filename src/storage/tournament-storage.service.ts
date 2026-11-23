@@ -41,6 +41,10 @@ export class TournamentStorageService {
 
   // --- Read-through (no side-effects) ---
 
+  readerForTournament(tournamentId: string) {
+    return this.tournamentStorage.readerForTournament?.(tournamentId);
+  }
+
   async findTournamentRecord(params: { tournamentId: string }) {
     return this.tournamentStorage.findTournamentRecord(params);
   }
@@ -51,6 +55,10 @@ export class TournamentStorageService {
 
   async fetchMatchUpDraws(params: { tournamentId: string; matchUpIds: string[] }) {
     return this.tournamentStorage.fetchMatchUpDraws(params);
+  }
+
+  async fetchTournamentMetadata(tournamentIds: string[]) {
+    return this.tournamentStorage.fetchTournamentMetadata(tournamentIds);
   }
 
   async fetchTournamentUpdatedAt(params: { tournamentId?: string }) {

@@ -8,6 +8,7 @@ import {
   planShardShadow,
   resetShardShadowStats,
   runShardShadow,
+  sampleShardShadow,
   scheduleShardShadow,
   shardShadowStats,
 } from './executionQueueShadow';
@@ -58,25 +59,22 @@ describe('shard shadow', () => {
   });
 
   it('is off unless sampled', () => {
-    const { tournamentRecord, tournamentId, methods } = scoreFirstMatchUp();
-    const args = { methods, tournamentIds: [tournamentId], tournamentRecords: { [tournamentId]: tournamentRecord } };
-
+    const { tournamentId, methods } = scoreFirstMatchUp();
     delete process.env.SHARD_SHADOW_SAMPLE_RATE;
-    expect(planShardShadow(args)).toBeUndefined();
-
+    expect(sampleShardShadow([tournamentId], methods)).toBe(false);
     process.env.SHARD_SHADOW_SAMPLE_RATE = '0.5';
-    expect(planShardShadow({ ...args, random: () => 0.7 })).toBeUndefined();
-    expect(planShardShadow({ ...args, random: () => 0.2 })).toBeDefined();
+    expect(sampleShardShadow([tournamentId], methods, () => 0.7)).toBe(false);
+    expect(sampleShardShadow([tournamentId], methods, () => 0.2)).toBe(true);
   });
 
-  it('skips a queue whose footprint needs the whole record, and multi-tournament queues', () => {
+  it('skips a queue whose footprint needs the whole record, and multi-tournament queues', async () => {
     const { tournamentRecord, tournamentId } = scoreFirstMatchUp();
     const tournamentRecords = { [tournamentId]: tournamentRecord };
     const wide = [{ method: 'addEvent', params: { event: { eventName: 'x' } } }];
-    expect(planShardShadow({ methods: wide, tournamentIds: [tournamentId], tournamentRecords })).toBeUndefined();
+    expect(await planShardShadow({ methods: wide, tournamentIds: [tournamentId], tournamentRecords })).toBeUndefined();
     expect(shardShadowStats().wholeRecord).toBe(1);
     const { methods } = scoreFirstMatchUp();
-    expect(planShardShadow({ methods, tournamentIds: [tournamentId, 'other'], tournamentRecords })).toBeUndefined();
+    expect(sampleShardShadow([tournamentId, 'other'], methods)).toBe(false);
   });
 
   // the pipeline is the factory's, process-wide: executionQueue plans with the one the mutation engine runs, and the
@@ -87,7 +85,7 @@ describe('shard shadow', () => {
       tournamentEngine.outcomePipeline(outcomePipeline);
       try {
         const { tournamentRecord, tournamentId, drawId, methods } = scoreFirstMatchUp();
-        const plan = planShardShadow({
+        const plan = await planShardShadow({
           methods,
           tournamentIds: [tournamentId],
           tournamentRecords: { [tournamentId]: tournamentRecord },
@@ -140,7 +138,7 @@ describe('shard shadow', () => {
       // Reproduce the JSON wire/storage boundary, including a literal null on a different match.
       const serialized = JSON.stringify({ [tournamentId]: stored });
       const records = JSON.parse(serialized);
-      const plan = planShardShadow({ tournamentIds: [tournamentId], methods, tournamentRecords: records });
+      const plan = await planShardShadow({ tournamentIds: [tournamentId], methods, tournamentRecords: records });
       const batch = await asyncGlobalState.runWithInstanceState(async () => {
         const engine = asyncEngine();
         if (!('executionQueue' in engine)) throw Error('ENGINE_INITIALIZATION_FAILED');
@@ -175,7 +173,7 @@ describe('shard shadow', () => {
 
   it('reports a mismatch when the partial run does not reproduce the saved draw', async () => {
     const { tournamentRecord, tournamentId, drawId, methods } = scoreFirstMatchUp();
-    const plan = planShardShadow({
+    const plan = await planShardShadow({
       methods,
       tournamentIds: [tournamentId],
       tournamentRecords: { [tournamentId]: tournamentRecord },
@@ -190,7 +188,7 @@ describe('shard shadow', () => {
   it('reports a refusal when the partial run fails', async () => {
     const { tournamentRecord, tournamentId, methods } = scoreFirstMatchUp();
     const broken = [{ ...methods[0], params: { ...methods[0].params, matchUpId: 'no-such-matchUp' } }];
-    const plan = planShardShadow({
+    const plan = await planShardShadow({
       methods: broken,
       tournamentIds: [tournamentId],
       tournamentRecords: { [tournamentId]: tournamentRecord },
@@ -201,7 +199,7 @@ describe('shard shadow', () => {
 
   it('schedules off the caller, counts the outcome, and never throws', async () => {
     const { tournamentRecord, tournamentId, methods } = scoreFirstMatchUp();
-    const plan = planShardShadow({
+    const plan = await planShardShadow({
       methods,
       tournamentIds: [tournamentId],
       tournamentRecords: { [tournamentId]: tournamentRecord },

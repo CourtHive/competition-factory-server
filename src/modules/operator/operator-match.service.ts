@@ -1,3 +1,4 @@
+import { footprintLocality } from 'src/modules/telemetry/footprintLocality';
 import { commandFingerprint } from 'src/storage/postgres/commandReceipts';
 import { operatorScorePrecondition, scoreRequest } from './scoreRequest';
 import { FactoryHttpDelivery } from '../factory/factory-http-delivery.service';
@@ -45,7 +46,16 @@ export class OperatorMatchService {
     if (!user?.userId || user.apiKey || !sessionProviderId(user)) throw new ForbiddenException();
     const result = await this.storage.fetchTournamentRecords({ tournamentId: ids.tournamentId, captureRevision: true });
     const record = result.tournamentRecords?.[ids.tournamentId];
-    return this.evaluate(ids, user, record);
+    const audience = await this.authorize(ids, user, record);
+    footprintLocality?.observeAccess({
+      kind: 'read',
+      route: 'operator',
+      tournamentId: ids.tournamentId,
+      drawIds: [ids.drawId],
+      eligible: false, // The operator DTO requires the full record.
+      version: recordRevision(record),
+    });
+    return this.matchDto(ids, record, audience);
   }
 
   private async evaluate(ids: MatchIds, user: UserContext, record) {

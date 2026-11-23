@@ -133,6 +133,7 @@ export default {
   deleteNotices,
   disableNotifications,
   enableNotifications,
+  notificationsDisabled,
   getMethods,
   getNoticeBuffer,
   getNotices,
@@ -198,6 +199,10 @@ export function getCallRandomSource(): (() => number) | undefined {
 
 export function setCallRandomSource(source?: () => number) {
   getInstanceState().callRandomSource = source;
+}
+
+export function notificationsDisabled(): boolean {
+  return asyncLocalStorage.getStore()?.disableNotifications ?? false;
 }
 
 export function disableNotifications() {

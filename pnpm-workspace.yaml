@@ -57,7 +57,7 @@ overrides:
   # blocking TypeScript major bumps. Remove when the toolchain supports TS7.
   typescript: 6.0.3
   'serve-static@<2': '>=2.2.0'
-  tods-competition-factory: link:../factory
+  tods-competition-factory: link:../factory/packages/competition-factory
   '@courthive/provider-config': link:../provider-config
   '@courthive/i18n': link:../courthive-i18n
   # Security override — brace-expansion ReDoS (GHSA-3jxr-9vmj-r5cp); dev-only,

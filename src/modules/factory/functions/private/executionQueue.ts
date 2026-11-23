@@ -1,7 +1,15 @@
+import { footprintLocality } from 'src/modules/telemetry/footprintLocality';
+import { observeQueueRead } from 'src/modules/telemetry/footprintLocalityQueue';
 import { loadFetchedRecords } from '../../helpers/loadFetchedRecords';
 import { operatorScorePrecondition } from '../../../operator/scoreRequest';
 import { scheduleDrawIntegrityScan, snapshotTouchedDraws } from '../../helpers/executionQueueIntegrity';
-import { captureShardShadow, planShardShadow, scheduleShardShadow } from '../../helpers/executionQueueShadow';
+import {
+  captureShardShadow,
+  physicalShadowTransaction,
+  planShardShadow,
+  sampleShardShadow,
+  scheduleShardShadow,
+} from '../../helpers/executionQueueShadow';
 import { documentRequestTournamentIds } from '../../projection/participantDocumentRequests';
 import { HttpException, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { runWithRequestContext } from 'src/modules/factory/engines/requestContext';
@@ -138,11 +146,15 @@ export async function executionQueue(
             // is loaded), then from the lock-acquired record for whatever is left.
             await resolveMatchUpReferencesFromIndex(methods, tournamentIds, storage);
 
+            const sampled = sampleShardShadow(tournamentIds, methods);
+            const shadowTransaction = sampled ? physicalShadowTransaction(storage, tournamentIds[0]) : undefined;
             const assertion = payload[operatorScorePrecondition];
             const result: any = await storage.fetchTournamentRecords(
-              assertion ? { tournamentIds, captureRevision: true } : { tournamentIds },
+              assertion || shadowTransaction ? { tournamentIds, captureRevision: true } : { tournamentIds },
             );
             if (result.error) return result;
+            if (footprintLocality)
+              observeQueueRead(footprintLocality, tournamentIds, methods, result.tournamentRecords);
 
             await assertion?.(result.tournamentRecords);
             await resolveMatchUpReferences(methods, result.tournamentRecords);
@@ -152,12 +164,15 @@ export async function executionQueue(
             const loaded = loadFetchedRecords(result.tournamentRecords);
             if (loaded.error) return loaded;
             // Before the queue runs: it mutates the fetched records in place, and the shadow needs them as fetched.
-            shadowPlan = planShardShadow({
-              methods,
-              tournamentIds,
-              tournamentRecords: result.tournamentRecords,
-              outcomePipeline: (mutationEngine as any).getOutcomePipeline?.(),
-            });
+            if (sampled)
+              shadowPlan = await planShardShadow({
+                transaction: shadowTransaction,
+                rollbackOnError,
+                methods,
+                tournamentIds,
+                tournamentRecords: result.tournamentRecords,
+                outcomePipeline: (mutationEngine as any).getOutcomePipeline?.(),
+              });
             const innerResult = await mutationEngine.executionQueue(methods, rollbackOnError);
             // When the saved rows were written, and when they had been written before this mutation (read
             // inside the lock, so nothing came between). The ack and the broadcast carry both: a client that

@@ -1,3 +1,5 @@
+import type { Tournament, tools } from 'tods-competition-factory';
+
 export const TOURNAMENT_STORAGE = Symbol('TOURNAMENT_STORAGE');
 
 /**
@@ -7,7 +9,43 @@ export const TOURNAMENT_STORAGE = Symbol('TOURNAMENT_STORAGE');
  */
 export type StorageLayout = 'document' | 'sharded';
 
+export interface TournamentMetadata {
+  tournamentId: string;
+  providerId?: string;
+  extensions: any[];
+  updatedAt?: string;
+  serverUpdatedAt: string;
+}
+
+type Footprint = ReturnType<typeof tools.getMutationFootprint>;
+export interface PhysicalFootprintRequest {
+  tournamentId: string;
+  footprint: Footprint;
+  /** Supply explicit bindings from the directives. Factory aggregate footprints retain ID sets only. */
+  drawEventIds?: Readonly<Record<string, string>>;
+}
+
+export type PhysicalFootprintRead =
+  | {
+      kind: 'partial';
+      tournamentRecord: Tournament;
+      loadedFootprint: Footprint;
+      /** Internal CAS operand from the same snapshot as the shards. Never pass a partial record to a whole-record save. */
+      parentRevision: string;
+      previousServerUpdatedAt: string;
+    }
+  | { kind: 'fallback'; reason: 'unsupported-footprint' | 'missing-shards-or-layout' | 'invalid-shards' };
+
+export type PhysicalFootprintReader = (
+  request: Omit<PhysicalFootprintRequest, 'tournamentId'>,
+) => Promise<PhysicalFootprintRead>;
+
 export interface ITournamentStorage {
+  /** Present only for an opted-in tournament. A fallback result requires a whole-record read. */
+  readerForTournament?(tournamentId: string): PhysicalFootprintReader | undefined;
+
+  fetchTournamentMetadata(tournamentIds: string[]): Promise<TournamentMetadata[]>;
+
   findTournamentRecord(params: { tournamentId: string }): Promise<{ tournamentRecord?: any; error?: string }>;
 
   /**

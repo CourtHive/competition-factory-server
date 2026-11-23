@@ -25,7 +25,7 @@ describe('warmEventDataCache', () => {
       storage,
     });
 
-    expect(getEventData).toHaveBeenCalledWith({ tournamentId: 't1', eventId: 'e1' }, storage);
+    expect(getEventData).toHaveBeenCalledWith({ tournamentId: 't1', eventId: 'e1' }, storage, undefined, 'warmEvent');
     expect(cacheManager.set).toHaveBeenCalledWith(
       'ged|t1|e1',
       { success: true, eventData: { eventInfo: {} }, participants: [] },
