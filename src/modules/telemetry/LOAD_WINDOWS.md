@@ -6,7 +6,7 @@ All three histograms return counts and p50/p99/max in milliseconds. Event-loop d
 
 For sustained simulation load, set `SIMULATION_FACTORY_USER_ID` to the seeded user's database UUID and `SIMULATION_FACTORY_LIMIT_PER_MINUTE` to a finite integer above 300 and no more than 60000. The verified user context selects a separate quota on the two factory command and query routes. Other identities and routes use their usual limits. Omit the settings for the normal-limit comparison.
 
-The `shardCache` field counts successful, validated cache-enabled reads on this pool during the window.
+The `shardCache` field counts a cache-enabled read when its SELECT starts and its result passes validation in the same window on the same pool. A reset excludes reads still in flight from both windows.
 `reused` counts bodies omitted by PostgreSQL and read from the worker cache. `transferred` counts
 bodies returned by PostgreSQL. Each has separate shell, draw and participant counts. One action query
 may read hundreds of participant parts. Zero reads can mean the feature was disabled or the requests

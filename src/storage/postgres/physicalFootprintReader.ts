@@ -10,7 +10,7 @@ import {
   type ShardBodyLocation,
   type ShardBodySnapshot,
 } from './shardBodyCache';
-import { observeShardCacheRead } from './shardCacheObservation';
+import { shardCacheReadObserver } from './shardCacheObservation';
 import type { Pool } from 'pg';
 
 export type { PhysicalFootprintRead, PhysicalFootprintRequest } from '../interfaces/tournament-storage.interface';
@@ -354,6 +354,7 @@ async function conditionalRead(
   }
 
   let result: PhysicalFootprintRead;
+  const observe = shardCacheReadObserver(pool);
   try {
     const row = await selectConditionalRow(pool, request, scope, snapshot);
     if (!row) return { kind: 'fallback', reason: 'missing-shards-or-layout' };
@@ -407,7 +408,7 @@ async function conditionalRead(
   if (result.kind === 'partial') {
     // Keep the original row text. The assembled shell now also points at other rows.
     for (const { location, token, text } of pending) cache.put(tournamentId, location, token, text);
-    observeShardCacheRead(pool, hits, loaded);
+    observe?.(hits, loaded);
   }
   return result;
 }
