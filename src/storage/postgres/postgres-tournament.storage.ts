@@ -1,4 +1,5 @@
 import { footprintLocality } from 'src/modules/telemetry/footprintLocality';
+import { configuredShardBodyCache } from './shardBodyCache';
 import { readPhysicalFootprint } from './physicalFootprintReader';
 import { fetchPhysicalShellMetadata } from './physicalShellMetadata';
 import { markRecordRevision } from './recordRevision';
@@ -53,11 +54,15 @@ export class PostgresTournamentStorage implements ITournamentStorage {
 
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {
     if (process.env.CFS_PHYSICAL_FOOTPRINT_READS !== 'true') return;
+    const cache = configuredShardBodyCache();
     for (const value of (process.env.CFS_PHYSICAL_FOOTPRINT_TOURNAMENT_IDS ?? '').split(',')) {
       const tournamentId = value.trim();
       if (!tournamentId) continue;
       this.physicalReaders.set(tournamentId, async (request) => {
-        const read = await readPhysicalFootprint(this.pool, { ...request, tournamentId });
+        const bound = { ...request, tournamentId };
+        const read = cache
+          ? await readPhysicalFootprint(this.pool, bound, cache)
+          : await readPhysicalFootprint(this.pool, bound);
         if (read.kind === 'partial') markRecordRevision(read.tournamentRecord, tournamentId, read.parentRevision);
         return read;
       });
