@@ -7,7 +7,17 @@ export const TOURNAMENT_STORAGE = Symbol('TOURNAMENT_STORAGE');
  */
 export type StorageLayout = 'document' | 'sharded';
 
+export interface TournamentMetadata {
+  tournamentId: string;
+  providerId?: string;
+  extensions: any[];
+  updatedAt?: string;
+  serverUpdatedAt: string;
+}
+
 export interface ITournamentStorage {
+  fetchTournamentMetadata(tournamentIds: string[]): Promise<TournamentMetadata[]>;
+
   findTournamentRecord(params: { tournamentId: string }): Promise<{ tournamentRecord?: any; error?: string }>;
 
   /**

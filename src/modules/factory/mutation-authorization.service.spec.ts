@@ -57,6 +57,17 @@ function build({
   // projection the gate reads (`fetchTournamentUpdatedAt`: id, provider, extensions — never the record).
   let record: any = makeTournament();
   const tournamentStorageService: any = {
+    fetchTournamentMetadata: vi.fn(async (ids: string[]) =>
+      record && ids.includes(record.tournamentId)
+        ? [
+            {
+              tournamentId: record.tournamentId,
+              providerId: record.parentOrganisation?.organisationId,
+              extensions: record.extensions,
+            },
+          ]
+        : [],
+    ),
     setRecord: (next: any) => (record = next),
     fetchTournamentRecords: vi.fn(async () => ({ tournamentRecords: { [TID]: record } })),
     fetchTournamentUpdatedAt: vi.fn(async ({ tournamentId }: { tournamentId: string }) =>
@@ -93,8 +104,8 @@ const director = {
 const superAdmin = { userId: 'admin-1', isSuperAdmin: true, providerRoles: {}, providerIds: [] };
 
 describe('MutationAuthorizationService.gate', () => {
-  it('reads assignments and grants once for 101 candidates and reloads both on the next request', async () => {
-    const { service, grantStorage, assignmentsService, tournamentStorageService } = build();
+  it('bounds a 101-candidate catalogue to four reads and sees policy changes on the next request', async () => {
+    const { service, grantStorage, assignmentsService, tournamentStorageService, providerStorage } = build();
     const ids = Array.from({ length: 101 }, (_, i) => 't-' + i);
     const user = { ...director, email: 'test@example.test', globalRoles: [] };
     const roles = new Map(ids.map((id) => [id, 'SCORER']));
@@ -111,14 +122,14 @@ describe('MutationAuthorizationService.gate', () => {
     Object.assign(grants[3], { notAfter: '2000-01-01T00:00:00Z' });
     assignmentsService.readAssignedRoles.mockResolvedValue(roles);
     grantStorage.findForCatalogue.mockResolvedValue(grants);
-    tournamentStorageService.fetchTournamentUpdatedAt.mockImplementation(async ({ tournamentId }) =>
-      tournamentId === ids[4]
-        ? { error: 'missing' }
-        : {
-            success: true,
-            tournamentId,
-            providerId: tournamentId === ids[5] ? 'other' : PROVIDER,
-          },
+    tournamentStorageService.fetchTournamentMetadata.mockImplementation(async (requested: string[]) =>
+      requested
+        .filter((id) => id !== ids[4])
+        .reverse()
+        .map((tournamentId) => ({
+          tournamentId,
+          providerId: tournamentId === ids[5] ? 'other' : PROVIDER,
+        })),
     );
     expect(await service.scoringCatalogue(PROVIDER, user, ids)).toEqual(ids.slice(6, -1));
     expect(assignmentsService.readAssignedRoles).toHaveBeenCalledExactlyOnceWith(user.userId);
@@ -127,10 +138,20 @@ describe('MutationAuthorizationService.gate', () => {
     expect(grantStorage.findForSubject).not.toHaveBeenCalled();
     expect(tournamentStorageService.fetchTournamentRecords).not.toHaveBeenCalled();
 
+    expect(providerStorage.getProvider).toHaveBeenCalledExactlyOnceWith(PROVIDER);
+    expect(tournamentStorageService.fetchTournamentMetadata).toHaveBeenCalledExactlyOnceWith(ids.slice(0, -1));
+    expect(tournamentStorageService.fetchTournamentUpdatedAt).not.toHaveBeenCalled();
+
+    providerStorage.getProvider.mockResolvedValueOnce({
+      providerConfigSettings: { permissions: { canEnterScores: false } },
+    });
+    expect(await service.scoringCatalogue(PROVIDER, user, ids)).toEqual([]);
+    expect(providerStorage.getProvider).toHaveBeenCalledTimes(2);
+    expect(tournamentStorageService.fetchTournamentMetadata).toHaveBeenCalledTimes(2);
     assignmentsService.readAssignedRoles.mockResolvedValue(new Map());
     expect(await service.scoringCatalogue(PROVIDER, user, ids)).toEqual([]);
-    expect(assignmentsService.readAssignedRoles).toHaveBeenCalledTimes(2);
-    expect(grantStorage.findForCatalogue).toHaveBeenCalledTimes(2);
+    expect(assignmentsService.readAssignedRoles).toHaveBeenCalledTimes(3);
+    expect(grantStorage.findForCatalogue).toHaveBeenCalledTimes(3);
     assignmentsService.readAssignedRoles.mockRejectedValueOnce(new Error('assignments unavailable'));
     await expect(service.scoringCatalogue(PROVIDER, user, ids)).rejects.toThrow('assignments unavailable');
     grantStorage.findForCatalogue.mockRejectedValue(new Error('unavailable'));

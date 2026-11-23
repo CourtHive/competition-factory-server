@@ -174,6 +174,18 @@ describe('PostgresTournamentStorage — serverUpdatedAt', () => {
     expect(result.serverUpdatedAt).toEqual({ 't-1': writtenAt.toISOString() });
   });
 
+  it('fetches catalogue shell metadata for a batch in one parameterized query', async () => {
+    pool.query.mockResolvedValue({ rows: [{ tournament_id: 't-2', provider_id: 'p', row_updated_at: writtenAt }] });
+    const ids = ['missing', 't-2'];
+    expect(await storage.fetchTournamentMetadata(ids)).toEqual([
+      expect.objectContaining({ tournamentId: 't-2', providerId: 'p', extensions: [] }),
+    ]);
+    expect(pool.query).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('tournament_id = ANY($1::text[])'), [
+      ids,
+    ]);
+    expect(pool.query.mock.calls[0][0]).toContain('tournament_shell');
+  });
+
   it('the probe reports the row time as serverUpdatedAt and leaves updatedAt as the record field', async () => {
     pool.query.mockResolvedValue({
       rows: [{ tournament_id: 't-1', updated_at: null, row_updated_at: writtenAt, provider_id: 'p', extensions: [] }],

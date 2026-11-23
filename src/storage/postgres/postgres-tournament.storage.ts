@@ -1,5 +1,5 @@
 import { markRecordRevision } from './recordRevision';
-import { ITournamentStorage, StorageLayout } from '../interfaces/tournament-storage.interface';
+import { ITournamentStorage, StorageLayout, TournamentMetadata } from '../interfaces/tournament-storage.interface';
 import { FENCED_BY_NEWER_OWNER, SUCCESS } from 'src/common/constants/app';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -93,6 +93,12 @@ export class PostgresTournamentStorage implements ITournamentStorage {
       return { error: factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD };
     }
 
+    const [metadata] = await this.fetchTournamentMetadata([tournamentId]);
+    if (!metadata) return { error: factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD };
+    return { ...SUCCESS, ...metadata };
+  }
+
+  async fetchTournamentMetadata(tournamentIds: string[]): Promise<TournamentMetadata[]> {
     // Project only the few fields needed — Postgres extracts them server-side so
     // the full `data` JSONB blob is never transferred.
     const result = await (commandClient(this.pool) ?? this.pool).query(
@@ -102,23 +108,17 @@ export class PostgresTournamentStorage implements ITournamentStorage {
               shell->'parentOrganisation'->>'organisationId' AS provider_id,
               shell->'extensions' AS extensions
          FROM tournaments, tournament_shell(tournament_id, data) AS shell
-        WHERE tournament_id = $1`,
-      [tournamentId],
+        WHERE tournament_id = ANY($1::text[])`,
+      [tournamentIds],
     );
 
-    if (!result.rows.length) {
-      return { error: factoryConstants.errorConditionConstants.MISSING_TOURNAMENT_RECORD };
-    }
-
-    const row = result.rows[0];
-    return {
-      ...SUCCESS,
+    return result.rows.map((row) => ({
       tournamentId: row.tournament_id,
       updatedAt: row.updated_at,
       serverUpdatedAt: toIso(row.row_updated_at),
       providerId: row.provider_id,
       extensions: row.extensions ?? [],
-    };
+    }));
   }
 
   /**

@@ -39,6 +39,7 @@ import type { TournamentGrantRow } from 'src/storage/interfaces';
 import { windowDenialReason } from './helpers/grantWindowDenial';
 import { canMutateTournament } from './helpers/checkTournamentAccess';
 import { actingProviderAllows } from './helpers/actingProviderScope';
+import type { TournamentMetadata } from 'src/storage/interfaces/tournament-storage.interface';
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import { GRANT_STORAGE, type IGrantStorage } from 'src/storage/interfaces';
 import { PROVIDER_STORAGE, type IProviderStorage } from 'src/storage/interfaces';
@@ -81,6 +82,16 @@ const DIMENSION_LABEL: Readonly<Record<string, string>> = {
 // owned by @courthive/provider-config.
 export { GRANT_CAPABILITY_ALL, grantCoversMethod };
 
+function authorizationView(view: { tournamentId?: string; providerId?: string; extensions?: any[] }) {
+  return {
+    tournamentId: view.tournamentId,
+    ...(view.providerId ? { parentOrganisation: { organisationId: view.providerId } } : {}),
+    extensions: view.extensions ?? [],
+  };
+}
+
+type ProviderDenial = { method: string; providerId: string } | null;
+
 @Injectable()
 export class MutationAuthorizationService {
   private readonly logger = new Logger(MutationAuthorizationService.name);
@@ -116,18 +127,31 @@ export class MutationAuthorizationService {
       if (rows) rows.push(grant);
       else byTournament.set(grant.tournamentId, [grant]);
     }
+    if (!byTournament.size) return [];
+    const requestedMethods = ['setMatchUpStatus'];
+    const [metadata, providerDenial] = await Promise.all([
+      this.tournamentStorageService.fetchTournamentMetadata([...byTournament.keys()]),
+      user.isSuperAdmin ? null : this.checkProviderPermissionGate(provider, requestedMethods),
+    ]);
+    const views = new Map(metadata.map((row) => [row.tournamentId, row]));
     const allowed: string[] = [];
     for (const tournamentId of tournamentIds) {
+      const hasWideGrant = byTournament
+        .get(tournamentId)
+        ?.some(
+          (grant) => isLiveScoringGrant(grant, user.userId, provider, tournamentId) && isTournamentWide(grant.scope),
+        );
+      if (!hasWideGrant) continue;
       const denial = await this.evaluate(
         {
           officialScoringProvider: provider,
           userContext: user,
           tournamentIds: [tournamentId],
-          requestedMethods: ['setMatchUpStatus'],
+          requestedMethods,
           actor: user.userId,
         },
         assignedRoles,
-        byTournament.get(tournamentId) ?? [],
+        { metadata: views.get(tournamentId), providerDenial },
       );
       if (denial === null) allowed.push(tournamentId);
     }
@@ -137,22 +161,13 @@ export class MutationAuthorizationService {
   private async evaluate(
     { userContext, tournamentIds, requestedMethods, methods, actor, officialScoringProvider }: MutationGateParams,
     assignedRoles: Map<string, string>,
-    catalogueGrants?: TournamentGrantRow[],
+    catalogue?: { metadata?: TournamentMetadata; providerDenial: ProviderDenial },
   ): Promise<string | null> {
     const methodSummary = requestedMethods.join('|');
 
     for (const tid of tournamentIds) {
-      if (
-        catalogueGrants &&
-        (!officialScoringProvider ||
-          !catalogueGrants.some(
-            (grant) =>
-              isLiveScoringGrant(grant, userContext.userId, officialScoringProvider, tid) &&
-              isTournamentWide(grant.scope),
-          ))
-      )
-        return 'No tournament-wide scoring grant';
-      const tournament = await this.authorizationView(tid);
+      const metadata = catalogue ? catalogue.metadata : await this.singleTournamentMetadata(tid);
+      const tournament = metadata && authorizationView(metadata);
       if (officialScoringProvider && tournament?.parentOrganisation?.organisationId !== officialScoringProvider)
         return 'Not authorized to modify this tournament';
       if (!tournament) continue;
@@ -201,7 +216,9 @@ export class MutationAuthorizationService {
       }
 
       if (userContext.isSuperAdmin || !requestedMethods.length) continue;
-      const blocked = await this.checkProviderPermissionGate(tournament, requestedMethods);
+      const blocked = catalogue
+        ? catalogue.providerDenial
+        : await this.checkProviderPermissionGate(tournament.parentOrganisation?.organisationId, requestedMethods);
       if (blocked) {
         this.logger.warn(
           `[executionQueue] provider permission denied for ${actor}: ${blocked.method} on ${tid} (provider ${blocked.providerId})`,
@@ -225,14 +242,9 @@ export class MutationAuthorizationService {
    * A tournament that cannot be read is skipped, as before: the mutation then fails inside the lock, where the record
    * is fetched for real.
    */
-  private async authorizationView(tournamentId: string): Promise<any> {
-    const view: any = await this.tournamentStorageService.fetchTournamentUpdatedAt({ tournamentId });
-    if (!view?.success) return undefined;
-    return {
-      tournamentId: view.tournamentId,
-      ...(view.providerId ? { parentOrganisation: { organisationId: view.providerId } } : {}),
-      extensions: view.extensions ?? [],
-    };
+  private async singleTournamentMetadata(tournamentId: string) {
+    const view = await this.tournamentStorageService.fetchTournamentUpdatedAt({ tournamentId });
+    return view?.success ? view : undefined;
   }
 
   /**
@@ -305,10 +317,9 @@ export class MutationAuthorizationService {
 
   /** Returns the first method blocked by the owning provider's permissions, or null. */
   private async checkProviderPermissionGate(
-    tournament: any,
+    providerId: string | undefined,
     requestedMethods: string[],
-  ): Promise<{ method: string; providerId: string } | null> {
-    const providerId = tournament?.parentOrganisation?.organisationId;
+  ): Promise<ProviderDenial> {
     if (!providerId) return null;
     const provider: any = await this.providerStorage.getProvider(providerId);
     const effective = computeEffectiveConfig(
