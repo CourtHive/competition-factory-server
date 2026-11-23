@@ -1,5 +1,12 @@
+import { readPhysicalFootprint } from './physicalFootprintReader';
+import { fetchPhysicalShellMetadata } from './physicalShellMetadata';
 import { markRecordRevision } from './recordRevision';
-import { ITournamentStorage, StorageLayout, TournamentMetadata } from '../interfaces/tournament-storage.interface';
+import {
+  ITournamentStorage,
+  PhysicalFootprintReader,
+  StorageLayout,
+  TournamentMetadata,
+} from '../interfaces/tournament-storage.interface';
 import { FENCED_BY_NEWER_OWNER, SUCCESS } from 'src/common/constants/app';
 import { getTournamentRecords } from 'src/helpers/getTournamentRecords';
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -41,7 +48,24 @@ export class PostgresTournamentStorage implements ITournamentStorage {
   // operation — entries are created only by a rejection and dropped on recovery.
   private readonly fenceRejections = new Map<string, number>();
 
-  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  private readonly physicalReaders = new Map<string, PhysicalFootprintReader>();
+
+  constructor(@Inject(PG_POOL) private readonly pool: Pool) {
+    if (process.env.CFS_PHYSICAL_FOOTPRINT_READS !== 'true') return;
+    for (const value of (process.env.CFS_PHYSICAL_FOOTPRINT_TOURNAMENT_IDS ?? '').split(',')) {
+      const tournamentId = value.trim();
+      if (!tournamentId) continue;
+      this.physicalReaders.set(tournamentId, async (request) => {
+        const read = await readPhysicalFootprint(this.pool, { ...request, tournamentId });
+        if (read.kind === 'partial') markRecordRevision(read.tournamentRecord, tournamentId, read.parentRevision);
+        return read;
+      });
+    }
+  }
+
+  readerForTournament(tournamentId: string) {
+    return this.physicalReaders.get(tournamentId);
+  }
 
   async findTournamentRecord({ tournamentId }: { tournamentId: string }) {
     const result = await (commandClient(this.pool) ?? this.pool).query(
@@ -99,6 +123,13 @@ export class PostgresTournamentStorage implements ITournamentStorage {
   }
 
   async fetchTournamentMetadata(tournamentIds: string[]): Promise<TournamentMetadata[]> {
+    if (tournamentIds.length === 1 && this.readerForTournament(tournamentIds[0])) {
+      return fetchPhysicalShellMetadata(this.pool, tournamentIds, (ids) => this.fetchDocumentMetadata(ids));
+    }
+    return this.fetchDocumentMetadata(tournamentIds);
+  }
+
+  private async fetchDocumentMetadata(tournamentIds: string[]): Promise<TournamentMetadata[]> {
     // Project only the few fields needed — Postgres extracts them server-side so
     // the full `data` JSONB blob is never transferred.
     const result = await (commandClient(this.pool) ?? this.pool).query(

@@ -1,5 +1,6 @@
 import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
 import { loadFetchedRecords } from 'src/modules/factory/helpers/loadFetchedRecords';
+import { fetchQueryRecords } from 'src/modules/factory/helpers/fetchQueryRecords';
 import { queryEngine } from 'src/modules/factory/engines/queryEngine';
 import { Logger } from '@nestjs/common';
 
@@ -13,7 +14,8 @@ export async function queryTournamentRecords(payload, storage: ITournamentStorag
     return { error: 'No tournamentIds provided' };
   }
 
-  const result: any = await storage.fetchTournamentRecords({ tournamentIds });
+  const { method, params } = payload;
+  const result = await fetchQueryRecords(storage, { tournamentIds }, method, params);
   if (result.error) return result;
 
   // DECISION: the read path gets its OWN engine state context.
@@ -26,8 +28,12 @@ export async function queryTournamentRecords(payload, storage: ITournamentStorag
     // load (Hecaton v1), to protect objects nothing else holds. Same loader as the mutation path.
     const loaded = loadFetchedRecords(result.tournamentRecords);
     if (loaded.error) return loaded;
+    if (result.loadedFootprint) {
+      // Mark the actual request-local object before invoking the guard on the canonical query wrapper.
+      const { error } = queryEngine.loadedFootprint(result.loadedFootprint, tournamentIds[0]);
+      if (error) return { error };
+    }
 
-    const { method, params } = payload;
     if (typeof queryEngine[method] !== 'function') {
       Logger.error(`queryEngine method not found: ${method}`);
       return { error: `Unknown query method: ${method}` };

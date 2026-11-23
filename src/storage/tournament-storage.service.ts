@@ -41,6 +41,10 @@ export class TournamentStorageService {
 
   // --- Read-through (no side-effects) ---
 
+  readerForTournament(tournamentId: string) {
+    return this.tournamentStorage.readerForTournament?.(tournamentId);
+  }
+
   async findTournamentRecord(params: { tournamentId: string }) {
     return this.tournamentStorage.findTournamentRecord(params);
   }
