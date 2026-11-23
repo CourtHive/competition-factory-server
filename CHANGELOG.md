@@ -1,5 +1,25 @@
 # Changelog
 
+## [4.20.0](https://github.com/CourtHive/competition-factory-server/compare/v4.19.1...v4.20.0) (2026-11-23)
+
+
+### Features
+
+* authorize official scoring catalogue reads through the CFS gate ([#1310](https://github.com/CourtHive/competition-factory-server/issues/1310)) ([d6f488f](https://github.com/CourtHive/competition-factory-server/commit/d6f488f361899fb1ec96a3ebba1e9790edc5ed7f))
+* **support:** feedback from anyone signed in, scoped to provider or platform ([#1309](https://github.com/CourtHive/competition-factory-server/issues/1309)) ([948f950](https://github.com/CourtHive/competition-factory-server/commit/948f950bdd47b56dc406691bf5739f247fc06e15))
+* **support:** notify the verified inbox owner for each new bug report ([#1311](https://github.com/CourtHive/competition-factory-server/issues/1311)) ([e6b269f](https://github.com/CourtHive/competition-factory-server/commit/e6b269f2f5b759449a4250dea0efff87de157c93))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.46.0 ([#1313](https://github.com/CourtHive/competition-factory-server/issues/1313)) ([f9361dc](https://github.com/CourtHive/competition-factory-server/commit/f9361dcbc8b4971820389cd07a2cfc47480dcdae))
+* **throttle:** count signed-in requests per user and anonymous ones per client ([853f25d](https://github.com/CourtHive/competition-factory-server/commit/853f25d9c6632a274b0fd0a0fd93397143413418))
+
+
+### Performance
+
+* **query:** load fetched records for reads without a deep copy ([aaa0080](https://github.com/CourtHive/competition-factory-server/commit/aaa00805a9a8d48c74b6e83b64d390cffc5d6640))
+
 ## [4.19.1](https://github.com/CourtHive/competition-factory-server/compare/v4.19.0...v4.19.1) (2026-11-22)
 
 
