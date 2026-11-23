@@ -37,14 +37,22 @@ export class SupportTransport {
   }
 
   async send(to: string, reference: string, resolution: string, idempotencyKey: string) {
+    return this.mail('support-resolution', { to, reference, resolution, idempotencyKey });
+  }
+
+  notifyInbox(to: string, reference: string) {
+    return this.mail('support-received', { to, reference });
+  }
+
+  private async mail(endpoint: string, payload: Record<string, string>) {
     const base = process.env.AMS_BASE_URL;
     const token = process.env.AMS_SERVICE_TOKEN;
     if (process.env.AMS_DISABLED === 'true' || !base || base === 'disabled' || !token)
       throw new Error('support-mail-unconfigured');
-    const response = await fetch(`${base.replace(/\/$/, '')}/notifications/support-resolution`, {
+    const response = await fetch(`${base.replace(/\/$/, '')}/notifications/${endpoint}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-service-token': token },
-      body: JSON.stringify({ to, reference, resolution, idempotencyKey }),
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) throw new Error('support-mail-rejected');

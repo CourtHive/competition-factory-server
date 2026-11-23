@@ -22,6 +22,12 @@ page. TMX uses its existing authenticated API client. Do not enable outbound mai
 simulation to operate this feature. No configuration, migration or external send is applied by reading
 this runbook; deployment remains a separately authorized action.
 
+## Console inbox and new-report mail
+
+Sign in to the AMS console as a super-admin and choose **Support inbox**, or open `/console/#/support`. CFS checks the same super-admin role on every read and resolution write. The CLI remains available to operators with a source checkout.
+
+Deploy the AMS `POST /notifications/support-received` contract before CFS. Set `SUPPORT_INBOX_OWNER_ID` to the stable user ID of the designated super-admin whose verified contact is currently `charles@courthive.com`. CFS resolves that account’s current role and verified contact before dispatch. An unset owner leaves new bug notifications queued. A missing or unverified contact is rechecked. The existing dispatch switch controls delivery. Migration 066 and the report insert enqueue one notification for each newly accepted bug. Suggestions, submission retries and reports predating rollout do not create new mail. A distinct provider idempotency key per reference protects retries. The message contains the case reference only. After an ambiguous send, a changed address or elapsed retry window requires operator review.
+
 ## CLI inbox and sender
 
 Use the existing authenticated super-admin session via `SUPPORT_ADMIN_TOKEN` in the environment.

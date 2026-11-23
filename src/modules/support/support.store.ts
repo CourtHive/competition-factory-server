@@ -55,8 +55,8 @@ export class SupportStore {
       const result = await client.query(
         `INSERT INTO support_cases
         (reference, reporter_id, provider_id, tournament_id, submission_key, fingerprint, description, evidence,
-        scope, kind)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        scope, kind, inbox_mail_state)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CASE WHEN $10='bug' THEN 'pending' ELSE 'none' END) RETURNING *`,
         [
           randomUUID(),
           userId,
