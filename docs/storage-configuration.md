@@ -10,6 +10,10 @@ denormalized columns for the fields the server queries directly.
 > (<https://courthive.github.io/competition-factory-server/>). This file is the
 > local dev/ops runbook; keep the two in sync when the storage layer changes.
 
+For a sharded tournament, use the Storage Overview to qualify the layout, enable physical reads
+and set the worker cache budget. Its roadmap links the design, paired benchmarks and Hecaton trial
+procedure. [Record sharding and rollout](../src/stories/storage/StorageOverview.mdx#storage-layouts-optional-record-sharding)
+
 ## Local Setup
 
 ### 1. Install and create the database
