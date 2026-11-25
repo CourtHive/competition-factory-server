@@ -128,9 +128,10 @@ Create `~/Library/LaunchAgents/com.courthive.factory-server.plist`:
 
 ## 10. Backup
 
-- [ ] Crontab `pg_dump`:
+- [ ] Crontab `pg_dump`, using the `pg_dump` of the installed server version (a dump tool older than the server cannot
+      dump it):
   ```
-  0 */2 * * * /opt/homebrew/opt/postgresql@16/bin/pg_dump -Fc courthive > /Volumes/CourtHive-Backup/courthive-$(date +\%Y\%m\%d-\%H\%M).dump
+  0 */2 * * * /opt/homebrew/opt/postgresql@18/bin/pg_dump -Fc courthive > /Volumes/CourtHive-Backup/courthive-$(date +\%Y\%m\%d-\%H\%M).dump
   ```
 - [ ] External drive labeled `CourtHive-Backup`, FAT-formatted so a laptop can read it
 - [ ] Test restore on a fresh database before the event:
@@ -146,7 +147,7 @@ Create `~/Library/LaunchAgents/com.courthive.factory-server.plist`:
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Scorekeeper iPad can't connect | LAN switch / Wi-Fi down | Check switch lights, restart access point |
-| Bolt scoring slow | Postgres swapping | Check `top`, restart `postgresql@16` |
+| Bolt scoring slow | Postgres swapping | Check `top`, `brew services restart postgresql@18` |
 | Cloud relay queue growing | Uplink down or cloud-relay 5xx | Check `curl $CLOUD_RELAY_URL`, queue drains automatically on recovery |
 | Queue depth ever > 10000 | Persistent uplink outage | Operator decision: delete old entries via `netLevel` admin or accept the backlog |
 | LaunchAgent fails to start | Wrong path / missing env | `tail /Users/courthive/factory-server.err` |
