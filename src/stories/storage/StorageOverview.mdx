@@ -143,6 +143,19 @@ A matching parent revision confirms reuse at tournament granularity. It does not
 cache hit after another draw changes. Document-level writes invalidate the tracked tournament conservatively.
 The output contains aggregate counts, with no tournament IDs, draw IDs, actor details or record contents.
 
+### Sharding roadmap and rollout evidence
+
+CFS 4.21.0 can serve eligible reads from synchronized shards. Authoritative scoring still
+saves the whole tournament under its tournament lock. Direct shard writes and draw-level
+locking are later stages. [Design and implementation sequence](https://github.com/CourtHive/Mentat/blob/main/planning/CFS_RECORD_SHARDING_EXPLORATION.md#7-sequencing)
+
+Use the test-host measurements to compare an empty cache, a repeat read and the first read after a
+draw or roster change when choosing a per-worker budget. [Paired latency, transferred bytes and benchmark receipts](https://github.com/CourtHive/Mentat/blob/main/assessment/2026-11-23-cfs-keep-warm/qualification/cache/README.md)
+
+For a simulation trial, the Hecaton handoff gives the request shapes, tournament setup and
+per-part counters that distinguish a physical read, a cache hit and a whole-record fallback.
+[Hecaton rollout checks](https://github.com/CourtHive/Mentat/blob/main/scripts/simulation/hecaton/CFS_READER_HANDOFF.md)
+
 ## Key Files
 
 <table>

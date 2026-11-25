@@ -51,16 +51,16 @@
 --
 -- Everything above argues from a premise about NEST: "prod has run on the new path since
 -- 2026-09-17, so `calendars` is a stale second copy." That premise was true there and was
--- never CHECKED here — and 047 creates `calendar_tournaments` WITHOUT backfilling it (nest's
+-- never CHECKED here — and 047 creates `calendar_tournaments` WITHOUT backfilling it (prod's
 -- rows came from a separate backfill step run before the 047 release).
 --
 -- So on any host where 047 and 048 apply in the SAME boot, this dropped the only populated
--- copy moments after 047 created an empty replacement. That happened on Button (the always-on
--- ingest host, own local Postgres) on 2026-09-21: 5,844 calendar entries destroyed, recovered
+-- copy moments after 047 created an empty replacement. That happened on the always-on ingest
+-- test host (own local Postgres) on 2026-09-21: 5,844 calendar entries destroyed, recovered
 -- by recomputing them from the tournament records through the same `getCalendarEntry` +
 -- `toRow` the save path uses. Recoverable only because the calendar is a PROJECTION; had it
 -- been authoritative the dump in `preserved/` would have been the only way back, and that
--- dump is of nest's rows, not Button's.
+-- dump is of prod's rows, not the test host's.
 --
 -- A migration that is safe only because of a fact about one database must assert that fact.
 -- This one now refuses unless the new table is populated or the old one is empty — so it is a
@@ -84,7 +84,7 @@ BEGIN
       'REFUSING to drop `calendars`: it holds % row(s) and `calendar_tournaments` is EMPTY. '
       'Migration 047 does not backfill — populate the new table first (re-save the records, or '
       'recompute each entry with getCalendarEntry + toRow), then re-run. Dropping here would '
-      'destroy the only populated copy, as it did on Button 2026-09-21.',
+      'destroy the only populated copy, as it did on the ingest test host 2026-09-21.',
       legacy_rows;
   END IF;
 END $$;

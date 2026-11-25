@@ -2,7 +2,7 @@
  * RankingsProxyController — exposes the co-resident courthive-rankings
  * service at /api/rankings/* on courthive.net via Cloudflare → Express.
  *
- * The rankings service runs at http://localhost:3110 on nest and isn't
+ * The rankings service runs at http://localhost:3110 in prod and isn't
  * directly reachable from the public internet. Public consumers (e.g.
  * courthive-public's BOBOCA rankings page) need read access to
  * snapshots + per-person award histories without a separate NGINX

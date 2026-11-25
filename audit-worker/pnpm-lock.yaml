@@ -185,8 +185,8 @@ importers:
         specifier: ^8.16.0
         version: 8.23.1
       tods-competition-factory:
-        specifier: 7.48.0
-        version: 7.48.0
+        specifier: 7.49.0
+        version: 7.49.0
     devDependencies:
       '@types/express':
         specifier: ^5.0.0
@@ -1010,8 +1010,8 @@ packages:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
     engines: {node: '>=12.0.0'}
 
-  tods-competition-factory@7.48.0:
-    resolution: {integrity: sha512-WEsu0LrjCxPu6T6W3SoaNlAwfF8t84fQ3cZF5pn8UtK3ix7gbNKjkB9itXO3ptr1ii3n89WEnLmCyChSXDtrMQ==}
+  tods-competition-factory@7.49.0:
+    resolution: {integrity: sha512-MST1NJil6EIC0n2eMJ1l7I0r5c6+bbLLQLrmNj96M1aPn44/+3TZ5YvTo4CAw9Ul2w3FyvNx3HcLnIowzz7roA==}
     engines: {node: '>=24'}
 
   toidentifier@1.0.1:
@@ -1864,7 +1864,7 @@ snapshots:
       fdir: 6.5.0(picomatch@4.0.7)
       picomatch: 4.0.7
 
-  tods-competition-factory@7.48.0: {}
+  tods-competition-factory@7.49.0: {}
 
   toidentifier@1.0.1: {}
 

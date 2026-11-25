@@ -13,7 +13,7 @@
 -- PROVIDER_ADMIN at their home (rule 1 writes nothing for them) and 5 have no home (the shim never applied);
 -- 1 other user has a home and no rows, but that home is no longer a provider, so the JOIN skips it. A dry run
 -- on prod wrote 0 rows: the shim was granting nobody anything the rows did not. The migration exists for the
--- other databases (dev, Button). Idempotent: re-running writes nothing.
+-- other databases (dev, the ingest test host). Idempotent: re-running writes nothing.
 -- See Mentat/planning/MULTI_PROVIDER_CONTEXT_COMPLETION.md, Phase 4.
 
 -- 1. legacy `admin` role → PROVIDER_ADMIN at the home provider

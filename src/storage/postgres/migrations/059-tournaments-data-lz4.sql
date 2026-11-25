@@ -3,7 +3,7 @@
 --
 -- A deliberate no-op. This migration first set lz4 compression on `tournaments.data`, but
 -- `ALTER TABLE ... SET COMPRESSION` takes an ACCESS EXCLUSIVE lock on `tournaments` (measured), and migrations run
--- at CFS boot against the database mentat and nest share. Waiting behind any open transaction on `tournaments`, it
+-- at CFS boot against the database staging and prod share. Waiting behind any open transaction on `tournaments`, it
 -- would have queued every live read and write of tournaments behind it. Bounding it with `lock_timeout` does not
 -- help here: a timed-out migration either stops the server from booting or, if swallowed, is recorded as applied
 -- without having done anything.

@@ -2,7 +2,7 @@
  * Structural sanity test for ecosystem.config.js.
  *
  * PM2 silently ignores typos in app names or missing fields, and a bad
- * ecosystem file only surfaces at deploy time on nest. This test catches
+ * ecosystem file only surfaces at deploy time in prod. This test catches
  * regressions up front — e.g. a misspelled script path, a removed app,
  * or a missing env var needed by the Score-Relay bundle.
  */

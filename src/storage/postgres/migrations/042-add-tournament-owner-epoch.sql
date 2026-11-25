@@ -28,8 +28,8 @@
 -- any real epoch is granted to anyone.
 --
 -- ADD COLUMN with a non-volatile DEFAULT is metadata-only on Postgres 11+, so
--- this does not rewrite the tournaments table. NOTE that mentat and nest share
--- one prod database (PG_DATABASE=courthive) — running migrations on mentat
+-- this does not rewrite the tournaments table. NOTE that staging and prod share
+-- one prod database (PG_DATABASE=courthive) — running migrations on staging
 -- applies them to PROD.
 --
 -- Design: planning/CFS_TOURNAMENT_AFFINITY_SHARDING.md ("Fencing — the part
