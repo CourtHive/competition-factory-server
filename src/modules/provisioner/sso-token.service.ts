@@ -32,7 +32,7 @@ export class SsoTokenService implements OnModuleInit, OnModuleDestroy {
         socket: {
           connectTimeout: 2000,
           // node-redis defaults to retrying initial connect forever with a
-          // 50ms linear backoff, which silently hangs nest boot when Redis
+          // 50ms linear backoff, which silently hangs prod boot when Redis
           // is down (await client.connect() never resolves, the catch
           // below never runs). Bound to ~3 attempts so connect() rejects
           // and the catch handler can mark the service unavailable.

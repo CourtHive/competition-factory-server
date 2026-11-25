@@ -858,7 +858,7 @@ export class FactoryService {
 
 /**
  * One load-profile line per wholesale save (Mentat/planning/CFS_LARGE_SAVES.md §10, P3): how large the payload was,
- * and what validation and the snapshot cost on the request path. The conveyor loads on Button are what decide how
+ * and what validation and the snapshot cost on the request path. The ingest conveyor loads on the test host are what decide how
  * much the deferred snapshot producer matters, and they had never been measured. Serialising each record for its size
  * costs ~1 ms per MB, an order below the validation it is reported beside.
  */

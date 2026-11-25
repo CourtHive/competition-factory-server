@@ -53,7 +53,7 @@ export class HttpThrottlerGuard extends ThrottlerGuard {
    * Express trusts no proxy header here, so `req.ip` was nginx's loopback address for every client: all of production
    * shared one bucket per route, the login limit included (found by Hecaton v1, 2026-11-22; no 429 yet in 279,693
    * logged requests, because load is light). A signed-in request now counts against its user. An anonymous one counts
-   * against Cloudflare's `CF-Connecting-IP`, trusted only on a loopback connection (nginx; nest's origin accepts only
+   * against Cloudflare's `CF-Connecting-IP`, trusted only on a loopback connection (nginx; prod's origin accepts only
    * Cloudflare). Anything else keeps `req.ip`.
    */
   protected getTracker(req: Record<string, any>): Promise<string> {

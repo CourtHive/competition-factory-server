@@ -2,7 +2,7 @@
 # Ignore
 # No trailing slash: also catches a node_modules path that happens to be
 # a symlink or regular file (a stray symlink slipped past `node_modules/`
-# once and got committed — every mentat git pull then re-materialized a
+# once and got committed — every staging-host git pull then re-materialized a
 # broken self-referencing link). Same reasoning as score-relay below.
 node_modules
 scratch/
@@ -68,11 +68,11 @@ admin-client/dist/
 admin-client/node_modules
 
 # Staged by mentat-push-server.sh during deploy.
-# On mentat-dev, this is a symlink to ../epixodic/score-relay so that
+# On the staging host, this is a symlink to ../epixodic/score-relay so that
 # ecosystem.config.js's relative `score-relay/dist/server.js` path
 # resolves locally without duplicating node_modules. Pattern with no
-# trailing slash matches both the directory (on nest) and the symlink
-# (on mentat).
+# trailing slash matches both the directory (in prod) and the symlink
+# (on staging).
 score-relay
 # Runtime locale cache lives at the project-root i18n/ — anchor with the
 # leading slash so it doesn't also swallow src/modules/i18n/.

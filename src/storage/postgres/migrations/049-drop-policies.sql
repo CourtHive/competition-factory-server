@@ -34,9 +34,9 @@
 --
 -- ── WHY THIS ASSERTS ITS OWN PREMISE ─────────────────────────────────────────
 --
--- The measurements above are from nest's prod DB and Button's (13 and 12 rows, every
+-- The measurements above are from the prod DB and the ingest test host's (13 and 12 rows, every
 -- one `seed-loader`, none soft-deleted). That is exactly the reasoning that made
--- `048-drop-legacy-calendars.sql` destroy 5,844 rows on Button: it argued from the
+-- `048-drop-legacy-calendars.sql` destroy 5,844 rows on the test host: it argued from the
 -- state of the host its author had looked at, and ran somewhere else.
 --
 -- So this does not trust the census. It re-derives the premise on whatever host it

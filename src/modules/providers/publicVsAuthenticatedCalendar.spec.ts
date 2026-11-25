@@ -10,7 +10,7 @@ import { ProvidersService } from './providers.service';
  * That is a one-line difference guarding a real entitlement, so it is asserted
  * explicitly rather than left to inspection — requested by the ingest session in
  * `Mentat/in-flight/NOTE-2026-08-30-public-calendar-filter-meets-the-loaded-corpus.md`,
- * which measured the consequence on Button: 5,741 calendar entries, of which 5,640
+ * which measured the consequence on the ingest test host: 5,741 calendar entries, of which 5,640
  * (ITA + TE) are unpublished. The public calendar there goes to 95. A provider admin
  * must still see all 5,741.
  *
@@ -33,7 +33,7 @@ const PUBLISHED = {
   tournament: { tournamentName: 'Published Open', startDate: '2026-09-01', notes: 'internal' },
 };
 
-// Shaped like ITA/TE on Button: a real entry with nothing published yet.
+// Shaped like ITA/TE on the ingest test host: a real entry with nothing published yet.
 const UNPUBLISHED = {
   published: false,
   tournamentId: 'draft-1',
@@ -92,7 +92,7 @@ describe('public vs authenticated provider calendar', () => {
     expect(result.error).toBeDefined();
   });
 
-  // The Button corpus is 98% unpublished. A published-only filter passes trivially
+  // The ingest test host's corpus is 98% unpublished. A published-only filter passes trivially
   // against an all-published fixture; this is the negative case that makes it mean
   // something.
   it('public route returns an empty list when nothing is published', async () => {

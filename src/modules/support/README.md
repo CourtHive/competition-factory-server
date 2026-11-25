@@ -62,7 +62,7 @@ rows at a time. Open status and retries never extend retention. No report-conten
 retained. Later work belongs in a reviewed technical ticket, without raw descriptions or contact data
 by default. Account contact information follows its existing policy.
 
-The 30-day expiry applies to the live case. On 21 November 2026 the installed nest script retained
+The 30-day expiry applies to the live case. On 21 November 2026 the installed prod script retained
 12 nightly core dumps. Its age threshold was configured as ten days. Disk snapshots can preserve a
 dump beyond its lifetime on the host. After restoring, purge expired support rows before exposing
 the database or enabling workers. [Measured retention and restore procedure](https://github.com/CourtHive/Mentat/blob/main/statuses/2026-11-21-support-release-qualification.md#backup-and-recovery)
