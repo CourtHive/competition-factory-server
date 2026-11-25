@@ -8,8 +8,8 @@ export async function tryAcquireProducerLock(client: PoolClient, key = PRODUCER_
 }
 
 /**
- * Names the session holding the producer lock. The holder can be on another HOST: on 2026-10-29 mentat's dev producer
- * (pointed at nest's database) held prod's lock for six hours, and the only log line said "another Projection-Producer
+ * Names the session holding the producer lock. The holder can be on another HOST: on 2026-10-29 the staging host's dev producer
+ * (pointed at the prod database) held prod's lock for six hours, and the only log line said "another Projection-Producer
  * holds the lock". `client_addr` is what identifies the host; it is null for a unix-socket connection on the DB host.
  *
  * A bigint advisory lock is stored as classid (high 32 bits) and objid (low 32 bits), with objsubid 1.

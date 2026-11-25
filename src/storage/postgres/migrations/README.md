@@ -39,7 +39,7 @@ Missing or unrecognized headers are treated as `end-users` (fail-safe to loud).
 - All new migrations `admin` → quiet notice, deploy proceeds
 - Any new migration `end-users` / `mixed` / unspecified → halt, requires `yes-apply-to-prod` typed confirmation
 
-The classification is forward-only — existing migrations (001–019) don't have the header and won't be re-classified. The gate only inspects migrations that aren't yet on nest's currently-deployed release.
+The classification is forward-only — existing migrations (001–019) don't have the header and won't be re-classified. The gate only inspects migrations that aren't yet on prod's currently-deployed release.
 
 ## Adding a migration
 

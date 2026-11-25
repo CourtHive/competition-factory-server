@@ -21,7 +21,7 @@ merge), byte-identical. **Renovate targets `dev`** (`baseBranches` in `renovate.
 | `sync-i18n.yml` | `push: [main]`, path-filtered on the admin client's `en.json` | an i18n change on `dev` syncs only once it reaches `main` |
 | `deploy-storybook.yml` | `push: [main, master]`, path-filtered | storybook publishes only from `main` |
 
-**Deploys build `main`.** mentat's checkout of this repo is on `main` (as factory's is on `master` and TMX's on `main`),
+**Deploys build `main`.** The deploy host's checkout of this repo is on `main` (as factory's is on `master` and TMX's on `main`),
 so work merged to `dev` reaches dev and prod only after a checkpoint.
 
 **`dev` is protected** (no deletion, no force-push; no required checks) and `delete_branch_on_merge` is on: merged feature

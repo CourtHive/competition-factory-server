@@ -118,9 +118,8 @@ async function bootstrap() {
   // Swagger-owned paths are gated; real `/api/*` controllers (e.g. /api/config)
   // are untouched.
   //
-  // Gating triggers for production (nest) AND the shared-DB staging host
-  // (courthive-mentat — runs APP_MODE=development but points at the same
-  // Postgres), which sets SWAGGER_REQUIRE_AUTH=true. Isolated local dev with
+  // Gating triggers for production AND the shared-DB staging host (it
+  // runs APP_MODE=development but points at the same Postgres), which sets SWAGGER_REQUIRE_AUTH=true. Isolated local dev with
   // its own database leaves all three unset and keeps the explorer open.
   const swaggerLocked =
     process.env.SWAGGER_REQUIRE_AUTH === 'true' ||

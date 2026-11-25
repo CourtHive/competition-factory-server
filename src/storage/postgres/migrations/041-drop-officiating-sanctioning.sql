@@ -14,7 +14,7 @@
 -- the same change. Indexes drop with the tables.
 --
 -- Data: prod `courthive` held 0 rows in both tables at removal time, and all
--- eight provider archives on nest carry empty (`[]`) payloads for both, so the
+-- eight provider archives in prod carry empty (`[]`) payloads for both, so the
 -- "data migration into courthive_ams" tail in AMS_DEPLOY_AND_RETIREMENT.md
 -- §CFS retirement windows has nothing to move.
 
