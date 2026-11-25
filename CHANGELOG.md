@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.21.1](https://github.com/CourtHive/competition-factory-server/compare/v4.21.0...v4.21.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.49.0 ([#1334](https://github.com/CourtHive/competition-factory-server/issues/1334)) ([6e64f71](https://github.com/CourtHive/competition-factory-server/commit/6e64f71807d5142159b00d4ba360126d644024cb))
+
+
+### Documentation
+
+* **provisioning:** back up and restart with postgresql@18, the installed version ([#1332](https://github.com/CourtHive/competition-factory-server/issues/1332)) ([c1098dd](https://github.com/CourtHive/competition-factory-server/commit/c1098ddc04efe1f58c601c270f5bf83facf001fe))
+* **storage:** connect sharding operations with the design and rollout evidence ([79c1e05](https://github.com/CourtHive/competition-factory-server/commit/79c1e05fe187068618287410fc86ffd172554ca5))
+* **storage:** link the sharding roadmap and rollout evidence ([0c7df17](https://github.com/CourtHive/competition-factory-server/commit/0c7df1773d1ff4cbc1333227d9392b49e830194a))
+
 ## [4.21.0](https://github.com/CourtHive/competition-factory-server/compare/v4.20.0...v4.21.0) (2026-11-23)
 
 
