@@ -61,9 +61,13 @@ type AttachedPolicy = NonNullable<SanctioningRecordSnapshot['attachedPolicies']>
 /**
  * The value a sanctioned policy is pinned with: its full definition plus where it came from. `policyName` and
  * `policyVersion` are AMS's catalogue name and version (the factory keeps both on a pinned value), and `policySource` is
- * the rulebook or provider AMS resolved it from. A field AMS did not send is left out, never invented.
+ * the rulebook or provider AMS resolved it from. A field AMS did not send is left out, never invented. A definition with
+ * nothing in it gets no provenance either: the factory refuses an empty policy, and a name and version alone must not
+ * make one look like content.
  */
 export function pinnedPolicyValue({ definition, name, version, sourceId, sourceRole }: AttachedPolicy): any {
+  const empty = !definition || !Object.values(definition).some((value) => value !== undefined);
+  if (empty) return { ...definition };
   return {
     ...definition,
     ...(name ? { policyName: name } : {}),

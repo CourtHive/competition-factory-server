@@ -36,6 +36,19 @@ describe('pinnedPolicyValue', () => {
     expect(value.policyName).toBe('USTA_PROGRESSION');
   });
 
+  it('adds no provenance to an empty definition, which the factory still refuses', () => {
+    expect(pinnedPolicyValue({ ...progression, definition: {} })).toEqual({});
+    const tournamentRecord: any = { tournamentId: 't-empty' };
+    const log = logger();
+    attachSanctionedPolicies(
+      tournamentRecord,
+      { sanctioningId: 's', attachedPolicies: [{ ...progression, definition: {} }] } as any,
+      log,
+    );
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('could not attach sanctioned policies'));
+    expect(factory.policyGovernor.getAppliedPolicies({ tournamentRecord }).appliedPolicies).toEqual({});
+  });
+
   it('leaves out what AMS did not send, never inventing it', () => {
     const value = pinnedPolicyValue({ policyType: 'seeding', definition: { duplicateSeedNumbers: false } } as any);
     expect(value).toEqual({ duplicateSeedNumbers: false });
