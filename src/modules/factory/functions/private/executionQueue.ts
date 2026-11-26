@@ -107,7 +107,10 @@ export async function executionQueue(
     // queryEngine.setState — could replace the records this mutation is working on during
     // `await mutationEngine.executionQueue(...)`. The context propagates into the lock callback
     // and every async step below it. See competition-factory#4564.
+    // External effects the notices ask for, run only once the save below succeeds (FactoryRequestContext.savedEffects).
+    const savedEffects: Array<() => Promise<void>> = [];
     const requestContext = {
+      savedEffects,
       publicNotices,
       deltaBuffer,
       evictedEventKeys,
@@ -226,6 +229,11 @@ export async function executionQueue(
                 bytes: updateResult.bytes ?? {},
               });
               serverUpdatedAt = updateResult.serverUpdatedAt;
+
+              // The records are saved, so the effects their notices asked for describe what is stored. A refused
+              // queue never gets here and its effects are dropped, even where the engine delivered notices for work it
+              // had committed before the refusal: that work was not saved.
+              for (const effect of savedEffects) void afterCommandCommit(effect);
 
               // Still inside the lock, and only once the write has committed: a rolled-back durable command never
               // runs this, so the scan can never report on a state that was not saved. References, not copies —
