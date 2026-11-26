@@ -8,7 +8,8 @@ import asyncGlobalState from '../engines/asyncGlobalState';
  * only by turning copying off for the whole process: the factory keeps that flag in module scope,
  * not in the per-request instance state, so every concurrent request would lose its copies too.
  * Storage parses each fetch from its own row, so nothing else holds these objects and the copy
- * protects nothing. The rollback snapshot is unaffected: the factory still copies for it.
+ * protects nothing. Nor does a rollback snapshot: the engine runs with rollback off, because a
+ * refused queue is never saved (executionQueue).
  *
  * Mirrors the checks `setState` makes on a keyed object, which the provider call does not.
  */
