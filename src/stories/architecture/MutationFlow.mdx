@@ -50,8 +50,8 @@ With `serverFirst: true` (default), the flow is:
 2. **Server gateway** (`TmxGateway.messageHandler`) authorizes the request per-tournament — `canMutateTournament` access plus the owning provider's mutation-permission map — and stamps the JWT-verified identity onto the payload
 3. **Server** (`executionQueue`) acquires the per-tournament lock (`withTournamentLock`)
 4. **Server** fetches tournament records from storage into the request's isolated factory-engine state
-5. **Server** executes all methods via `mutationEngine.executionQueue(methods, rollbackOnError)`
-6. **Server** saves updated records to storage (then flushes deferred cache keys and records the audit entry, still inside the lock)
+5. **Server** executes all methods via `mutationEngine.executionQueue(methods)`, with rollback off whatever the caller sent (see Error Handling)
+6. **Server** saves updated records to storage, only when the whole queue succeeded (then flushes deferred cache keys and records the audit entry, still inside the lock)
 7. **Server** (`tmxMessages.executionQueue`) sends `ack` back to the originating client
 8. **Server gateway** broadcasts the approved methods to other `/tmx` clients in the tournament room and sanitized notices to `/public` viewers
 9. **Client** receives `ack`, applies the same mutations locally via the factory engine
@@ -108,8 +108,10 @@ The server uses per-tournament mutexes to prevent concurrent modifications:
 
 ## Error Handling
 
-- `rollbackOnError: true` — if any method fails, all changes are reverted
-- Error response includes the failed method name and error details
+- A queue is all or nothing on the server for every caller. The server saves a queue only when every method succeeds, and a refused queue's records are discarded with the request, so the stored record is the rollback. The engine therefore runs with rollback off, which spares an in-memory copy of every loaded record inside the tournament lock; the caller's `rollbackOnError` is not passed to it.
+- A refused queue has no external effect: no save, no draw-deletion audit row, no provider calendar update and no broadcast. The mutation's own audit-log row records it as `rejected`.
+- The error response says `rolledBack: true`, with no `committed`, whatever flag the caller sent. It reports no results for methods before the refusal; a refused bulk method's per-item `results` list each item that had succeeded with `rolledBack: true` in place of `success`.
+- Error response includes the error details
 - Client shows toast notification on mutation failure
 
 ## Key Files

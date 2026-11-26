@@ -73,6 +73,17 @@ const requestDeltaBuffer = () => getRequestContext().deltaBuffer;
 const requestServices = () => getRequestContext().services;
 
 /**
+ * An external effect a notice asks for, run once the mutation's records are saved (see
+ * FactoryRequestContext.savedEffects). Outside `executionQueue` there is no save to wait for, and the effect runs
+ * after the durable command commits, or at once when there is none.
+ */
+const afterSave = (effect: () => Promise<void>) => {
+  const savedEffects = getRequestContext().savedEffects;
+  if (savedEffects) savedEffects.push(effect);
+  else void afterCommandCommit(effect);
+};
+
+/**
  * Delete the per-event `ged|<tid>|<eid>` key and record that a targeted eviction happened.
  *
  * The controller's `invalidateTournamentCache` consults `requestEvictedEventKeys()` and skips its
@@ -377,8 +388,8 @@ export const subscriptionHandlers = {
             userEmail: requestServices()?.userEmail,
             source: requestServices()?.auditSource,
           };
-          // Inside a durable command a deletion is recorded only once the command commits.
-          afterCommandCommit(() =>
+          // A deletion is recorded only once the record that no longer holds the draw is saved.
+          afterSave(() =>
             auditService.recordDrawDeletion(record).catch(() => {
               /* fail-soft — AuditService logs internally */
             }),
@@ -402,9 +413,9 @@ export const subscriptionHandlers = {
         const storage = requestServices()?.tournamentStorageService;
         // Not awaited, so inside a durable command it must not run on the command's connection: its later
         // queries could land after COMMIT, on a client already released to another request. It runs after
-        // the commit instead, and the save path has already re-derived the calendar row from the record.
+        // the save (and the commit) instead, and the save path has already re-derived the calendar row from the record.
         if (storage)
-          afterCommandCommit(() =>
+          afterSave(() =>
             storage
               .modifyProviderCalendar({ providerId, tournamentId, updates })
               .then(() => undefined)
