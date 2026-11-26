@@ -19,6 +19,7 @@ import { afterCommandCommit } from 'src/storage/postgres/commandTransaction';
 import asyncGlobalState from 'src/modules/factory/engines/asyncGlobalState';
 import { runDurableCommand } from 'src/storage/postgres/commandReceipts';
 import { withoutRecoveryData } from '../../helpers/withoutRecoveryData';
+import { refusedAsRolledBack } from '../../helpers/refusedAsRolledBack';
 import { refusedTestDataMethods } from '../../helpers/testDataMethods';
 import { withoutReportedNoOps } from './presenceNoOps';
 import { getMutationEngine } from '../../engines/getMutationEngine';
@@ -39,7 +40,8 @@ export async function executionQueue(
   storage?: TournamentStorageService,
   auditService?: AuditService,
 ): Promise<any> {
-  const { methods = [], rollbackOnError } = payload ?? {};
+  // the caller's `rollbackOnError` does not reach the engine: see the queue below
+  const { methods = [] } = payload ?? {};
   const tournamentIds = payload?.tournamentIds || (payload?.tournamentId && [payload.tournamentId]) || [];
 
   if (!tournamentIds.length) {
@@ -170,13 +172,16 @@ export async function executionQueue(
             if (sampled)
               shadowPlan = await planShardShadow({
                 transaction: shadowTransaction,
-                rollbackOnError,
                 methods,
                 tournamentIds,
                 tournamentRecords: result.tournamentRecords,
                 outcomePipeline: (mutationEngine as any).getOutcomePipeline?.(),
               });
-            const innerResult = await mutationEngine.executionQueue(methods, rollbackOnError);
+            // ROLLBACK OFF, whatever the caller sent. A refused queue is never saved, and its records are discarded with
+            // this request, so the stored record already is the rollback; an in-memory snapshot would only copy every
+            // loaded record inside the lock. The refusal is reported as rolled back (refusedAsRolledBack), because
+            // nothing of it was stored.
+            const innerResult = refusedAsRolledBack(await mutationEngine.executionQueue(methods));
             // When the saved rows were written, and when they had been written before this mutation (read
             // inside the lock, so nothing came between). The ack and the broadcast carry both: a client that
             // was current at `previousServerUpdatedAt` and applies this mutation is current at
@@ -366,7 +371,8 @@ export async function executionQueue(
 
     return {
       ...withoutRecoveryData(mutationResult),
-      publicNotices,
+      // a refused queue stored nothing, so it has nothing to announce, whatever notices the engine delivered
+      publicNotices: mutationResult?.success ? publicNotices : [],
       evictedEventKeys: [...evictedEventKeys],
       unnarrowablePrefixes: [...unnarrowablePrefixes],
       noticeTopics: [...noticeTopics],
