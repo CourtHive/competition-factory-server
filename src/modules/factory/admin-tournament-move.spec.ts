@@ -75,7 +75,7 @@ describe('AdminTournamentMoveService — move a tournament between providers', (
   let auditService: AuditService;
   let service: AdminTournamentMoveService;
   const broadcast = { broadcastTournamentReplaced: vi.fn() };
-  const previousOutbox = process.env.PROJECTION_OUTBOX_ENABLED;
+  const previousEnv = { outbox: process.env.PROJECTION_OUTBOX_ENABLED, mode: process.env.PROJECTION_SNAPSHOT_MODE };
 
   const q = async (sql: string, params: any[] = []): Promise<any[]> =>
     (await admin.query(sql.split('$S').join(schema), params)).rows;
@@ -170,6 +170,9 @@ describe('AdminTournamentMoveService — move a tournament between providers', (
 
   beforeEach(async () => {
     vi.restoreAllMocks();
+    // The snapshot mode is read per call, so an ambient PROJECTION_SNAPSHOT_MODE (a developer's .env) would otherwise
+    // decide which path these tests exercise. Inline is the default; the deferred tests below opt in.
+    delete process.env.PROJECTION_SNAPSHOT_MODE;
     broadcast.broadcastTournamentReplaced.mockReset();
     await pool.query(
       `TRUNCATE tournaments, calendar_tournaments, command_receipts, projection_queue, projection_snapshot_requests,
@@ -208,8 +211,13 @@ describe('AdminTournamentMoveService — move a tournament between providers', (
   });
 
   afterAll(async () => {
-    if (previousOutbox === undefined) delete process.env.PROJECTION_OUTBOX_ENABLED;
-    else process.env.PROJECTION_OUTBOX_ENABLED = previousOutbox;
+    for (const [key, value] of [
+      ['PROJECTION_OUTBOX_ENABLED', previousEnv.outbox],
+      ['PROJECTION_SNAPSHOT_MODE', previousEnv.mode],
+    ] as const) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
     await pool?.end();
     await admin?.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
     await admin?.end();
@@ -262,6 +270,33 @@ describe('AdminTournamentMoveService — move a tournament between providers', (
       reason: MOVE_REASON,
       serverUpdatedAt: result.serverUpdatedAt,
     });
+  });
+
+  it('deferred snapshot mode: records a snapshot request for the producer instead of building the span', async () => {
+    process.env.PROJECTION_SNAPSHOT_MODE = 'deferred';
+    await pool.query('TRUNCATE projection_queue, projection_snapshot_requests');
+
+    const result: any = await move();
+    expect(result.success).toBe(true);
+    // Nothing is built on the request path: the producer builds the span from the stored record, which now says TO.
+    expect(result.deltas).toBe(0);
+    expect(await q(`SELECT tournament_id, source FROM $S.projection_snapshot_requests`)).toEqual([
+      { tournament_id: T, source: 'admin-provider-move' },
+    ]);
+    expect(await q(`SELECT * FROM $S.projection_queue WHERE snapshot_id IS NOT NULL`)).toEqual([]);
+    expect((await bindings()).column).toBe(TO);
+  });
+
+  it('deferred snapshot mode: the snapshot request rolls back with the move', async () => {
+    process.env.PROJECTION_SNAPSHOT_MODE = 'deferred';
+    await pool.query('TRUNCATE projection_queue, projection_snapshot_requests');
+    vi.spyOn(auditService, 'recordProviderMove').mockRejectedValueOnce(new Error('audit down'));
+
+    await expect(move()).rejects.toThrow('audit down');
+
+    expect((await bindings()).column).toBe(FROM);
+    expect(await q(`SELECT * FROM $S.projection_snapshot_requests`)).toEqual([]);
+    expect(broadcast.broadcastTournamentReplaced).not.toHaveBeenCalled();
   });
 
   it('a dry run returns the plan and writes nothing', async () => {
