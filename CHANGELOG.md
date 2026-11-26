@@ -1,5 +1,23 @@
 # Changelog
 
+## [4.21.2](https://github.com/CourtHive/competition-factory-server/compare/v4.21.1...v4.21.2) (2026-11-26)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.50.0 ([#1344](https://github.com/CourtHive/competition-factory-server/issues/1344)) ([ca40b3b](https://github.com/CourtHive/competition-factory-server/commit/ca40b3b57a51547cf0a9cea007f00f337a22b0c9))
+* **factory:** run a notice's external effects only after the records are saved ([#1338](https://github.com/CourtHive/competition-factory-server/issues/1338)) ([29440b2](https://github.com/CourtHive/competition-factory-server/commit/29440b2ab23feec1820cd5cdf03124083737839f))
+
+
+### Performance
+
+* **factory:** run queues with rollback off; a refused queue reports as rolled back ([#1342](https://github.com/CourtHive/competition-factory-server/issues/1342)) ([03b8613](https://github.com/CourtHive/competition-factory-server/commit/03b86138e6652ad5d7e174c766bedf3ee0acb30e))
+
+
+### Documentation
+
+* keep the agent guide self-contained and ignore CLAUDE.local.md ([#1339](https://github.com/CourtHive/competition-factory-server/issues/1339)) ([b40d0fb](https://github.com/CourtHive/competition-factory-server/commit/b40d0fb0ce26afd8d5863cacd5bf4c7bc4ab95e7))
+
 ## [4.21.1](https://github.com/CourtHive/competition-factory-server/compare/v4.21.0...v4.21.1) (2026-11-25)
 
 
