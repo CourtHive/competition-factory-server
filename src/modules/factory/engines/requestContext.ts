@@ -70,6 +70,18 @@ export type FactoryRequestContext = {
   touchedDrawIds?: Set<string>;
   deletedDrawIds?: Set<string>;
   addedDrawIds?: Set<string>;
+
+  /**
+   * External effects a notice asks for (a draw-deletion audit row, a provider calendar update), held until the
+   * mutation's records are saved.
+   *
+   * A notice describes work the engine did in memory, which is not always work the server keeps: a queue that is
+   * refused after part of it committed still delivers the committed part's notices when rollback is off, and the
+   * server then saves nothing. An effect run at notice time would record a deletion, or move a calendar row, that the
+   * stored record never shows. `executionQueue` runs these only after a successful save and drops them otherwise.
+   * Absent outside `executionQueue`, where an effect runs as `afterCommandCommit` decides.
+   */
+  savedEffects?: Array<() => Promise<void>>;
 };
 
 const asyncLocalStorage = new AsyncLocalStorage<FactoryRequestContext>();
