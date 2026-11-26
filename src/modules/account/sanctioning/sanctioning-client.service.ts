@@ -45,6 +45,11 @@ export interface SanctioningRecordSnapshot {
     sourceId?: string;
     sourceRole?: string;
   }>;
+  /**
+   * The factory defaults AMS compared against when it resolved `attachedPolicies`: `defaultsHash` (null from a factory
+   * that predates it) and the factory version. Absent from an AMS that does not record them.
+   */
+  attachedPoliciesDefaults?: { defaultsHash?: string | null; factoryVersion?: string | null };
   proposal: {
     tournamentId?: string;
     events?: Array<{ eventId?: string; eventName?: string }>;

@@ -11,7 +11,7 @@
  * and its PROVIDER_ADMIN reviews. So the owner is `governingBodyId`, and activation from the console is the reviewer's.
  */
 import { BadRequestException, type Logger } from '@nestjs/common';
-import { policyGovernor, sanctioningEngine } from 'tods-competition-factory';
+import * as factory from 'tods-competition-factory';
 
 import { TournamentStorageService } from 'src/storage/tournament-storage.service';
 import type { UserContext } from '../auth/decorators/user-context.decorator';
@@ -47,7 +47,7 @@ export function canReviewForProvider(userContext: UserContext, provider: string)
 // per-request isolated like the tournament mutation engine), so the reset→setState→activate→reset sequence is kept
 // strictly SYNCHRONOUS — no awaits — making it atomic under Node's single thread. Callers await the fetch/save AROUND it.
 function activateSanctioning(sanctioningRecord: SanctioningRecordSnapshot): { tournamentRecord?: any; error?: any } {
-  const engine = sanctioningEngine as any;
+  const engine = factory.sanctioningEngine as any;
   engine.reset();
   engine.setState({ [sanctioningRecord.sanctioningId]: sanctioningRecord });
   engine.setActiveSanctioningId(sanctioningRecord.sanctioningId);
@@ -56,12 +56,45 @@ function activateSanctioning(sanctioningRecord: SanctioningRecordSnapshot): { to
   return result ?? {};
 }
 
+type AttachedPolicy = NonNullable<SanctioningRecordSnapshot['attachedPolicies']>[number];
+
+/**
+ * The value a sanctioned policy is pinned with: its full definition plus where it came from. `policyName` and
+ * `policyVersion` are AMS's catalogue name and version (the factory keeps both on a pinned value), and `policySource` is
+ * the rulebook or provider AMS resolved it from. A field AMS did not send is left out, never invented.
+ */
+export function pinnedPolicyValue({ definition, name, version, sourceId, sourceRole }: AttachedPolicy): any {
+  return {
+    ...definition,
+    ...(name ? { policyName: name } : {}),
+    ...(version ? { policyVersion: version } : {}),
+    ...(sourceId || sourceRole
+      ? { policySource: { ...(sourceId ? { sourceId } : {}), ...(sourceRole ? { sourceRole } : {}) } }
+      : {}),
+  };
+}
+
+/**
+ * Warns when AMS decided which policies differ from the defaults against other defaults than the ones this tournament
+ * was created with. A policy AMS found equal to its default was not sent, and here that default is different. Only
+ * with a factory that stamps its defaults, and an AMS that recorded them; otherwise there is nothing to compare.
+ */
+function warnOnDefaultsMismatch(tournamentRecord: any, sanctioningRecord: SanctioningRecordSnapshot, logger: Logger) {
+  const compared = sanctioningRecord.attachedPoliciesDefaults?.defaultsHash;
+  const stamped = tournamentRecord?.factory?.defaultsHash ?? (factory as any).defaultsHash;
+  if (!compared || typeof stamped !== 'string' || compared === stamped) return;
+  logger.warn(
+    `tournament ${tournamentRecord?.tournamentId}: sanctioning compared its policies with factory defaults ${compared}` +
+      ` (factory ${sanctioningRecord.attachedPoliciesDefaults?.factoryVersion ?? 'unknown'}); this tournament relies on ${stamped}`,
+  );
+}
+
 /**
  * Apply the policies AMS resolved when the record was approved.
  *
  * AMS owns WHICH policies apply — the rulebook's outrank the provider's, and only policies differing from factory
  * defaults are sent — so this applies what it is given and decides nothing. `rankingPoints` never arrives here by
- * construction.
+ * construction. Each is pinned by its full value with its name, version and source (`pinnedPolicyValue`).
  *
  * Applied before the first save so the tournament is persisted with its policies already on it. Failures are logged
  * rather than thrown: a tournament that activates without an optional policy override is recoverable; one that fails
@@ -72,17 +105,18 @@ export function attachSanctionedPolicies(
   sanctioningRecord: SanctioningRecordSnapshot,
   logger: Logger,
 ): void {
+  warnOnDefaultsMismatch(tournamentRecord, sanctioningRecord, logger);
   const attached = sanctioningRecord.attachedPolicies;
   if (!attached?.length) return;
 
   const policyDefinitions = Object.assign(
     {},
-    ...attached.map(({ policyType, definition }) => ({ [policyType]: definition })),
+    ...attached.map((policy) => ({ [policy.policyType]: pinnedPolicyValue(policy) })),
   );
 
   // the record is not in the engine's state: the governor writes to the record given, which is then saved (an engine
   // call works only on the records it holds)
-  const result: any = policyGovernor.attachPolicies({ tournamentRecord, policyDefinitions });
+  const result: any = factory.policyGovernor.attachPolicies({ tournamentRecord, policyDefinitions });
   if (result?.error) {
     logger.warn(
       `tournament ${tournamentRecord?.tournamentId}: could not attach sanctioned policies — ${result.error?.message ?? result.error}`,
