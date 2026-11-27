@@ -91,6 +91,7 @@
   "devDependencies": {
     "@commitlint/cli": "^21.0.0",
     "@commitlint/config-conventional": "^21.0.0",
+    "@courthive/competition-catalogue": "^0.1.0",
     "@eslint/js": "^10.0.1",
     "@nestjs/cli": "12.0.13",
     "@nestjs/schematics": "12.0.13",

@@ -3,6 +3,12 @@ import { checkedObject, matchRequest } from './matchRequest';
 
 export const operatorScorePrecondition = Symbol('operatorScorePrecondition');
 const shortText = (value: unknown, max: number) => typeof value === 'string' && value.length <= max;
+// A reason a side gave, keyed by side number, as the engine stores it. The positional array is not accepted.
+const sideCodes = (value: unknown) =>
+  !!value &&
+  typeof value === 'object' &&
+  !Array.isArray(value) &&
+  Object.entries(value).every(([side, code]) => (side === '1' || side === '2') && shortText(code, 32));
 export function scoreRequest(body: unknown) {
   const data = checkedObject(body, ['target', 'intent', 'revision', 'commandId', 'outcome']);
   const target = matchRequest(data.target);
@@ -19,19 +25,20 @@ export function scoreRequest(body: unknown) {
   const outcome = checkedObject(data.outcome, [
     'score',
     'matchUpStatus',
-    'matchUpStatusCodes',
+    'sideStatusCodes',
+    'matchUpStatusCode',
+    'clearStatusCodes',
     'winningSide',
     'matchUpFormat',
   ]);
-  const { matchUpStatus, matchUpStatusCodes, winningSide, matchUpFormat } = outcome;
+  const { matchUpStatus, sideStatusCodes, matchUpStatusCode, clearStatusCodes, winningSide, matchUpFormat } = outcome;
   if (
     (matchUpStatus !== undefined && !shortText(matchUpStatus, 40)) ||
     (matchUpFormat !== undefined && !shortText(matchUpFormat, 128)) ||
     (winningSide !== undefined && winningSide !== 1 && winningSide !== 2) ||
-    (matchUpStatusCodes !== undefined &&
-      (!Array.isArray(matchUpStatusCodes) ||
-        matchUpStatusCodes.length > 2 ||
-        !matchUpStatusCodes.every((code) => shortText(code, 32))))
+    (sideStatusCodes !== undefined && !sideCodes(sideStatusCodes)) ||
+    (matchUpStatusCode !== undefined && !shortText(matchUpStatusCode, 32)) ||
+    (clearStatusCodes !== undefined && typeof clearStatusCodes !== 'boolean')
   )
     throw new BadRequestException();
   const score = checkedObject(outcome.score, ['sets']);

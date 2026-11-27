@@ -74,6 +74,21 @@ describe('operator boundary', () => {
     expect(() => command({ intent: 'correct-result' })).toThrow(BadRequestException);
     expect(() => command({ outcome: { ...outcome, winningSide: 9 } })).toThrow(BadRequestException);
   });
+  it('accepts status reasons keyed as the engine stores them, and refuses the positional array', () => {
+    const { command } = fixture();
+    const defaulted = { ...outcome, matchUpStatus: 'DEFAULTED', sideStatusCodes: { 2: 'DM' } };
+    expect(command({ outcome: defaulted }).outcome.sideStatusCodes).toEqual({ 2: 'DM' });
+    const abandoned = { score: { sets: [] }, matchUpStatus: 'ABANDONED', matchUpStatusCode: 'OA' };
+    expect(command({ outcome: abandoned }).outcome.matchUpStatusCode).toBe('OA');
+    expect(command({ outcome: { score: { sets: [] }, clearStatusCodes: true } }).emptyScore).toBe(true);
+
+    expect(() => command({ outcome: { ...outcome, matchUpStatusCodes: ['', 'DM'] } })).toThrow(BadRequestException);
+    for (const sideStatusCodes of [['DM'], { 3: 'DM' }, { 1: 7 }, { 1: 'x'.repeat(33) }, 'DM', null])
+      expect(() => command({ outcome: { ...outcome, sideStatusCodes } })).toThrow(BadRequestException);
+    for (const matchUpStatusCode of [7, 'x'.repeat(33), ['OA']])
+      expect(() => command({ outcome: { ...outcome, matchUpStatusCode } })).toThrow(BadRequestException);
+    expect(() => command({ outcome: { ...outcome, clearStatusCodes: 'yes' } })).toThrow(BadRequestException);
+  });
   it('passes only the verified member and candidate IDs to catalogue authorization', async () => {
     const { service, scoringCatalogue, dto } = fixture();
     scoringCatalogue.mockResolvedValue(['t']);

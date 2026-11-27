@@ -6,6 +6,7 @@ import {
   readModel,
   topicConstants,
 } from 'tods-competition-factory';
+import { resolveTieFormat } from '@courthive/competition-catalogue';
 
 import { buildProjectionDeltas } from './buildProjectionDeltas';
 import { buildRebuildIntents } from './rebuild';
@@ -218,7 +219,11 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
   it('an ITA-shaped team-tennis dual match projects TIE/RUBBER/team_id/doubles rows — and incremental ≡ rebuild', async () => {
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       drawProfiles: [
-        { drawSize: 2, eventType: factoryConstants.eventConstants.TEAM, tieFormatName: 'COLLEGE_DEFAULT' },
+        {
+          drawSize: 2,
+          eventType: factoryConstants.eventConstants.TEAM,
+          tieFormat: resolveTieFormat('COLLEGE_DEFAULT'),
+        },
       ],
       completeAllMatchUps: true,
     });
@@ -291,7 +296,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
         {
           drawSize: 2,
           eventType: factoryConstants.eventConstants.TEAM,
-          tieFormatName: 'COLLEGE_DEFAULT',
+          tieFormat: resolveTieFormat('COLLEGE_DEFAULT'),
           eventName: 'Teams',
         },
       ],

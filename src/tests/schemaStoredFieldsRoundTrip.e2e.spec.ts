@@ -1,4 +1,5 @@
-import { mocksEngine, tournamentEngine, fixtures, factoryConstants } from 'tods-competition-factory';
+import { mocksEngine, tournamentEngine, factoryConstants } from 'tods-competition-factory';
+import { POLICY_SEEDING_ITF } from '@courthive/competition-catalogue';
 import { testTournamentId } from '../common/constants/test';
 import tournamentSchema from 'tods-competition-factory/schema/tournament.schema.json';
 import asyncGlobalState from '../modules/factory/engines/asyncGlobalState';
@@ -64,7 +65,7 @@ const SCENARIO_FIELDS = [
 ];
 
 function scenario(tournamentId: string) {
-  const itfSeeding = fixtures.policies.POLICY_SEEDING_ITF[POLICY_TYPE_SEEDING];
+  const itfSeeding = POLICY_SEEDING_ITF[POLICY_TYPE_SEEDING];
   const seedingPolicy = { [POLICY_TYPE_SEEDING]: { ...itfSeeding, additionalSeeds: { maxCount: 1 } } };
   const { tournamentRecord } = mocksEngine.generateTournamentRecord({
     venueProfiles: [{ venueId: 'venue', courtsCount: 2 }],
@@ -123,7 +124,7 @@ function scenario(tournamentId: string) {
     {
       method: 'setMatchUpStatus',
       params: {
-        outcome: { matchUpStatus: 'WALKOVER', winningSide: 1, matchUpStatusCodes: ['', 'WO'] },
+        outcome: { matchUpStatus: 'WALKOVER', winningSide: 1, sideStatusCodes: { 2: 'WO' } },
         matchUpId: east(2).matchUpId,
         drawId: 'compass',
       },
@@ -131,7 +132,7 @@ function scenario(tournamentId: string) {
     {
       method: 'setMatchUpStatus',
       params: {
-        outcome: { matchUpStatus: 'ABANDONED', matchUpStatusCodes: ['RAIN'] },
+        outcome: { matchUpStatus: 'ABANDONED', matchUpStatusCode: 'RAIN' },
         matchUpId: east(3).matchUpId,
         drawId: 'compass',
       },
