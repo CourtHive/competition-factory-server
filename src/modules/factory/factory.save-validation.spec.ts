@@ -63,8 +63,17 @@ function makeFactoryService(overrides: { tournamentStorageService?: any } = {}) 
 }
 
 describe('FactoryService.saveTournamentRecords L2 validation gate', () => {
+  const previousMode = process.env.PROJECTION_SNAPSHOT_MODE;
+
   beforeEach(() => {
     delete process.env.FACTORY_SAVE_VALIDATION_THRESHOLD_BYTES;
+    // The load-profile line reports the snapshot mode, read per call: an ambient PROJECTION_SNAPSHOT_MODE (a
+    // developer's .env) would otherwise decide what it says. Inline is the default; the deferred test opts in.
+    delete process.env.PROJECTION_SNAPSHOT_MODE;
+  });
+  afterAll(() => {
+    if (previousMode === undefined) delete process.env.PROJECTION_SNAPSHOT_MODE;
+    else process.env.PROJECTION_SNAPSHOT_MODE = previousMode;
   });
 
   it('persists a small valid record', async () => {
@@ -149,6 +158,21 @@ describe('FactoryService.saveTournamentRecords L2 validation gate', () => {
       expect(lines[0][0]).toMatch(
         /tournaments=1 bytes=\d+ validateMs=[\d.]+ integrityMs=[\d.]+ snapshotMs=[\d.]+ deltas=0 mode=inline/,
       );
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('the load-profile line names the deferred snapshot mode when it is set', async () => {
+    process.env.PROJECTION_SNAPSHOT_MODE = 'deferred';
+    const log = vi.spyOn(Logger, 'log').mockImplementation(() => undefined);
+    try {
+      const { svc } = makeFactoryService();
+      await svc.saveTournamentRecords({ tournamentRecord: makeValidRecord() }, SUPER_ADMIN_USER);
+
+      const lines = log.mock.calls.filter(([, context]) => context === 'WholesaleSave');
+      expect(lines).toHaveLength(1);
+      expect(lines[0][0]).toMatch(/ deltas=0 mode=deferred$/);
     } finally {
       log.mockRestore();
     }
