@@ -1,5 +1,5 @@
 import { mocksEngine, tournamentEngine, factoryConstants } from 'tods-competition-factory';
-import { POLICY_SEEDING_ITF } from '@courthive/competition-catalogue';
+import { TEMPLATE_SEEDING_ITF } from '@courthive/competition-catalogue';
 import { testTournamentId } from '../common/constants/test';
 import tournamentSchema from 'tods-competition-factory/schema/tournament.schema.json';
 import asyncGlobalState from '../modules/factory/engines/asyncGlobalState';
@@ -65,7 +65,7 @@ const SCENARIO_FIELDS = [
 ];
 
 function scenario(tournamentId: string) {
-  const itfSeeding = POLICY_SEEDING_ITF[POLICY_TYPE_SEEDING];
+  const itfSeeding = TEMPLATE_SEEDING_ITF[POLICY_TYPE_SEEDING];
   const seedingPolicy = { [POLICY_TYPE_SEEDING]: { ...itfSeeding, additionalSeeds: { maxCount: 1 } } };
   const { tournamentRecord } = mocksEngine.generateTournamentRecord({
     venueProfiles: [{ venueId: 'venue', courtsCount: 2 }],
