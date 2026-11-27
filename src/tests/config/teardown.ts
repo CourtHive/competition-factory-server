@@ -46,9 +46,13 @@
  */
 import 'dotenv/config';
 
+import { testDatabaseRefusal } from './testDatabaseGuard';
+
 export default async function teardown() {
   if (process.env.STORAGE_PROVIDER !== 'postgres') return;
   if (!process.env.PG_HOST || !process.env.PG_DATABASE) return;
+  // Never delete from a database that is not named as a test one; setup has already refused the run.
+  if (testDatabaseRefusal()) return;
 
   // Lazy-load pg so leveldb-only environments don't pay the cost.
   const pg = await import('pg');

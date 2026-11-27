@@ -11,6 +11,9 @@
 //
 // The real runner is reused rather than reimplemented: a second copy of the migration logic in
 // test scaffolding is the mock-divergence trap that architectural-standards.md warns about.
+
+import { assertTestDatabase } from './testDatabaseGuard';
+
 async function applyMigrations() {
   if (process.env.STORAGE_PROVIDER !== 'postgres') return;
 
@@ -27,5 +30,7 @@ async function applyMigrations() {
 }
 
 export default async function setup() {
+  // Before anything connects: the suite migrates, writes to and deletes from the database it uses.
+  assertTestDatabase();
   await applyMigrations();
 }
