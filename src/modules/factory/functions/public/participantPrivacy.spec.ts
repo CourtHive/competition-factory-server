@@ -23,6 +23,7 @@ import { getEventData } from './getEventData';
 import { getDrawData } from './getDrawData';
 
 import type { ITournamentStorage } from 'src/storage/interfaces';
+import { defined } from '../../../../tests/helpers/defined';
 
 const TEST_TID = 'test-public-participant-privacy';
 const DRAW_ID = 'public-privacy-draw';
@@ -158,7 +159,7 @@ function buildRecord() {
   tournamentEngine.publishOrderOfPlay();
   for (const eventId of eventIds) tournamentEngine.publishEvent({ eventId });
 
-  const published = tournamentEngine.getTournament().tournamentRecord;
+  const published = defined(tournamentEngine.getTournament().tournamentRecord, 'tournamentRecord');
   return { record: published, eventId: eventIds[0] };
 }
 
@@ -175,7 +176,8 @@ const storage = {
 const template = publicParticipantPrivacyPolicy().participant.participant;
 const forbidden = forbiddenData(record.participants ?? [], template);
 
-const structureId = record.events[0].drawDefinitions[0].structures[0].structureId;
+const drawDefinition = defined(record.events, 'events')[0].drawDefinitions;
+const structureId = defined(defined(drawDefinition, 'drawDefinitions')[0].structures, 'structures')[0].structureId;
 
 const routes: [string, () => Promise<any>][] = [
   ['getEventData', () => getEventData({ tournamentId: TEST_TID, eventId }, storage)],

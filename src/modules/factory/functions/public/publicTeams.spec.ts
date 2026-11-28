@@ -18,6 +18,7 @@ import { getEventData } from './getEventData';
 import { getDrawData } from './getDrawData';
 
 import type { ITournamentStorage } from 'src/storage/interfaces';
+import { defined } from '../../../../tests/helpers/defined';
 
 const { DOUBLES } = factoryConstants.eventConstants;
 const { INDIVIDUAL, PAIR, TEAM } = factoryConstants.participantConstants;
@@ -90,9 +91,14 @@ function buildRecord() {
   const events = tournamentEngine.getEvents().events ?? [];
   for (const { eventId } of events) tournamentEngine.publishEvent({ eventId });
 
-  const record = tournamentEngine.getTournament().tournamentRecord;
+  const record = defined(tournamentEngine.getTournament().tournamentRecord, 'tournamentRecord');
   const eventIdFor = (drawId: string) =>
-    record.events.find((event: any) => event.drawDefinitions?.some((d: any) => d.drawId === drawId)).eventId;
+    defined(
+      defined(record.events, 'events').find((event: any) =>
+        event.drawDefinitions?.some((d: any) => d.drawId === drawId),
+      ),
+      'event',
+    ).eventId;
   return { record, singlesEventId: eventIdFor(SINGLES_DRAW_ID), doublesEventId: eventIdFor(DOUBLES_DRAW_ID) };
 }
 
@@ -105,7 +111,7 @@ const storage = {
 } as unknown as ITournamentStorage;
 
 const schoolOf = (participantId: string) =>
-  record.participants.find(
+  defined(record.participants, 'participants').find(
     (participant: any) =>
       participant.participantType === TEAM && participant.individualParticipantIds.includes(participantId),
   )?.participantName;
@@ -160,10 +166,15 @@ function expectOnlyAllowedTeamKeys(response: any) {
 
 describe('the fixture can prove anything', () => {
   it('every individual is on a school, and the schools hold data that must stay private', () => {
-    const individuals = record.participants.filter((participant: any) => participant.participantType === INDIVIDUAL);
+    const individuals = defined(record.participants, 'participants').filter(
+      (participant: any) => participant.participantType === INDIVIDUAL,
+    );
     expect(individuals.length).toBeGreaterThan(0);
     for (const individual of individuals) expect(SCHOOLS).toContain(schoolOf(individual.participantId));
-    const team = record.participants.find((participant: any) => participant.participantType === TEAM);
+    const team = defined(
+      defined(record.participants, 'participants').find((participant: any) => participant.participantType === TEAM),
+      'team',
+    );
     expect(team.contacts?.length).toBeGreaterThan(0);
     expect(team.onlineResources?.length).toBeGreaterThan(0);
     expect(team.participantRoleResponsibilities?.length).toBeGreaterThan(0);
@@ -256,7 +267,7 @@ describe('the draw and structure routes carry the school the same way', () => {
     [
       'getStructureData',
       () => {
-        const structureId = record.events
+        const structureId = defined(record.events, 'events')
           .flatMap((event: any) => event.drawDefinitions ?? [])
           .find((drawDefinition: any) => drawDefinition.drawId === SINGLES_DRAW_ID).structures[0].structureId;
         return getStructureData(

@@ -10,6 +10,7 @@ import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { Pool } from 'pg';
+import { defined } from '../../tests/helpers/defined';
 
 // Real Postgres in an isolated schema: shared-suite teardown cannot erase these records.
 describe('durable command atomic commit and recovery', () => {
@@ -261,7 +262,10 @@ describe('durable command atomic commit and recovery', () => {
       } = mocksEngine.generateTournamentRecord({ drawProfiles: [{ drawSize: 4, matchUpFormat: 'SET1-S:6/TB7' }] });
       await storage.saveTournamentRecord({ tournamentRecord });
       const { matchUps } = tournamentEngine.setState(tournamentRecord).allTournamentMatchUps({ inContext: true });
-      const ready = matchUps.find((m: any) => m.readyToScore);
+      const ready = defined(
+        defined(matchUps, 'matchUps').find((m: any) => m.readyToScore),
+        'a matchUp ready to score',
+      );
       ids = { tournamentId: tournamentRecord.tournamentId, drawId, matchUpId: ready.matchUpId };
     });
     const storedMatchUp = async () => {
@@ -269,7 +273,7 @@ describe('durable command atomic commit and recovery', () => {
       const { matchUps } = tournamentEngine.setState(tournamentRecord).allTournamentMatchUps({
         matchUpFilters: { matchUpIds: [ids.matchUpId] },
       });
-      return matchUps[0];
+      return defined(matchUps, 'matchUps')[0];
     };
 
     it('answers a resent score from its receipt instead of scoring it again', async () => {
@@ -300,7 +304,7 @@ describe('durable command atomic commit and recovery', () => {
       await expect(setMatchUpStatus(changed, { commandReceipts: receipts }, storage as any)).rejects.toThrow(
         'Command ID reused for different intent',
       );
-      expect((await storedMatchUp()).score.sets[0].side1Score).toBe(6);
+      expect(defined(defined((await storedMatchUp()).score, 'score').sets, 'sets')[0].side1Score).toBe(6);
     });
   });
   it('rolls back all linked records when one save is fenced', async () => {

@@ -3,6 +3,7 @@ import { allTournamentMatchUps } from './allTournamentMatchUps';
 import { FactoryController } from '../../factory.controller';
 
 import type { ITournamentStorage } from 'src/storage/interfaces';
+import { defined } from '../../../../tests/helpers/defined';
 
 // POST /factory/matchups advertised eventId and drawId, but the factory's allTournamentMatchUps reads neither: every
 // caller got the whole tournament. And its cache was keyed on the tournament alone, so a matchUpStatuses answer was
@@ -19,7 +20,7 @@ function published() {
   });
   tournamentEngine.setState(tournamentRecord);
   for (const eventId of [firstEventId, secondEventId]) tournamentEngine.publishEvent({ eventId });
-  const record = tournamentEngine.getTournament().tournamentRecord;
+  const record = defined(tournamentEngine.getTournament().tournamentRecord, 'tournamentRecord');
   const storage = {
     fetchTournamentRecords: async () => ({ tournamentRecords: { [record.tournamentId]: record } }),
   } as unknown as ITournamentStorage;

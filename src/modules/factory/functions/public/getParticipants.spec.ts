@@ -11,6 +11,7 @@ import { mocksEngine, tournamentEngine } from 'tods-competition-factory';
 import { getParticipants } from './getParticipants';
 
 import type { ITournamentStorage, IProviderStorage } from 'src/storage/interfaces';
+import { defined } from '../../../../tests/helpers/defined';
 
 const TEST_TID = 'test-participant-privacy-cap';
 const TEST_PROVIDER_ID = 'test-privacy-provider';
@@ -43,13 +44,14 @@ function buildTournamentWithAddresses() {
   // Mark participants as published so the public endpoint will serve them.
   tournamentEngine.setState(tournamentRecord);
   tournamentEngine.publishParticipants();
-  const publishedRecord = tournamentEngine.getTournament().tournamentRecord;
-  publishedRecord.parentOrganisation = { organisationId: TEST_PROVIDER_ID };
+  const publishedRecord = defined(tournamentEngine.getTournament().tournamentRecord, 'tournamentRecord');
+  // the fixture stamps only the provider's id, which an Organisation does not allow on its own
+  Object.assign(publishedRecord, { parentOrganisation: { organisationId: TEST_PROVIDER_ID } });
   // Re-attach the addresses on the engine-resolved record (publish doesn't
   // strip them — only the public query applies the privacy policy).
   for (const participant of publishedRecord.participants ?? []) {
     const original = tournamentRecord.participants?.find((p: any) => p.participantId === participant.participantId);
-    if (original?.person?.addresses) participant.person.addresses = original.person.addresses;
+    if (original?.person?.addresses) defined(participant.person, 'person').addresses = original.person.addresses;
   }
 
   return publishedRecord;
