@@ -490,8 +490,13 @@ describe('RegistrationsService', () => {
 
         await service.acceptRegistration({ userContext: adminUserContext, tournamentId: 't-1', registrationId: 'r-1' });
 
-        // the record as it was saved (a copy taken at the save) carries the policy: it was attached before persisting
-        expect(appliedPoliciesOf(snapshots[0])?.seeding).toEqual({ positioning: 'WATERFALL' });
+        // the record as it was saved (a copy taken at the save) carries the policy: it was attached before persisting,
+        // pinned with the name and version AMS resolved
+        expect(appliedPoliciesOf(snapshots[0])?.seeding).toEqual({
+          positioning: 'WATERFALL',
+          policyName: 'ITA_SEEDING',
+          policyVersion: '1.0.0',
+        });
       });
 
       it('activates normally when the record carries no attached policies', async () => {

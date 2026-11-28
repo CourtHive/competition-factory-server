@@ -51,6 +51,8 @@ pnpm storybook            # Storybook dev server on :6007
 
 Requires Redis running for cache. Postgres is the only storage backend (configured via `PG_*` env vars in `.env`).
 
+`pnpm test` refuses to start unless `PG_DATABASE` names a test database: its name holds `test`, `tests` or `ci` as a whole word (`courthive_test`, `guidon_ci`). An unset `PG_DATABASE` falls back to `courthive` and is refused. Run the suite against a test database: `createdb courthive_test && PG_DATABASE=courthive_test pnpm test` (`src/tests/config/testDatabaseGuard.ts`).
+
 ## Architecture
 
 ### NestJS Module Structure
