@@ -1,3 +1,4 @@
+import { defined } from '../../../tests/helpers/defined';
 import { Controller, Get, INestApplication, MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { mocksEngine, tournamentEngineAsync } from 'tods-competition-factory';
@@ -22,7 +23,7 @@ class ProbeController {
     });
     await tournamentEngineAsync.setState(tournamentRecord);
     await tournamentEngineAsync.allDrawMatchUps({
-      drawId: tournamentRecord.events[0].drawDefinitions[0].drawId,
+      drawId: defined(defined(tournamentRecord.events)[0].drawDefinitions)[0].drawId,
       inContext: true,
     });
     validateL2(tournamentRecord);

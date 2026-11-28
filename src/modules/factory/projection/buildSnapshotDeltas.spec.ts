@@ -1,3 +1,4 @@
+import { defined } from '../../../tests/helpers/defined';
 import { mocksEngine, tournamentEngineAsync } from 'tods-competition-factory';
 
 import { SNAPSHOT_CASCADE_COVERED_TABLES, SNAPSHOT_OWNED_TABLES, SNAPSHOT_SHARED_TABLES } from './projectionConstants';
@@ -131,7 +132,9 @@ describe('buildSnapshotDeltas', () => {
     const allTournamentMatchUps = vi.spyOn(tournamentEngineAsync, 'allTournamentMatchUps');
     try {
       await buildSnapshotDeltas({ tournamentRecord, snapshotId: 'snap-1', source: 'test' });
-      expect(tournamentRecord.events.flatMap((event: any) => event.drawDefinitions ?? []).length).toBeGreaterThan(1);
+      expect(
+        defined(tournamentRecord.events).flatMap((event: any) => event.drawDefinitions ?? []).length,
+      ).toBeGreaterThan(1);
       expect(setState).toHaveBeenCalledTimes(1);
       expect(allTournamentMatchUps).toHaveBeenCalledTimes(1);
     } finally {

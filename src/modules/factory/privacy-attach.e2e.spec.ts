@@ -39,7 +39,11 @@ function ownedTournament(tournamentId: string, startDate: string, endDate: strin
   // classification) reads tournamentRecord.startDate/endDate.
   tournamentRecord.startDate = startDate;
   tournamentRecord.endDate = endDate;
-  tournamentRecord.parentOrganisation = { organisationId: PROVIDER_ID };
+  tournamentRecord.parentOrganisation = {
+    organisationId: PROVIDER_ID,
+    organisationName: PROVIDER_ID,
+    organisationAbbreviation: PROVIDER_ID,
+  };
   return tournamentRecord;
 }
 

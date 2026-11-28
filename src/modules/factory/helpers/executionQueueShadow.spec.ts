@@ -1,3 +1,4 @@
+import { defined } from '../../../tests/helpers/defined';
 import { loadFetchedRecords } from './loadFetchedRecords';
 import { Logger } from '@nestjs/common';
 import asyncGlobalState from '../engines/asyncGlobalState';
@@ -95,19 +96,22 @@ describe('shard shadow', () => {
         // against every participant (`participants`); v2 against those the draw references (`drawParticipants`, since
         // factory 7.42.0; none before). Asserting the declared shard, not a count, keeps this true across that change.
         const shards: string[] = plan?.footprint?.shards ?? [];
-        const drawParticipantIds = tournamentRecord.events
+        const drawParticipantIds = defined(tournamentRecord.events)
           .flatMap((e: any) => e.drawDefinitions ?? [])
           .find((d: any) => d.drawId === drawId)
           .entries.map((entry: any) => entry.participantId);
         let expected: string[] = [];
-        if (shards.includes('participants')) expected = tournamentRecord.participants.map((p: any) => p.participantId);
+        if (shards.includes('participants'))
+          expected = defined(tournamentRecord.participants).map((p: any) => p.participantId);
         else if (shards.includes('drawParticipants')) expected = drawParticipantIds;
         expect(outcomePipeline === 'v1' ? shards.includes('participants') : !shards.includes('participants')).toBe(
           true,
         );
         const loaded = (plan?.partialRecord.participants ?? []).map((p: any) => p.participantId);
         expect([...loaded].sort()).toEqual([...expected].sort());
-        expect(loaded.length).toBeLessThan(outcomePipeline === 'v1' ? Infinity : tournamentRecord.participants.length);
+        expect(loaded.length).toBeLessThan(
+          outcomePipeline === 'v1' ? Infinity : defined(tournamentRecord.participants).length,
+        );
         expect(plan?.partialRecord.events.flatMap((e: any) => e.drawDefinitions).map((d: any) => d.drawId)).toEqual([
           drawId,
         ]);

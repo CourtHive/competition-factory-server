@@ -1,3 +1,4 @@
+import { defined } from '../../tests/helpers/defined';
 import {
   readPhysicalFootprint,
   supportsPhysicalFootprint,
@@ -414,9 +415,9 @@ describe.skipIf(process.env.STORAGE_LAYOUT_DB_TESTS !== 'true')('physical footpr
           }).tournamentRecord,
       );
       await prepare(record);
-      const draw = record.events[0].drawDefinitions[0],
-        structure = draw.structures[0];
-      const match = structure.matchUps.find((m) => m.roundNumber === 1);
+      const draw = defined(defined(record.events)[0].drawDefinitions)[0],
+        structure = defined(draw.structures)[0];
+      const match = defined(defined(structure.matchUps).find((m) => m.roundNumber === 1));
       for (const call of [
         { method: 'matchUpActions', params: { eventId: 'E1', drawId: 'D1', matchUpId: match.matchUpId } },
         {

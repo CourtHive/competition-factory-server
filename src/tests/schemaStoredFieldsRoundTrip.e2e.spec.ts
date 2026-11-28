@@ -1,3 +1,4 @@
+import { defined } from './helpers/defined';
 import { mocksEngine, tournamentEngine, factoryConstants } from 'tods-competition-factory';
 import { TEMPLATE_SEEDING_ITF } from '@courthive/competition-catalogue';
 import { testTournamentId } from '../common/constants/test';
@@ -102,7 +103,7 @@ function scenario(tournamentId: string) {
   const pairs = tournamentEngine.getParticipants({ participantFilters: { participantTypes: ['PAIR'] } }).participants;
   const pair: any = pairs?.[0];
   const individual = east(4).sides[0].participantId;
-  const courtId = tournamentRecord.venues[0].courts[0].courtId;
+  const courtId = defined(defined(tournamentRecord.venues)[0].courts)[0].courtId;
   const booking = {
     bookingId: 'booking-1',
     bookingType: 'PRACTICE',

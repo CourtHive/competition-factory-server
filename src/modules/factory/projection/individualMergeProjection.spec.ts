@@ -1,3 +1,4 @@
+import { defined } from '../../../tests/helpers/defined';
 import { mocksEngine, readModel } from 'tods-competition-factory';
 import { runWithRequestContext } from '../engines/requestContext';
 import { getMutationEngine } from '../engines/getMutationEngine';
@@ -14,9 +15,9 @@ describe('individual merge projections', () => {
         nonRandom: 1,
       }),
     );
-    const source = tournamentRecord.participants.find((p: any) => p.participantType === 'INDIVIDUAL');
+    const source = defined(defined(tournamentRecord.participants).find((p: any) => p.participantType === 'INDIVIDUAL'));
     const target = { ...structuredClone(source), participantId: 'retained-individual' };
-    tournamentRecord.participants.push(target);
+    defined(tournamentRecord.participants).push(target);
     const tid = tournamentRecord.tournamentId;
     const deltaBuffer = createDeltaBuffer([tid]);
     await runWithRequestContext({ deltaBuffer, publicNotices: [] }, () =>

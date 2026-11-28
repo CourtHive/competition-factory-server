@@ -24,20 +24,19 @@ function buildTournamentWithAddresses() {
   });
 
   // Stamp owning provider so the privacy cap lookup resolves.
-  tournamentRecord.parentOrganisation = { organisationId: TEST_PROVIDER_ID };
+  tournamentRecord.parentOrganisation = {
+    organisationId: TEST_PROVIDER_ID,
+    organisationName: TEST_PROVIDER_ID,
+    organisationAbbreviation: TEST_PROVIDER_ID,
+  };
 
   // Add city/state to each individual person's address — mocksEngine
   // doesn't synthesise addresses by default.
+  // `street` is not a TODS Address field: the fixture carries it as stray data the privacy policy must not leak.
+  const address = { city: 'Austin', state: 'TX', street: '123 Service Way', postalCode: '78701' };
   for (const participant of tournamentRecord.participants ?? []) {
     if (participant.person) {
-      participant.person.addresses = [
-        {
-          city: 'Austin',
-          state: 'TX',
-          street: '123 Service Way',
-          postalCode: '78701',
-        },
-      ];
+      participant.person.addresses = [{ ...address }];
     }
   }
 
@@ -105,7 +104,7 @@ function buildTournamentWithMixedPopulation() {
 
   const competitors = (tournamentRecord.participants ?? []).filter((p: any) => p.participantType === 'INDIVIDUAL');
 
-  tournamentRecord.participants.push({
+  defined(tournamentRecord.participants).push({
     person: { standardGivenName: 'Rhea', standardFamilyName: 'Umpire', personId: 'person-staff-1' },
     participantName: 'Rhea Umpire',
     participantType: 'INDIVIDUAL',
@@ -113,7 +112,7 @@ function buildTournamentWithMixedPopulation() {
     participantId: STAFF_ID,
   });
 
-  tournamentRecord.participants.push({
+  defined(tournamentRecord.participants).push({
     individualParticipantIds: competitors.slice(0, 2).map((p: any) => p.participantId),
     participantName: 'Coach Ramirez stable',
     participantType: 'GROUP',
@@ -121,7 +120,7 @@ function buildTournamentWithMixedPopulation() {
     participantId: GROUP_ID,
   });
 
-  tournamentRecord.participants.push({
+  defined(tournamentRecord.participants).push({
     person: { standardGivenName: 'Legacy', standardFamilyName: 'Record', personId: 'person-legacy-1' },
     participantName: 'Legacy Record',
     participantType: 'INDIVIDUAL',
