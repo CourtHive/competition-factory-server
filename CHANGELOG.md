@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.22.0](https://github.com/CourtHive/competition-factory-server/compare/v4.21.2...v4.22.0) (2026-11-28)
+
+
+### Features
+
+* **sanctioning:** pin sanctioned policies with their name, version and source ([#1343](https://github.com/CourtHive/competition-factory-server/issues/1343)) ([d9d8d4d](https://github.com/CourtHive/competition-factory-server/commit/d9d8d4da480932eec3b78eae12ce434c12071b63))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.51.0 ([#1352](https://github.com/CourtHive/competition-factory-server/issues/1352)) ([57f5a6d](https://github.com/CourtHive/competition-factory-server/commit/57f5a6d2ee373c87c01b803150c055ec95e453eb))
+
 ## [4.21.2](https://github.com/CourtHive/competition-factory-server/compare/v4.21.1...v4.21.2) (2026-11-26)
 
 
