@@ -11,6 +11,7 @@ import { mocksEngine, tournamentEngine } from 'tods-competition-factory';
 import { getParticipants } from './getParticipants';
 
 import type { ITournamentStorage, IProviderStorage } from 'src/storage/interfaces';
+import { defined } from '../../../../tests/helpers/defined';
 
 const TEST_TID = 'test-participant-privacy-cap';
 const TEST_PROVIDER_ID = 'test-privacy-provider';
@@ -23,33 +24,33 @@ function buildTournamentWithAddresses() {
   });
 
   // Stamp owning provider so the privacy cap lookup resolves.
-  tournamentRecord.parentOrganisation = { organisationId: TEST_PROVIDER_ID };
+  tournamentRecord.parentOrganisation = {
+    organisationId: TEST_PROVIDER_ID,
+    organisationName: TEST_PROVIDER_ID,
+    organisationAbbreviation: TEST_PROVIDER_ID,
+  };
 
   // Add city/state to each individual person's address — mocksEngine
   // doesn't synthesise addresses by default.
+  // `street` is not a TODS Address field: the fixture carries it as stray data the privacy policy must not leak.
+  const address = { city: 'Austin', state: 'TX', street: '123 Service Way', postalCode: '78701' };
   for (const participant of tournamentRecord.participants ?? []) {
     if (participant.person) {
-      participant.person.addresses = [
-        {
-          city: 'Austin',
-          state: 'TX',
-          street: '123 Service Way',
-          postalCode: '78701',
-        },
-      ];
+      participant.person.addresses = [{ ...address }];
     }
   }
 
   // Mark participants as published so the public endpoint will serve them.
   tournamentEngine.setState(tournamentRecord);
   tournamentEngine.publishParticipants();
-  const publishedRecord = tournamentEngine.getTournament().tournamentRecord;
-  publishedRecord.parentOrganisation = { organisationId: TEST_PROVIDER_ID };
+  const publishedRecord = defined(tournamentEngine.getTournament().tournamentRecord, 'tournamentRecord');
+  // the fixture stamps only the provider's id, which an Organisation does not allow on its own
+  Object.assign(publishedRecord, { parentOrganisation: { organisationId: TEST_PROVIDER_ID } });
   // Re-attach the addresses on the engine-resolved record (publish doesn't
   // strip them — only the public query applies the privacy policy).
   for (const participant of publishedRecord.participants ?? []) {
     const original = tournamentRecord.participants?.find((p: any) => p.participantId === participant.participantId);
-    if (original?.person?.addresses) participant.person.addresses = original.person.addresses;
+    if (original?.person?.addresses) defined(participant.person, 'person').addresses = original.person.addresses;
   }
 
   return publishedRecord;
@@ -103,7 +104,7 @@ function buildTournamentWithMixedPopulation() {
 
   const competitors = (tournamentRecord.participants ?? []).filter((p: any) => p.participantType === 'INDIVIDUAL');
 
-  tournamentRecord.participants.push({
+  defined(tournamentRecord.participants).push({
     person: { standardGivenName: 'Rhea', standardFamilyName: 'Umpire', personId: 'person-staff-1' },
     participantName: 'Rhea Umpire',
     participantType: 'INDIVIDUAL',
@@ -111,7 +112,7 @@ function buildTournamentWithMixedPopulation() {
     participantId: STAFF_ID,
   });
 
-  tournamentRecord.participants.push({
+  defined(tournamentRecord.participants).push({
     individualParticipantIds: competitors.slice(0, 2).map((p: any) => p.participantId),
     participantName: 'Coach Ramirez stable',
     participantType: 'GROUP',
@@ -119,7 +120,7 @@ function buildTournamentWithMixedPopulation() {
     participantId: GROUP_ID,
   });
 
-  tournamentRecord.participants.push({
+  defined(tournamentRecord.participants).push({
     person: { standardGivenName: 'Legacy', standardFamilyName: 'Record', personId: 'person-legacy-1' },
     participantName: 'Legacy Record',
     participantType: 'INDIVIDUAL',

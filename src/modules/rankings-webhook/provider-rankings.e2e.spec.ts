@@ -39,7 +39,11 @@ describe('provider rankings recompute (e2e)', () => {
     });
     tournamentRecord.startDate = '2026-07-10';
     tournamentRecord.endDate = '2026-07-12';
-    tournamentRecord.parentOrganisation = { organisationId: PROVIDER_ID };
+    tournamentRecord.parentOrganisation = {
+      organisationId: PROVIDER_ID,
+      organisationName: PROVIDER_ID,
+      organisationAbbreviation: PROVIDER_ID,
+    };
     return tournamentRecord;
   }
 

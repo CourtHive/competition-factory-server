@@ -1,3 +1,4 @@
+import { defined } from './helpers/defined';
 import { mocksEngine, tournamentEngineAsync } from 'tods-competition-factory';
 import { Pool } from 'pg';
 
@@ -53,7 +54,7 @@ d('projection-verify (real DB)', () => {
       participantsProfile: { idPrefix: 'pid' },
     });
     const tournamentId = tournamentRecord.tournamentId;
-    const drawId = tournamentRecord.events[0].drawDefinitions[0].drawId;
+    const drawId = defined(defined(tournamentRecord.events)[0].drawDefinitions)[0].drawId;
 
     const flattenDraw = async (_t: string, dId: string) => {
       await tournamentEngineAsync.setState(tournamentRecord);

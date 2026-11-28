@@ -1,3 +1,4 @@
+import { defined } from '../../../../tests/helpers/defined';
 import { mocksEngine, tournamentEngineAsync, factoryConstants } from 'tods-competition-factory';
 import { executionQueue } from './executionQueue';
 
@@ -81,11 +82,11 @@ it('refuses records whose keys are not their tournamentIds, as setState did', as
 it('projects a new draw from the saved record without loading a copy per draw', async () => {
   const withoutDraw = () => {
     const record = structuredClone(template);
-    record.events[0].drawDefinitions = [];
+    defined(record.events)[0].drawDefinitions = [];
     return { [tournamentId]: record };
   };
-  const drawDefinition = structuredClone(template.events[0].drawDefinitions[0]);
-  const eventId = template.events[0].eventId;
+  const drawDefinition = structuredClone(defined(defined(template.events)[0].drawDefinitions)[0]);
+  const eventId = defined(template.events)[0].eventId;
 
   const persisted = storage(withoutDraw);
   const projectionOutbox = {

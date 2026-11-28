@@ -3,6 +3,7 @@ import { mocksEngine, tournamentEngine, globalState, topicConstants } from 'tods
 import { createDeltaBuffer } from '../projection/deltaBuffer';
 import { subscriptionHandlers } from './getMutationEngine';
 import { runWithRequestContext } from './requestContext';
+import { defined } from '../../../tests/helpers/defined';
 
 /**
  * INTEGRATION — the information publish, through the real factory.
@@ -73,7 +74,7 @@ describe('tournament information notices, against the real factory', () => {
 
   it('the published flag the read model would write follows the publish', () => {
     seedDrawlessTournament();
-    const record = () => tournamentEngine.getTournament().tournamentRecord;
+    const record = () => defined(tournamentEngine.getTournament().tournamentRecord, 'tournamentRecord');
 
     // control: a tournament with no draws and nothing published is not published
     expect(tournamentEngine.getPublishState().publishState.tournament.status.published).toEqual(false);

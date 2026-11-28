@@ -1,3 +1,4 @@
+import { defined } from '../../../tests/helpers/defined';
 import { fixtures, mocksEngine, factoryConstants, readModel } from 'tods-competition-factory';
 
 import { publicParticipantPrivacyPolicy } from '../functions/public/participantPrivacyPolicy';
@@ -19,9 +20,9 @@ function makeRecord() {
     participantsProfile: { participantsCount: 6 },
     nonRandom: 1,
   });
-  for (const participant of tournamentRecord.participants) {
-    participant.person.birthDate = '2009-01-01';
-    participant.person.sex = 'FEMALE';
+  for (const participant of defined(tournamentRecord.participants)) {
+    defined(participant.person).birthDate = '2009-01-01';
+    defined(participant.person).sex = 'FEMALE';
   }
   return tournamentRecord;
 }
@@ -72,7 +73,7 @@ describe('buildParticipantDocumentDeltas', () => {
       row: { tables: [TABLE_PUBLIC_PARTICIPANTS] },
     });
     expect(end).toMatchObject({ op: 'snapshot_end', key: { snapshotId: 's-1' }, row: { deltaCount: rest.length } });
-    expect(rest).toHaveLength(record.participants.length);
+    expect(rest).toHaveLength(defined(record.participants).length);
     for (const delta of rest) {
       expect(delta).toMatchObject({ op: 'upsert', table: TABLE_PUBLIC_PARTICIPANTS, snapshotId: 's-1' });
       expect(Object.keys(delta.row ?? {}).sort()).toEqual([...readModel.READ_MODEL_COLUMNS.public_participants].sort());

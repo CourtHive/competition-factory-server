@@ -343,7 +343,11 @@ d('Provisioner / mismatched X-Provider-Id', () => {
 
   it('E1. a provisioner /factory/save that CREATES a tournament writes the ownership row', async () => {
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({ drawProfiles: [{ drawSize: 4 }] });
-    tournamentRecord.parentOrganisation = { organisationId: bobocaId };
+    tournamentRecord.parentOrganisation = {
+      organisationId: bobocaId,
+      organisationName: bobocaId,
+      organisationAbbreviation: bobocaId,
+    };
     const tid = tournamentRecord.tournamentId;
     savedTournamentId = tid;
     createdTournamentIds.push(tid);

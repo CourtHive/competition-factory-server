@@ -1,3 +1,4 @@
+import { defined } from '../../tests/helpers/defined';
 import { fetchQueryRecords } from '../factory/helpers/fetchQueryRecords';
 import { recordRevision } from 'src/storage/postgres/recordRevision';
 import { queryTournamentRecords } from '../factory/functions/private/queryTournamentRecords';
@@ -55,15 +56,15 @@ describe.skipIf(process.env.STORAGE_LAYOUT_DB_TESTS !== 'true')('physical factor
         tournamentAttributes: { tournamentId: 't' },
       }),
     );
-    tournamentRecord.parentOrganisation = { organisationId: 'p' };
-    const event = tournamentRecord.events[0],
-      draw = event.drawDefinitions[0];
-    structureId = draw.structures[0].structureId;
+    tournamentRecord.parentOrganisation = { organisationId: 'p', organisationName: 'p', organisationAbbreviation: 'p' };
+    const event = defined(tournamentRecord.events)[0],
+      draw = defined(event.drawDefinitions)[0];
+    structureId = defined(draw.structures)[0].structureId;
     ids = {
       tournamentId: tournamentRecord.tournamentId,
       eventId: event.eventId,
       drawId: draw.drawId,
-      matchUpId: draw.structures[0].matchUps[0].matchUpId,
+      matchUpId: defined(defined(draw.structures)[0].matchUps)[0].matchUpId,
     };
     try {
       vi.stubEnv('CFS_PHYSICAL_FOOTPRINT_TOURNAMENT_IDS', ' , ' + ids.tournamentId + ', ' + ids.tournamentId + ' , ');

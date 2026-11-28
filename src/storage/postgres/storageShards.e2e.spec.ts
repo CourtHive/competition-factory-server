@@ -1,4 +1,5 @@
 import { mocksEngine, tournamentEngine } from 'tods-competition-factory';
+import { resolveTieFormat } from '@courthive/competition-catalogue';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Pool } from 'pg';
@@ -32,7 +33,7 @@ const generate = (drawProfiles: any[], extra: any = {}) =>
 const RECORDS: Record<string, () => any> = {
   elimination: () => generate([{ drawSize: 16 }, { drawSize: 8, drawType: 'FEED_IN_CHAMPIONSHIP' }]),
   roundRobinWithPlayoff: () => generate([{ drawSize: 16, drawType: 'ROUND_ROBIN_WITH_PLAYOFF' }]),
-  team: () => generate([{ drawSize: 4, eventType: 'TEAM', tieFormatName: 'COLLEGE_D3' }]),
+  team: () => generate([{ drawSize: 4, eventType: 'TEAM', tieFormat: resolveTieFormat('COLLEGE_D3') }]),
   adHoc: () => generate([{ drawSize: 8, drawType: 'AD_HOC', automated: true, roundsCount: 2 }]),
   doubles: () => generate([{ drawSize: 8, eventType: 'DOUBLES' }]),
 };

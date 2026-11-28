@@ -1,3 +1,4 @@
+import { defined } from '../../../tests/helpers/defined';
 import { mocksEngine, tournamentEngine, globalState, topicConstants } from 'tods-competition-factory';
 
 import { subscriptionHandlers } from './getMutationEngine';
@@ -46,7 +47,8 @@ describe('publishing evicts the draw and structure tiers', () => {
       setState: true,
     });
     const { drawDefinition } = tournamentEngine.getEvent({ drawId });
-    const structureIdOf = (stage: string) => drawDefinition.structures.find((s: any) => s.stage === stage).structureId;
+    const structureIdOf = (stage: string) =>
+      defined(defined(defined(drawDefinition).structures).find((s: any) => s.stage === stage)).structureId;
     return { eventId, drawId, qualifyingId: structureIdOf('QUALIFYING'), mainId: structureIdOf('MAIN') };
   }
 

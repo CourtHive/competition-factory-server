@@ -83,7 +83,11 @@ describe('Mutex Stress Test — E2E HTTP', () => {
       const { tournamentRecord } = mocksEngine.generateTournamentRecord({
         tournamentAttributes: { tournamentId },
       });
-      tournamentRecord.parentOrganisation = { organisationId: 'mutex-stress-org' };
+      tournamentRecord.parentOrganisation = {
+        organisationId: 'mutex-stress-org',
+        organisationName: 'mutex-stress-org',
+        organisationAbbreviation: 'mutex-stress-org',
+      };
 
       await saveAndCommit(server, token, tournamentRecord);
     }

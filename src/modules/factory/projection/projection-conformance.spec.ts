@@ -1,3 +1,4 @@
+import { defined } from '../../../tests/helpers/defined';
 import {
   mocksEngine,
   tournamentEngineAsync,
@@ -6,6 +7,7 @@ import {
   readModel,
   topicConstants,
 } from 'tods-competition-factory';
+import { resolveTieFormat } from '@courthive/competition-catalogue';
 
 import { buildProjectionDeltas } from './buildProjectionDeltas';
 import { buildRebuildIntents } from './rebuild';
@@ -161,9 +163,11 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       const tournamentId = tournamentRecord.tournamentId;
       // stamp a CANONICAL_PERSON claim on the first individual participant so the
       // claimPerson convergence is exercised too.
-      const claimed = (tournamentRecord.participants ?? []).find((p: any) => p.participantType === 'INDIVIDUAL');
-      claimed.person ??= {};
-      claimed.person.personOtherIds = [{ organisationId: 'CANONICAL_PERSON', personId: 'canon-conf' }];
+      const claimed = defined(
+        (tournamentRecord.participants ?? []).find((p: any) => p.participantType === 'INDIVIDUAL'),
+      );
+      const claimedPerson = defined(claimed.person, 'the claimed participant person');
+      claimedPerson.personOtherIds = [{ organisationId: 'CANONICAL_PERSON', personId: 'canon-conf' }];
 
       const flattenDraw = await flattenDrawOf(tournamentRecord);
       const records = { [tournamentId]: tournamentRecord };
@@ -178,11 +182,14 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       // INCREMENTAL path: the intents the producers accumulate over the tournament
       // lifecycle — draw flatten + a slim result update per completed matchUp +
       // participants/touch/venue/claim. Must converge to the same rows.
-      const flatMatchUps = await flattenDraw(tournamentId, tournamentRecord.events[0].drawDefinitions[0].drawId);
+      const flatMatchUps = await flattenDraw(
+        tournamentId,
+        defined(defined(tournamentRecord.events)[0].drawDefinitions)[0].drawId,
+      );
       const incrementalIntents: ProjectionIntent[] = [
         { kind: 'touchTournament', tournamentId },
         { kind: 'participants', tournamentId },
-        ...tournamentRecord.events.flatMap((e: any) =>
+        ...defined(tournamentRecord.events).flatMap((e: any) =>
           (e.drawDefinitions ?? []).map(
             (d: any) => ({ kind: 'flattenDraw', tournamentId, drawId: d.drawId }) as ProjectionIntent,
           ),
@@ -218,12 +225,16 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
   it('an ITA-shaped team-tennis dual match projects TIE/RUBBER/team_id/doubles rows — and incremental ≡ rebuild', async () => {
     const { tournamentRecord } = mocksEngine.generateTournamentRecord({
       drawProfiles: [
-        { drawSize: 2, eventType: factoryConstants.eventConstants.TEAM, tieFormatName: 'COLLEGE_DEFAULT' },
+        {
+          drawSize: 2,
+          eventType: factoryConstants.eventConstants.TEAM,
+          tieFormat: resolveTieFormat('COLLEGE_DEFAULT'),
+        },
       ],
       completeAllMatchUps: true,
     });
     const tournamentId = tournamentRecord.tournamentId;
-    const drawId = tournamentRecord.events[0].drawDefinitions[0].drawId;
+    const drawId = defined(defined(tournamentRecord.events)[0].drawDefinitions)[0].drawId;
     const flattenDraw = await flattenDrawOf(tournamentRecord);
     const records = { [tournamentId]: tournamentRecord };
 
@@ -291,7 +302,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
         {
           drawSize: 2,
           eventType: factoryConstants.eventConstants.TEAM,
-          tieFormatName: 'COLLEGE_DEFAULT',
+          tieFormat: resolveTieFormat('COLLEGE_DEFAULT'),
           eventName: 'Teams',
         },
       ],
@@ -300,7 +311,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     });
     const tournamentId = tournamentRecord.tournamentId;
     // publish the order of play + set a scheduling plan so both schedule tables are exercised
-    const draw = tournamentRecord.events[0].drawDefinitions[0];
+    const draw = defined(defined(tournamentRecord.events)[0].drawDefinitions)[0];
     tournamentRecord.timeItems = [
       {
         itemType: 'PUBLISH.STATUS',
@@ -321,9 +332,9 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
               venueId: 'v1',
               rounds: [
                 {
-                  eventId: tournamentRecord.events[0].eventId,
+                  eventId: defined(tournamentRecord.events)[0].eventId,
                   drawId: draw.drawId,
-                  structureId: draw.structures[0].structureId,
+                  structureId: defined(draw.structures)[0].structureId,
                   roundNumber: 1,
                 },
               ],
@@ -408,14 +419,16 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       flattenDraw,
     });
 
-    const event = tournamentRecord.events[0];
-    const initialEntryCount = event.entries.length;
+    const event = defined(tournamentRecord.events)[0];
+    const initialEntryCount = defined(event.entries).length;
     expect(initialEntryCount).toBeGreaterThan(1);
-    const removed = event.entries[0];
+    const removed = defined(event.entries)[0];
 
     // Remove ONE event entry but KEEP the participant record (the removeEventEntries shape).
-    event.entries = event.entries.slice(1);
-    expect(tournamentRecord.participants.some((p: any) => p.participantId === removed.participantId)).toBe(true);
+    event.entries = defined(event.entries).slice(1);
+    expect(defined(tournamentRecord.participants).some((p: any) => p.participantId === removed.participantId)).toBe(
+      true,
+    );
 
     // CYCLE 2 — the producer's response to MODIFY_EVENT_ENTRIES is a single `entries` intent.
     const incrementalDeltas = await buildProjectionDeltas({
@@ -457,8 +470,9 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       const records = { [tournamentId]: tournamentRecord };
       await tournamentEngineAsync.setState(tournamentRecord);
 
-      const drawId = tournamentRecord.events[0].drawDefinitions[0].drawId;
-      const structureId = tournamentRecord.events[0].drawDefinitions[0].structures[0].structureId;
+      const drawId = defined(defined(tournamentRecord.events)[0].drawDefinitions)[0].drawId;
+      const structureId = defined(defined(defined(tournamentRecord.events)[0].drawDefinitions)[0].structures)[0]
+        .structureId;
       const added = await tournamentEngineAsync.addPlayoffStructures({
         playoffStructureNameBase: 'Playoff',
         roundProfiles: [{ 3: 1 }],
@@ -483,8 +497,10 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
         flattenDraw: await flattenDrawOf(withPlayoff),
       });
 
-      const playoffStructureId = (await tournamentEngineAsync.getEvent({ drawId })).drawDefinition.structures.find(
-        (st: any) => st.structureId !== structureId,
+      const playoffStructureId = defined(
+        defined(defined((await tournamentEngineAsync.getEvent({ drawId })).drawDefinition).structures).find(
+          (st: any) => st.structureId !== structureId,
+        ),
       ).structureId;
       const removal: any = await tournamentEngineAsync.removeStructure({ structureId: playoffStructureId, drawId });
       expect(removal.success).toEqual(true);
@@ -554,7 +570,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       flattenDraw: await flattenDrawOf(tournamentRecord),
     });
 
-    const target = tournamentRecord.participants.find((p: any) => p.participantType === 'INDIVIDUAL');
+    const target = defined(defined(tournamentRecord.participants).find((p: any) => p.participantType === 'INDIVIDUAL'));
     expect(target).toBeDefined();
     target.participantName = 'Renamed Competitor';
     if (target.person) target.person.standardFamilyName = 'Competitor';
@@ -625,12 +641,14 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       flattenDraw: await flattenDrawOf(tournamentRecord),
     });
 
-    const structure = tournamentRecord.events[0].drawDefinitions[0].structures[0];
-    const assignment = (structure.seedAssignments ?? []).find((a: any) => a.participantId);
+    const structure = defined(defined(defined(tournamentRecord.events)[0].drawDefinitions)[0].structures)[0];
+    const assignment = defined((structure.seedAssignments ?? []).find((a: any) => a.participantId));
     expect(assignment).toBeDefined();
     // move the seed to a different entered participant (the shape of a seed reassignment)
-    const otherEntry = tournamentRecord.events[0].entries.find(
-      (e: any) => e.participantId !== assignment.participantId,
+    const otherEntry = defined(
+      defined(defined(tournamentRecord.events)[0].entries).find(
+        (e: any) => e.participantId !== assignment.participantId,
+      ),
     );
     expect(otherEntry).toBeDefined();
     assignment.participantId = otherEntry.participantId;
@@ -664,10 +682,10 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       flattenDraw: await flattenDrawOf(tournamentRecord),
     });
 
-    const dropped = tournamentRecord.events.find((e: any) => e.eventName === 'Drop');
+    const dropped = defined(defined(tournamentRecord.events).find((e: any) => e.eventName === 'Drop'));
     expect(dropped).toBeDefined();
     const droppedEventId = dropped.eventId;
-    tournamentRecord.events = tournamentRecord.events.filter((e: any) => e.eventId !== droppedEventId);
+    tournamentRecord.events = defined(tournamentRecord.events).filter((e: any) => e.eventId !== droppedEventId);
 
     const incrementalDeltas = await buildProjectionDeltas({
       intents: [{ kind: 'deleteEvent', tournamentId, eventId: droppedEventId }],
@@ -697,9 +715,9 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       flattenDraw: await flattenDrawOf(tournamentRecord),
     });
 
-    const venue = tournamentRecord.venues[0];
+    const venue = defined(tournamentRecord.venues)[0];
     venue.venueName = 'Renamed Venue';
-    venue.courts[0].courtName = 'Renamed Court';
+    defined(venue.courts)[0].courtName = 'Renamed Court';
 
     const incrementalDeltas = await buildProjectionDeltas({
       intents: [{ kind: 'venue', tournamentId, venue }],
@@ -727,7 +745,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     });
     const tournamentId = tournamentRecord.tournamentId;
     const records = { [tournamentId]: tournamentRecord };
-    const venueId = tournamentRecord.venues[0].venueId;
+    const venueId = defined(tournamentRecord.venues)[0].venueId;
     const initialDeltas = await buildProjectionDeltas({
       intents: buildRebuildIntents(tournamentRecord),
       tournamentRecords: records,
@@ -829,7 +847,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     const published: any = await tournamentEngineAsync.publishOrderOfPlay();
     expect(published?.success).toEqual(true);
     const afterPublish = (await tournamentEngineAsync.getTournament()).tournamentRecord;
-    records[tournamentId] = afterPublish;
+    records[tournamentId] = defined(afterPublish);
     const publishDeltas = await buildProjectionDeltas({
       intents: [{ kind: 'orderOfPlay', tournamentId }],
       tournamentRecords: records,
@@ -846,7 +864,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     const unpublished: any = await tournamentEngineAsync.unPublishOrderOfPlay();
     expect(unpublished?.success).toEqual(true);
     const afterUnpublish = (await tournamentEngineAsync.getTournament()).tournamentRecord;
-    records[tournamentId] = afterUnpublish;
+    records[tournamentId] = defined(afterUnpublish);
     const unpublishDeltas = await buildProjectionDeltas({
       intents: [{ kind: 'orderOfPlay', tournamentId }],
       tournamentRecords: records,
@@ -880,7 +898,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
 
     expect((await tournamentEngineAsync.publishParticipants({}))?.success).toEqual(true);
     const afterPublish = (await tournamentEngineAsync.getTournament()).tournamentRecord;
-    records[tournamentId] = afterPublish;
+    records[tournamentId] = defined(afterPublish);
     const publishDeltas = await buildProjectionDeltas({
       intents: [
         { kind: 'participantPublish', tournamentId },
@@ -899,7 +917,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     // withdraw it — the aggregate must fall back to false, and the publish-state row must go
     expect((await tournamentEngineAsync.unPublishParticipants({}))?.success).toEqual(true);
     const afterUnpublish = (await tournamentEngineAsync.getTournament()).tournamentRecord;
-    records[tournamentId] = afterUnpublish;
+    records[tournamentId] = defined(afterUnpublish);
     const unpublishDeltas = await buildProjectionDeltas({
       intents: [
         { kind: 'participantPublish', tournamentId },
@@ -925,7 +943,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       venueProfiles: [{ venueId: 'v1', venueName: 'Club', courtsCount: 2, idPrefix: 'v1c' }],
     });
     const tournamentId = tournamentRecord.tournamentId;
-    const draw = tournamentRecord.events[0].drawDefinitions[0];
+    const draw = defined(defined(tournamentRecord.events)[0].drawDefinitions)[0];
     const profile = [
       {
         scheduleDate: '2025-01-05',
@@ -934,9 +952,9 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
             venueId: 'v1',
             rounds: [
               {
-                eventId: tournamentRecord.events[0].eventId,
+                eventId: defined(tournamentRecord.events)[0].eventId,
                 drawId: draw.drawId,
-                structureId: draw.structures[0].structureId,
+                structureId: defined(draw.structures)[0].structureId,
                 roundNumber: 1,
               },
             ],
@@ -983,7 +1001,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     expect(before.every((r: any) => !('draw_id' in r))).toBe(true);
 
     // change a DRAW entry's status only; the event entry is untouched
-    const drawDefinition = tournamentRecord.events[0].drawDefinitions[0];
+    const drawDefinition = defined(defined(tournamentRecord.events)[0].drawDefinitions)[0];
     const drawEntry = (drawDefinition.entries ?? [])[0];
     expect(drawEntry).toBeDefined();
     drawEntry.entryStatus = 'ALTERNATE';
@@ -1024,7 +1042,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
     });
     await tournamentEngineAsync.setState(tournamentRecord);
     const tournamentId = tournamentRecord.tournamentId;
-    const eventId = tournamentRecord.events[0].eventId;
+    const eventId = defined(tournamentRecord.events)[0].eventId;
 
     // ── publish everything ────────────────────────────────────────────────────
     expect((await tournamentEngineAsync.publishEvent({ eventId }))?.success).toEqual(true);
@@ -1162,7 +1180,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       drawProfiles: [{ drawSize: 8, seedsCount: 4, eventName: 'Singles' }],
     });
     const tournamentId = tournamentRecord.tournamentId;
-    const eventId = tournamentRecord.events[0].eventId;
+    const eventId = defined(tournamentRecord.events)[0].eventId;
     const noFlatten = async () => [];
 
     // baseline: an unpublished event projects published:false (incremental == cast).
@@ -1201,7 +1219,9 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       drawProfiles: [{ eventType: 'SINGLES', drawType: 'AD_HOC', automated: true, roundsCount: 3, drawSize: 20 }],
     });
     await tournamentEngineAsync.setState(tournamentRecord);
-    const structureId = (await tournamentEngineAsync.getEvent({ drawId })).drawDefinition.structures[0].structureId;
+    const structureId = defined(
+      defined((await tournamentEngineAsync.getEvent({ drawId })).drawDefinition).structures,
+    )[0].structureId;
     // structure details only; the typed publishEvent signature also expects publishingDetail
     const drawDetails: any = { [drawId]: { structureDetails: { [structureId]: { roundLimit: 1, published: true } } } };
     await tournamentEngineAsync.publishEvent({ eventId, removePriorValues: true, drawDetails });
@@ -1272,7 +1292,7 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
       venueProfiles: [{ venueId: 'v1', venueName: 'Club', courtsCount: 2, idPrefix: 'v1c' }],
     });
     const tournamentId = tournamentRecord.tournamentId;
-    const draw = tournamentRecord.events[0].drawDefinitions[0];
+    const draw = defined(defined(tournamentRecord.events)[0].drawDefinitions)[0];
     const profile = [
       {
         scheduleDate: '2025-01-05',
@@ -1281,9 +1301,9 @@ describe('projection conformance — incremental path ≡ rebuild path (byte-ide
             venueId: 'v1',
             rounds: [
               {
-                eventId: tournamentRecord.events[0].eventId,
+                eventId: defined(tournamentRecord.events)[0].eventId,
                 drawId: draw.drawId,
-                structureId: draw.structures[0].structureId,
+                structureId: defined(draw.structures)[0].structureId,
                 roundNumber: 1,
               },
             ],

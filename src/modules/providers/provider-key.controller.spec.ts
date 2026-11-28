@@ -1,3 +1,4 @@
+import { defined } from '../../tests/helpers/defined';
 import { mocksEngine } from 'tods-competition-factory';
 
 import { ProviderKeyController } from './provider-key.controller';
@@ -31,8 +32,8 @@ function recordWithoutEdges() {
       },
     },
   });
-  const matchUps = tournamentRecord.events[0].drawDefinitions[0].structures[0].matchUps;
-  for (const matchUp of matchUps) delete matchUp.winnerMatchUpId;
+  const matchUps = defined(defined(defined(tournamentRecord.events)[0].drawDefinitions)[0].structures)[0].matchUps;
+  for (const matchUp of defined(matchUps)) delete matchUp.winnerMatchUpId;
   return tournamentRecord;
 }
 
@@ -73,7 +74,11 @@ describe('ProviderKeyController.saveTournament', () => {
   it('refuses a record under another provider before migrating anything', async () => {
     const { controller, saved } = makeController();
     const tournamentRecord = recordWithoutEdges();
-    tournamentRecord.parentOrganisation = { organisationId: 'another-provider' };
+    tournamentRecord.parentOrganisation = {
+      organisationId: 'another-provider',
+      organisationName: 'another-provider',
+      organisationAbbreviation: 'another-provider',
+    };
 
     const result: any = await controller.saveTournament({ tournamentRecord }, req);
     expect(result.error).toBe('Provider mismatch');

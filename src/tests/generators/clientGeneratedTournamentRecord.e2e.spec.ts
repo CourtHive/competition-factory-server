@@ -1,3 +1,4 @@
+import { defined } from '../helpers/defined';
 import { INestApplication } from '@nestjs/common';
 import { AppModule } from '../../modules/app/app.module';
 import { Test } from '@nestjs/testing';
@@ -48,7 +49,7 @@ describe('ClientGeneratedTournamentRecord', () => {
       random: seededRng(2002),
     });
 
-    expect(tournamentRecord.events.length).toEqual(1);
+    expect(defined(tournamentRecord.events).length).toEqual(1);
 
     await saveAndCommit(app.getHttpServer(), token, tournamentRecord);
 
